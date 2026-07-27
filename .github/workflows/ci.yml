@@ -212,6 +212,17 @@ jobs:
           uv run python -m pytest \
             tests/unit/libs/test_config_env_cluster_guard_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: FactorService 增量物化 + 走步 smoke (#6792/#6793)
+        # #6792 calculate_factors_by_library（增量物化 5 分支）+ #6793
+        # walk_forward_factor_evaluation（走步切折 PIT）+ calculate_alpha158_factors
+        # （get_all_factors→get_all_expressions 改名）被 containers import 链触达
+        # （class 定义行 executed → 非 exempt）但方法体无 smoke 调用 → diff coverage
+        # gate 红。本 smoke mock 依赖调起方法体补覆盖信号。独立 step 使 push→master
+        # 时也跑，同时纳入下方 gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest \
+            tests/unit/features/test_factor_service_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -237,6 +248,7 @@ jobs:
             tests/unit/features/test_operator_registry.py \
             tests/unit/features/test_expression_engine.py \
             tests/unit/trading/portfolios/test_portfolio_live_fill_transactional.py \
+            tests/unit/features/test_factor_service_smoke.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
