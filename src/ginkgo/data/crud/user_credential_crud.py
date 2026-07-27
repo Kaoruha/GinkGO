@@ -19,11 +19,6 @@ class UserCredentialCRUD(BaseCRUD[MUserCredential]):
     def __init__(self):
         super().__init__(MUserCredential)
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        return {
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         return {
             'user_id': {

@@ -72,17 +72,6 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         return None
 
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'source': SOURCE_TYPES
-        }
-
     def _convert_models_to_business_objects(self, models: List) -> List:
         """
         🎯 Convert MEngineHandlerMapping models to Mapping business objects.

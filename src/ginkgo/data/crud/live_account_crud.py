@@ -40,12 +40,6 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
             self._encryption_service = get_encryption_service()
         return self._encryption_service
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """定义字段到枚举的映射"""
-        return {
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         """定义LiveAccount数据的字段配置"""
         return {

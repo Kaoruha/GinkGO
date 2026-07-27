@@ -32,12 +32,6 @@ class BrokerInstanceCRUD(BaseCRUD[MBrokerInstance]):
     def __init__(self):
         super().__init__(MBrokerInstance)
 
-    def _get_enum_mappings(self) -> Dict[str, any]:
-        """定义字段到枚举的映射"""
-        return {
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         """定义BrokerInstance数据的字段配置"""
         return {

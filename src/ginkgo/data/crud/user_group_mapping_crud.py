@@ -29,17 +29,6 @@ class UserGroupMappingCRUD(BaseCRUD[MUserGroupMapping]):
     def __init__(self):
         super().__init__(MUserGroupMapping)
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for UserGroupMappingCRUD.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         """
         定义 UserGroupMapping 数据的字段配置 - 必填字段验证
