@@ -124,20 +124,6 @@ class TransferCRUD(BaseCRUD[MTransfer]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Transfer.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'direction': TRANSFERDIRECTION_TYPES,  # 转账方向字段映射
-            'status': TRANSFERSTATUS_TYPES,         # 转账状态字段映射
-            'market': MARKET_TYPES,                # 市场类型字段映射
-            'source': SOURCE_TYPES                # 数据源字段映射
-        }
-
     def _convert_models_to_business_objects(self, models: List[MTransfer]) -> List[Transfer]:
         """
         🎯 Convert MTransfer models to Transfer business objects.

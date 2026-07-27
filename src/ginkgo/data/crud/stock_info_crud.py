@@ -231,19 +231,6 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
     # BaseCRUD Hook Methods - Enum Mapping and Business Object Conversion
     # ============================================================================
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for StockInfo.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'market': MARKET_TYPES,     # market字段对应MARKET_TYPES枚举
-            'currency': CURRENCY_TYPES,  # currency字段对应CURRENCY_TYPES枚举
-            'source': SOURCE_TYPES      # source字段对应SOURCE_TYPES枚举
-        }
-
     def _convert_models_to_business_objects(self, models: List[MStockInfo]) -> List[StockInfo]:
         """
         🎯 Convert MStockInfo models to StockInfo business objects.
