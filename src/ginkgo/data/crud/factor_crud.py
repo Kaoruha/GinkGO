@@ -115,18 +115,6 @@ class FactorCRUD(BaseCRUD[MFactor]):
                 return None
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Factor.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'entity_type': ENTITY_TYPES,  # 实体类型字段映射
-            'source': SOURCE_TYPES        # 数据源字段映射
-        }
-
     def _convert_models_to_business_objects(self, models: List[MFactor]) -> List[MFactor]:
         """
         🎯 Convert MFactor models to business objects.

@@ -502,8 +502,9 @@ class TickCRUD:
         """
         🎯 Define field-to-enum mappings for Tick.
 
-        Returns:
-            Dictionary mapping field names to enum classes
+        MTick 是 __abstract__=True 的 SA 抽象模型(无 __table__),BaseCRUD 默认
+        反射走 __table__.columns 对抽象模型返 {}。故 Tick 保留 override 作真值
+        源(ADR-031 抽象模型例外,非反射迁移候选)。
         """
         return {
             'direction': TICKDIRECTION_TYPES,  # Tick方向字段映射

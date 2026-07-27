@@ -107,18 +107,6 @@ class BarCRUD(BaseCRUD[MBar]):
         self._logger.WARN(f"Unsupported type for Bar conversion: {type(item)}. Please use Bar business object.")
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Bar.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'frequency': FREQUENCY_TYPES,  # K线频率字段映射
-            'source': SOURCE_TYPES          # 数据源字段映射
-        }
-
     def _convert_models_to_business_objects(self, models: List[MBar]) -> List[Bar]:
         """
         🎯 Convert MBar models to Bar business objects.

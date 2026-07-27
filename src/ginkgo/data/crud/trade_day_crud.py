@@ -109,18 +109,6 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
         return None
 
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'market': MARKET_TYPES,
-            'source': SOURCE_TYPES
-        }
-
     def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert objects for business layer.

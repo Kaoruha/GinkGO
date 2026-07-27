@@ -42,7 +42,7 @@ class MBar(MClickBase):
     close: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     volume: Mapped[int] = mapped_column(Integer, default=0)
     amount: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
-    frequency: Mapped[int] = mapped_column(types.Int8, default=-1)
+    frequency: Mapped[int] = mapped_column(types.Int8, default=-1, info={"enum": FREQUENCY_TYPES})
 
     def __init__(self, **kwargs):
         # 处理枚举类型转换

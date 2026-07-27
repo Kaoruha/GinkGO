@@ -35,7 +35,7 @@ class MEngine(MMysqlBase, ModelConversion):
     __tablename__ = "engine"
 
     name: Mapped[str] = mapped_column(String(64), default="ginkgo_test_engine")
-    status: Mapped[int] = mapped_column(TINYINT, default=-1)
+    status: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": ENGINESTATUS_TYPES})
     is_live: Mapped[bool] = mapped_column(Boolean, default=False)
     
     # 新增：配置和运行管理字段

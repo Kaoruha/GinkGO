@@ -34,18 +34,6 @@ class UserCRUD(BaseCRUD[MUser]):
     def __init__(self):
         super().__init__(MUser)
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for UserCRUD.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'user_type': USER_TYPES,
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         """
         定义 User 数据的字段配置 - 必填字段验证
