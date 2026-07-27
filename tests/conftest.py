@@ -29,7 +29,10 @@ except ImportError:
 # 实测 pytest_load_initial_conftests 钩子在 conftest 里注册太晚不被调用，故在 collection_modifyitems
 # （100% 触发）用 os.execvp 重启为 xdist：execvp 清空进程映像（内存归零），新进程 xdist master
 # collect 一次 + worker 进程隔离，总 RSS ~5.75GB（对比单进程 80GB）。
-SINGLE_PROCESS_TEST_THRESHOLD = 200  # 单进程允许的最多测试节点数；单文件 max ~88，余量充足
+# 单进程允许的最多测试节点数。两类合法单进程场景：(a) 单文件调试(max ~88)；
+# (b) CI smoke gate 多文件 mock/import 子集(~202 节点，轻量无 Base.metadata 累积，低 OOM 风险)。
+# 300 给 smoke 子集留余量；全量 tests/ 数千节点仍远超阈值 → 触发 xdist 隔离。
+SINGLE_PROCESS_TEST_THRESHOLD = 300
 
 
 def pytest_collection_modifyitems(config, items):
