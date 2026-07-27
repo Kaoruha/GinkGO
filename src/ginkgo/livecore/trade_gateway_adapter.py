@@ -45,7 +45,7 @@ from ginkgo.trading.brokers.base_broker import BaseBroker
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
-from ginkgo.libs import GLOG
+from ginkgo.libs import GLOG, GCONF
 
 
 class TradeGatewayAdapter(Thread):
@@ -78,6 +78,9 @@ class TradeGatewayAdapter(Thread):
         self.filled_orders = 0  # 已成交订单
         self.expired_orders = 0  # 超时订单
         self.failed_orders = 0  # 失败订单
+
+        # P3: PRODUCTION env 下模拟成交被禁的一次性告警去重（避免每 tick 刷屏）
+        self._prod_mock_fill_warned = False
 
         # 运行状态
         self.is_running = False
@@ -273,6 +276,9 @@ class TradeGatewayAdapter(Thread):
         if not pending_orders:
             return
 
+        # ADR-028: 集群判据不依赖 order，上提到循环外（避免每待成交订单重复读 ENV）
+        is_production = GCONF.ENV == "PRODUCTION"
+
         # 遍历待成交订单
         for order in pending_orders:
             try:
@@ -293,9 +299,15 @@ class TradeGatewayAdapter(Thread):
                     continue
 
                 # #3961 MVP阶段：模拟成交逻辑 - 仅在非生产环境执行
-                import os
-                is_production = os.getenv("GINKGO_ENV", "development") == "production"
+                # ADR-028：集群判据统一走 GCONF.ENV（大写），不再裸读小写 env var（避免 bridge 不触发 + 大小写冲突）
+                # P3: PRODUCTION 下模拟成交被禁；非容器 paper worker(宿主直跑)若 config.yml debug=False
+                #     且未设 GINKGO_ENV → bridge 推断 PRODUCTION → 订单卡 SUBMITTED。开发场景设
+                #     GINKGO_ENV=DEVELOPMENT 即恢复模拟成交。一次性 WARN 兼顾可诊断与不刷屏。
                 if is_production:
+                    if not self._prod_mock_fill_warned:
+                        GLOG.WARN("PRODUCTION env 下模拟成交已禁用，订单将保持 SUBMITTED；"
+                                  "paper worker 开发场景请设 GINKGO_ENV=DEVELOPMENT")
+                        self._prod_mock_fill_warned = True
                     continue
 
                 if time_elapsed >= 1.0 and order.status == ORDERSTATUS_TYPES.SUBMITTED:

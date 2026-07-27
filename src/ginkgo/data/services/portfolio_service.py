@@ -623,15 +623,18 @@ class PortfolioService(BaseService):
             return ServiceResult.error(f"停止投资组合失败: {str(e)}")
 
     @retry(max_try=3)
-    def delete(self, portfolio_id: str, **kwargs) -> ServiceResult:
+    def delete(self, portfolio_id: str, dry_run: bool = False, **kwargs) -> ServiceResult:
         """
         删除投资组合（包括清理相关文件映射和参数）
 
         Args:
             portfolio_id: 投资组合UUID
+            dry_run: 仅预览将清理的级联范围（映射数/参数数/将停止的 deployment），
+                不执行任何 remove/soft_remove/状态变更。存在性与运行状态守卫仍生效
+                （dry-run 也会拒绝预览删除一个正在运行的 PAPER/LIVE 组合）。
 
         Returns:
-            ServiceResult: 删除结果
+            ServiceResult: 删除结果（dry_run=True 时 result_data 含 dry_run 标志与计数）
         """
         try:
             # 输入验证
@@ -659,61 +662,78 @@ class PortfolioService(BaseService):
                             f"组合正在{state_name}状态，请先停止后再删除"
                         )
 
-            deleted_count = 0
             mappings_deleted = 0
             parameters_deleted = 0
+            deployments_would_stop = 0
             warnings = []
 
-            # 清理投资组合-文件映射和参数
+            # 清理投资组合-文件映射和参数（dry-run 只枚举计数，不删除）
             try:
                 file_mappings = self._portfolio_file_mapping_crud.find(
                     filters={"portfolio_id": portfolio_id}
                 )
+                mappings_deleted = len(file_mappings)
 
                 for mapping in file_mappings:
-                    # 删除关联参数
-                    try:
-                        self._param_crud.remove(
-                            filters={"mapping_id": mapping.uuid}
-                        )
-                    except Exception as e:
-                        warnings.append(f"删除映射参数失败 {mapping.uuid}: {str(e)}")
+                    if dry_run:
+                        # 预览：统计该映射关联参数数，不删除
+                        try:
+                            params = self._param_crud.find(
+                                filters={"mapping_id": mapping.uuid}
+                            )
+                            parameters_deleted += len(params) if params is not None else 0
+                        except Exception as e:
+                            warnings.append(f"预览统计参数失败 {mapping.uuid}: {str(e)}")
+                    else:
+                        try:
+                            self._param_crud.remove(
+                                filters={"mapping_id": mapping.uuid}
+                            )
+                        except Exception as e:
+                            warnings.append(f"删除映射参数失败 {mapping.uuid}: {str(e)}")
 
-                # 删除投资组合-文件映射
-                self._portfolio_file_mapping_crud.remove(
-                    filters={"portfolio_id": portfolio_id}
-                )
+                if not dry_run:
+                    # 删除投资组合-文件映射
+                    self._portfolio_file_mapping_crud.remove(
+                        filters={"portfolio_id": portfolio_id}
+                    )
 
             except Exception as e:
                 warnings.append(f"清理映射关系时出错: {str(e)}")
 
-            # 软删除投资组合
-            self._crud_repo.soft_remove(
-                filters={"uuid": portfolio_id}
-            )
+            # 软删除投资组合（dry-run 跳过）
+            if not dry_run:
+                self._crud_repo.soft_remove(
+                    filters={"uuid": portfolio_id}
+                )
 
             # 如果是已部署的 target，将对应 deployment 状态更新为 STOPPED
+            # dry-run 只枚举将停止的 deployment，不改状态
             if hasattr(self, '_deployment_crud') and self._deployment_crud:
                 deployments = self._deployment_crud.find(
                     filters={"target_portfolio_id": portfolio_id}
                 )
                 for d in deployments:
                     if getattr(d, 'status', -1) == 1:  # DEPLOYED
-                        self._deployment_crud.modify(
-                            filters={"uuid": d.uuid},
-                            updates={"status": 3},  # STOPPED
-                        )
+                        deployments_would_stop += 1
+                        if not dry_run:
+                            self._deployment_crud.modify(
+                                filters={"uuid": d.uuid},
+                                updates={"status": 3},  # STOPPED
+                            )
 
-            GLOG.INFO(f"成功删除投资组合 {portfolio_id}")
+            GLOG.INFO(f"{'预览删除投资组合' if dry_run else '成功删除投资组合'} {portfolio_id}")
 
             result_data = {
                 "portfolio_id": portfolio_id,
                 "mappings_deleted": mappings_deleted,
                 "parameters_deleted": parameters_deleted,
-                "warnings": warnings
+                "deployments_would_stop": deployments_would_stop,
+                "dry_run": dry_run,
+                "warnings": warnings,
             }
 
-            message = f"投资组合删除成功: {portfolio_id}"
+            message = ("投资组合删除预览" if dry_run else "投资组合删除成功") + f": {portfolio_id}"
             if warnings:
                 message += f" (附带{len(warnings)}个警告)"
 

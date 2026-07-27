@@ -514,16 +514,17 @@ class EngineService(BaseService):
             return ServiceResult.error(f"更新引擎状态失败: {str(e)}")
 
     @retry(max_try=3)
-    def delete(self, engine_id: str, **kwargs) -> ServiceResult:
+    def delete(self, engine_id: str, dry_run: bool = False, **kwargs) -> ServiceResult:
         """
         删除引擎 - 包括清理相关的投资组合映射
 
         Args:
             engine_id: 引擎UUID
+            dry_run: 仅预览将清理的映射数，不执行 remove/soft_remove/删除后校验。
             **kwargs: 其他参数
 
         Returns:
-            ServiceResult: 删除结果
+            ServiceResult: 删除结果（dry_run=True 时 data 含 dry_run 标志与计数）
         """
         try:
             # 输入验证
@@ -533,16 +534,34 @@ class EngineService(BaseService):
             warnings = []
 
             with self._crud_repo.get_session() as session:
-                # 清理引擎-投资组合映射
+                # 清理引擎-投资组合映射（dry-run 只 find 计数，不 remove）
                 mappings_deleted = 0
                 try:
-                    mappings_deleted = self._mapping_repo.remove(
-                        filters={"engine_id": engine_id}, session=session
-                    )
-                    if mappings_deleted and mappings_deleted > 0:
-                        GLOG.INFO(f"删除引擎 {engine_id} 的 {mappings_deleted} 个投资组合映射")
+                    if dry_run:
+                        mappings_found = self._mapping_repo.find(
+                            filters={"engine_id": engine_id}
+                        )
+                        mappings_deleted = len(mappings_found) if mappings_found is not None else 0
+                    else:
+                        mappings_deleted = self._mapping_repo.remove(
+                            filters={"engine_id": engine_id}, session=session
+                        )
+                        if mappings_deleted and mappings_deleted > 0:
+                            GLOG.INFO(f"删除引擎 {engine_id} 的 {mappings_deleted} 个投资组合映射")
                 except Exception as e:
                     warnings.append(f"清理投资组合映射时出错: {str(e)}")
+
+                if dry_run:
+                    GLOG.INFO(f"预览删除引擎 {engine_id}：将清理 {mappings_deleted} 个映射")
+                    return ServiceResult.success(
+                        data={
+                            "engine_id": engine_id,
+                            "mappings_would_delete": mappings_deleted,
+                            "dry_run": True,
+                            "warnings": warnings,
+                        },
+                        message=f"引擎删除预览: {engine_id}"
+                    )
 
                 # 软删除引擎记录 (设置is_del=True)
                 self._crud_repo.soft_remove(filters={"uuid": engine_id})

@@ -52,3 +52,29 @@ def test_send_kafka_timeout_degrades_disconnect():
 
     assert result is False
     assert p._connected is False  # timeout 必须触发降级断开
+
+
+@pytest.mark.unit
+def test_producer_send_propagates_headers():
+    """GinkgoProducer.send 透传 headers 到底层 KafkaProducer.send（#6786 跨进程 trace_id）。
+
+    跨进程 trace_id 传播依赖 Kafka 消息 header。kafka-python KafkaProducer.send
+    原生支持 headers=[(key, bytes_value)]；GinkgoProducer.send 包装层须透传，
+    否则 API 端写入的 trace_id 到不了 worker 消费侧。
+    """
+    from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+
+    p = GinkgoProducer.__new__(GinkgoProducer)  # 绕过真实 Kafka 连接
+    p._connected = True
+    future = MagicMock()
+    future.get.return_value = MagicMock()  # RecordMetadata
+    p.producer = MagicMock()
+    p.producer.send.return_value = future
+
+    headers = [("trace_id", b"abc123def456")]
+    result = p.send("backtest_assignments", {"task_uuid": "x"}, headers=headers)
+
+    assert result is True
+    # 底层 KafkaProducer.send 必须收到调用方传入的 headers
+    _, kwargs = p.producer.send.call_args
+    assert kwargs.get("headers") == headers

@@ -20,6 +20,8 @@ from pathlib import Path
 
 class GinkgoConfig(object):
     _instance_lock = threading.Lock()
+    # #6756: 启动期集群一致性护栏幂等标志（断言+横幅只执行一次）
+    _cluster_guard_done = False
 
     def __new__(cls, *args, **kwargs) -> object:
         if not hasattr(GinkgoConfig, "_instance"):
@@ -550,13 +552,50 @@ class GinkgoConfig(object):
     def CLICKHOST(self) -> str:
         """ClickHouse 主机（核心基础设施，有默认值）"""
         self._ensure_env_vars()
+        self._assert_cluster_consistency()
         return os.environ.get("GINKGO_CLICKHOUSE_HOST", "localhost")
 
     @property
     def MYSQLHOST(self) -> str:
         """MySQL 主机（核心基础设施，有默认值）"""
         self._ensure_env_vars()
+        self._assert_cluster_consistency()
         return os.environ.get("GINKGO_MYSQL_HOST", "localhost")
+
+    def _assert_cluster_consistency(self) -> None:
+        """启动期护栏：GINKGO_ENV 与 DB host 后缀一致性校验 + 集群横幅（幂等）。
+
+        防"env 与 .env host 漂移致真实运行静默连错集群"（#6756，ADR-027 / ADR-028）。
+        - 横幅无条件打一次到 stderr：声明当前实际连接的 MySQL/ClickHouse host。
+        - 断言仅在 host 落 master/test 体系时触发；localhost/外部域名跳过，不误伤外部部署。
+        - GINKGO_SKIP_CLUSTER_GUARD=1 仅跳断言、横幅照打（测试/特殊部署逃生用）。
+        """
+        if GinkgoConfig._cluster_guard_done:
+            return
+        GinkgoConfig._cluster_guard_done = True
+        is_dev = self.IS_DEV_ENV
+        env_label = "TEST" if is_dev else "PROD"
+        expect_suffix = "-test" if is_dev else "-master"  # 期望后缀；host 落体系却不符=漂移
+        hosts = {
+            "MySQL": os.environ.get("GINKGO_MYSQL_HOST", ""),
+            "ClickHouse": os.environ.get("GINKGO_CLICKHOUSE_HOST", ""),
+        }
+        if os.environ.get("GINKGO_SKIP_CLUSTER_GUARD", "") != "1":
+            for name, host in hosts.items():
+                # 仅当 host 落 master/test 体系时校验；localhost/外部域名跳过
+                if host.endswith(("-test", "-master")) and not host.endswith(expect_suffix):
+                    raise RuntimeError(
+                        f"[Ginkgo Env Guard] {name} host={host!r} 与 GINKGO_ENV={self.ENV} "
+                        f"冲突：env={'DEVELOPMENT(应 -test)' if is_dev else 'PRODUCTION(应 -master)'}。"
+                        f"运行 `ginkgo config set env {'DEVELOPMENT' if is_dev else 'PRODUCTION'}` "
+                        f"重对齐 .env 后重启。"
+                    )
+        color = 32 if is_dev else 31  # 绿=TEST / 红=PROD
+        line = (
+            f"=== [{env_label}] MySQL={hosts['MySQL']} / "
+            f"ClickHouse={hosts['ClickHouse']} ==="
+        )
+        print(f"\033[{color}m{line}\033[0m", file=sys.stderr, flush=True)
 
     @property
     def MONGOHOST(self) -> str:
@@ -569,9 +608,17 @@ class GinkgoConfig(object):
         """ClickHouse 端口（核心基础设施，有默认值）"""
         self._ensure_env_vars()
         port = os.environ.get("GINKGO_CLICKHOUSE_PORT", "8123")
-        # DEBUG 模式：端口首位 +1（例如 8123 -> 18123）
-        # 检查是否已经是DEBUG模式端口（避免重复加前缀）
-        if self.DEBUGMODE and not str(port).startswith("1"):
+        # DEVELOPMENT 环境端口首位 +1 是"宿主机经 Docker 映射端口访问 test 实例"的约定
+        # （Master 内部 8123 / Test 宿主映射 18123，见 ADR-004）。仅宿主客户端适用；
+        # 容器内服务走容器网络用内部端口，不应 +1。原无差别 +1 对容器内服务误用，
+        # 致 DataWorker 连 clickhouse-test:18123 ECONNREFUSED → 停滞。详见 ADR-024 / ADR-028。
+        # 判据用 IS_DEV_ENV（集群选择），与 DEBUGMODE（纯日志）解耦。惰性 import 规避循环。
+        from ginkgo.libs.utils.log_utils import is_container_environment
+        if (
+            self.IS_DEV_ENV
+            and not is_container_environment()
+            and not str(port).startswith("1")
+        ):
             port = f"1{port}"
         return int(port)
 
@@ -580,9 +627,19 @@ class GinkgoConfig(object):
         """MySQL 端口（核心基础设施，有默认值）"""
         self._ensure_env_vars()
         port = os.environ.get("GINKGO_MYSQL_PORT", "3306")
-        # DEBUG 模式：端口首位 +1（例如 3306 -> 13306）
-        # 检查是否已经是DEBUG模式端口（避免重复加前缀）
-        if self.DEBUGMODE and not str(port).startswith("1"):
+        # DEVELOPMENT 环境端口首位 +1 是"宿主机经 Docker 映射端口访问 test 实例"的约定
+        # （Master 内部 3306 / Test 宿主映射 13306，见 ADR-004）。仅宿主客户端适用；
+        # 容器内服务走容器网络用内部端口，不应 +1。原无差别 +1 对容器内服务误用，
+        # 致 TaskTimer 连 mysql-test:13306 ECONNREFUSED → health_check 失败 →
+        # _get_all_stock_codes 返空 → bar_snapshot "No stocks found" 停滞 8.5 月。
+        # 详见 ADR-024 / ADR-028。判据用 IS_DEV_ENV（集群选择），与 DEBUGMODE（纯日志）解耦。
+        # 惰性 import 规避 config ↔ log_utils 包初始化循环。
+        from ginkgo.libs.utils.log_utils import is_container_environment
+        if (
+            self.IS_DEV_ENV
+            and not is_container_environment()
+            and not str(port).startswith("1")
+        ):
             port = f"1{port}"
         return int(port)
 
@@ -725,6 +782,56 @@ class GinkgoConfig(object):
         key = "GINKGO_DEBUG_MODE"
         if isinstance(value, bool):
             self._write_config("debug", value)
+
+    @property
+    def ENV(self) -> str:
+        """GINKGO_ENV：集群选择单一旋钮（PRODUCTION | DEVELOPMENT）。
+
+        PRODUCTION → master 集群（mysql-master/clickhouse-master，宿主端口不 +1）；
+        DEVELOPMENT → test 集群（mysql-test/clickhouse-test，宿主端口首位 +1）。
+        与 DEBUGMODE（纯日志/@retry 退避，ADR-013）解耦——详见 ADR-028。
+
+        取值优先级：GINKGO_ENV env > config.yml 的 env 字段 > bridge-default。
+        - env var：容器由 compose `${GINKGO_ENV:-DEVELOPMENT}` 注入，权威。
+        - config.yml env 字段：本地 CLI 持久化层（本地 CLI 不读 .env，`set env` 写
+          config.yml 使新进程读到，对称 `debug` 字位）。详见 ADR-028 Q5 决策。
+        - bridge-default：env 字段未设时从 DEBUGMODE 推断（True→DEVELOPMENT，
+          False→PRODUCTION），保证解耦后首次启动零行为变化。用户首次
+          `ginkgo config set env ...` 写入 env 字段后 bridge 不再触发。
+        """
+        key = "GINKGO_ENV"
+        val = os.environ.get(key, None)
+        if val is None:
+            # 本地 CLI 持久化层：读 config.yml 的 env 字段（set_env 写入）
+            cfg_env = self._read_config().get("env")
+            if cfg_env is not None:
+                val = str(cfg_env)
+            else:
+                # 迁移桥：未设 env 字段时从 DEBUGMODE 推断，保证零行为变化
+                val = "DEVELOPMENT" if self.DEBUGMODE else "PRODUCTION"
+            os.environ[key] = val
+        return val.upper()
+
+    @property
+    def IS_DEV_ENV(self) -> bool:
+        """是否连 test 集群（DEVELOPMENT）。+1 端口与一致性护栏的判据。"""
+        return self.ENV == "DEVELOPMENT"
+
+    def set_env(self, value: str) -> None:
+        """持久化 GINKGO_ENV 到 config.yml + 同步本进程 os.environ。
+
+        对称 set_debug（写 ~/.ginkgo/config.yml 的 debug 字位）：写 config.yml 的 env
+        字位，使本地 CLI 新进程（不读 .env）经 ENV property 读到正确集群——修复 review
+        Q5（本地 CLI `set env` 后新进程仍被生产守卫拒）。容器部署态的 .env 持久化由 CLI
+        `update_env_for_env` 负责（compose `${GINKGO_ENV:-DEVELOPMENT}` 插值注入容器）。
+        set_env 仅在 CLI（宿主）调用——容器内 config.yml 以 :ro 挂载不可写，但容器内
+        不跑 `ginkgo config` CLI。详见 ADR-028。
+        """
+        val = str(value).upper()
+        if val not in ("PRODUCTION", "DEVELOPMENT"):
+            raise ValueError(f"GINKGO_ENV must be PRODUCTION|DEVELOPMENT, got {value!r}")
+        self._write_config("env", val)  # 本地 CLI 持久化（新进程 ENV property 读得到）
+        os.environ["GINKGO_ENV"] = val
 
     # 装饰器配置属性
     @property

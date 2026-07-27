@@ -129,6 +129,17 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/data/services/test_kafka_service_retired_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: kafka data commands signal smoke (#6745 topic 对齐)
+        # #6745 producer 端 5 个 send_*_signal（stockinfo/trade_day/adjustfactor/daybar/tick）
+        # 统一改发 DATA_COMMANDS topic（旧发 ginkgo.data.update 黑洞）。5 个方法体
+        # （kafka_service.py L567/575/582/589/597）被 containers import 链触达但 smoke
+        # 不调方法体 → diff coverage gate 红。本 smoke mock publish_message（不连 kafka）
+        # 调起 5 方法体补覆盖信号，并锁定 DATA_COMMANDS publish 契约（含 tick force→overwrite
+        # 数据修复语义）。独立 step 使 push→master 时也跑（gate 仅 PR 触发），同时纳入
+        # 下方 gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest tests/unit/data/services/test_kafka_data_commands_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: deployment_service list/count smoke (#5009 pagination)
         # DeploymentService.list_deployments(page=,page_size=)→find(order_by/desc) +
         # count_deployments→count 是本 PR 新增可执行行，被 containers import 链触达但
@@ -145,6 +156,17 @@ jobs:
           uv run python -m pytest \
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: paper/live trace_id smoke (#6787 Kafka header 传播)
+        # deployment_service._dispatch_deploy_command 发 Kafka deploy 带 trace_id header（AC1）+
+        # paper_trading_worker._dispatch_command/_extract_trace_id 消费恢复 trace_id（AC2/AC3）
+        # 是本 PR 新增可执行行，被 containers import 链触达但 smoke 不调方法体 → diff coverage gate 红。
+        # 本 smoke mock GinkgoProducer/ControlCommand（不连 Kafka）调起两方法体补覆盖信号。
+        # 底层 send(headers=) 形参由 master 已合的 #6803 提供（本 PR 不再重复该 hunk）。
+        run: |
+          uv run python -m pytest \
+            tests/unit/trading/services/test_deployment_service_deploy_trace_id_6787.py \
+            tests/unit/workers/test_paper_trading_worker_consume_trace_id_6787.py \
             -q -o "addopts=" --no-header --tb=short
       - name: GCONF generate_config_file smoke (PR6686 模板源跟随包)
         # PR6686 将配置模板源从 cwd 改为跟随 ginkgo 包（__file__→src/ginkgo/config/）。
@@ -189,6 +211,17 @@ jobs:
         run: |
           uv run python -m pytest tests/unit/trading/feeders/test_backtest_feeder_fetch_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: GINKGO_ENV + cluster guard smoke (PR6773 ADR-028 集群选择+护栏)
+        # #6773 config.py 新增 ENV property（bridge 推断）/ IS_DEV_ENV / set_env /
+        # _assert_cluster_consistency 被 import 链触达但方法体无 smoke 调用（gate 测试
+        # 不读 CLICKHOST/MYSQLHOST 故 _assert 不触发）→ diff coverage gate 红（20%）。
+        # 本 smoke 调起方法体补覆盖信号，并锁定集群选择 + 护栏新契约（bridge/冲突
+        # raise/SKIP 逃生/幂等横幅）。独立 step 使 push→master 时也跑，同时纳入下方
+        # gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest \
+            tests/unit/libs/test_config_env_cluster_guard_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
@@ -202,10 +235,14 @@ jobs:
             tests/unit/data/services/test_page_size_passthrough_smoke.py \
             tests/unit/data/services/test_list_count_smoke.py \
             tests/unit/data/services/test_kafka_service_retired_smoke.py \
+            tests/unit/data/services/test_kafka_data_commands_smoke.py \
             tests/unit/trading/services/test_deployment_list_smoke.py \
+            tests/unit/trading/services/test_deployment_service_deploy_trace_id_6787.py \
+            tests/unit/workers/test_paper_trading_worker_consume_trace_id_6787.py \
             tests/unit/client/test_deploy_cli_list_smoke.py \
             tests/unit/client/test_record_cli_list_smoke.py \
             tests/unit/libs/test_config_generate_smoke.py \
+            tests/unit/libs/test_config_env_cluster_guard_smoke.py \
             tests/unit/features/test_expression_registry.py \
             tests/unit/features/test_operator_registry.py \
             tests/unit/features/test_expression_engine.py \

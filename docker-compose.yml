@@ -18,6 +18,13 @@ x-worker-common: &worker-common
     - mongo-master
     - clickhouse-test
   environment: &worker-env
+    # 确定性声明容器身份：触发 is_container_environment() 返 True（不依赖隐式 /.dockerenv）。
+    # config.py 的 CLICKPORT/MYSQLPORT +1 守卫据此跳过 +1，使容器内服务连内部端口 3306/8123
+    # 而非宿主映射端口（ADR-024，修复 TaskTimer→DataWorker 连 mysql-test:13306 ECONNREFUSED）。
+    DOCKER_CONTAINER: "true"
+    # ADR-028: GINKGO_ENV 单一决定集群（host 由下方 GINKGO_*_HOST 插值，+1 守卫判据用 IS_DEV_ENV）。
+    # 与 DEBUGMODE 解耦：DEBUGMODE 退为纯日志/退避。默认 DEVELOPMENT 对齐下方 -test host 默认。
+    GINKGO_ENV: ${GINKGO_ENV:-DEVELOPMENT}
     GINKGO_KAFKA_HOST: kafka1
     GINKGO_KAFKA_PORT: 9092
     GINKGO_REDIS_HOST: redis-master
@@ -54,22 +61,59 @@ x-worker-common: &worker-common
     - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
 
 services:
-  # webui:
-  #   image: ginkgo/webui:latest
-  #   container_name: ginkgo-web-ui
-  #   restart: always
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "100m"
-  #       max-file: "3"
-  #   build:
-  #     context: .
-  #     dockerfile: .conf/Dockerfile.web
-  #   ports:
-  #     - '127.0.0.1:8080:8080'
-  #   volumes:
-  #     - .conf/nginx.conf:/etc/nginx/nginx.conf
+  webui:
+    image: ginkgo/webui:latest
+    container_name: ginkgo-web-ui
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    build:
+      context: .
+      dockerfile: .conf/Dockerfile.web
+    ports:
+      - '0.0.0.0:8080:8080'
+    depends_on:
+      - api-server
+    volumes:
+      - .conf/nginx.conf:/etc/nginx/nginx.conf
+  api-server:
+    build:
+      context: .
+      dockerfile: .conf/Dockerfile.api-server
+    image: ginkgo/api-server:latest
+    # ginkgo-logs volume 被历史 root worker 初始化为 root:root(#6651 前),
+    # USER ginkgo 无写权限致 PermissionError; 暂以 root 对齐现状 worker,
+    # 待 volume 权限统一为 ginkgo:10001 后恢复非 root
+    user: "0:0"
+    container_name: ginkgo-api-server
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    depends_on:
+      - kafka1
+      - redis-master
+      - mongo-master
+      - clickhouse-test
+      - mysql-test
+    environment:
+      <<: *worker-env
+      # api-server 特有: Settings() 在生产(DEBUG=False)硬拒绝默认 SECRET_KEY(#5464)
+      # :? 守卫: .env 漏配 SECRET_KEY 时 compose 启动即失败, 避免空串静默绕过 #5464 validator
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set via environment}
+      DEBUG: ${DEBUG:-False}
+      # ADR-013: GINKGO_DEBUG_MODE 经 :ro 挂载的宿主 ~/.ginkgo/config.yml(debug=True) 回落进容器
+      # (config.py:772 env 未设时读 config.yml)，致 @retry 不退避(30s×backoff^i 失效)→ tushare 封禁。
+      # 端口 +1 判据本 PR 已改 IS_DEV_ENV，但 DEBUGMODE 仍驱动 @retry 退避，故覆盖保留。
+      GINKGO_DEBUG_MODE: "False"
+    volumes:
+      - ginkgo-logs:/var/log/ginkgo
+      - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
   kafka1:
     image: apache/kafka:4.0.0
     restart: always

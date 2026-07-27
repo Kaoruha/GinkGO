@@ -165,6 +165,7 @@ def _register_all_commands():
     _main_app.command(name="status", help=":bar_chart: System status")(core_cli.status)
     _main_app.command(name="version", help=":rabbit: Version info")(core_cli.version if hasattr(core_cli, 'version') else lambda: None)
     _main_app.command(name="debug", help=":bug: Toggle debug mode")(core_cli.debug if hasattr(core_cli, 'debug') else lambda: None)
+    _main_app.command(name="cleanup", help=":broom: Cleanup orphaned data (mappings, params, dead tasks, cache)")(core_cli.cleanup if hasattr(core_cli, 'cleanup') else lambda: None)
     # serve 命令已移到 serve_cli.app (包含 api, webui, worker-data, worker-backtest 等子命令)
     # Configuration 已整合到 get/set config 命令中
 

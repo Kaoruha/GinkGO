@@ -21,19 +21,21 @@ from rich.table import Table
 from ginkgo.libs import GLOG
 
 
-def update_env_for_debug(env_file: str, debug_on: bool) -> dict:
-    """更新 .env 文件中的数据库主机变量以匹配 debug 模式。
+def update_env_for_env(env_file: str, env_value: str) -> dict:
+    """更新 .env 文件中的 GINKGO_ENV 与数据库主机变量以匹配指定集群。
 
     Args:
         env_file: .env 文件路径
-        debug_on: True=测试环境, False=生产环境
+        env_value: DEVELOPMENT=研发(test) / PRODUCTION=生产(master)
 
     Returns:
         变化的变量 dict，如果无变化返回空 dict
     """
+    is_dev = env_value == "DEVELOPMENT"
     host_mapping = {
-        "GINKGO_CLICKHOUSE_HOST": "clickhouse-test" if debug_on else "clickhouse-master",
-        "GINKGO_MYSQL_HOST": "mysql-test" if debug_on else "mysql-master",
+        "GINKGO_ENV": env_value,
+        "GINKGO_CLICKHOUSE_HOST": "clickhouse-test" if is_dev else "clickhouse-master",
+        "GINKGO_MYSQL_HOST": "mysql-test" if is_dev else "mysql-master",
         "GINKGO_MONGODB_HOST": "mongo-master",
     }
 
@@ -76,6 +78,8 @@ def get(
             # 获取特定配置
             if key.lower() == 'debug':
                 console.print(f":white_check_mark: debug: {GCONF.DEBUGMODE}")
+            elif key.lower() == 'env':
+                console.print(f":white_check_mark: env: {GCONF.ENV}")
             elif key.lower() == 'quiet':
                 console.print(f":white_check_mark: quiet: {GCONF.QUIET}")
             elif key.lower() == 'cpu_ratio':
@@ -98,6 +102,7 @@ def get(
             table.add_column("Description", style="dim", width=30)
 
             table.add_row("debug", str(GCONF.DEBUGMODE), "Enable detailed logging")
+            table.add_row("env", str(GCONF.ENV), "DB cluster (PRODUCTION|DEVELOPMENT)")
             table.add_row("quiet", str(GCONF.QUIET), "Suppress verbose output")
             table.add_row("cpu_ratio", f"{GCONF.CPURATIO*100}%", "CPU usage limit")
             table.add_row("log_path", str(GCONF.LOGGING_PATH), "Log files location")
@@ -129,52 +134,63 @@ def set(
             debug_value = value.lower() in ['on', 'true', '1', 'yes']
             GCONF.set_debug(debug_value)
             console.print(f":white_check_mark: Set {key} = {debug_value}")
-
-            # 确保 config 已加载（_has_local_config 可能为 None）
-            GCONF._read_config()
-
-            # 更新 .env 文件中的数据库主机
+            # ADR-028: debug 现仅控日志/@retry 退避，不再切库。集群选择用 `set env`。
+            console.print(":bulb: 集群选择请用 `ginkgo config set env DEVELOPMENT|PRODUCTION`（debug 已与 DB 解耦）")
+        elif key.lower() == 'env':
+            # ADR-028: GINKGO_ENV 单一决定集群（host + 宿主端口 +1）。DEBUGMODE 退为纯日志。
+            aliases = {"prod": "PRODUCTION", "dev": "DEVELOPMENT"}
+            env_value = aliases.get(value.lower(), value.upper())
+            if env_value not in ("PRODUCTION", "DEVELOPMENT"):
+                console.print(":x: env must be PRODUCTION|DEVELOPMENT (alias: PROD|DEV)")
+                return
+            env_label = "DEVELOPMENT(test)" if env_value == "DEVELOPMENT" else "PRODUCTION(master)"
+            # 始终持久化：set_env 写 config.yml 的 env 字位 + 同步本进程 os.environ。
+            # 本地 CLI 不读 .env，新进程经 ENV property 读 config.yml 拿到正确集群（review Q5 修复）。
+            # 容器场景额外写 .env + compose 重启（下方），本地 CLI 无 compose 也已持久化。
+            GCONF.set_env(env_value)  # env_value 上方已校验 ∈ {PRODUCTION, DEVELOPMENT}，ValueError 不可达
+            console.print(f":white_check_mark: env = {env_value} ({env_label})，已写入 config.yml（本地 CLI 新进程生效）")
+            # 容器部署态：写 .env（compose ${GINKGO_ENV:-DEVELOPMENT} 插值注入）+ 重启容器
+            # （worker-env 烘焙不可变，改 .env 须 compose up -d 重建）。本地 CLI 无 compose 则止于此。
             env_file = GCONF.COMPOSE_FILE_PATH
-            if env_file:
-                env_path = os.path.join(os.path.dirname(env_file), ".env")
-                try:
-                    changed = update_env_for_debug(env_path, debug_on=debug_value)
-                    env_label = "test" if debug_value else "production"
-                    if changed:
-                        console.print(f":white_check_mark: .env updated → {env_label} (ClickHouse={changed.get('GINKGO_CLICKHOUSE_HOST', '?')}, MySQL={changed.get('GINKGO_MYSQL_HOST', '?')})")
+            if not env_file or not os.path.exists(env_file):
+                return  # 本地 CLI 场景：config.yml 已持久化，无 .env/compose 可操作
+            env_path = os.path.join(os.path.dirname(env_file), ".env")
+            try:
+                changed = update_env_for_env(env_path, env_value)
+                if changed:
+                    summary = ", ".join(f"{k}={v}" for k, v in changed.items())
+                    console.print(f":white_check_mark: .env updated → {env_label} ({summary})")
+                else:
+                    console.print(f":white_check_mark: .env already set to {env_label}")
+            except Exception as e:
+                console.print(f":warning: Failed to update .env: {e}")
+                return
+            import subprocess
+            try:
+                compose_dir = os.path.dirname(env_file)
+                console.print(":whale: Restarting docker containers...")
+                result = subprocess.run(
+                    ["docker", "compose", "up", "-d"],
+                    cwd=compose_dir,
+                    capture_output=True, text=True, timeout=60,
+                )
+                if result.returncode == 0:
+                    # 解析输出显示重建的容器
+                    recreated = [l for l in result.stdout.splitlines() if "Created" in l or "Started" in l or "Recreat" in l]
+                    if recreated:
+                        for line in recreated:
+                            console.print(f"  {line.strip()}")
                     else:
-                        console.print(f":white_check_mark: .env already set to {env_label}")
-                except Exception as e:
-                    console.print(f":warning: Failed to update .env: {e}")
-
-            # 重启有变化的 Docker 容器
-            if env_file and os.path.exists(env_file):
-                import subprocess
-                try:
-                    compose_dir = os.path.dirname(env_file)
-                    console.print(":whale: Restarting docker containers...")
-                    result = subprocess.run(
-                        ["docker", "compose", "up", "-d"],
-                        cwd=compose_dir,
-                        capture_output=True, text=True, timeout=60,
-                    )
-                    if result.returncode == 0:
-                        # 解析输出显示重建的容器
-                        recreated = [l for l in result.stdout.splitlines() if "Created" in l or "Started" in l or "Recreat" in l]
-                        if recreated:
-                            for line in recreated:
-                                console.print(f"  {line.strip()}")
-                        else:
-                            console.print("  No containers changed")
-                        console.print(":white_check_mark: Docker containers restarted")
-                    else:
-                        console.print(f":warning: Docker compose: {result.stderr.strip()}")
-                except FileNotFoundError:
-                    console.print(":memo: Docker not installed, skipped container restart")
-                except subprocess.TimeoutExpired:
-                    console.print(":warning: Docker compose timed out")
-                except Exception as e:
-                    console.print(f":warning: Docker compose: {e}")
+                        console.print("  No containers changed")
+                    console.print(":white_check_mark: Docker containers restarted")
+                else:
+                    console.print(f":warning: Docker compose: {result.stderr.strip()}")
+            except FileNotFoundError:
+                console.print(":memo: Docker not installed, skipped container restart")
+            except subprocess.TimeoutExpired:
+                console.print(":warning: Docker compose timed out")
+            except Exception as e:
+                console.print(f":warning: Docker compose: {e}")
         elif key.lower() == 'quiet':
             quiet_value = value.lower() in ['on', 'true', '1', 'yes']
             GCONF.set_quiet(quiet_value)
@@ -216,6 +232,7 @@ def list():
         table.add_column("Description", style="white", width=40)
 
         table.add_row("debug", "boolean", "Enable detailed logging (on/off)")
+        table.add_row("env", "string", "DB cluster: PRODUCTION|DEVELOPMENT")
         table.add_row("quiet", "boolean", "Suppress verbose output (on/off)")
         table.add_row("cpu_ratio", "number", "CPU usage limit (0-100)")
         table.add_row("log_path", "string", "Log files location")
@@ -224,6 +241,7 @@ def list():
         console.print(table)
 
         console.print("\n[bold yellow]:bulb: Usage Examples:[/bold yellow]")
+        console.print("  ginkgo config set env DEVELOPMENT  # Switch to test cluster")
         console.print("  ginkgo config set debug on      # Enable debug mode")
         console.print("  ginkgo config get debug         # Get debug status")
         console.print("  ginkgo config set cpu_ratio 70 # Set CPU limit to 70%")

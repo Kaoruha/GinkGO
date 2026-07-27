@@ -1,7 +1,7 @@
 """
 send_trade_day_signal 单元测试（#6488 kafka wiring）
 
-镜像 send_stockinfo_update_signal 的契约：发 DATA_UPDATE topic + 标识 payload。
+镜像 send_stockinfo_update_signal 的契约：发 DATA_COMMANDS topic + ControlCommand payload。
 mock publish_message 隔离真 kafka，只验证信号契约（topic + payload 结构）。
 """
 
@@ -25,7 +25,7 @@ class TestSendTradeDaySignal:
 
     @pytest.mark.unit
     def test_send_trade_day_signal_publishes_correct_payload(self):
-        """send_trade_day_signal 发 DATA_UPDATE topic + trade_day payload"""
+        """send_trade_day_signal 发 DATA_COMMANDS topic + {command:trade_day} payload"""
         # __new__ 跳过 __init__，避免 producer 连真 kafka（CI 无 kafka 友好）
         # 信号方法契约只依赖 self.publish_message，不依赖 producer 实例状态
         svc = KafkaService.__new__(KafkaService)
@@ -34,5 +34,5 @@ class TestSendTradeDaySignal:
 
         assert result is True
         mock_pub.assert_called_once_with(
-            KafkaTopics.DATA_UPDATE, {"type": "trade_day", "code": ""}
+            KafkaTopics.DATA_COMMANDS, {"command": "trade_day", "params": {}}
         )

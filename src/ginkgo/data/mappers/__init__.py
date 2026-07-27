@@ -1,8 +1,11 @@
 """
-Data Mappers — 转换收敛层（ADR-010）
+Data Mappers — 转换收敛层（ADR-010 + ADR-025）
 
-每个 Mapper 类负责 Entity/ORM/DTO 三态互转，五方法矩阵：
+Entity Mapper (ADR-010) 每类负责 Entity/ORM/DTO 三态互转，五方法矩阵：
 from_model / to_model / from_dto / to_dto / model_to_dto。
+
+CacheMapper (ADR-025 第④步) 是 Redis IO 边界 wire↔DTO 转换，非 Entity 三态互转，
+故独立于上述五方法矩阵（encode/decode + β 运行期校验）。
 
 铁律：不 import CRUD（独立于持久层）；不含 to_dataframe（DF 出口留 CRUD）。
 套C（外部数据源 DataFrame→ORM 入站）见本包 _legacy.py。
@@ -27,6 +30,7 @@ from ginkgo.data.mappers.stockinfo_mapper import StockInfoMapper
 from ginkgo.data.mappers.tick_mapper import TickMapper
 from ginkgo.data.mappers.mapping_mapper import MappingMapper
 from ginkgo.data.mappers.transfer_mapper import TransferMapper
+from ginkgo.data.mappers.cache_mapper import CacheMapper, CacheEntry
 
 __all__ = [
     "dataframe_to_adjustfactor_models",
@@ -47,4 +51,6 @@ __all__ = [
     "TickMapper",
     "MappingMapper",
     "TransferMapper",
+    "CacheMapper",
+    "CacheEntry",
 ]

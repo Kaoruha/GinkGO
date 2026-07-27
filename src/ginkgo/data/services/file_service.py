@@ -814,7 +814,9 @@ class FileService(FileSearchMixin, BaseService):
         if working_dir is None:
             working_dir = GCONF.WORKING_PATH
 
-        file_root = f"{working_dir}/src/ginkgo/backtest"
+        # NOTE: 组件源码已从 src/ginkgo/backtest 迁至 src/ginkgo/trading。
+        # 与 seeding.py 的 file_root 保持一致，否则目录扫描空跑。
+        file_root = f"{working_dir}/src/ginkgo/trading"
 
         # Validate base directory exists
         if not os.path.exists(file_root):
@@ -822,12 +824,13 @@ class FileService(FileSearchMixin, BaseService):
             self._logger.ERROR(error_msg)
             return ServiceResult.error(error_msg)
 
+        # folder 键对齐 src/ginkgo/trading 真实目录名（与 seeding.py 一致）
         file_type_map = {
             "analysis/analyzers": FILE_TYPES.ANALYZER,
-            "strategy/risk_managements": FILE_TYPES.RISKMANAGER,
-            "strategy/selectors": FILE_TYPES.SELECTOR,
-            "strategy/sizers": FILE_TYPES.SIZER,
-            "strategy/strategies": FILE_TYPES.STRATEGY,
+            "risk_management": FILE_TYPES.RISKMANAGER,
+            "selectors": FILE_TYPES.SELECTOR,
+            "sizers": FILE_TYPES.SIZER,
+            "strategies": FILE_TYPES.STRATEGY,
         }
 
         black_list = ["__", "base"]

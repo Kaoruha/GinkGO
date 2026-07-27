@@ -31,12 +31,14 @@ from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAgg
 from ginkgo import services
 from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.trading.time.clock import now as clock_now
+from ginkgo.libs.core.logger import _trace_id_ctx
 
 
 class BacktestProcessor(Thread):
     """回测任务处理器"""
 
-    def __init__(self, task: BacktestTask, worker_id: str, progress_tracker: ProgressTracker):
+    def __init__(self, task: BacktestTask, worker_id: str, progress_tracker: ProgressTracker,
+                 trace_id: Optional[str] = None):
         """
         初始化任务处理器
 
@@ -44,11 +46,14 @@ class BacktestProcessor(Thread):
             task: 回测任务
             worker_id: 所属Worker ID
             progress_tracker: 进度上报器
+            trace_id: 跨进程 trace_id（#6786）。由 _start_task 从 consume 线程 GLOG
+                contextvars 取出传入；contextvars 不跨线程自动传播，run() 入口手动恢复。
         """
         super().__init__(daemon=True)
         self.task = task
         self.worker_id = worker_id
         self.progress_tracker = progress_tracker
+        self.trace_id = trace_id
 
         # 线程控制
         self._stop_event = Event()
@@ -60,6 +65,18 @@ class BacktestProcessor(Thread):
         self._assembly_service = services.trading.services.engine_assembly_service()
         self._portfolio_service = services.data.portfolio_service()
 
+    def _init_trace_context(self):
+        """恢复跨进程 trace_id 到本线程 contextvars（#6786 AC4）。
+
+        contextvars 不跨线程自动传播：BacktestProcessor.start() spawn 的 engine 线程
+        看不到 consume 线程 with_trace_id 设的值。_start_task 从 consume 上下文取出
+        trace_id 传入构造，run() 入口调本方法手动 set，使 engine/strategy/fill/portfolio
+        日志带 trace_id，与 API 提交端 grep 同一值串联（全链路 AC4）。
+        无 trace_id 时 noop（向后兼容旧消息 / 非 API 入口）。
+        """
+        if self.trace_id:
+            _trace_id_ctx.set(self.trace_id)
+
     def run(self):
         """执行回测任务"""
         self.task.started_at = datetime.utcnow()
@@ -67,6 +84,8 @@ class BacktestProcessor(Thread):
 
         GLOG.clear_context()
         GLOG.set_log_category("component")
+        # #6786: 恢复跨进程 trace_id（clear_context 不动 _trace_id_ctx，此处安全 set）
+        self._init_trace_context()
 
         try:
             GLOG.INFO(f"[{self.task.task_uuid[:8]}] Starting backtest task: {self.task.name}")

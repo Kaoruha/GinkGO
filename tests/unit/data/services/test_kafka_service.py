@@ -109,6 +109,22 @@ class TestKafkaServiceConstruction:
         assert hasattr(kafka_service, 'kafka')
         assert kafka_service.kafka is not None
 
+    def test_topic_exists_delegates_to_crud(self):
+        """topic_exists 应薄委托到 _crud_repo.topic_exists（CLI purge 前置探测依赖它）。"""
+        mock_crud = MagicMock()
+        mock_crud.topic_exists.return_value = True
+        svc = KafkaService(kafka_crud=mock_crud)
+        assert svc.topic_exists("mytopic") is True
+        mock_crud.topic_exists.assert_called_once_with("mytopic")
+
+    def test_get_message_count_delegates_to_crud(self):
+        """get_message_count 应薄委托到 _crud_repo.get_message_count，返回原始 int。"""
+        mock_crud = MagicMock()
+        mock_crud.get_message_count.return_value = 7
+        svc = KafkaService(kafka_crud=mock_crud)
+        assert svc.get_message_count("mytopic") == 7
+        mock_crud.get_message_count.assert_called_once_with("mytopic")
+
 
 # ============================================================================
 # 测试类 - 主题管理

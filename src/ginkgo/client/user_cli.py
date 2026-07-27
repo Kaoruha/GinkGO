@@ -14,6 +14,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.tree import Tree
 from rich import print as rprint
+from ginkgo.client.cli_utils import announce_dry_run
 
 app = typer.Typer(help=":bust_in_silhouette: User management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -515,6 +516,7 @@ def set_primary_contact(
 def delete_contact(
     contact_uuid: str = typer.Argument(..., help="Contact UUID"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without deleting (skips confirm)"),
 ):
     """
     :wastebasket: Delete a contact.
@@ -524,6 +526,11 @@ def delete_contact(
     """
     try:
         from ginkgo.data.containers import container
+
+        if dry_run:
+            announce_dry_run(f"删除 contact {contact_uuid}", console=console)
+            console.print(f"[cyan]:eye: Would delete contact {contact_uuid}.[/cyan]")
+            return
 
         if not confirm:
             confirm_delete = typer.confirm(f"Are you sure you want to delete contact {contact_uuid}?")

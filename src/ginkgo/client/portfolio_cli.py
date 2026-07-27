@@ -20,7 +20,7 @@ from rich import print as rprint
 from ginkgo.enums import PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.data.services.base_service import ServiceResult
-from ginkgo.client.cli_utils import build_list_result, format_result
+from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run
 
 app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -517,12 +517,14 @@ def _resolve_portfolio_identifier(portfolio_service, identifier: str):
 def delete(
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID, name, or partial UUID (fuzzy)"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview cascade scope (mappings/params/deployments) without deleting (skips confirm)"),
 ):
     """
     :wastebasket: Delete portfolio. Accepts full UUID, name, or partial UUID (fuzzy match).
     """
-    if not confirm:
-        console.print(":x: Please use --confirm to delete portfolio")
+    # dry-run 安全：不删除，无需 --confirm；其余路径仍要求显式 --confirm
+    if not confirm and not dry_run:
+        console.print(":x: Please use --confirm to delete portfolio (or --dry-run to preview)")
         raise typer.Exit(1)
 
     try:
@@ -538,11 +540,23 @@ def delete(
 
         if resolved_uuid != portfolio_id:
             console.print(f":wastebasket: Resolved '{portfolio_id}' -> {resolved_uuid}")
-        console.print(f":wastebasket: Deleting portfolio: {resolved_uuid}")
-        result = portfolio_service.delete(resolved_uuid)
+        if dry_run:
+            announce_dry_run(f"删除 portfolio {resolved_uuid}（含映射/参数/deployment 级联）", console=console)
+        else:
+            console.print(f":wastebasket: Deleting portfolio: {resolved_uuid}")
+        result = portfolio_service.delete(resolved_uuid, dry_run=dry_run)
 
         if result.success:
-            console.print(":white_check_mark: Portfolio deleted successfully")
+            if dry_run:
+                d = result.data or {}
+                console.print(
+                    f"[cyan]:eye: Would delete portfolio {resolved_uuid}: "
+                    f"{d.get('mappings_deleted', 0)} mapping(s), "
+                    f"{d.get('parameters_deleted', 0)} parameter(s), "
+                    f"{d.get('deployments_would_stop', 0)} deployment(s) would be stopped.[/cyan]"
+                )
+            else:
+                console.print(":white_check_mark: Portfolio deleted successfully")
         else:
             console.print(f":x: Failed to delete portfolio: {result.error}")
             raise typer.Exit(1)
@@ -701,13 +715,21 @@ def unbind_component(
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
     file_id: str = typer.Argument(..., help="File UUID or name"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without unbinding (skips confirm)"),
 ):
     """
     :broken_link: Unbind a component from a portfolio.
     """
-    if not confirm:
+    if not confirm and not dry_run:
         console.print(":x: Please use --confirm to unbind component")
         raise typer.Exit(1)
+
+    if dry_run:
+        announce_dry_run(f"解绑 portfolio {portfolio_id} 的 component {file_id}", console=console)
+        console.print(
+            f"[cyan]:eye: Would unbind component {file_id} from portfolio {portfolio_id}.[/cyan]"
+        )
+        return
 
     from ginkgo.data.containers import container
 

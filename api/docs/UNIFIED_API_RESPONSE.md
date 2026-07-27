@@ -1,240 +1,150 @@
-# 统一 API 响应格式指南
+# 统一 API 响应格式
 
-## 概述
+> ADR-025 第③步 HTTP ResponseMapper 基座。本文档与 `api/core/response.py` 实现逐字段对齐。
 
-Ginkgo API Server 现在使用统一的响应格式，确保所有端点返回一致的数据结构。这提高了前端开发体验，并使错误处理更加标准化。
+## Wire 形状
 
-## 响应格式
-
-### 成功响应
+所有业务端点统一返回同一信封（前端 `web-ui/src/api/request.ts` + `types/api.ts` 已锁此形状）：
 
 ```json
 {
-  "success": true,
-  "data": { ... },
-  "error": null,
-  "message": "Operation completed successfully"
+  "code": 0,
+  "data": "<业务数据, 成功时为实际值, 失败时为 null>",
+  "message": "ok",
+  "meta": { "page": 1, "page_size": 20, "total": 100, "total_pages": 5 },
+  "trace_id": "a1b2c3d4e5f67890"
 }
 ```
 
-### 错误响应
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `code` | `int` | **0 = 成功**；非零 = HTTP 错误状态码（404/400/409/...） |
+| `data` | `T \| null` | 业务数据；失败时为 `null`；即便 `None` 也保留该 key |
+| `message` | `str` | 成功默认 `"ok"`；失败为错误描述 |
+| `meta` | `PaginationMeta \| 省略` | **仅分页或显式传 meta 时出现**；普通响应省略此 key |
+| `trace_id` | `str` | 请求追踪 ID（16 位 hex），便于日志关联 |
 
-```json
-{
-  "success": false,
-  "data": null,
-  "error": "ERROR_CODE",
-  "message": "Error message description"
-}
-```
+> **关键**：`meta` 是条件出现的 key——非分页响应**没有** `meta` 字段。这与前端 `types/api.ts` 中 `meta?: PaginationMeta`（可选）一致。
 
-### 分页响应
+## 后端：构造响应
 
-```json
-{
-  "success": true,
-  "data": {
-    "items": [ ... ],
-    "total": 100,
-    "page": 1,
-    "page_size": 20,
-    "total_pages": 5
-  },
-  "message": "Data retrieved successfully"
-}
-```
-
-## 后端使用指南
-
-### 1. 导入响应模型
+### Helper 函数（`api/core/response.py`）
 
 ```python
-from core.response import APIResponse, PaginatedResponse, success_response, error_response, paginated_response
-from core.exceptions import NotFoundError, ValidationError, BusinessError
+from core.response import ok, fail, paginated, pagination_meta
 ```
-
-### 2. 在路由中使用
 
 ```python
-@router.get("/items", response_model=APIResponse[list[Item]])
-async def list_items():
-    items = await get_items()
-    return {
-        "success": True,
-        "data": items,
-        "error": None,
-        "message": "Items retrieved successfully"
-    }
+# 成功
+return ok(data={"id": 1})
+return ok(data=portfolio_dict, message="created")
 
-# 或使用辅助函数
-@router.get("/items", response_model=APIResponse[list[Item]])
-async def list_items():
-    items = await get_items()
-    return success_response(data=items, message="Items retrieved successfully")
+# 失败（一般用 raise 异常, 见下; fail 用于手动构造)
+return fail(404, "Portfolio not found")
+
+# 分页
+return paginated(items=item_dicts, total=100, page=1, page_size=20)
 ```
 
-### 3. 分页响应
+### 响应信封泛型（ADR-025 第③步新增）
+
+`ok()/fail()/paginated()` 运行期返回 **plain dict**——FastAPI 据此无法在 OpenAPI 中生成响应 schema。基座补 pydantic 信封泛型，端点声明 `response_model` 即得 schema + 响应字段裁剪，**wire 不变**：
 
 ```python
-@router.get("/items", response_model=PaginatedResponse[Item])
-async def list_items(page: int = 1, page_size: int = 20):
-    items, total = await get_paginated_items(page, page_size)
-    return paginated_response(
-        items=items,
-        total=total,
-        page=page,
-        page_size=page_size
-    )
+from core.response import APIResponse, PaginatedResponse
+
+class PortfolioDTO(BaseModel):
+    uuid: str
+    name: str
+
+@router.get("/{uuid}", response_model=APIResponse[PortfolioDTO])
+async def get_portfolio(uuid: str):
+    return ok(data=portfolio_dict)   # 仍返 dict, FastAPI 按 response_model 校验/序列化
+
+@router.get("/", response_model=PaginatedResponse)
+async def list_portfolios(page: int = 1, page_size: int = 20):
+    return paginated(items=..., total=..., page=page, page_size=page_size)
 ```
 
-### 4. 错误处理
+- `APIResponse[T]`：泛型。`data: Optional[T]` 仅在声明 `APIResponse[ConcreteDTO]` 时起**类型化**作用；序列化形状与 `ok()` 逐字段一致（`meta` 非 None 才出现）。
+- `PaginatedResponse`：`data` 为 items 列表、`meta` 为 `PaginationMeta`。若需 item 级强类型，改声明 `APIResponse[List[ItemDTO]]` 并手填 `meta`。
+
+> **迁移进度**：基座已落地泛型，端点尚未接线。后续按域 PR（backtest → portfolio → ...）逐步给端点加 `response_model`，每个 PR 零 wire 变更。
+
+## 异常 → 信封
+
+业务错误**raise 异常**，由全局 handler 统一转信封（`api/main.py:105-110` 注册 `global_error_handler` 于 `Exception`/`APIError`/`HTTPException`）：
 
 ```python
-@router.get("/items/{uuid}")
-async def get_item(uuid: str):
-    item = await db.get_item(uuid)
-    if not item:
-        raise NotFoundError("Item", uuid)
-    return success_response(data=item)
+from core.exceptions import NotFoundError, ValidationError, BusinessError, ConflictError
 
-@router.post("/items")
-async def create_item(data: ItemCreate):
-    if not data.name:
-        raise ValidationError("Name is required", "name")
-    # ...
+raise NotFoundError("Portfolio", uuid)          # → code 404
+raise ValidationError("Invalid date", field="start_date")  # → code 400
+raise BusinessError("Cannot delete running backtest")      # → code 400
+raise ConflictError("Name exists", resource_type="Portfolio", resource_id=uid)  # → 409
 ```
 
-### 5. 自定义业务错误
+`APIError.to_dict()` 输出 `{code, data: null, message, trace_id}`（不带 `meta`）。handler 据异常类型映射 HTTP 状态码与 envelope `code`。
 
-```python
-# 使用预定义错误
-raise BusinessError("Cannot delete running backtest")
+### 错误码（= HTTP 状态码）
 
-# 使用自定义错误码
-raise BusinessError("Insufficient funds", "INSUFFICIENT_FUNDS")
-```
+| 异常类 | code / HTTP | 说明 |
+|---|---|---|
+| `ValidationError` | 400 | 请求参数验证失败 |
+| `BusinessError` | 400（可自定义） | 业务逻辑错误 |
+| `UnauthorizedError` | 401 | 未授权 |
+| `ForbiddenError` | 403 | 禁止访问 |
+| `NotFoundError` | 404 | 资源未找到 |
+| `ConflictError` | 409 | 资源冲突 |
+| `RateLimitError` | 429 | 请求频率超限 |
+| `ServiceUnavailableError` | 503 | 服务不可用 |
+| `APIError`（基类） | 500 | 内部错误（默认） |
 
-## 前端使用指南
+## 前端契约
 
-### 1. 导入类型
+`web-ui/src/api/request.ts` 响应拦截器自动解包：
 
 ```typescript
-import type { APIResponse, PaginatedResponse } from '@/types/api'
-import { extractData, isSuccessResponse } from '@/types/api'
+// request.ts:28 — code !== 0 抛错, 否则返回完整信封
+if (data && typeof data.code === 'number' && data.code !== 0) {
+  throw new Error(data.message || '操作失败')
+}
+return data  // 调用方拿到的就是 {code, data, message, meta?, trace_id}
 ```
 
-### 2. API 调用
+类型（`web-ui/src/types/api.ts`）：
 
 ```typescript
-// 获取数据
-const response = await portfolioApi.list()
-if (response.success && response.data) {
-  const portfolios = response.data
-  // 使用数据
-}
-
-// 使用辅助函数提取数据
-try {
-  const portfolios = extractData(await portfolioApi.list())
-  // 使用数据
-} catch (error) {
-  console.error('API Error:', error)
-}
+interface APIResponse<T> { code: number; data: T; message: string; meta?: PaginationMeta; trace_id: string }
+function isOk<T>(r: APIResponse<T>): r is APIResponse<T> & { code: 0 }  // code === 0 类型收窄
 ```
 
-### 3. 分页数据
+调用方无需手动判 `success` 字段——拦截器已把非零 `code` 转为异常，业务代码直接用 `response.data`。
 
-```typescript
-const response = await backtestApi.list({ page: 1, page_size: 20 })
-if (response.success && response.data) {
-  const { items, total, page, total_pages } = response.data
-  // 使用分页数据
-}
-```
+## 例外（不走统一信封）
 
-### 4. 错误处理
+以下端点保持各自格式，**不要**套用本信封：
 
-```typescript
-try {
-  const result = await backtestApi.create(data)
-} catch (error) {
-  // 检查是否为 API 错误
-  if (isErrorResponse(error)) {
-    console.error(`Error: ${error.error} - ${error.message}`)
-  }
-}
-```
-
-## 错误码参考
-
-| 错误码 | HTTP状态码 | 说明 |
-|--------|-----------|------|
-| `NOT_FOUND` | 404 | 资源未找到 |
-| `VALIDATION_ERROR` | 400 | 请求参数验证失败 |
-| `BUSINESS_ERROR` | 400 | 业务逻辑错误 |
-| `CONFLICT` | 409 | 资源冲突 |
-| `UNAUTHORIZED` | 401 | 未授权 |
-| `FORBIDDEN` | 403 | 禁止访问 |
-| `RATE_LIMIT_EXCEEDED` | 429 | 请求频率超限 |
-| `INTERNAL_ERROR` | 500 | 内部服务器错误 |
-| `SERVICE_UNAVAILABLE` | 503 | 服务不可用 |
-
-## 迁移指南
-
-### 现有端点迁移步骤
-
-1. 更新 `response_model` 为 `APIResponse[T]` 或 `PaginatedResponse[T]`
-2. 将返回值包装在新的响应格式中
-3. 将 `HTTPException` 替换为对应的自定义异常
-4. 更新前端 API 模块类型定义
-
-### 迁移前
-
-```python
-@router.get("/items")
-async def list_items():
-    items = await get_items()
-    return items
-```
-
-### 迁移后
-
-```python
-@router.get("/items", response_model=APIResponse[list[Item]])
-async def list_items():
-    items = await get_items()
-    return success_response(data=items, message="Items retrieved")
-```
+1. **健康检查** `/health`、`/api/health`：探活格式
+2. **SSE** 端点：流式响应
+3. **WebSocket**：双向消息协议
 
 ## 测试
 
-运行响应格式测试：
-
 ```bash
-cd /home/kaoru/Ginkgo/apiserver
-pytest tests/test_response_format.py -v
+# 信封 helper + 异常类
+/home/kaoru/.ginkgo/.venv/bin/python -m pytest tests/api/test_response_format.py -v
+
+# 信封泛型 + response_model 契约 (ADR-025 第③步)
+/home/kaoru/.ginkgo/.venv/bin/python -m pytest tests/api/test_response_envelope.py -v
 ```
 
 ## 文件清单
 
-### 后端文件
-- `/home/kaoru/Ginkgo/apiserver/core/response.py` - 响应模型定义
-- `/home/kaoru/Ginkgo/apiserver/core/exceptions.py` - 异常类定义
-- `/home/kaoru/Ginkgo/apiserver/middleware/error_handler.py` - 全局错误处理器
-- `/home/kaoru/Ginkgo/apiserver/api/backtest.py` - 已更新使用新格式
-- `/home/kaoru/Ginkgo/apiserver/api/portfolio.py` - 已更新使用新格式
-
-### 前端文件
-- `/home/kaoru/Ginkgo/web-ui/src/types/api.ts` - 类型定义
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/backtest.ts` - 已更新类型
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/portfolio.ts` - 已更新类型
-
-### 测试文件
-- `/home/kaoru/Ginkgo/apiserver/tests/test_response_format.py` - 响应格式测试
-
-## 注意事项
-
-1. **向后兼容性**：健康检查端点 (`/health`, `/api/health`) 保持原有格式
-2. **SSE 端点**：Server-Sent Events 端点保持原有格式，因为是流式响应
-3. **WebSocket**：WebSocket 连接不受影响
-4. **渐进迁移**：可以逐步迁移现有端点，无需一次性全部更新
+- `api/core/response.py` — `ok/fail/paginated/pagination_meta` helper + `APIResponse[T]/PaginatedResponse` 泛型
+- `api/core/exceptions.py` — `APIError` 家族 + `to_dict()`
+- `api/middleware/error_handler.py` — 全局 `global_error_handler`（异常 → 信封）
+- `web-ui/src/api/request.ts` — 响应拦截器（解包 `code`）
+- `web-ui/src/types/api.ts` — `APIResponse<T>` / `PaginationMeta` 类型
+- `tests/api/test_response_format.py` — helper + 异常测试
+- `tests/api/test_response_envelope.py` — 泛型 + response_model 契约测试

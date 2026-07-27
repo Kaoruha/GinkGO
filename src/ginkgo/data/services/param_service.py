@@ -684,11 +684,14 @@ class ParamService(BaseService):
 
     # ==================== 清理方法 ====================
 
-    def cleanup_orphaned_params(self) -> ServiceResult:
+    def cleanup_orphaned_params(self, dry_run: bool = False) -> ServiceResult:
         """清理孤立的参数（关联对象不存在的参数）
 
         注意：params 表通过 mapping_id 关联到 portfolio_file_mapping.uuid
         而不是直接关联到 portfolio.uuid
+
+        Args:
+            dry_run: 仅统计将清理数量，不实际删除（默认 False 执行删除）
         """
         try:
             from ginkgo.data.containers import container
@@ -703,8 +706,9 @@ class ParamService(BaseService):
                 # 如果没有有效的映射关系，删除所有参数
                 deleted_count = self._crud_repo.count(filters={"is_del": False})
                 if deleted_count > 0:
-                    self._crud_repo.remove(filters={"is_del": False})
-                    GLOG.INFO(f"清理了 {deleted_count} 个孤立参数（无有效映射关系）")
+                    if not dry_run:
+                        self._crud_repo.remove(filters={"is_del": False})
+                    GLOG.INFO(f"{'将清理' if dry_run else '清理了'} {deleted_count} 个孤立参数（无有效映射关系）")
             else:
                 # 获取所有关联不存在映射关系的参数
                 all_params = self._crud_repo.find(filters={"is_del": False})
@@ -713,21 +717,22 @@ class ParamService(BaseService):
                 for param in all_params:
                     # 检查 param.mapping_id 是否在有效的 mapping uuids 中
                     if param.mapping_id not in valid_mapping_uuids:
-                        # 删除孤立参数
-                        result = self._crud_repo.remove(filters={"uuid": param.uuid})
-                        if result > 0:
-                            orphaned_count += 1
+                        # 删除孤立参数（dry-run 只计数）
+                        if not dry_run:
+                            self._crud_repo.remove(filters={"uuid": param.uuid})
+                        orphaned_count += 1
 
                 if orphaned_count > 0:
-                    GLOG.INFO(f"清理了 {orphaned_count} 个孤立参数")
+                    GLOG.INFO(f"{'将清理' if dry_run else '清理了'} {orphaned_count} 个孤立参数")
                 else:
                     GLOG.DEBUG("未发现孤立的参数")
 
             deleted_count = orphaned_count if valid_mapping_uuids else self._crud_repo.count(filters={"is_del": False})
-
+            msg = ("预览完成" if dry_run else "清理完成") + f"，发现 {deleted_count} 个孤立参数"
             return ServiceResult.success({
-                "deleted_count": deleted_count
-            }, f"清理完成，处理了 {deleted_count} 个孤立参数")
+                "deleted_count": deleted_count,
+                "dry_run": dry_run,
+            }, msg)
 
         except Exception as e:
             GLOG.ERROR(f"清理孤立参数失败: {str(e)}")

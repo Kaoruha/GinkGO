@@ -838,7 +838,12 @@ class BacktestTaskService(BaseService):
 
             # #4853：检查 send 返回值，失败即标 failed，避免永久 running 孤儿。
             # GinkgoProducer.send 已装饰 @retry(max_try=3)，此处 False 表示重试耗尽仍未送达。
-            send_ok = producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
+            # #6786：trace_id 经 Kafka header 跨进程传播（与 api 层 send_task_to_kafka 对称），
+            # POST /{uuid}/start 入口同进程继承 #6784 TraceIdMiddleware 注入的 GLOG contextvars。
+            # None 时等价不传，向后兼容（既有 start_task 测试断言位置参数不受影响）。
+            trace_id = GLOG.get_trace_id()
+            headers = [("trace_id", trace_id.encode())] if trace_id else None
+            send_ok = producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment, headers=headers)
             producer.flush(timeout=2.0)
             producer.close()
 

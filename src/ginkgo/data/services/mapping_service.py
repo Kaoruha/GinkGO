@@ -48,8 +48,12 @@ class MappingService(BaseService):
         self._param_crud = param_crud
 
     # 清理方法 - 当关联对象不存在时自动清理
-    def cleanup_orphaned_mappings(self) -> ServiceResult:
-        """清理孤立的映射关系（关联对象不存在的映射）"""
+    def cleanup_orphaned_mappings(self, dry_run: bool = False) -> ServiceResult:
+        """清理孤立的映射关系（关联对象不存在的映射）
+
+        Args:
+            dry_run: 仅统计将清理数量，不实际删除（默认 False 执行删除）
+        """
         try:
             from sqlalchemy import text
             from ginkgo.data.crud.engine_crud import EngineCRUD
@@ -59,85 +63,56 @@ class MappingService(BaseService):
             cleaned_count = 0
             cleaning_details = []
 
+            # (表名, WHERE 子句, 描述)：6 条同构规则收敛为循环，便于 dry-run 统一处理
+            rules = [
+                ("engine_portfolio_mapping",
+                 "engine_id NOT IN (SELECT uuid FROM engine WHERE is_del = 0)",
+                 "清理孤立Engine映射"),
+                ("engine_portfolio_mapping",
+                 "portfolio_id NOT IN (SELECT uuid FROM portfolio WHERE is_del = 0)",
+                 "清理孤立Portfolio映射"),
+                ("portfolio_file_mapping",
+                 "portfolio_id NOT IN (SELECT uuid FROM portfolio WHERE is_del = 0)",
+                 "清理孤立Portfolio-File映射"),
+                ("portfolio_file_mapping",
+                 "file_id NOT IN (SELECT uuid FROM file WHERE is_del = 0)",
+                 "清理孤立File映射"),
+                ("engine_handler_mapping",
+                 "engine_id NOT IN (SELECT uuid FROM engine WHERE is_del = 0)",
+                 "清理孤立Engine-Handler映射(Engine)"),
+                ("engine_handler_mapping",
+                 "handler_id NOT IN (SELECT uuid FROM handler WHERE is_del = 0)",
+                 "清理孤立Engine-Handler映射(Handler)"),
+            ]
+
             with self._engine_portfolio_mapping_crud.get_session() as session:
-                # 1. 清理孤立的Engine-Portfolio映射（Engine不存在）
-                stmt = text("""
-                    DELETE FROM engine_portfolio_mapping
-                    WHERE engine_id NOT IN (SELECT uuid FROM engine WHERE is_del = 0)
-                """)
-                result = session.execute(stmt)
-                count = result.rowcount
-                if count > 0:
-                    cleaned_count += count
-                    cleaning_details.append(f"清理孤立Engine映射: {count} 个")
-
-                # 2. 清理孤立的Engine-Portfolio映射（Portfolio不存在）
-                stmt = text("""
-                    DELETE FROM engine_portfolio_mapping
-                    WHERE portfolio_id NOT IN (SELECT uuid FROM portfolio WHERE is_del = 0)
-                """)
-                result = session.execute(stmt)
-                count = result.rowcount
-                if count > 0:
-                    cleaned_count += count
-                    cleaning_details.append(f"清理孤立Portfolio映射: {count} 个")
-
-                # 3. 清理孤立的Portfolio-File映射（Portfolio不存在）
-                stmt = text("""
-                    DELETE FROM portfolio_file_mapping
-                    WHERE portfolio_id NOT IN (SELECT uuid FROM portfolio WHERE is_del = 0)
-                """)
-                result = session.execute(stmt)
-                count = result.rowcount
-                if count > 0:
-                    cleaned_count += count
-                    cleaning_details.append(f"清理孤立Portfolio-File映射: {count} 个")
-
-                # 4. 清理孤立的Portfolio-File映射（File不存在）
-                stmt = text("""
-                    DELETE FROM portfolio_file_mapping
-                    WHERE file_id NOT IN (SELECT uuid FROM file WHERE is_del = 0)
-                """)
-                result = session.execute(stmt)
-                count = result.rowcount
-                if count > 0:
-                    cleaned_count += count
-                    cleaning_details.append(f"清理孤立File映射: {count} 个")
-
-                # 5. 清理孤立的Engine-Handler映射（Engine不存在）
-                stmt = text("""
-                    DELETE FROM engine_handler_mapping
-                    WHERE engine_id NOT IN (SELECT uuid FROM engine WHERE is_del = 0)
-                """)
-                result = session.execute(stmt)
-                count = result.rowcount
-                if count > 0:
-                    cleaned_count += count
-                    cleaning_details.append(f"清理孤立Engine-Handler映射(Engine): {count} 个")
-
-                # 6. 清理孤立的Engine-Handler映射（Handler不存在）
-                stmt = text("""
-                    DELETE FROM engine_handler_mapping
-                    WHERE handler_id NOT IN (SELECT uuid FROM handler WHERE is_del = 0)
-                """)
-                result = session.execute(stmt)
-                count = result.rowcount
-                if count > 0:
-                    cleaned_count += count
-                    cleaning_details.append(f"清理孤立Engine-Handler映射(Handler): {count} 个")
-
+                for table, where_clause, desc in rules:
+                    # 先 COUNT（dry-run 与实际清理均需统计）
+                    count = session.execute(
+                        text(f"SELECT COUNT(*) FROM {table} WHERE {where_clause}")
+                    ).scalar() or 0
+                    if count > 0:
+                        cleaned_count += count
+                        cleaning_details.append(f"{desc}: {count} 个")
+                        if not dry_run:
+                            session.execute(
+                                text(f"DELETE FROM {table} WHERE {where_clause}")
+                            )
 
             if cleaned_count > 0:
-                GLOG.INFO(f"清理了 {cleaned_count} 个孤立映射关系")
+                action = "将清理" if dry_run else "清理了"
+                GLOG.INFO(f"{action} {cleaned_count} 个孤立映射关系")
                 for detail in cleaning_details:
                     GLOG.DEBUG(f"  - {detail}")
             else:
                 GLOG.DEBUG("未发现孤立的映射关系")
 
+            msg = ("预览完成" if dry_run else "清理完成") + f"，发现 {cleaned_count} 个孤立映射"
             return ServiceResult.success({
                 "cleaned_count": cleaned_count,
-                "cleaning_details": cleaning_details
-            }, f"清理完成，处理了 {cleaned_count} 个孤立映射")
+                "cleaning_details": cleaning_details,
+                "dry_run": dry_run,
+            }, msg)
 
         except Exception as e:
             return ServiceResult.error(f"清理孤立映射失败: {str(e)}")

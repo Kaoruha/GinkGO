@@ -315,6 +315,21 @@ def confirm_or_exit(message: str, *, yes_flag: bool = False) -> None:
         raise typer.Exit(0)
 
 
+def announce_dry_run(action: str, *, console: Optional[Console] = None) -> None:
+    """打印 dry-run 横幅（ADR-021 第 3 维，destructive 命令统一 UX）。
+
+    各 destructive 命令在 ``--dry-run`` 路径入口调用一次，统一三件事的对外口径：
+      1. 横幅明示"仅预览，不实际{action}"（与 ``ginkgo cleanup --dry-run`` 对齐）；
+      2. 提示已跳过确认（dry-run 不需要确认，也不应删除）；
+      3. 命令随后只 COUNT/枚举受影响范围，不触达删除/状态变更。
+
+    ``action`` 为动词短语，如"删除 portfolio"、"清理 Kafka 队列消息"。
+    """
+    (console or Console()).print(
+        f"[bold cyan]:eye: Dry-run 模式[/bold cyan]：仅预览，不实际{action}（已跳过确认）。"
+    )
+
+
 def make_progress(*, format: str, isatty: bool) -> Optional["Progress"]:
     """构造 rich Progress（ADR-021 第 8 维）。
 
@@ -449,3 +464,19 @@ def build_list_result(
     if order:
         result.set_metadata("order", order)
     return result
+
+
+def reject_in_production(action: str = "回测") -> None:
+    """ADR-028: 写数据的 CLI 命令在生产集群下拒跑（防误连生产写数据）。
+
+    须在命令体 ``try`` 块之外调用——``typer.Exit`` 继承 ``Exception``，会被裸
+    ``except Exception`` 吞成 exit_code=0（见 arch_typer_exit_swallowed_by_except_exception）。
+    """
+    from ginkgo.libs import GCONF
+    if GCONF.ENV == "PRODUCTION":
+        console.print(f"[red]:x: {action}在 PRODUCTION 集群下被拒绝（防误连生产写数据）。[/red]")
+        console.print(
+            "[dim]切研发集群：容器 `ginkgo config set env DEVELOPMENT`；"
+            "本地 CLI `export GINKGO_ENV=DEVELOPMENT`[/dim]"
+        )
+        raise typer.Exit(1)
