@@ -1,4 +1,4 @@
-# ADR-029: 全链路 trace_id 传播契约（contextvars + DTO 字段注入）
+# ADR-029: 全链路 trace_id 传播契约（contextvars + DTO 字段 + Kafka header）
 
 **Status:** Accepted
 **Date:** 2026-07-26
@@ -12,7 +12,7 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 
 1. **进程内 trace_id 的真相源是 `contextvars.ContextVar`**（`_trace_id_ctx`），不是 thread-local，也不是请求对象属性——FastAPI async 下 thread-local 在 task 切换时丢失。
 2. **`BaseEngine.start` 用 `task_id` 覆盖 trace_id**（`base_engine.py:132` `GLOG.set_trace_id(self._task_id)`）——engine 跑起来后日志里不再是请求的 trace_id，而是 task_id。这是有意设计，但跨 engine 接力时若调用方未先 `set_task_id` 保留上游 trace_id，会被静默覆盖（`arch_base_engine_start_generate_task_id_overwrites_trace_id`）。
-3. **跨进程 trace_id 走 DTO 的 pydantic 字段**（`PriceUpdateDTO.trace_id` / `ControlCommandDTO.trace_id`），而非 Kafka headers——显式契约可校验，但新消息类型漏带该字段就断链。
+3. **trace_id 既是 DTO 字段又是 Kafka header，两层正交不互斥**：`PriceUpdateDTO`/`ControlCommandDTO` 带 `trace_id` 字段是**数据模型层的全局设计**（数据对 trace_id 透明，DTO 流到哪 trace_id 到哪，与进程边界无关）；任务派发/部署等**非 DTO 消息流**过 Kafka 边界时，trace_id 走 **Kafka message header** 作传输载体。两者不是"跨进程机制二选一"，而是数据模型层与传输层各管各的——看背景会觉得"既在 DTO 又在 header 是冗余"，实则是两层分工。
 
 没有 ADR 锚定，后续 agent 极易把"contextvars 覆盖""engine 用 task_id 当 trace_id""DTO 带 trace_id 字段"当 bug 修掉。判定三条全中（难逆转 / 反直觉 / 真实取舍），立本 ADR。
 
@@ -41,14 +41,13 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 3. `with GLOG.with_trace_id(trace_id): await call_next(request)`——sync contextmanager 包 await，保证 contextvars 在同 task 贯穿该请求所有后续 await（service/crud 同 task 读到），请求结束 finally 自动 reset 不泄漏。
 4. `response.headers["X-Trace-Id"] = trace_id`——所有响应（正常 + 错误）回写，便于客户端关联。
 
-### 3. 跨进程契约：DTO 字段注入（#6786 / #6787）
+### 3. 跨进程传播：数据模型层（DTO 字段）与传输层（Kafka header）正交
 
-跨进程 trace_id 经 **DTO 的 pydantic 字段**传播，不走 Kafka headers：
+trace_id 跨进程传播由**两层正交设计**共同覆盖，不是"DTO 字段 vs headers"二选一：
 
-- **生产侧**：`PriceUpdateDTO` / `ControlCommandDTO` 各携带 `trace_id: Optional[str]` 字段。`livecore/data_manager.py:549` 等发布点从 `GLOG.get_trace_id()` 取当前 ctx 注入 DTO。
-- **消费侧**：`workers/execution_node/node.py:857` 从反序列化的 event_data 取 `trace_id`，`GLOG.set_trace_id(trace_id)` 恢复到当前 worker task 的 contextvar。
+**3a. 数据模型层（全局）：DTO 携带 `trace_id` 字段**——`PriceUpdateDTO`（`src/ginkgo/interfaces/dtos/price_update_dto.py:40`）、`ControlCommandDTO`（`src/ginkgo/interfaces/dtos/control_command_dto.py:53`）各带 `trace_id: Optional[str]`。这是**全局数据模型约定**：数据对 trace_id 透明，DTO 流到哪里 trace_id 跟到哪里，**与是否跨进程无关**。注入点 `src/ginkgo/livecore/data_manager.py:549` 从 `GLOG.get_trace_id()` 取 ctx 写字段；消费点 `src/ginkgo/workers/execution_node/node.py:857`（PriceUpdateDTO payload）与 `portfolio_processor.py:502`（ControlCommandDTO）读字段后 `GLOG.set_trace_id` 恢复。DTO 流过 Kafka 时 trace_id 随 payload 自然过界——全局字段的副作用，**非为跨进程单独选的机制**。
 
-覆盖 Backtest（Kafka 派发→worker 消费，#6786）与 Paper/Live worker（#6787）两条跨进程路径。
+**3b. 传输层（跨进程载体）：Kafka message header**——任务派发/部署等**消息体非 DTO 的流**过 Kafka 边界时，trace_id 经 header 传播。写入 `src/ginkgo/data/services/backtest_task_service.py:845`（#6786 回测任务派发）、`src/ginkgo/trading/services/deployment_service.py:319`（#6787 paper/live 部署）；读取 `src/ginkgo/workers/backtest_worker/node.py:225`（#6786）、`src/ginkgo/workers/paper_trading_worker.py:1166`（#6787，注释明示"复用 #6786 header 传播模式"）。
 
 ### 4. Engine 接力：`task_id` 作为 trace_id（有意覆盖）
 
@@ -63,7 +62,7 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 ## Rationale
 
 - **为何 contextvars 而非 thread-local**：FastAPI 全 async，一个请求的 handler → service → crud 跨多个 await，同 task 但可能切线程（anyio threadpool）。thread-local 在 `to_thread` 跨越时丢失；`contextvars` 由 asyncio task 自动传播，且 `with_trace_id` 的 token/reset 保证嵌套作用域不互相污染。备选 thread-local 的取舍：简单但 async 下静默断链，不可接受。
-- **为何跨进程走 DTO 字段而非 Kafka headers**：DTO 是 pydantic 契约，`trace_id` 字段在序列化/反序列化两端显式可见、可 schema 校验、可单测；Kafka headers 是隐式 dict，新增消费者易漏读。代价是新 DTO 类型须显式加该字段——但 Ginkgo 跨进程消息类型有限（PriceUpdate / ControlCommand 为主），成本可控，换来强契约。
+- **为何 DTO 字段与 Kafka header 是两层正交而非二选一**：DTO `trace_id` 字段属**数据模型层**——让数据本身携带追踪上下文，DTO 无论进程内传递还是跨 Kafka 序列化都自带 trace_id，是与进程边界无关的全局约定。Kafka header 属**传输层**——为任务派发/部署这类**消息体非 DTO** 的流提供过界载体。两层正交：DTO 流无需额外 header（payload 自带），非 DTO 流靠 header。若误把"DTO 字段 vs headers"当跨进程二选一的取舍，会要么给 DTO 流多此一举加 header、要么给非 DTO 流漏掉 trace_id。
 - **为何 engine 用 task_id 覆盖请求 trace_id**：engine 是秒~小时级长生命周期（一次回测、一轮实盘），期间消费成百上千条消息，每条带不同上游 trace_id。若 engine 内日志跟随每条消息的 trace_id 切换，同一 engine 的日志会被打散到无数 trace_id，无法按"这次回测"聚合。用 task_id 作稳定锚，engine 内全部日志可一次 `grep task_id` 取全。代价是 engine 入口处的请求 trace_id 被覆盖——由 Decision 4 的 `set_task_id` 先调约束兜底。
 - **为何 `request.state.trace_id` 兜底而非依赖 contextvar 贯穿 error_handler**（**#6797 已落地**）：`ServerErrorMiddleware` 与 `TraceIdMiddleware` 的 `with_trace_id` 作用域是**错开的**——error_handler 在 with 块退出后才触发，此时 contextvar 已 reset。若强求 contextvar 贯穿，得把 error_handler 也塞进 with 块，破坏中间件分层。`request.state` 随 scope 存活、跨中间件 unwind 不丢，是最低成本的 trace_id 取回载体。`error_handler._trace_id(request)` 以 `request.state.trace_id` 为优先级 1，配合 `global_error_handler` 内 `with_trace_id` 复位 contextvar，使错误信封 / 响应头 / 日志三者同 trace_id。
 
@@ -72,7 +71,7 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 - **所有日志层已同源读 `_trace_id_ctx`，禁止裸 `logging.getLogger`**：src 层经 `GLOG`（`ecs_processor` / `ginkgo_processor` 输出 `trace.id`），api 层经 `core.logging` 的 `TraceIdFilter`（#6797）。新增日志点 src 侧用 `GLOG`、api 侧 `from core.logging import logger`，均自动带 trace_id；裸 `logging.getLogger` 拿不到 trace_id，成为断点。
 - **api 层 `TraceIdFilter` 已落地（#6797）**：`api/core/logging.py` 的 `TraceIdFilter`（`logging.Filter` 子类）读 `GLOG.get_trace_id()` 注入 record，`setup_logging` 经 `logger.addFilter(TraceIdFilter())` 挂载，`RichHandler` 格式 `[trace_id=%(trace_id)s]`、`JsonFormatter` 含 `%(trace_id)s`。改 api 日志格式须保留 `%(trace_id)s` 占位，否则 filter 注入被吞。
 - **`error_handler` 已读请求 trace_id（#6797）**：`api/middleware/error_handler.py` 的 `_trace_id(request)` 三级优先级 `request.state.trace_id`（TraceIdMiddleware 注入，优先级 1）→ `GLOG.get_trace_id()`（contextvar）→ `uuid.uuid4().hex[:16]`（兜底）；`global_error_handler` 在 `with_trace_id(trace_id)` 块内复位 contextvar，错误日志 / `X-Trace-Id` 响应头 / body trace_id 三者同源。`request.state.trace_id` 随 scope 存活、跨中间件 unwind 不丢，是 error_handler 取回 trace_id 的主载体。
-- **新增跨进程 DTO 必须携带 `trace_id` 字段**，且生产侧注入、消费侧恢复，否则下游断链。新增 DTO review 项。
+- **新增 DTO 按全局约定携带 `trace_id` 字段**（数据模型层，与跨进程无关）：生产侧注入、消费侧 `GLOG.set_trace_id` 恢复，否则 DTO 流下游断链。新增**非 DTO 跨进程消息流**则走 Kafka header 作传输载体——按消息性质选对层，勿混淆。
 - **改 `BaseEngine.start` 启动顺序前必读 Decision 4**：`set_task_id` 须先于 `start` 调用以保留上游 trace_id；动 LIVE 链路 trace_id 尤甚。
 - **`clear_trace_id` 须用 token，禁止裸覆盖**：嵌套 `with_trace_id` 场景下裸 `set(None)` 会破坏外层作用域的 trace_id。
 - **trace_id 格式固定为 uuid4 hex 前 16 位**（`_new_trace_id`），与 error_handler 信封格式一致——改格式须同步两处 + 客户端解析。
@@ -81,5 +80,5 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 ## 判定标准自检
 
 - ① **难逆转**：trace_id 已贯穿 API→Kafka→worker→engine 全链路 + error_stats 端点，全系统可观测依赖此契约——高。
-- ② **反直觉**：① engine 用 task_id 覆盖 trace_id；② async 下用 contextvars 而非 thread-local；③ 跨进程走 DTO 字段而非 Kafka headers；④ 进程内 trace_id 单一真相源为 contextvars、api/src 双层经各自的 filter/processor 同源读它——满足。
-- ③ **真实权衡**：contextvars vs thread-local、DTO 字段 vs headers、engine task_id 覆盖 vs 保留请求 trace_id——每条都有备选且做了取舍——满足。
+- ② **反直觉**：① engine 用 task_id 覆盖 trace_id；② async 下用 contextvars 而非 thread-local；③ **trace_id 既在 DTO 字段又在 Kafka header，看似冗余实为数据模型层与传输层正交、各管各的流**；④ 进程内 trace_id 单一真相源为 contextvars、api/src 双层经各自的 filter/processor 同源读它——满足。
+- ③ **真实权衡**：contextvars vs thread-local、DTO 字段（数据模型层）与 Kafka header（传输层）的正交分工、engine task_id 覆盖 vs 保留请求 trace_id——每条都有备选且做了取舍——满足。
