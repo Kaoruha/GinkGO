@@ -57,7 +57,7 @@ trace_id 跨进程传播由**两层正交设计**共同覆盖，不是"DTO 字�
 
 ### 5. 错误观测端点（#6785）
 
-`log_service` 聚合 `MBacktestLog`（MySQL）提供 `error_stats` 端点，按 trace_id / task_id 关联错误热点。注意 `get_error_stats` **同名异义**：GLOG 进程内版本（零外部依赖）vs `log_service` 版本（查 MBacktestLog 库，CLI 已用）——本 ADR 指后者（`arch_get_error_stats_two_semantics`）。
+`GET /error-stats` 端点暴露 **GLOG 进程内错误热点统计**（`_error_patterns` 模式频次字典，`logger.py:519`），经 `SystemService.get_error_stats()`（`system_service.py:102` 透传 `GLOG.get_error_stats()`，分层 API→Service→GLOG）暴露，`_require_admin` 守卫；返回进程累计错误模式 top-N，某次错误的 trace_id/task_id 须回查（已带 trace_id 的）日志。注意 `get_error_stats` **同名异义**：GLOG 进程内版本（零外部依赖，**本端点所指**）vs `log_service` 版本（查 `MBacktestLog` 库、按 portfolio/时间窗口，**仅 CLI** `logging_cli.py:305` 调用，无 HTTP 端点）——本 ADR 指前者（`arch_get_error_stats_two_semantics`）。
 
 ## Rationale
 
@@ -75,7 +75,7 @@ trace_id 跨进程传播由**两层正交设计**共同覆盖，不是"DTO 字�
 - **改 `BaseEngine.start` 启动顺序前必读 Decision 4**：`set_task_id` 须先于 `start` 调用以保留上游 trace_id；动 LIVE 链路 trace_id 尤甚。
 - **`clear_trace_id` 须用 token，禁止裸覆盖**：嵌套 `with_trace_id` 场景下裸 `set(None)` 会破坏外层作用域的 trace_id。
 - **trace_id 格式固定为 uuid4 hex 前 16 位**（`_new_trace_id`），与 error_handler 信封格式一致——改格式须同步两处 + 客户端解析。
-- **`get_error_stats` 双语义不改名**（`arch_get_error_stats_two_semantics`）：error_stats 端点指 `log_service` 查库版本；GLOG 进程内版本服务其他场景。两者并存。
+- **`get_error_stats` 双语义不改名**（`arch_get_error_stats_two_semantics`）：`/error-stats` 端点指 **GLOG 进程内版本**（`system_service.py:102` 透传 `GLOG.get_error_stats()`）；`log_service` 查 `MBacktestLog` 库版本**仅 CLI** `logging_cli.py:305` 用、无 HTTP 端点。两者并存，判端点数据源前必 grep 区分进程内（GLOG/内存）vs 持久层（service/查库）。
 
 ## 判定标准自检
 
