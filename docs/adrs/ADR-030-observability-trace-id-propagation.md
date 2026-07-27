@@ -11,7 +11,7 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 可观测层接入 tracer bullet（#6784-#6787，4 片）把 trace_id 接到了全链路，但契约散落在多个文件、且存在两个不看背景会觉得是 bug 的反直觉点：
 
 1. **进程内 trace_id 的真相源是 `contextvars.ContextVar`**（`_trace_id_ctx`），不是 thread-local，也不是请求对象属性——FastAPI async 下 thread-local 在 task 切换时丢失。
-2. **`BaseEngine.start` 用 `task_id` 覆盖 trace_id**（`base_engine.py:132` `GLOG.set_trace_id(self._task_id)`）——engine 跑起来后日志里不再是请求的 trace_id，而是 task_id。这是有意设计，但跨 engine 接力时若调用方未先 `set_task_id` 保留上游 trace_id，会被静默覆盖（`arch_base_engine_start_generate_task_id_overwrites_trace_id`）。
+2. **`BaseEngine.start` 用 `task_id` 覆盖 trace_id**（`src/ginkgo/trading/engines/base_engine.py:132` `GLOG.set_trace_id(self._task_id)`）——engine 跑起来后日志里不再是请求的 trace_id，而是 task_id。这是有意设计，但跨 engine 接力时若调用方未先 `set_task_id` 保留上游 trace_id，会被静默覆盖（`arch_base_engine_start_generate_task_id_overwrites_trace_id`）。
 3. **trace_id 既是 DTO 字段又是 Kafka header，两层正交不互斥**：`PriceUpdateDTO`/`ControlCommandDTO` 带 `trace_id` 字段是**数据模型层的全局设计**（数据对 trace_id 透明，DTO 流到哪 trace_id 到哪，与进程边界无关）；任务派发/部署等**非 DTO 消息流**过 Kafka 边界时，trace_id 走 **Kafka message header** 作传输载体。两者不是"跨进程机制二选一"，而是数据模型层与传输层各管各的——看背景会觉得"既在 DTO 又在 header 是冗余"，实则是两层分工。
 
 没有 ADR 锚定，后续 agent 极易把"contextvars 覆盖""engine 用 task_id 当 trace_id""DTO 带 trace_id 字段"当 bug 修掉。判定三条全中（难逆转 / 反直觉 / 真实取舍），立本 ADR。
@@ -45,13 +45,13 @@ Ginkgo 的可观测层此前只有"错误响应信封带 trace_id"这一个孤�
 
 trace_id 跨进程传播由**两层正交设计**共同覆盖，不是"DTO 字段 vs headers"二选一：
 
-**3a. 数据模型层（全局）：DTO 携带 `trace_id` 字段**——`PriceUpdateDTO`（`src/ginkgo/interfaces/dtos/price_update_dto.py:40`）、`ControlCommandDTO`（`src/ginkgo/interfaces/dtos/control_command_dto.py:53`）各带 `trace_id: Optional[str]`。这是**全局数据模型约定**：数据对 trace_id 透明，DTO 流到哪里 trace_id 跟到哪里，**与是否跨进程无关**。注入点 `src/ginkgo/livecore/data_manager.py:560` 从 `GLOG.get_trace_id()` 取 ctx 写字段（DTO 字段写入同函数 :574）；消费点 `src/ginkgo/workers/execution_node/node.py:867`（PriceUpdateDTO payload）与 `src/ginkgo/workers/execution_node/portfolio_processor.py:502`（ControlCommandDTO）读字段后 `GLOG.set_trace_id` 恢复。DTO 流过 Kafka 时 trace_id 随 payload 自然过界——全局字段的副作用，**非为跨进程单独选的机制**。
+**3a. 数据模型层（全局）：DTO 携带 `trace_id` 字段**——`PriceUpdateDTO`（`src/ginkgo/interfaces/dtos/price_update_dto.py:40`）、`ControlCommandDTO`（`src/ginkgo/interfaces/dtos/control_command_dto.py:53`）各带 `trace_id: Optional[str]`。这是**全局数据模型约定**：数据对 trace_id 透明，DTO 流到哪里 trace_id 跟到哪里，**与是否跨进程无关**。注入点 `src/ginkgo/livecore/data_manager.py:550` 从 `GLOG.get_trace_id()` 取 ctx 写字段（DTO 字段写入同函数 :564）；消费点 `src/ginkgo/workers/execution_node/node.py:860`（PriceUpdateDTO payload）与 `src/ginkgo/workers/execution_node/portfolio_processor.py:502`（ControlCommandDTO）读字段后 `GLOG.set_trace_id` 恢复。DTO 流过 Kafka 时 trace_id 随 payload 自然过界——全局字段的副作用，**非为跨进程单独选的机制**。
 
 **3b. 传输层（跨进程载体）：Kafka message header**——任务派发/部署等**消息体非 DTO 的流**过 Kafka 边界时，trace_id 经 header 传播。写入 `src/ginkgo/data/services/backtest_task_service.py:845`（#6786 回测任务派发）、`src/ginkgo/trading/services/deployment_service.py:319`（#6787 paper/live 部署）；读取 `src/ginkgo/workers/backtest_worker/node.py:225`（#6786）、`src/ginkgo/workers/paper_trading_worker.py:1166`（#6787，注释明示"复用 #6786 header 传播模式"）。
 
 ### 4. Engine 接力：`task_id` 作为 trace_id（有意覆盖）
 
-`BaseEngine.start`（`base_engine.py:132`）执行 `self._trace_id_token = GLOG.set_trace_id(self._task_id)`，`stop` 时 `clear_trace_id` 回收。**engine 生命周期内，trace_id == task_id**，让一次回测/实盘的全部引擎日志按 task_id 聚合——这是比"请求 trace_id"更稳定的聚合维度（engine 跨多个请求/消息）。
+`BaseEngine.start`（`src/ginkgo/trading/engines/base_engine.py:132`）执行 `self._trace_id_token = GLOG.set_trace_id(self._task_id)`，`stop` 时 `clear_trace_id` 回收。**engine 生命周期内，trace_id == task_id**，让一次回测/实盘的全部引擎日志按 task_id 聚合——这是比"请求 trace_id"更稳定的聚合维度（engine 跨多个请求/消息）。
 
 **隐式依赖（接力坑）**：跨 engine 接力时，上游须在调 `start` **之前**先 `set_task_id` 把上游 trace_id 传给下游 engine，否则 `start` 用下游自己的 task_id 覆盖，断链。动 engine 启动顺序 / LIVE 链路 trace_id 前，必读此约束（`arch_base_engine_start_generate_task_id_overwrites_trace_id`）。
 
