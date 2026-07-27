@@ -258,10 +258,10 @@ class TestStockInfoBusinessMethods:
         model.currency = CURRENCY_TYPES.CNY.value
         model.source = SOURCE_TYPES.TUSHARE.value
 
-        # Mock StockInfoMapper.from_model 返回（CRUD 改调 Mapper）
+        # Mock StockInfoMapper.model_to_entity 返回（CRUD 改调 Mapper）
         from ginkgo.data.mappers import StockInfoMapper
         mock_stock_info = MagicMock(spec=StockInfo)
-        with patch.object(StockInfoMapper, 'from_model', return_value=mock_stock_info):
+        with patch.object(StockInfoMapper, 'model_to_entity', return_value=mock_stock_info):
             result = crud_instance._convert_models_to_business_objects([model])
 
         assert len(result) == 1

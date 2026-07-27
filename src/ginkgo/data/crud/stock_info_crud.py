@@ -257,7 +257,7 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
         business_objects = []
         for model in models:
             # Convert to business object (此时枚举字段已经是正确的枚举对象)
-            stock_info = StockInfoMapper.from_model(model)
+            stock_info = StockInfoMapper.model_to_entity(model)
             business_objects.append(stock_info)
 
         return business_objects

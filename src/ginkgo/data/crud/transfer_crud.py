@@ -151,7 +151,7 @@ class TransferCRUD(BaseCRUD[MTransfer]):
         business_objects = []
         for model in models:
             # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            transfer = TransferMapper.from_model(model)
+            transfer = TransferMapper.model_to_entity(model)
             business_objects.append(transfer)
 
         return business_objects

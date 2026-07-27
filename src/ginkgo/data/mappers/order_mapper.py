@@ -41,7 +41,7 @@ class OrderMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: Order) -> MOrder:
+    def entity_to_model(entity: Order) -> MOrder:
         """Entity → ORM。直构 MOrder（update() 是 singledispatch，全 kwargs 调用会失败）。"""
         return MOrder(
             portfolio_id=entity.portfolio_id,
@@ -65,7 +65,7 @@ class OrderMapper:
         )
 
     @staticmethod
-    def from_model(model: MOrder) -> Order:
+    def model_to_entity(model: MOrder) -> Order:
         """ORM → Entity。修正：uuid=model.uuid（旧版 order_id= 被丢弃）。"""
         if not isinstance(model, MOrder):
             raise TypeError(f"Expected MOrder, got {type(model).__name__}")
@@ -90,14 +90,14 @@ class OrderMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[Order]:
-        return [OrderMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[Order]:
+        return [OrderMapper.model_to_entity(m) for m in models]
 
     # ------------------------------------------------------------------
     # ORM → DataFrame（DF 下沉试点，ADR-025；enum 映射经 __table__ 反射，ADR-031）
     # ------------------------------------------------------------------
     @staticmethod
-    def to_dataframe(models) -> pd.DataFrame:
+    def models_to_dataframe(models) -> pd.DataFrame:
         """ORM 列表 → DataFrame。enum 字段 int→enum 实例（经 ``__table__`` 反射）。
 
         无副作用纯转换（不改 model）；输出与 CRUD ``_convert_models_to_dataframe``
@@ -135,7 +135,7 @@ class OrderMapper:
     # 避免浮点精度丢失）。
     # ------------------------------------------------------------------
     @staticmethod
-    def to_dto(entity: Order) -> OrderSubmissionDTO:
+    def entity_to_dto(entity: Order) -> OrderSubmissionDTO:
         """Entity → OrderSubmissionDTO。"""
         return OrderSubmissionDTO(
             order_id=entity.uuid,
@@ -148,7 +148,7 @@ class OrderMapper:
         )
 
     @staticmethod
-    def from_dto(dto) -> Order:
+    def dto_to_entity(dto) -> Order:
         """OrderSubmissionDTO → Entity。direction name→enum；price/volume 还原。"""
         if not isinstance(dto, OrderSubmissionDTO):
             raise TypeError(f"Expected OrderSubmissionDTO, got {type(dto).__name__}")

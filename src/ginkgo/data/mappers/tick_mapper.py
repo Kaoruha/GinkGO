@@ -29,7 +29,7 @@ class TickMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: Tick, model_class=MTick) -> MTick:
+    def entity_to_model(entity: Tick, model_class=MTick) -> MTick:
         """Entity → ORM。model_class 形参保留（VO 动态表选择）。
 
         忠实原码（tick.py:131-149）：model = model_class() + model.update(
@@ -48,7 +48,7 @@ class TickMapper:
         return model
 
     @staticmethod
-    def from_model(model: MTick) -> Tick:
+    def model_to_entity(model: MTick) -> Tick:
         """ORM → Entity。direction/source 用 from_int 转回 enum（忠实原码 tick.py:173-176）。
 
         isinstance 守卫保留（动态子类仍是 MTick 子类，守卫成立）。
@@ -70,5 +70,5 @@ class TickMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[Tick]:
-        return [TickMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[Tick]:
+        return [TickMapper.model_to_entity(m) for m in models]

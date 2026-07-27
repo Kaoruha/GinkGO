@@ -176,7 +176,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
         business_objects = []
         for model in models:
             # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            position = PositionMapper.from_model(model)
+            position = PositionMapper.model_to_entity(model)
             business_objects.append(position)
 
         return business_objects

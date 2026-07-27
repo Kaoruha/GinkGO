@@ -28,12 +28,12 @@ def _make_capital(**overrides) -> CapitalAdjustment:
 class TestCapitalAdjustmentMapperRoundtrip:
     def test_to_model_returns_mcapitaladjustment(self):
         entity = _make_capital()
-        model = CapitalAdjustmentMapper.to_model(entity, MCapitalAdjustment)
+        model = CapitalAdjustmentMapper.entity_to_model(entity, MCapitalAdjustment)
         assert isinstance(model, MCapitalAdjustment)
 
     def test_to_model_preserves_portfolio_amount_uuid(self):
         entity = _make_capital()
-        model = CapitalAdjustmentMapper.to_model(entity, MCapitalAdjustment)
+        model = CapitalAdjustmentMapper.entity_to_model(entity, MCapitalAdjustment)
         assert model.portfolio_id == "port-1"
         assert model.amount == Decimal("10000.5")
         assert model.uuid == entity.uuid
@@ -56,30 +56,30 @@ class TestCapitalAdjustmentMapperRoundtrip:
             reason="withdrawal",
             timestamp="2024-06-01 09:30:00",
         )
-        model = CapitalAdjustmentMapper.to_model(entity, MCapitalAdjustment)
+        model = CapitalAdjustmentMapper.entity_to_model(entity, MCapitalAdjustment)
 
         # model.source 是 int（MCapitalAdjustment Mapped[int] + validate_input 转 .value）
         assert isinstance(model.source, int)
         # from_model 对 int source 必 TypeError（原码 bug，忠实记录）
         with pytest.raises(TypeError, match="source must be SOURCE_TYPES"):
-            CapitalAdjustmentMapper.from_model(model)
+            CapitalAdjustmentMapper.model_to_entity(model)
 
 
 class TestCapitalAdjustmentMapperTypeError:
     def test_from_model_rejects_non_mcapitaladjustment(self):
         with pytest.raises(TypeError) as exc:
-            CapitalAdjustmentMapper.from_model(None)
+            CapitalAdjustmentMapper.model_to_entity(None)
         assert "MCapitalAdjustment" in str(exc.value)
 
 
 class TestCapitalAdjustmentMapperFromModels:
     def test_from_models_empty_list(self):
         """from_models 空列表返回空（from_model 对 int source 必崩，见 roundtrip 注）。"""
-        assert CapitalAdjustmentMapper.from_models([]) == []
+        assert CapitalAdjustmentMapper.models_to_entities([]) == []
 
     def test_from_models_propagates_source_typeerror(self):
         """from_models 对含 int source 的 model 必崩（原码 bug 透传，忠实记录）。"""
         entity = _make_capital()
-        model = CapitalAdjustmentMapper.to_model(entity, MCapitalAdjustment)
+        model = CapitalAdjustmentMapper.entity_to_model(entity, MCapitalAdjustment)
         with pytest.raises(TypeError, match="source must be SOURCE_TYPES"):
-            CapitalAdjustmentMapper.from_models([model])
+            CapitalAdjustmentMapper.models_to_entities([model])

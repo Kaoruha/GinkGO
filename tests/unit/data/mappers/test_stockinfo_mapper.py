@@ -28,12 +28,12 @@ def _make_stockinfo(**overrides) -> StockInfo:
 class TestStockInfoMapperRoundtrip:
     def test_to_model_returns_mstockinfo(self):
         entity = _make_stockinfo()
-        model = StockInfoMapper.to_model(entity, MStockInfo)
+        model = StockInfoMapper.entity_to_model(entity, MStockInfo)
         assert isinstance(model, MStockInfo)
 
     def test_to_model_preserves_code_currency_uuid(self):
         entity = _make_stockinfo()
-        model = StockInfoMapper.to_model(entity, MStockInfo)
+        model = StockInfoMapper.entity_to_model(entity, MStockInfo)
         assert model.code == "SH600000"
         assert model.code_name == "浦发银行"
         assert model.industry == "银行"
@@ -47,7 +47,7 @@ class TestStockInfoMapperRoundtrip:
         非 CHINA entity → model.market 仍 CHINA.value。
         """
         entity = _make_stockinfo(market=MARKET_TYPES.NASDAQ)
-        model = StockInfoMapper.to_model(entity, MStockInfo)
+        model = StockInfoMapper.entity_to_model(entity, MStockInfo)
         # market 未传，走默认
         assert model.market == MARKET_TYPES.CHINA.value
 
@@ -58,8 +58,8 @@ class TestStockInfoMapperRoundtrip:
         from_model market/currency int→enum 转换正确。
         """
         entity = _make_stockinfo(market=MARKET_TYPES.CHINA)
-        model = StockInfoMapper.to_model(entity, MStockInfo)
-        restored = StockInfoMapper.from_model(model)
+        model = StockInfoMapper.entity_to_model(entity, MStockInfo)
+        restored = StockInfoMapper.model_to_entity(model)
 
         assert restored.code == "SH600000"
         assert restored.code_name == "浦发银行"
@@ -73,7 +73,7 @@ class TestStockInfoMapperRoundtrip:
         model = MStockInfo()
         model.market = MARKET_TYPES.NASDAQ.value
         model.currency = CURRENCY_TYPES.USD.value
-        restored = StockInfoMapper.from_model(model)
+        restored = StockInfoMapper.model_to_entity(model)
         assert restored.market == MARKET_TYPES.NASDAQ
         assert restored.currency == CURRENCY_TYPES.USD
 
@@ -81,14 +81,14 @@ class TestStockInfoMapperRoundtrip:
 class TestStockInfoMapperTypeError:
     def test_from_model_rejects_non_mstockinfo(self):
         with pytest.raises(TypeError) as exc:
-            StockInfoMapper.from_model("nope")
+            StockInfoMapper.model_to_entity("nope")
         assert "MStockInfo" in str(exc.value)
 
 
 class TestStockInfoMapperFromModels:
     def test_from_models_maps_list(self):
         entity = _make_stockinfo()
-        model = StockInfoMapper.to_model(entity, MStockInfo)
-        results = StockInfoMapper.from_models([model, model])
+        model = StockInfoMapper.entity_to_model(entity, MStockInfo)
+        results = StockInfoMapper.models_to_entities([model, model])
         assert len(results) == 2
         assert all(isinstance(r, StockInfo) for r in results)

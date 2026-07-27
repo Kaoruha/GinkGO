@@ -25,7 +25,7 @@ class TradeDayMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: TradeDay, model_class=MTradeDay) -> MTradeDay:
+    def entity_to_model(entity: TradeDay, model_class=MTradeDay) -> MTradeDay:
         """Entity → ORM。model_class 形参保留（VO 动态表选择）。
 
         忠实原码：model_class(...) 直接构造，market enum 经 MTradeDay.__init__
@@ -39,7 +39,7 @@ class TradeDayMapper:
         )
 
     @staticmethod
-    def from_model(model: MTradeDay) -> TradeDay:
+    def model_to_entity(model: MTradeDay) -> TradeDay:
         """ORM → Entity。market int→enum + 还原 uuid（原码即如此，无丢失）。
 
         忠实原码：market 三态处理——int 转 enum、已是 enum 直接用、其它兜底
@@ -65,5 +65,5 @@ class TradeDayMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[TradeDay]:
-        return [TradeDayMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[TradeDay]:
+        return [TradeDayMapper.model_to_entity(m) for m in models]

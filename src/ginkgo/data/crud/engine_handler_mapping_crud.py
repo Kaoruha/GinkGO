@@ -96,7 +96,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         business_objects = []
         for model in models:
             # 转换为通用Mapping业务对象
-            mapping = MappingMapper.from_model(model, mapping_type="EngineHandlerMapping")
+            mapping = MappingMapper.model_to_entity(model, mapping_type="EngineHandlerMapping")
             business_objects.append(mapping)
         return business_objects
 

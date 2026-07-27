@@ -101,7 +101,7 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping], ModelConvers
         business_objects = []
         for model in models:
             # 转换为通用Mapping业务对象
-            mapping = MappingMapper.from_model(model, mapping_type="EnginePortfolioMapping")
+            mapping = MappingMapper.model_to_entity(model, mapping_type="EnginePortfolioMapping")
             business_objects.append(mapping)
         return business_objects
 

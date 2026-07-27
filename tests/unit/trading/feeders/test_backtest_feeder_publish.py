@@ -66,7 +66,7 @@ class TestBacktestFeederEmitsViaPublishPriceUpdate:
         feeder.bar_service = mock_bs
 
         with patch.object(
-            mappers_mod.BarMapper, "from_models", return_value=[bar_x]
+            mappers_mod.BarMapper, "models_to_entities", return_value=[bar_x]
         ):
             feeder.advance_time(datetime(2023, 6, 1, 9, 30, 0))
 

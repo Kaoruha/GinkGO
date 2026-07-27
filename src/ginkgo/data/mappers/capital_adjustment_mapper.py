@@ -33,7 +33,7 @@ class CapitalAdjustmentMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: CapitalAdjustment, model_class=MCapitalAdjustment) -> MCapitalAdjustment:
+    def entity_to_model(entity: CapitalAdjustment, model_class=MCapitalAdjustment) -> MCapitalAdjustment:
         """Entity → ORM。model_class 形参保留（VO 动态表选择）。
 
         忠实原码：model_class(...) 直接构造，source enum 经
@@ -49,7 +49,7 @@ class CapitalAdjustmentMapper:
         )
 
     @staticmethod
-    def from_model(model: MCapitalAdjustment) -> CapitalAdjustment:
+    def model_to_entity(model: MCapitalAdjustment) -> CapitalAdjustment:
         """ORM → Entity。还原 uuid（原码即如此，无丢失）。
 
         忠实原码：source 经 getattr 兜底 SOURCE_TYPES.SIM（enum），传入
@@ -69,5 +69,5 @@ class CapitalAdjustmentMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[CapitalAdjustment]:
-        return [CapitalAdjustmentMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[CapitalAdjustment]:
+        return [CapitalAdjustmentMapper.model_to_entity(m) for m in models]

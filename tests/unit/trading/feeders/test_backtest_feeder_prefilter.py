@@ -61,7 +61,7 @@ class TestBacktestFeederPrefilter:
         feeder.set_event_publisher(captured.append)
 
         bar_a = _make_bar("A.SZ")
-        with patch.object(mappers_mod.BarMapper, "from_models", return_value=[bar_a]):
+        with patch.object(mappers_mod.BarMapper, "models_to_entities", return_value=[bar_a]):
             feeder.advance_time(datetime(2023, 6, 1, 9, 30))
 
         # 只为 A 发事件，NODATA 被预过滤剔除不发事件
@@ -119,7 +119,7 @@ class TestBacktestFeederPrefilter:
         feeder.set_event_publisher(captured.append)
 
         with patch.object(
-            mappers_mod.BarMapper, "from_models", return_value=[bar_a, bar_b]
+            mappers_mod.BarMapper, "models_to_entities", return_value=[bar_a, bar_b]
         ):
             feeder.advance_time(datetime(2023, 6, 1, 9, 30))
 

@@ -29,7 +29,7 @@ class SignalMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: Signal) -> MSignal:
+    def entity_to_model(entity: Signal) -> MSignal:
         """Entity → ORM。3 位置参数 + model.uuid 赋值（原码行为保留）。"""
         model = MSignal()
         model.update(
@@ -50,7 +50,7 @@ class SignalMapper:
         return model
 
     @staticmethod
-    def from_model(model: MSignal) -> Signal:
+    def model_to_entity(model: MSignal) -> Signal:
         """ORM → Entity。direction/source int→enum。
 
         忠实搬运：原码未传 uuid（与 Order 丢失 bug 同形，此处不加修正，
@@ -75,14 +75,14 @@ class SignalMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[Signal]:
-        return [SignalMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[Signal]:
+        return [SignalMapper.model_to_entity(m) for m in models]
 
     # ------------------------------------------------------------------
     # ORM → DataFrame（DF 下沉试点，ADR-025；enum 映射经 __table__ 反射，ADR-031）
     # ------------------------------------------------------------------
     @staticmethod
-    def to_dataframe(models) -> pd.DataFrame:
+    def models_to_dataframe(models) -> pd.DataFrame:
         """ORM 列表 → DataFrame。enum 字段 int→enum 实例（经 ``__table__`` 反射）。
 
         无副作用纯转换（不改 model）；输出与 CRUD ``_convert_models_to_dataframe``

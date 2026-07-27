@@ -32,12 +32,12 @@ def _make_signal(**overrides) -> Signal:
 class TestSignalMapperRoundtrip:
     def test_to_model_returns_msignal(self):
         entity = _make_signal()
-        model = SignalMapper.to_model(entity)
+        model = SignalMapper.entity_to_model(entity)
         assert isinstance(model, MSignal)
 
     def test_to_model_preserves_core_fields(self):
         entity = _make_signal()
-        model = SignalMapper.to_model(entity)
+        model = SignalMapper.entity_to_model(entity)
         assert model.code == "SH600000"
         assert model.direction == DIRECTION_TYPES.LONG.value
         assert model.volume == 1000
@@ -48,20 +48,20 @@ class TestSignalMapperRoundtrip:
     def test_to_model_preserves_uuid(self):
         """原码 to_model 给 ORM 赋 entity.uuid（保留此行为）。"""
         entity = _make_signal()
-        model = SignalMapper.to_model(entity)
+        model = SignalMapper.entity_to_model(entity)
         assert model.uuid == entity.uuid
 
     def test_roundtrip_code_direction(self):
         entity = _make_signal(code="SZ000001", direction=DIRECTION_TYPES.SHORT)
-        model = SignalMapper.to_model(entity)
-        back = SignalMapper.from_model(model)
+        model = SignalMapper.entity_to_model(entity)
+        back = SignalMapper.model_to_entity(model)
         assert back.code == "SZ000001"
         assert back.direction == DIRECTION_TYPES.SHORT
 
     def test_roundtrip_optional_fields(self):
         entity = _make_signal(volume=2000, weight=0.9, strength=0.3, confidence=0.6)
-        model = SignalMapper.to_model(entity)
-        back = SignalMapper.from_model(model)
+        model = SignalMapper.entity_to_model(entity)
+        back = SignalMapper.model_to_entity(model)
         assert back.volume == 2000
         assert back.weight == 0.9
         assert back.strength == 0.3
@@ -69,8 +69,8 @@ class TestSignalMapperRoundtrip:
 
     def test_roundtrip_reason_source(self):
         entity = _make_signal(reason="momentum breakout", source=SOURCE_TYPES.SIM)
-        model = SignalMapper.to_model(entity)
-        back = SignalMapper.from_model(model)
+        model = SignalMapper.entity_to_model(entity)
+        back = SignalMapper.model_to_entity(model)
         assert back.reason == "momentum breakout"
         assert back.source == SOURCE_TYPES.SIM
 
@@ -78,13 +78,13 @@ class TestSignalMapperRoundtrip:
 class TestSignalMapperFromModelGuard:
     def test_from_model_rejects_non_msignal(self):
         with pytest.raises(TypeError):
-            SignalMapper.from_model(object())
+            SignalMapper.model_to_entity(object())
 
 
 class TestSignalMapperFromModels:
     def test_from_models_maps_all(self):
         entities = [_make_signal(code="A"), _make_signal(code="B")]
-        models = [SignalMapper.to_model(e) for e in entities]
-        back = SignalMapper.from_models(models)
+        models = [SignalMapper.entity_to_model(e) for e in entities]
+        back = SignalMapper.models_to_entities(models)
         assert len(back) == 2
         assert {b.code for b in back} == {"A", "B"}

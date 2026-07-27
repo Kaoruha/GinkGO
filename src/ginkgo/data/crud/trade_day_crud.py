@@ -82,7 +82,7 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
         Returns:
             List of TradeDay business objects
         """
-        return [TradeDayMapper.from_model(model) for model in models]
+        return [TradeDayMapper.model_to_entity(model) for model in models]
 
     def _create_from_params(self, **kwargs) -> MTradeDay:
         """

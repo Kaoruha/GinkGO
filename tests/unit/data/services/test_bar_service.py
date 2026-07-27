@@ -153,7 +153,7 @@ class TestBarServiceGetBars:
                 assert field in df.columns, f"缺少必要字段: {field}"
 
             # 步骤7: 验证to_entities()方法
-            entities = BarMapper.from_models(model_list)
+            entities = BarMapper.models_to_entities(model_list)
             assert isinstance(entities, list), "to_entities()应该返回list类型"
             assert len(entities) > 0, "entities列表不应为空"
 

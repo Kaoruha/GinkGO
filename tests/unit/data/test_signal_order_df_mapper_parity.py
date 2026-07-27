@@ -125,33 +125,33 @@ class TestSignalOrderDfMapperParity:
         """
         base = _make_signals()
         crud_df = _SignalConv()._convert_models_to_dataframe(copy.deepcopy(base))
-        mapper_df = SignalMapper.to_dataframe(copy.deepcopy(base))
+        mapper_df = SignalMapper.models_to_dataframe(copy.deepcopy(base))
         assert_frame_equal(mapper_df, crud_df, check_like=True)
 
     def test_order_df_mapper_equals_crud(self):
         """order：mapper DF == CRUD DF（同源 deepcopy，理由同 signal）。"""
         base = _make_orders()
         crud_df = _OrderConv()._convert_models_to_dataframe(copy.deepcopy(base))
-        mapper_df = OrderMapper.to_dataframe(copy.deepcopy(base))
+        mapper_df = OrderMapper.models_to_dataframe(copy.deepcopy(base))
         assert_frame_equal(mapper_df, crud_df, check_like=True)
 
     def test_signal_df_enum_columns_are_enum_instances(self):
         """signal DF 的 enum 列经 mapper 还原为 enum 实例（非裸 int）。"""
-        df = SignalMapper.to_dataframe(_make_signals())
+        df = SignalMapper.models_to_dataframe(_make_signals())
         assert all(isinstance(v, DIRECTION_TYPES) for v in df["direction"])
         assert all(isinstance(v, SOURCE_TYPES) for v in df["source"])
 
     def test_order_df_enum_columns_are_enum_instances(self):
         """order DF 的 enum 列经 mapper 还原为 enum 实例。"""
-        df = OrderMapper.to_dataframe(_make_orders())
+        df = OrderMapper.models_to_dataframe(_make_orders())
         assert all(isinstance(v, DIRECTION_TYPES) for v in df["direction"])
         assert all(isinstance(v, ORDER_TYPES) for v in df["order_type"])
         assert all(isinstance(v, ORDERSTATUS_TYPES) for v in df["status"])
 
     def test_empty_models_returns_empty_df(self):
         """空列表两路都返空 DataFrame（边界一致）。"""
-        assert SignalMapper.to_dataframe([]).empty
-        assert OrderMapper.to_dataframe([]).empty
+        assert SignalMapper.models_to_dataframe([]).empty
+        assert OrderMapper.models_to_dataframe([]).empty
         assert _SignalConv()._convert_models_to_dataframe([]).empty
 
     def test_mapper_no_side_effect_on_model(self):
@@ -160,11 +160,11 @@ class TestSignalOrderDfMapperParity:
         对照 CRUD 版的副作用——这是 mapper 优于 CRUD 的点（无突变）。
         """
         signals = _make_signals()
-        SignalMapper.to_dataframe(signals)
+        SignalMapper.models_to_dataframe(signals)
         assert isinstance(signals[0].direction, int)
         assert not isinstance(signals[0].direction, DIRECTION_TYPES)
 
         orders = _make_orders()
-        OrderMapper.to_dataframe(orders)
+        OrderMapper.models_to_dataframe(orders)
         assert isinstance(orders[0].status, int)
         assert not isinstance(orders[0].status, ORDERSTATUS_TYPES)

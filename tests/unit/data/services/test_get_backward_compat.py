@@ -53,7 +53,7 @@ class TestGetBackwardCompat:
         """get() data 是 list 且元素是 StockInfo（不是 ModelList/DataFrame）。"""
         entities = _make_entities(3)
         service._crud_repo.find.return_value = MagicMock()  # truthy 触发 from_models
-        with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.from_models",
+        with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.models_to_entities",
                    return_value=entities):
             result = service.get()
 
@@ -74,7 +74,7 @@ class TestGetBackwardCompat:
         """
         entities = _make_entities(3)
         service._crud_repo.find.return_value = MagicMock()
-        with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.from_models",
+        with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.models_to_entities",
                    return_value=entities):
             result = service.get()
 
@@ -113,7 +113,7 @@ class TestGetBackwardCompat:
         crud_stub = MagicMock()
         ml = ModelList([], crud_stub)
         service._crud_repo.find.return_value = ml
-        with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.from_models",
+        with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.models_to_entities",
                    return_value=_make_entities(1)):
             result = service.get()
 
