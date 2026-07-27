@@ -1113,12 +1113,16 @@ class RedisService(BaseService):
             from ginkgo.data.redis_schema import RedisKeyBuilder
 
             full_cache_key = RedisKeyBuilder.func_cache(func_name, cache_key)
-            cache_json = self._crud_repo.get(full_cache_key)
-            
-            if cache_json:
-                cache_data = json.loads(cache_json)
+            # crud.get 已 CacheMapper.decode 还原成 dict；勿再 json.loads —
+            # dict 入 json.loads 抛 TypeError 被外层 except 吞成 return None，
+            # 致命中路径静默永 miss（修复前 get_function_cache 恒返 None）。
+            # set 侧 json.dumps(default=str) 经 crud.set 原样存（str 非dict/list
+            # 不二次 encode），round-trip 对称。
+            cache_data = self._crud_repo.get(full_cache_key)
+
+            if cache_data:
                 return cache_data.get("result")
-            
+
             return None
         except Exception as e:
             self._logger.ERROR(f"Failed to get function cache: {e}")
@@ -1193,9 +1197,8 @@ class RedisService(BaseService):
             
             for cache_key in cache_keys:
                 try:
-                    cache_json = self._crud_repo.get(cache_key)
-                    if cache_json:
-                        cache_data = json.loads(cache_json)
+                    cache_data = self._crud_repo.get(cache_key)
+                    if cache_data:
                         func_name_from_cache = cache_data.get("func_name", "unknown")
                         timestamp = cache_data.get("timestamp", current_time)
                         
@@ -1207,7 +1210,8 @@ class RedisService(BaseService):
                             }
                         
                         stats["by_function"][func_name_from_cache]["count"] += 1
-                        entry_size = len(cache_json)
+                        # crud.get 返 dict，wire 大小用 json.dumps 还原（与 set 侧 default=str 一致）
+                        entry_size = len(json.dumps(cache_data, default=str))
                         stats["by_function"][func_name_from_cache]["size_estimate"] += entry_size
                         stats["total_size_estimate"] += entry_size
                         

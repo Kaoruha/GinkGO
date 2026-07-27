@@ -7,7 +7,7 @@ SignalService unit tests (#5949).
 Run: pytest tests/unit/data/services/test_signal_service.py -v -o "addopts="
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -108,8 +108,22 @@ class TestGetSignalsByPortfolioDateFilter:
         assert kwargs.get("start_date") is None
         assert kwargs.get("end_date") is None
 
-    def test_returns_crud_results_in_success(self, signal_svc, mock_crud):
-        mock_crud.find_by_portfolio.return_value = ["sig1", "sig2"]
-        result = signal_svc.get_signals_by_portfolio(portfolio_id="p1")
+    def test_maps_crud_results_via_signal_mapper(self, signal_svc, mock_crud):
+        """crud 返回的 ModelList 经 SignalMapper.from_models 映射为 Signal DTO 列表后透传进 success.data。
+
+        回归：旧实现直接透传 crud 结果（List[MSignal]）；ADR-025 后 service 走
+        SignalMapper.from_model 收敛转换，data 变 List[SignalDTO]。此处验证映射链路
+        而非 crud 透传，避免 from_model 的 isinstance 守卫对 mock 字符串抛 TypeError。
+        """
+        crud_models = ["sig1", "sig2"]  # crud 返 ModelList，占位
+        expected_signals = ["mapped-sig1", "mapped-sig2"]
+        mock_crud.find_by_portfolio.return_value = crud_models
+        with patch(
+            "ginkgo.data.services.signal_service.SignalMapper.from_models",
+            return_value=expected_signals,
+        ) as mock_map:
+            result = signal_svc.get_signals_by_portfolio(portfolio_id="p1")
+
         assert result.is_success()
-        assert result.data == ["sig1", "sig2"]
+        assert result.data == expected_signals
+        mock_map.assert_called_once_with(crud_models)

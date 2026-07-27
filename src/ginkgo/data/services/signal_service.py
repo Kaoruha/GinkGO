@@ -8,6 +8,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from ginkgo.data.services.base_service import BaseService, ServiceResult
+from ginkgo.data.mappers.signal_mapper import SignalMapper
 from ginkgo.libs import GLOG, datetime_normalize
 
 
@@ -81,7 +82,8 @@ class SignalService(BaseService):
                 start_date=start_date,
                 end_date=end_date,
             )
-            return ServiceResult.success(data=results)
+            signals = SignalMapper.from_models(results)
+            return ServiceResult.success(data=signals)
         except Exception as e:
             GLOG.ERROR(f"查询组合信号失败: {e}")
             return ServiceResult.error(str(e))

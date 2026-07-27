@@ -217,7 +217,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = False,
-    ) -> List[Signal]:
+    ) -> List[MSignal]:
         """
         Business helper: Find signals by portfolio ID with date range.
         """
@@ -234,7 +234,6 @@ class SignalCRUD(BaseCRUD[MSignal]):
             page_size=page_size,
             order_by="timestamp",
             desc_order=desc_order,
-            output_type="signal"
         )
 
     def find_by_engine(
@@ -242,7 +241,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         engine_id: str,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> List[Signal]:
+    ) -> List[MSignal]:
         """
         Business helper: Find signals by engine ID.
         """
@@ -257,7 +256,6 @@ class SignalCRUD(BaseCRUD[MSignal]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            output_type="signal"
         )
 
     def find_by_code_and_direction(
@@ -267,7 +265,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> List[Signal]:
+    ) -> List[MSignal]:
         """
         Business helper: Find signals by code and direction.
         """
@@ -284,12 +282,11 @@ class SignalCRUD(BaseCRUD[MSignal]):
             filters=filters,
             order_by="timestamp",
             desc_order=True,
-            output_type="signal"
         )
 
     def get_latest_signals(
         self, portfolio_id: str, limit: int = 10, page: Optional[int] = None
-    ) -> List[Signal]:
+    ) -> List[MSignal]:
         """
         Business helper: Get latest signals for a portfolio with pagination support.
 
