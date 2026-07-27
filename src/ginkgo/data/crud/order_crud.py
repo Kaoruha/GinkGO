@@ -18,6 +18,7 @@ from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MOrder
 from ginkgo.entities import Order
+from ginkgo.data.mappers import OrderMapper
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
 
@@ -232,59 +233,15 @@ class OrderCRUD(BaseCRUD[MOrder]):
         Returns:
             List of Order business objects
         """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            order = Order(
-                portfolio_id=model.portfolio_id,
-                engine_id=model.engine_id,
-                task_id=model.task_id,
-                code=model.code,
-                direction=model.direction,
-                order_type=model.order_type,
-                volume=model.volume,
-                limit_price=model.limit_price,
-                frozen_money=model.frozen_money,
-                frozen_volume=model.frozen_volume,
-                transaction_price=model.transaction_price,
-                transaction_volume=model.transaction_volume,
-                remain=model.remain,
-                fee=model.fee,
-                timestamp=model.timestamp,
-                status=model.status,
-                uuid=model.uuid,
-            )
-            business_objects.append(order)
-
-        return business_objects
+        # 委托 OrderMapper.model_to_entity(ADR-025 转换收敛;enum int→enum 在 Mapper 内完成)
+        return [OrderMapper.model_to_entity(model) for model in models]
 
     def _convert_output_items(self, items: List[MOrder], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MOrder objects to Order objects.
         """
         if output_type == "order":
-            return [
-                Order(
-                    portfolio_id=item.portfolio_id,
-                    engine_id=item.engine_id,
-                    task_id=item.task_id,
-                    code=item.code,
-                    direction=item.direction,
-                    order_type=item.order_type,
-                    volume=item.volume,
-                    limit_price=item.limit_price,
-                    frozen_money=item.frozen_money,
-                    frozen_volume=item.frozen_volume,
-                    transaction_price=item.transaction_price,
-                    transaction_volume=item.transaction_volume,
-                    remain=item.remain,
-                    fee=item.fee,
-                    timestamp=item.timestamp,
-                    status=item.status,
-                    uuid=item.uuid,
-                )
-                for item in items
-            ]
+            return [OrderMapper.model_to_entity(item) for item in items]
         elif output_type == "model":
             # 对于默认的model输出，也需要转换枚举字段
             converted_items = []

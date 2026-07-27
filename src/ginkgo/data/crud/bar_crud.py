@@ -14,6 +14,7 @@ from datetime import datetime
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MBar
 from ginkgo.entities import Bar
+from ginkgo.data.mappers import BarMapper
 from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
 from ginkgo.libs.utils.error_handler import unified_error_handler
@@ -128,45 +129,15 @@ class BarCRUD(BaseCRUD[MBar]):
         Returns:
             List of Bar business objects
         """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            # 注意：Bar业务对象不需要source字段，只有MBar模型需要
-            bar = Bar(
-                code=model.code,
-                open=model.open,
-                high=model.high,
-                low=model.low,
-                close=model.close,
-                volume=model.volume,
-                amount=model.amount,
-                frequency=model.frequency,
-                timestamp=model.timestamp,
-            )
-            business_objects.append(bar)
-
-        return business_objects
+        # 委托 BarMapper.model_to_entity(ADR-025 转换收敛;Bar 业务对象不含 source,frequency int→enum 在 Mapper)
+        return [BarMapper.model_to_entity(model) for model in models]
 
     def _convert_output_items(self, items: List[MBar], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MBar objects to Bar objects.
         """
         if output_type == "bar":
-            return [
-                Bar(
-                    code=item.code,
-                    open=item.open,
-                    high=item.high,
-                    low=item.low,
-                    close=item.close,
-                    volume=item.volume,
-                    amount=item.amount,
-                    frequency=item.frequency,
-                    timestamp=item.timestamp,
-                    # 注意：Bar业务对象不需要source字段
-                )
-                for item in items
-            ]
+            return [BarMapper.model_to_entity(item) for item in items]
         return items
 
     # Business Helper Methods

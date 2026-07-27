@@ -16,6 +16,7 @@ from datetime import datetime
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MSignal
 from ginkgo.entities import Signal
+from ginkgo.data.mappers import SignalMapper
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 
@@ -159,45 +160,15 @@ class SignalCRUD(BaseCRUD[MSignal]):
         Returns:
             List of Signal business objects
         """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            signal = Signal(
-                portfolio_id=model.portfolio_id,
-                engine_id=model.engine_id,
-                task_id=model.task_id,  # 添加task_id字段
-                timestamp=model.timestamp,
-                code=model.code,
-                direction=model.direction,
-                reason=model.reason,
-                source=model.source,  # 添加source字段
-                strength=model.strength,  # 添加strength字段
-                confidence=model.confidence,  # 添加confidence字段
-            )
-            business_objects.append(signal)
-
-        return business_objects
+        # 委托 SignalMapper.model_to_entity(ADR-025 转换收敛;含 volume/weight,忠实原 Signal.from_model,enum int→enum 在 Mapper)
+        return [SignalMapper.model_to_entity(model) for model in models]
 
     def _convert_output_items(self, items: List[MSignal], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MSignal objects to Signal objects.
         """
         if output_type == "signal":
-            return [
-                Signal(
-                    portfolio_id=item.portfolio_id,
-                    engine_id=item.engine_id,
-                    task_id=item.task_id,  # 添加task_id字段
-                    timestamp=item.timestamp,
-                    code=item.code,
-                    direction=item.direction,
-                    reason=item.reason,
-                    source=item.source,  # 添加source字段
-                    strength=item.strength,  # 添加strength字段
-                    confidence=item.confidence,  # 添加confidence字段
-                )
-                for item in items
-            ]
+            return [SignalMapper.model_to_entity(item) for item in items]
         return items
 
     # Business Helper Methods
