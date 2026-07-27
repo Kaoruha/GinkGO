@@ -2,7 +2,7 @@
 FundamentalFactorMaterializer 物化器单元测试 (#6795 L2)
 
 把 tushare fina_indicator 财报 DataFrame 物化为因子存储行
-(entity_type=STOCK, factor_category=fundamental, timestamp=报告期)。
+(entity_type=STOCK, factor_category=fundamental, timestamp=公告日 ann_date)。
 """
 
 import pytest
@@ -22,7 +22,7 @@ class TestFundamentalMaterializer:
         return source
 
     def test_materialize_maps_fina_indicator_to_factor_dicts(self):
-        """fina_indicator DataFrame → MFactor dict 列表(category=fundamental, ts=报告期 end_date)"""
+        """fina_indicator DataFrame → MFactor dict 列表(category=fundamental, ts=公告日 ann_date)"""
         from ginkgo.data.services.fundamental_materializer import FundamentalFactorMaterializer
 
         df = pd.DataFrame(
@@ -56,8 +56,8 @@ class TestFundamentalMaterializer:
         # entity = STOCK + ts_code
         assert all(f["entity_id"] == "000001.SZ" for f in factors)
         assert all(f["entity_type"] == ENTITY_TYPES.STOCK for f in factors)
-        # timestamp = 报告期 end_date(非 ann_date)
-        assert all(f["timestamp"] == "20240331" for f in factors)
+        # timestamp = 公告日 ann_date(PIT 严谨:财报公告后才可用,非报告期 end_date)
+        assert all(f["timestamp"] == "20240430" for f in factors)
         # 值正确
         eps_row = next(f for f in factors if f["factor_name"] == "EPS")
         assert float(eps_row["factor_value"]) == 1.23

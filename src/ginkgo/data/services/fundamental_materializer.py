@@ -1,6 +1,6 @@
 # Upstream: GinkgoTushare.fetch_cn_fundancial_indicator(财报 DataFrame) + FactorService.add_factor_batch(存储)
 # Downstream: CLI/API 基本面物化命令 (#6795 L2)
-# Role: tushare fina_indicator 财报字段 → 因子存储行(category=fundamental, entity=STOCK, ts=报告期)
+# Role: tushare fina_indicator 财报字段 → 因子存储行(category=fundamental, entity=STOCK, ts=公告日 ann_date)
 
 import pandas as pd
 
@@ -13,9 +13,15 @@ class FundamentalFactorMaterializer:
     基本面财报 → 因子物化器 (#6795)
 
     把数据源(tushare fina_indicator)返回的财报 DataFrame 转成因子存储行
-    (entity_type=STOCK, factor_category=fundamental, timestamp=报告期 end_date),
-    批量写入因子存储。按报告期天然幂等——同一 (code, period) 重复物化产生相同因子行,
-    新财报季补数即增量更新,不重算历史。
+    (entity_type=STOCK, factor_category=fundamental, timestamp=公告日 ann_date),
+    批量写入因子存储。timestamp 取公告日而非报告期——报告期 end_date 早于实际公告日,
+    forward-fill 后会构成 PIT 前瞻(详见 factor_assembly 的 ffill 契约),故必须用 ann_date。
+
+    非幂等:因子存储(MFactor 为 ClickHouse MergeTree,无唯一约束)的 add_factor_batch
+    是纯 append,重复物化同一 (code, period) 会追加重复行。新财报季补数即增量更新、
+    不重算历史;但同季重跑会累积重复行——读侧 factor_assembly 按 timestamp 去重
+    (duplicated keep="last")兜底,财报重述需覆盖旧值时调用方应先
+    delete_factors_by_entity 清掉旧 timestamp 行再物化。
     """
 
     # tushare fina_indicator 字段 → 因子名
@@ -62,6 +68,9 @@ class FundamentalFactorMaterializer:
         for _, row in df.iterrows():
             ts_code = str(row.get("ts_code", code))
             end_date = row.get("end_date", period)
+            # PIT 严谨:timestamp 取公告日 ann_date,而非报告期 end_date。
+            # 报告期早于公告日,forward-fill 后会用未公告数据(lookahead);ann_date 缺失才回退 end_date。
+            ann_date = row.get("ann_date", end_date)
             for src_field, factor_name in self.FIELD_MAP.items():
                 if src_field in row.index and pd.notna(row[src_field]):
                     factors.append(
@@ -71,7 +80,7 @@ class FundamentalFactorMaterializer:
                             "factor_name": factor_name,
                             "factor_value": row[src_field],
                             "factor_category": self.CATEGORY,
-                            "timestamp": end_date,
+                            "timestamp": ann_date,
                         }
                     )
 
