@@ -135,17 +135,6 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Adjustfactor.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'source': SOURCE_TYPES  # 数据源字段映射
-        }
-
     def _convert_models_to_business_objects(self, models: List[MAdjustfactor]) -> List[MAdjustfactor]:
         """
         🎯 Convert MAdjustfactor models to business objects.

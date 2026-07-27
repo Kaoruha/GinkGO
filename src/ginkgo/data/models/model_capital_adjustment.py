@@ -46,7 +46,7 @@ class MCapitalAdjustment(MClickBase, ModelConversion):
     amount: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0, comment="调整金额")
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now, comment="调整时间")
     reason: Mapped[str] = mapped_column(types.String, default="", comment="调整原因")
-    source: Mapped[int] = mapped_column(types.Int8, default=0, comment="数据源")
+    source: Mapped[int] = mapped_column(types.Int8, default=0, comment="数据源", info={"enum": SOURCE_TYPES})
     business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
     @singledispatchmethod

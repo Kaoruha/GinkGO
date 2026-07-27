@@ -132,17 +132,6 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for AnalyzerRecord.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'source': SOURCE_TYPES  # 数据源字段映射
-        }
-
     def _convert_models_to_business_objects(self, models: List[MAnalyzerRecord]) -> List[MAnalyzerRecord]:
         """
         🎯 Convert MAnalyzerRecord models to business objects.
