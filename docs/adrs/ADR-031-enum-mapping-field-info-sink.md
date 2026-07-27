@@ -99,6 +99,18 @@ CLAUDE.md「禁止擅自修改 Base 类（BaseCRUD/BaseService 等）」是**防
 - 迁移期 override 与 `info=` 共存，须人工保证一致（override 优先会静默遮蔽 `info=`）；全量迁移后删 override 即消歧。
 - Mongo 不受益（独立路径）。
 
+## Future Work：ModelList 退场方向（关联 ADR-025 DF 收敛）
+
+c1 让 enum 映射归位 model 字段、可经 `__table__` 反射所得；ADR-025 的下一步——**DF 转换下沉 mapper**——会让 `Mapper.to_dataframe(models)` 接管 DF 出口。届时 `ModelList`（`model_conversion.py`，CRUD 返回类型）作为「model 列表自带 `to_dataframe()`」的**转发壳**（pass-through，内部委托 `crud._convert_models_to_dataframe`）失去存在理由：转换既归 mapper，model 列表不应自带转换方法（自带与收敛哲学相悖）。
+
+**Deletion test**：删 `ModelList` → CRUD 返纯 `List[Model]` → 约 25 处 service `model_list.to_dataframe()` 改 `Mapper.to_dataframe(models)`（一行换一行，等价工作量）；4 处 `find().first()` 改 `[0] if x else None`。净复杂度下降，`ModelList` 未在挣 keep（其唯一价值 `to_dataframe` 是转发，非持有逻辑）。
+
+**前置条件（本 ADR 不实施，待 DF 下沉落地后另议）**：
+
+1. **CLAUDE.md 规则演进**：「CRUD 返回 `ModelList`，调用方按需转换」→「CRUD 返 `List[Model]`，转换走 mapper」。同 c1 破例改 Base：规则是护栏非教条，随收敛哲学演进，须配套 ADR 记录。
+2. **df 缓存归属**：`ModelList._cache` 现缓存 `to_dataframe` 结果避免重复转换。下沉后若 service 单次转换，缓存可弃；若有重复转换路径，须 mapper 内缓存或调用方承担（实施前先核重复转换点）。
+3. **DF 下沉先落地**：signal/order DF 下沉 mapper 须先验证行为等价（CRUD 版 df 与 mapper 版 df 同构），再论 ModelList 退场——退场是 DF 收敛的自然终点，非独立工作项。
+
 ## 试点证据（2026-07-28）
 
 - **signal(CH)**：`tests/unit/data/test_signal_enum_reflection_c1.py` 反射 5 passed；signal CRUD/service 无新回归。
