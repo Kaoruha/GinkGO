@@ -599,14 +599,18 @@ class PortfolioService(BaseService):
             )
             GLOG.INFO(f"Portfolio {portfolio_id[:8]} state -> STOPPING")
 
-            # 发送 Kafka unload 命令
-            from ginkgo.messages.control_command import ControlCommand
+            # 发送 Kafka unload 命令（ADR-025 ②：ControlCommandDTO 拥有 wire 契约）
+            from ginkgo.interfaces.dtos import ControlCommandDTO
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
             from ginkgo.interfaces.kafka_topics import KafkaTopics
 
-            cmd = ControlCommand.unload(portfolio_id)
+            cmd = ControlCommandDTO(
+                command=ControlCommandDTO.Commands.UNLOAD,
+                params={"portfolio_id": portfolio_id},
+                source="portfolio_service",
+            )
             producer = GinkgoProducer()
-            success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+            success = producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.model_dump())
 
             if success:
                 GLOG.INFO(f"[STOP] Kafka unload command sent for {portfolio_id[:8]}")

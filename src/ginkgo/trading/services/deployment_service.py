@@ -310,16 +310,20 @@ class DeploymentService(BaseService):
         trace_id 串联（AC4）。无 trace_id 时 headers=None（向后兼容：CLI 直接调用
         等非 API 入口不强制注入）。异常由调用方兜底（non-fatal，不阻断 deploy 主流程）。
         """
-        from ginkgo.messages.control_command import ControlCommand
+        from ginkgo.interfaces.dtos import ControlCommandDTO
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
         from ginkgo.interfaces.kafka_topics import KafkaTopics
 
-        cmd = ControlCommand.deploy(new_portfolio_id)
+        cmd = ControlCommandDTO(
+            command=ControlCommandDTO.Commands.DEPLOY,
+            params={"portfolio_id": new_portfolio_id},
+            source="deployment_service",
+        )
         trace_id = GLOG.get_trace_id()
         headers = [("trace_id", trace_id.encode())] if trace_id else None
         producer = GinkgoProducer()
         success = producer.send(
-            KafkaTopics.CONTROL_COMMANDS, cmd.to_dict(), headers=headers
+            KafkaTopics.CONTROL_COMMANDS, cmd.model_dump(), headers=headers
         )
         if success:
             GLOG.INFO(f"[DEPLOY] Kafka deploy command sent for {new_portfolio_id[:8]}")

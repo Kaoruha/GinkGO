@@ -949,29 +949,37 @@ def _send_deploy_notification(portfolio_id: str) -> None:
 
     历史：68b749e5 为修消息格式（portfolio_id 须在 params 内）内联此处并删除该
     helper，但漏改 patch 它的测试，导致 TestDeployPaperTrading 全部 AttributeError。
-    此处恢复 seam，用正确的 ControlCommand.deploy().to_dict() 实现，而非被删的旧手搓 dict。
+    此处恢复 seam，用正确的 ControlCommandDTO 构造（ADR-025 ②：DTO 拥有 wire 契约）。
     """
-    from ginkgo.messages.control_command import ControlCommand
+    from ginkgo.interfaces.dtos import ControlCommandDTO
     from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
     from ginkgo.interfaces.kafka_topics import KafkaTopics
 
-    cmd = ControlCommand.deploy(portfolio_id)
+    cmd = ControlCommandDTO(
+        command=ControlCommandDTO.Commands.DEPLOY,
+        params={"portfolio_id": portfolio_id},
+        source="portfolio_cli",
+    )
     producer = GinkgoProducer()
-    producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+    producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.model_dump())
 
 
 def _send_unload_command(portfolio_id: str) -> bool:
-    """发送 unload 命令到 Kafka（ControlCommand DTO 格式），返回是否发送成功。
+    """发送 unload 命令到 Kafka（ControlCommandDTO 格式），返回是否发送成功。
 
     与 _send_deploy_notification 同根（68b749e5 内联删除），一并恢复。
     """
-    from ginkgo.messages.control_command import ControlCommand
+    from ginkgo.interfaces.dtos import ControlCommandDTO
     from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
     from ginkgo.interfaces.kafka_topics import KafkaTopics
 
-    cmd = ControlCommand.unload(portfolio_id)
+    cmd = ControlCommandDTO(
+        command=ControlCommandDTO.Commands.UNLOAD,
+        params={"portfolio_id": portfolio_id},
+        source="portfolio_cli",
+    )
     producer = GinkgoProducer()
-    return producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.to_dict())
+    return producer.send(KafkaTopics.CONTROL_COMMANDS, cmd.model_dump())
 
 
 def _store_deploy_source(paper_portfolio_id: str, source_portfolio_id: str) -> None:

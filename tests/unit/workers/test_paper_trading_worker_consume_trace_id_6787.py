@@ -53,7 +53,7 @@ class TestDispatchCommandRestoresTraceId:
 
         message = _make_message([("trace_id", b"tid-paper-6787")])
 
-        with patch("ginkgo.messages.control_command.ControlCommand.from_dict",
+        with patch("ginkgo.interfaces.mappers.message_mapper.MessageMapper.decode",
                    return_value=_mock_cmd()):
             worker._dispatch_command(message)
 
