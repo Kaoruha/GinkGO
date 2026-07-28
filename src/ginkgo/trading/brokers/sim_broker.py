@@ -27,6 +27,7 @@ from ginkgo.trading.interfaces.broker_interface import BrokerExecutionResult
 from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ATTITUDE_TYPES, ORDERSTATUS_TYPES
 from ginkgo.libs import to_decimal, Number, GLOG
+from ginkgo.trading.brokers.fill_price_model import AttitudePricing
 
 
 class SimBroker(BrokerCacheMixin):
@@ -43,7 +44,7 @@ class SimBroker(BrokerCacheMixin):
     - 内存管理：使用BrokerCacheMixin的市场数据缓存
     """
 
-    def __init__(self, name: str = "SimBroker", random_seed=None, **config):
+    def __init__(self, name: str = "SimBroker", random_seed=None, fill_price_model=None, **config):
         """
         初始化SimBroker
 
@@ -67,6 +68,10 @@ class SimBroker(BrokerCacheMixin):
         self._commission_min = Decimal(str(config.get("commission_min", 5)))
         self._slip_base = config.get("slip_base", 0.01)
         self._slippage_tolerance = Decimal(str(config.get("slippage_tolerance", 0.05)))
+
+        # ADR-037 D1: 成交价模型, 默认 AttitudePricing (移植原 _get_random_transaction_price, 零回归)
+        # 可注入 DeterministicSlippage 接通 --slippage (B2 装配通路)
+        self._fill_price_model = fill_price_model or AttitudePricing()
 
         # 设置市场属性（用于Router市场映射）
         self.market = "SIM"  # 通用模拟市场，支持所有品种
@@ -385,8 +390,10 @@ class SimBroker(BrokerCacheMixin):
 
         GLOG.INFO(f"📊 [SIMBROKER] PRICE_RANGE {order.code}: low={low_price}, high={high_price}, close={close_price}, direction={order.direction.name}, attitude={self._attitude}")
 
-        result = self._get_random_transaction_price(
-            order.direction, low_price, high_price, self._attitude
+        # ADR-037 D1: 市价单成交价委托 fill_price_model (默认 AttitudePricing 零回归;
+        # 可注入 DeterministicSlippage 生效 --slippage). close_price 生产市场数据必有值.
+        result = self._fill_price_model.calculate_fill_price(
+            order.direction, low_price, high_price, close_price, self._attitude, self._rng
         )
 
         GLOG.INFO(f"🎲 [SIMBROKER] RANDOM PRICE CALCULATION result: {result}")
