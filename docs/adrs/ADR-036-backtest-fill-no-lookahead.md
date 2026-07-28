@@ -1,4 +1,6 @@
-# ADR-031: 回测 fill 时序无后视（T+1 延迟队列 + 两阶段推进）
+# ADR-036: 回测 fill 时序无后视（T+1 延迟队列 + 两阶段推进）
+
+> **编号说明（2026-07-28）**：原拟 ADR-031，与 #6823 的 `ADR-031-enum-mapping-field-info-sink` 撞号，遂顺延至 ADR-036。
 
 **Status:** Accepted
 **Date:** 2026-07-28
