@@ -316,7 +316,7 @@ class TestTickServiceQuery:
         assert isinstance(df, pd.DataFrame)
 
         # 验证to_entities方法
-        entities = TickMapper.from_models(model_list)
+        entities = TickMapper.models_to_entities(model_list)
         assert isinstance(entities, list)
 
 

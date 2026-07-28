@@ -35,12 +35,12 @@ class TestTickMapperToModel:
     def test_to_model_returns_mtick_via_model_class(self):
         """to_model 经 model_class 形参构造（动态表机制）。"""
         entity = _make_tick()
-        model = TickMapper.to_model(entity, _ConcreteTick)
+        model = TickMapper.entity_to_model(entity, _ConcreteTick)
         assert isinstance(model, _ConcreteTick)
 
     def test_to_model_preserves_core_fields(self):
         entity = _make_tick()
-        model = TickMapper.to_model(entity, _ConcreteTick)
+        model = TickMapper.entity_to_model(entity, _ConcreteTick)
         assert model.code == "SH600000"
         assert model.volume == 100
         assert model.price == 10.50
@@ -50,15 +50,15 @@ class TestTickMapperToModel:
         # 调用方未传 model_class 时签名默认 MTick；MTick 抽象不可直接实例化，
         # 故仅校验签名默认值存在，不实例化。
         import inspect
-        sig = inspect.signature(TickMapper.to_model)
+        sig = inspect.signature(TickMapper.entity_to_model)
         assert sig.parameters["model_class"].default is MTick
 
 
 class TestTickMapperFromModel:
     def test_from_model_returns_tick(self):
         entity = _make_tick()
-        model = TickMapper.to_model(entity, _ConcreteTick)
-        restored = TickMapper.from_model(model)
+        model = TickMapper.entity_to_model(entity, _ConcreteTick)
+        restored = TickMapper.model_to_entity(model)
         assert isinstance(restored, Tick)
 
     def test_from_model_direction_source_int_to_enum(self):
@@ -71,7 +71,7 @@ class TestTickMapperFromModel:
         model.source = SOURCE_TYPES.SIM.value
         model.timestamp = datetime.datetime(2026, 6, 14, 10, 0, 0)
 
-        restored = TickMapper.from_model(model)
+        restored = TickMapper.model_to_entity(model)
         assert restored.direction == TICKDIRECTION_TYPES.ACTIVEBUY
         assert restored.source == SOURCE_TYPES.SIM
 
@@ -81,7 +81,7 @@ class TestTickMapperFromModel:
         动态子类也是 MTick 子类，守卫成立。传非 MTick 实例应 TypeError。
         """
         with pytest.raises(TypeError):
-            TickMapper.from_model(object())
+            TickMapper.model_to_entity(object())
 
 
 class TestTickMapperRoundtrip:
@@ -92,8 +92,8 @@ class TestTickMapperRoundtrip:
         （枚举值对称）。
         """
         entity = _make_tick(direction=TICKDIRECTION_TYPES.ACTIVEBUY)
-        model = TickMapper.to_model(entity, _ConcreteTick)
-        restored = TickMapper.from_model(model)
+        model = TickMapper.entity_to_model(entity, _ConcreteTick)
+        restored = TickMapper.model_to_entity(model)
 
         assert restored.code == "SH600000"
         assert restored.volume == 100
@@ -103,7 +103,7 @@ class TestTickMapperRoundtrip:
 
     def test_from_models_batch(self):
         entity = _make_tick()
-        model = TickMapper.to_model(entity, _ConcreteTick)
-        restored_list = TickMapper.from_models([model, model])
+        model = TickMapper.entity_to_model(entity, _ConcreteTick)
+        restored_list = TickMapper.models_to_entities([model, model])
         assert len(restored_list) == 2
         assert all(isinstance(t, Tick) for t in restored_list)

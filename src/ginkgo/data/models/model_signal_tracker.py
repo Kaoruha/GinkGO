@@ -37,12 +37,12 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
     portfolio_id: Mapped[str] = mapped_column(String(32), index=True, comment="投资组合ID")
 
     # 执行模式
-    execution_mode: Mapped[int] = mapped_column(Integer, default=0, comment="执行模式")
-    account_type: Mapped[int] = mapped_column(Integer, default=1, comment="账户类型: 0=回测,1=模拟盘,2=实盘")
+    execution_mode: Mapped[int] = mapped_column(Integer, default=0, comment="执行模式", info={"enum": EXECUTION_MODE})
+    account_type: Mapped[int] = mapped_column(Integer, default=1, comment="账户类型: 0=回测,1=模拟盘,2=实盘", info={"enum": ACCOUNT_TYPE})
     
     # 预期执行参数
     expected_code: Mapped[str] = mapped_column(String(20), comment="股票代码")
-    expected_direction: Mapped[int] = mapped_column(Integer, comment="交易方向")
+    expected_direction: Mapped[int] = mapped_column(Integer, comment="交易方向", info={"enum": DIRECTION_TYPES})
     expected_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 4), comment="预期价格")
     expected_volume: Mapped[int] = mapped_column(Integer, comment="预期数量")
     expected_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), comment="预期执行时间（T+1后的业务时间）")
@@ -53,7 +53,7 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
     actual_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="实际执行时间（成交时的业务时间）")
     
     # 状态追踪
-    tracking_status: Mapped[int] = mapped_column(Integer, default=0, comment="追踪状态")
+    tracking_status: Mapped[int] = mapped_column(Integer, default=0, comment="追踪状态", info={"enum": TRACKINGSTATUS_TYPES})
     notification_sent_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now, comment="通知发送系统时间")
     execution_confirmed_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="执行确认系统时间")
     

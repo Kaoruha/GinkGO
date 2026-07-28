@@ -17,7 +17,6 @@ from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MTransferRecord
 from ginkgo.entities import Transfer
 from ginkgo.enums import (
-    CAPITALADJUSTMENT_TYPES,
     MARKET_TYPES,
     SOURCE_TYPES,
     TRANSFERDIRECTION_TYPES,
@@ -119,62 +118,6 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
             )
         return None
 
-
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'capitaladjustment': CAPITALADJUSTMENT_TYPES,
-            'market': MARKET_TYPES,
-            'source': SOURCE_TYPES,
-            'transferdirection': TRANSFERDIRECTION_TYPES,
-            'transferstatus': TRANSFERSTATUS_TYPES
-        }
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models (business object doesn't exist yet)
-        """
-        # For now, return models as-is since business object doesn't exist yet
-        return models
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
-
-    def _convert_output_items(
-        self, items: List[MTransferRecord], output_type: str = "model"
-    ) -> List[Any]:
-        """
-        Hook method: Convert MTransferRecord objects to Transfer objects.
-        """
-        if output_type == "transfer":
-            return [
-                Transfer(
-                    portfolio_id=item.portfolio_id,
-                    direction=item.direction,
-                    market=item.market,
-                    money=item.money,
-                    status=item.status,
-                    timestamp=item.timestamp,
-                    uuid=item.uuid,
-                )
-                for item in items
-            ]
-        return items
-
     def find_by_portfolio(
         self,
         portfolio_id: str,
@@ -199,9 +142,7 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="transfer",
-        )
+            desc_order=True,        )
 
     def get_total_transfer_amount(
         self,

@@ -1160,9 +1160,14 @@ class PaperTradingWorker:
         向后兼容旧消息与非 API 入口）。
         """
         from contextlib import nullcontext
-        from ginkgo.messages.control_command import ControlCommand
+        from ginkgo.interfaces.dtos import ControlCommandDTO
+        from ginkgo.interfaces.mappers.message_mapper import MessageMapper
 
-        cmd = ControlCommand.from_dict(message.value)
+        # ADR-025 ②: 消费侧统一经 MessageMapper.decode(raw, ControlCommandDTO)。
+        # 与 data_manager.py:449 / portfolio_processor.py:498 同一入站转换点。
+        # wire 兼容：旧 dataclass ControlCommand.to_dict() 发的 {command,params,timestamp}
+        # 仍能被 DTO.model_validate 解析（余 source/correlation_id/trace_id/span_id 缺失走默认）。
+        cmd = MessageMapper.decode(message.value, ControlCommandDTO)
         tid = self._extract_trace_id(message.headers)
         with (GLOG.with_trace_id(tid) if tid else nullcontext()):
             # 入口日志置于 trace_id 作用域内（AC4）：grep trace_id 可串联消费端入口

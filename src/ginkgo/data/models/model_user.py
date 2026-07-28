@@ -39,7 +39,7 @@ class MUser(MMysqlBase, ModelConversion):
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True, comment="登录用户名（唯一）")
     display_name: Mapped[Optional[str]] = mapped_column(String(128), default="", comment="显示名称")
     description: Mapped[Optional[str]] = mapped_column(String(512), default="")
-    user_type: Mapped[int] = mapped_column(TINYINT, default=USER_TYPES.PERSON.value)
+    user_type: Mapped[int] = mapped_column(TINYINT, default=USER_TYPES.PERSON.value, info={"enum": USER_TYPES})
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # 关系映射

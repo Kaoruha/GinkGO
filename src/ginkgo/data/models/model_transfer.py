@@ -29,11 +29,11 @@ class MTransfer(MMysqlBase, MBacktestRecordBase):
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
     direction: Mapped[int] = mapped_column(
-        TINYINT, default=-1
+        TINYINT, default=-1, info={"enum": TRANSFERDIRECTION_TYPES}
     )
-    market: Mapped[int] = mapped_column(TINYINT, default=-1)
+    market: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": MARKET_TYPES})
     money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
-    status: Mapped[int] = mapped_column(TINYINT, default=-1)
+    status: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": TRANSFERSTATUS_TYPES})
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
 
     @singledispatchmethod

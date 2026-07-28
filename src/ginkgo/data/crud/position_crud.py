@@ -19,7 +19,6 @@ from ginkgo.data.models import MPosition
 from ginkgo.entities import Position
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ginkgo.data.mappers import PositionMapper
 
 
 @restrict_crud_access
@@ -152,41 +151,6 @@ class PositionCRUD(BaseCRUD[MPosition]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Position.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'source': SOURCE_TYPES  # 数据源字段映射
-        }
-
-    def _convert_models_to_business_objects(self, models: List[MPosition]) -> List[Position]:
-        """
-        🎯 Convert MPosition models to Position business objects.
-
-        Args:
-            models: List of MPosition models with enum fields already fixed
-
-        Returns:
-            List of Position business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            position = PositionMapper.from_model(model)
-            business_objects.append(position)
-
-        return business_objects
-
-    def _convert_output_items(self, items: List[MPosition], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MPosition objects for business layer.
-        """
-        return items
-
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str, min_volume: int = 0) -> ModelList[MPosition]:
         """
@@ -287,9 +251,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
         return self.find(
             filters=filters,
             order_by="business_timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def delete_by_portfolio(self, portfolio_id: str) -> int:
         """

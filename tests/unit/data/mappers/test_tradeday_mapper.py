@@ -24,12 +24,12 @@ def _make_tradeday(**overrides) -> TradeDay:
 class TestTradeDayMapperRoundtrip:
     def test_to_model_returns_mtradeday(self):
         entity = _make_tradeday()
-        model = TradeDayMapper.to_model(entity, MTradeDay)
+        model = TradeDayMapper.entity_to_model(entity, MTradeDay)
         assert isinstance(model, MTradeDay)
 
     def test_to_model_preserves_market_and_uuid(self):
         entity = _make_tradeday(market=MARKET_TYPES.CHINA)
-        model = TradeDayMapper.to_model(entity, MTradeDay)
+        model = TradeDayMapper.entity_to_model(entity, MTradeDay)
         # market 经 validate_input 转 int 存
         assert model.market == MARKET_TYPES.CHINA.value
         assert model.uuid == entity.uuid
@@ -44,8 +44,8 @@ class TestTradeDayMapperRoundtrip:
             is_open=False,
             timestamp="2024-06-01 10:00:00",
         )
-        model = TradeDayMapper.to_model(entity, MTradeDay)
-        restored = TradeDayMapper.from_model(model)
+        model = TradeDayMapper.entity_to_model(entity, MTradeDay)
+        restored = TradeDayMapper.model_to_entity(model)
 
         assert restored.market == MARKET_TYPES.CHINA
         assert restored.is_open is False
@@ -55,21 +55,21 @@ class TestTradeDayMapperRoundtrip:
         """ORM market 存 int，from_model 转 enum。"""
         model = MTradeDay()
         model.market = MARKET_TYPES.NASDAQ.value  # 直接设 int 模拟 DB 读出
-        restored = TradeDayMapper.from_model(model)
+        restored = TradeDayMapper.model_to_entity(model)
         assert restored.market == MARKET_TYPES.NASDAQ
 
 
 class TestTradeDayMapperTypeError:
     def test_from_model_rejects_non_mtradeday(self):
         with pytest.raises(TypeError) as exc:
-            TradeDayMapper.from_model(123)
+            TradeDayMapper.model_to_entity(123)
         assert "MTradeDay" in str(exc.value)
 
 
 class TestTradeDayMapperFromModels:
     def test_from_models_maps_list(self):
         entity = _make_tradeday()
-        model = TradeDayMapper.to_model(entity, MTradeDay)
-        results = TradeDayMapper.from_models([model, model])
+        model = TradeDayMapper.entity_to_model(entity, MTradeDay)
+        results = TradeDayMapper.models_to_entities([model, model])
         assert len(results) == 2
         assert all(isinstance(r, TradeDay) for r in results)

@@ -236,7 +236,7 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
             result = self.bar_service.get(code=code, start_date=day, end_date=day)
             if not result.success or not result.data:
                 continue
-            bar_entities = BarMapper.from_models(result.data)
+            bar_entities = BarMapper.models_to_entities(result.data)
             if bar_entities:
                 bars_by_code[code] = bar_entities[0]
         return bars_by_code
@@ -331,7 +331,7 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
                 return events
 
             # 转换ModelList → 业务对象列表（ADR-010: 走 Mapper 层，不再经 to_entities 懒转换）
-            bar_entities = BarMapper.from_models(result.data)
+            bar_entities = BarMapper.models_to_entities(result.data)
 
             # 转换第一个Bar实体
             bar = bar_entities[0] if bar_entities else None

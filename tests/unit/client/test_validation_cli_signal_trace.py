@@ -114,7 +114,7 @@ class TestGetBarsCachedEndToEnd:
 
         # 绕开 model→entity 转换（不在 #5307 修复范围，BarMapper 已被回测/实盘覆盖）
         monkeypatch.setattr(
-            mixin_mod.BarMapper, "from_models", staticmethod(lambda models: list(models))
+            mixin_mod.BarMapper, "models_to_entities", staticmethod(lambda models: list(models))
         )
 
         result = strategy.get_bars_cached("000001.SZ", count=10)

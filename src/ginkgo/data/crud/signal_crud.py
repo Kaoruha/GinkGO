@@ -145,68 +145,9 @@ class SignalCRUD(BaseCRUD[MSignal]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Signal.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'direction': DIRECTION_TYPES,  # 交易方向字段映射
-            'source': SOURCE_TYPES        # 数据源字段映射
-        }
-
-    def _convert_models_to_business_objects(self, models: List[MSignal]) -> List[Signal]:
-        """
-        🎯 Convert MSignal models to Signal business objects.
-
-        Args:
-            models: List of MSignal models with enum fields already fixed
-
-        Returns:
-            List of Signal business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            signal = Signal(
-                portfolio_id=model.portfolio_id,
-                engine_id=model.engine_id,
-                task_id=model.task_id,  # 添加task_id字段
-                timestamp=model.timestamp,
-                code=model.code,
-                direction=model.direction,
-                reason=model.reason,
-                source=model.source,  # 添加source字段
-                strength=model.strength,  # 添加strength字段
-                confidence=model.confidence,  # 添加confidence字段
-            )
-            business_objects.append(signal)
-
-        return business_objects
-
-    def _convert_output_items(self, items: List[MSignal], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MSignal objects to Signal objects.
-        """
-        if output_type == "signal":
-            return [
-                Signal(
-                    portfolio_id=item.portfolio_id,
-                    engine_id=item.engine_id,
-                    task_id=item.task_id,  # 添加task_id字段
-                    timestamp=item.timestamp,
-                    code=item.code,
-                    direction=item.direction,
-                    reason=item.reason,
-                    source=item.source,  # 添加source字段
-                    strength=item.strength,  # 添加strength字段
-                    confidence=item.confidence,  # 添加confidence字段
-                )
-                for item in items
-            ]
-        return items
+    # c1(ADR):enum 映射下沉 model 字段 ``info={'enum': ...}``，
+    # 默认反射生效（见 _conversion._get_enum_mappings）；direction/source
+    # 声明见 model_signal.direction 与 MClickBase.source。
 
     # Business Helper Methods
     def find_by_portfolio(
@@ -233,9 +174,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             page=page,
             page_size=page_size,
             order_by="timestamp",
-            desc_order=desc_order,
-            output_type="signal"
-        )
+            desc_order=desc_order,        )
 
     def find_by_engine(
         self,
@@ -256,9 +195,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="signal"
-        )
+            desc_order=True,        )
 
     def find_by_code_and_direction(
         self,
@@ -283,9 +220,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="signal"
-        )
+            desc_order=True,        )
 
     def get_latest_signals(
         self, portfolio_id: str, limit: int = 10, page: Optional[int] = None
@@ -368,7 +303,5 @@ class SignalCRUD(BaseCRUD[MSignal]):
         return self.find(
             filters=filters,
             order_by="business_timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 

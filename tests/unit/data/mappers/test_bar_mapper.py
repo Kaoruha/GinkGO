@@ -35,9 +35,9 @@ def _make_bar():
 def test_bar_roundtrip():
     """to_model → from_model，close Decimal 保真。"""
     bar = _make_bar()
-    model = BarMapper.to_model(bar)
+    model = BarMapper.entity_to_model(bar)
     assert model.code == "000001.SZ"
-    back = BarMapper.from_model(model)
+    back = BarMapper.model_to_entity(model)
     assert back.code == "000001.SZ"
     assert back.close == Decimal("10.5")
     assert back.frequency == FREQUENCY_TYPES.DAY
@@ -45,13 +45,13 @@ def test_bar_roundtrip():
 
 def test_from_model_rejects_wrong_type():
     with pytest.raises(TypeError):
-        BarMapper.from_model(object())
+        BarMapper.model_to_entity(object())
 
 
 def test_from_models_batch():
     bars = [_make_bar(), _make_bar()]
-    models = [BarMapper.to_model(b) for b in bars]
-    restored = BarMapper.from_models(models)
+    models = [BarMapper.entity_to_model(b) for b in bars]
+    restored = BarMapper.models_to_entities(models)
     assert len(restored) == 2
     assert all(b.code == "000001.SZ" for b in restored)
 
@@ -59,7 +59,7 @@ def test_from_models_batch():
 def test_to_dto_smoke():
     """to_dto：symbol=code 映射，OHLCV 经 pydantic 转 float。"""
     bar = _make_bar()
-    dto = BarMapper.to_dto(bar)
+    dto = BarMapper.entity_to_dto(bar)
     assert dto.symbol == "000001.SZ"
     assert dto.close == 10.5
     assert dto.volume == 1000.0
@@ -68,7 +68,7 @@ def test_to_dto_smoke():
 def test_model_to_dto_smoke():
     """ORM→DTO 直转（路径①，经 Entity）。"""
     bar = _make_bar()
-    model = BarMapper.to_model(bar)
+    model = BarMapper.entity_to_model(bar)
     dto = BarMapper.model_to_dto(model)
     assert dto.symbol == "000001.SZ"
     assert dto.close == 10.5
@@ -77,15 +77,15 @@ def test_model_to_dto_smoke():
 def test_from_model_frequency_handling():
     """frequency 还原语义锁定：正常往返；-1 哨兵→VOID；None(DB NULL)→DAY 兜底。"""
     bar = _make_bar()  # DAY
-    model = BarMapper.to_model(bar)
+    model = BarMapper.entity_to_model(bar)
     # 正常值往返（DAY→1→DAY）
-    assert BarMapper.from_model(model).frequency == FREQUENCY_TYPES.DAY
+    assert BarMapper.model_to_entity(model).frequency == FREQUENCY_TYPES.DAY
     # -1（validate_input 未设频哨兵）→ VOID（from_int(-1)，不伪造为 DAY）
     model.frequency = -1
-    assert BarMapper.from_model(model).frequency == FREQUENCY_TYPES.VOID
+    assert BarMapper.model_to_entity(model).frequency == FREQUENCY_TYPES.VOID
     # None（DB NULL）→ DAY 兜底（or 防止 None.frequency 下游崩溃）
     model.frequency = None
-    assert BarMapper.from_model(model).frequency == FREQUENCY_TYPES.DAY
+    assert BarMapper.model_to_entity(model).frequency == FREQUENCY_TYPES.DAY
 
 
 def test_legacy_dataframe_bar_mappers_preserve_integer_trade_date():

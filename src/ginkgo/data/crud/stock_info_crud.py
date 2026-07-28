@@ -18,7 +18,6 @@ from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
 from ginkgo.entities import StockInfo
 from ginkgo.data.crud.model_conversion import ModelList
-from ginkgo.data.mappers import StockInfoMapper
 
 
 @restrict_crud_access
@@ -173,12 +172,6 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
         self._logger.WARN(f"Unsupported type for StockInfo conversion: {type(item)}. Please use StockInfo business object.")
         return None
 
-    def _convert_output_items(self, items: List[MStockInfo], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MStockInfo objects for business layer.
-        """
-        return items
-
     # Business Helper Methods
     def find_by_market(self, market: str) -> ModelList[MStockInfo]:
         """
@@ -226,40 +219,3 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get stock codes: {e}")
             return []
-
-    # ============================================================================
-    # BaseCRUD Hook Methods - Enum Mapping and Business Object Conversion
-    # ============================================================================
-
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for StockInfo.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'market': MARKET_TYPES,     # market字段对应MARKET_TYPES枚举
-            'currency': CURRENCY_TYPES,  # currency字段对应CURRENCY_TYPES枚举
-            'source': SOURCE_TYPES      # source字段对应SOURCE_TYPES枚举
-        }
-
-    def _convert_models_to_business_objects(self, models: List[MStockInfo]) -> List[StockInfo]:
-        """
-        🎯 Convert MStockInfo models to StockInfo business objects.
-
-        Args:
-            models: List of MStockInfo models with enum fields already fixed
-
-        Returns:
-            List of StockInfo business objects
-        """
-        business_objects = []
-        for model in models:
-            # Convert to business object (此时枚举字段已经是正确的枚举对象)
-            stock_info = StockInfoMapper.from_model(model)
-            business_objects.append(stock_info)
-
-        return business_objects
-
-    

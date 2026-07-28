@@ -191,58 +191,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             )
         return None
 
-
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'direction': DIRECTION_TYPES,
-            'order': ORDER_TYPES,
-            'orderstatus': ORDERSTATUS_TYPES,
-            'source': SOURCE_TYPES
-        }
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models (business object doesn't exist yet)
-        """
-        # For now, return models as-is since business object doesn't exist yet
-        return models
-
-    def _convert_output_items(self, items: List[MOrderRecord], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MOrderRecord objects to Order objects.
-        """
-        if output_type == "order":
-            return [
-                Order(
-                    code=item.code,
-                    direction=item.direction,
-                    order_type=item.order_type,
-                    volume=item.volume,
-                    limit_price=item.limit_price,
-                    frozen_money=item.frozen_money,
-                    frozen_volume=item.frozen_volume,
-                    transaction_price=item.transaction_price,
-                    transaction_volume=item.transaction_volume,
-                    remain=item.remain,
-                    timestamp=item.timestamp,
-                    status=item.status,
-                )
-                for item in items
-            ]
-        return items
-
     # Business Helper Methods
     def find_by_portfolio(
         self,
@@ -271,9 +219,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             page=page,
             page_size=page_size,
             order_by="timestamp",
-            desc_order=desc_order,
-            output_type="model"
-        )
+            desc_order=desc_order,        )
 
     def find_by_order_id(self, order_id: str) -> List[MOrderRecord]:
         """
@@ -282,9 +228,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters={"order_id": order_id},
             order_by="timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def find_by_code_and_status(
         self,
@@ -309,9 +253,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def find_pending_orders(
         self,
@@ -331,9 +273,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def find_filled_orders(
         self,
@@ -356,9 +296,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def delete_by_portfolio(self, portfolio_id: str) -> None:
         """
@@ -456,7 +394,5 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters=filters,
             order_by="business_timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 

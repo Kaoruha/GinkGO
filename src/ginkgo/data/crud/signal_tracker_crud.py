@@ -168,40 +168,6 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             GLOG.WARN(f"Unsupported input type: {type(item)}")
             return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for SignalTracker.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'execution_mode': EXECUTION_MODE,    # 执行模式字段映射
-            'account_type': ACCOUNT_TYPE,        # 账户类型字段映射
-            'expected_direction': DIRECTION_TYPES,  # 预期方向字段映射
-            'tracking_status': TRACKINGSTATUS_TYPES,     # 追踪状态字段映射
-            'source': SOURCE_TYPES                # 数据源字段映射
-        }
-
-    def _convert_models_to_business_objects(self, models: List[MSignalTracker]) -> List[Any]:
-        """
-        🎯 Convert MSignalTracker models to business objects.
-
-        Args:
-            models: List of MSignalTracker models with enum fields already fixed
-
-        Returns:
-            List of business objects (keeping as MSignalTracker for now)
-        """
-        # For now, return models as-is since SignalTracker doesn't have a direct business object
-        return models
-
-    def _convert_output_items(self, items: List[MSignalTracker], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MSignalTracker objects for business layer.
-        """
-        return items
-
     def find_by_signal_id(self, signal_id: str) -> Optional[MSignalTracker]:
         """
         根据信号ID查找追踪记录

@@ -30,7 +30,7 @@ class MTransferRecord(MClickBase, MBacktestRecordBase, ModelConversion):
 
     portfolio_id: Mapped[str] = mapped_column(String(), default="")
     direction: Mapped[int] = mapped_column(types.Int8, default=-1)
-    market: Mapped[int] = mapped_column(types.Int8, default=-1)
+    market: Mapped[int] = mapped_column(types.Int8, default=-1, info={"enum": MARKET_TYPES})
     money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     status: Mapped[int] = mapped_column(types.Int8, default=-1)
 

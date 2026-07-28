@@ -490,7 +490,7 @@ class TestPositionCRUDQuery:
             # 测试2: to_entities转换
             print("\n→ 测试to_entities转换...")
             from ginkgo.entities import Position
-            entities = PositionMapper.from_models(model_list)
+            entities = PositionMapper.models_to_entities(model_list)
             print(f"✓ 实体列表类型: {type(entities).__name__}")
             print(f"✓ 实体列表长度: {len(entities)}")
             assert len(entities) == len(model_list), f"实体列表长度应等于ModelList长度，{len(entities)} != {len(model_list)}"
@@ -517,7 +517,7 @@ class TestPositionCRUDQuery:
             # 测试4: 验证缓存机制
             print("\n→ 测试转换缓存机制...")
             df2 = model_list.to_dataframe()
-            entities2 = PositionMapper.from_models(model_list)
+            entities2 = PositionMapper.models_to_entities(model_list)
 
             # 验证结果一致性
             assert df.equals(df2), "缓存的DataFrame应该相同"
@@ -530,7 +530,7 @@ class TestPositionCRUDQuery:
             assert len(empty_model_list) == 0, "空ModelList长度应为0"
 
             empty_df = empty_model_list.to_dataframe()
-            empty_entities = PositionMapper.from_models(empty_model_list)
+            empty_entities = PositionMapper.models_to_entities(empty_model_list)
 
             assert isinstance(empty_df, pd.DataFrame), "空转换应返回DataFrame"
             assert len(empty_df) == 0, "空DataFrame长度应为0"
@@ -1336,7 +1336,7 @@ class TestPositionCRUDEnumValidation:
 
         # 验证to_entities()方法中的枚举转换（跳过有历史数据问题的转换）
         try:
-            entities = PositionMapper.from_models(model_list)
+            entities = PositionMapper.models_to_entities(model_list)
             our_entities = [e for e in entities if hasattr(e, 'code') and e.code in expected_map]
 
             for entity in our_entities:

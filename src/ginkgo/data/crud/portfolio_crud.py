@@ -118,27 +118,6 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Portfolio.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'source': SOURCE_TYPES,
-            'mode': PORTFOLIO_MODE_TYPES,
-            'state': PORTFOLIO_RUNSTATE_TYPES
-        }
-
-    def _convert_models_to_business_objects(self, models: List[MPortfolio]) -> List[Any]:
-        # TODO: 创建 entities.Portfolio 后在此做 MPortfolio → Portfolio 转换
-        return models
-
-    def _convert_output_items(self, items: List[MPortfolio], output_type: str = "model") -> List[Any]:
-        """Hook method: Convert MPortfolio objects for business layer."""
-        return items
-
     # Business Helper Methods
     def fuzzy_search(
         self,

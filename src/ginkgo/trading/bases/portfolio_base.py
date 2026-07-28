@@ -848,7 +848,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
         positions_data = []
         for code, pos in self._positions.items():
             from ginkgo.data.mappers import PositionMapper
-            model = PositionMapper.to_model(pos)
+            model = PositionMapper.entity_to_model(pos)
             positions_data.append({
                 "portfolio_id": model.portfolio_id,
                 "engine_id": model.engine_id,
@@ -886,7 +886,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
         self._positions = {}
 
         for p_dict in state.get("positions", []):
-            # 利用 MPosition 的 update 方法，再通过 PositionMapper.from_model 转换
+            # 利用 MPosition 的 update 方法，再通过 PositionMapper.model_to_entity 转换
             from ginkgo.data.models import MPosition
             from ginkgo.data.mappers import PositionMapper
             m_pos = MPosition()
@@ -906,7 +906,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
                 fee=p_dict["fee"],
             )
             m_pos.uuid = p_dict.get("uuid", "")
-            pos = PositionMapper.from_model(m_pos)
+            pos = PositionMapper.model_to_entity(m_pos)
             self._positions[p_dict["code"]] = pos
 
         self.update_worth()

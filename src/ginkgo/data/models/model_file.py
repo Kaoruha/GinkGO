@@ -19,7 +19,7 @@ class MFile(MMysqlBase):
     __abstract__ = False
     __tablename__ = "file"
 
-    type: Mapped[int] = mapped_column(TINYINT, default=-1)
+    type: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": FILE_TYPES})
     name: Mapped[str] = mapped_column(String(40), default="ginkgo_file")
     data: Mapped[bytes] = mapped_column(MEDIUMBLOB, default=b"")
 

@@ -19,7 +19,6 @@ from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 from ginkgo.entities import TradeDay
 from ginkgo.data.crud.model_conversion import ModelList
-from ginkgo.data.mappers import TradeDayMapper
 
 
 @restrict_crud_access
@@ -72,18 +71,6 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
             }
         }
 
-    def _convert_models_to_business_objects(self, models: List[MTradeDay]) -> List[TradeDay]:
-        """
-        Convert MTradeDay models to TradeDay business objects.
-
-        Args:
-            models: List of MTradeDay models with enum fields already fixed
-
-        Returns:
-            List of TradeDay business objects
-        """
-        return [TradeDayMapper.from_model(model) for model in models]
-
     def _create_from_params(self, **kwargs) -> MTradeDay:
         """
         Hook method: Create MTradeDay from parameters.
@@ -107,25 +94,6 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TUSHARE)) or SOURCE_TYPES.TUSHARE.value,
             )
         return None
-
-
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'market': MARKET_TYPES,
-            'source': SOURCE_TYPES
-        }
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
 
     # Business Helper Methods
     def find_trading_days(self, start_date: Any, end_date: Any) -> ModelList[MTradeDay]:

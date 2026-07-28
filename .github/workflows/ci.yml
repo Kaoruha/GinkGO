@@ -261,6 +261,12 @@ jobs:
             tests/unit/features/test_factor_service_smoke.py \
             tests/unit/trading/feeders/test_backtest_feeder_fetch_smoke.py \
             tests/unit/interfaces/test_message_mapper.py \
+            tests/unit/data/test_signal_order_df_mapper_parity.py \
+            tests/unit/data/test_source_enum_reflection_c6.py \
+            tests/unit/data/mappers/test_tradeday_mapper.py \
+            tests/unit/data/mappers/test_transfer_mapper.py \
+            tests/unit/data/mappers/test_position_mapper.py \
+            tests/unit/data/mappers/test_stockinfo_mapper.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \

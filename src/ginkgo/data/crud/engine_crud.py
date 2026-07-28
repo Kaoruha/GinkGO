@@ -120,44 +120,6 @@ class EngineCRUD(BaseCRUD[MEngine]):
             )
         return None
 
-
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'status': ENGINESTATUS_TYPES,
-            'source': SOURCE_TYPES
-        }
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models (business object doesn't exist yet)
-        """
-        # For now, return models as-is since business object doesn't exist yet
-        return models
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
-
-    def _convert_output_items(self, items: List[MEngine], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MEngine objects for business layer.
-        """
-        return items
-
     # Business Helper Methods
     def find_by_uuid(self, uuid: str) -> List[MEngine]:
         """
@@ -174,9 +136,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         return self.find(
             filters={"status": status},
             order_by="update_at",
-            desc_order=True,
-            output_type="model",
-        )
+            desc_order=True,        )
 
     def find_by_name_pattern(self, name_pattern: str) -> List[MEngine]:
         """
@@ -185,9 +145,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         return self.find(
             filters={"name__like": name_pattern},
             order_by="update_at",
-            desc_order=True,
-            output_type="model",
-        )
+            desc_order=True,        )
 
     def get_all_uuids(self) -> List[str]:
         """

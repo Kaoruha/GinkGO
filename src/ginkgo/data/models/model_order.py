@@ -29,9 +29,9 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
-    direction: Mapped[int] = mapped_column(TINYINT, default=-1)
-    order_type: Mapped[int] = mapped_column(TINYINT, default=-1)
-    status: Mapped[int] = mapped_column(TINYINT, default=-1)
+    direction: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": DIRECTION_TYPES})
+    order_type: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": ORDER_TYPES})
+    status: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": ORDERSTATUS_TYPES})
     volume: Mapped[int] = mapped_column(Integer, default=0)
     limit_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     frozen_money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)

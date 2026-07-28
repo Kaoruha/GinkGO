@@ -25,12 +25,12 @@ def _make_adjustfactor(**overrides) -> Adjustfactor:
 class TestAdjustfactorMapperRoundtrip:
     def test_to_model_returns_madjustfactor(self):
         entity = _make_adjustfactor()
-        model = AdjustfactorMapper.to_model(entity, MAdjustfactor)
+        model = AdjustfactorMapper.entity_to_model(entity, MAdjustfactor)
         assert isinstance(model, MAdjustfactor)
 
     def test_to_model_preserves_code_and_uuid(self):
         entity = _make_adjustfactor()
-        model = AdjustfactorMapper.to_model(entity, MAdjustfactor)
+        model = AdjustfactorMapper.entity_to_model(entity, MAdjustfactor)
         # code/uuid 字段名匹配 MAdjustfactor，正确 setattr
         assert model.code == "SH600000"
         assert model.uuid == entity.uuid
@@ -48,8 +48,8 @@ class TestAdjustfactorMapperRoundtrip:
             code="SZ000001",
             timestamp="2024-06-01 10:00:00",
         )
-        model = AdjustfactorMapper.to_model(entity, MAdjustfactor)
-        restored = AdjustfactorMapper.from_model(model)
+        model = AdjustfactorMapper.entity_to_model(entity, MAdjustfactor)
+        restored = AdjustfactorMapper.model_to_entity(model)
 
         assert restored.code == "SZ000001"
         assert restored.uuid == entity.uuid
@@ -58,14 +58,14 @@ class TestAdjustfactorMapperRoundtrip:
 class TestAdjustfactorMapperTypeError:
     def test_from_model_rejects_non_madjustfactor(self):
         with pytest.raises(TypeError) as exc:
-            AdjustfactorMapper.from_model("not a model")
+            AdjustfactorMapper.model_to_entity("not a model")
         assert "MAdjustfactor" in str(exc.value)
 
 
 class TestAdjustfactorMapperFromModels:
     def test_from_models_maps_list(self):
         entity = _make_adjustfactor()
-        model = AdjustfactorMapper.to_model(entity, MAdjustfactor)
-        results = AdjustfactorMapper.from_models([model, model])
+        model = AdjustfactorMapper.entity_to_model(entity, MAdjustfactor)
+        results = AdjustfactorMapper.models_to_entities([model, model])
         assert len(results) == 2
         assert all(isinstance(r, Adjustfactor) for r in results)

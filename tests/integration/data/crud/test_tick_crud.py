@@ -628,7 +628,7 @@ class TestTickCRUDConversion:
 
             # 测试2: to_entities转换
             print("\n→ 测试to_entities转换...")
-            entities = TickMapper.from_models(model_list)
+            entities = TickMapper.models_to_entities(model_list)
             assert len(entities) == len(model_list), "实体列表长度应等于ModelList长度"
 
             # 验证实体类型

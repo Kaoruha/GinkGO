@@ -27,7 +27,7 @@ class PositionMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: Position) -> MPosition:
+    def entity_to_model(entity: Position) -> MPosition:
         """Entity → ORM。3 位置参数 + model.uuid 赋值 + settlement_queue JSON 序列化。"""
         # 序列化结算队列为JSON（原码 default=str 兜底 datetime 等不可 JSON 序列化对象）
         # Position 无 settlement_queue property，直读私有属性（忠实原码）
@@ -54,7 +54,7 @@ class PositionMapper:
         return model
 
     @staticmethod
-    def from_model(model: MPosition) -> Position:
+    def model_to_entity(model: MPosition) -> Position:
         """ORM → Entity。还原 uuid（原码已如此，无丢失 bug）。
 
         settlement_queue 反序列化失败时 fallback []（保留原码 try/except）。
@@ -113,5 +113,5 @@ class PositionMapper:
         return position
 
     @staticmethod
-    def from_models(models) -> List[Position]:
-        return [PositionMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[Position]:
+        return [PositionMapper.model_to_entity(m) for m in models]

@@ -20,7 +20,7 @@ class BarMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: Bar) -> MBar:
+    def entity_to_model(entity: Bar) -> MBar:
         """Entity → ORM。code 作为 singledispatch update 的第一个位置参数。"""
         model = MBar()
         model.update(
@@ -37,7 +37,7 @@ class BarMapper:
         return model
 
     @staticmethod
-    def from_model(model: MBar) -> Bar:
+    def model_to_entity(model: MBar) -> Bar:
         """ORM → Entity。frequency int→enum。
 
         frequency 三态：正常值往返；-1（validate_input 未设频哨兵）经 from_int→VOID
@@ -61,8 +61,8 @@ class BarMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[Bar]:
-        return [BarMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[Bar]:
+        return [BarMapper.model_to_entity(m) for m in models]
 
     # ------------------------------------------------------------------
     # Entity/ORM ↔ DTO
@@ -75,7 +75,7 @@ class BarMapper:
     # Bar 无 from_dto（BarDTO 出站单向，YAGNI）。
     # ------------------------------------------------------------------
     @staticmethod
-    def to_dto(entity: Bar) -> BarDTO:
+    def entity_to_dto(entity: Bar) -> BarDTO:
         """Entity → BarDTO。搬运自 bar_dto.py 原 from_bar 逻辑（本 Task 已删该方法）。"""
         return BarDTO(
             symbol=entity.code,
@@ -94,4 +94,4 @@ class BarMapper:
     @staticmethod
     def model_to_dto(model: MBar) -> BarDTO:
         """ORM → DTO（经 Entity 组合；Bar 非热路径，省字段映射重复）。"""
-        return BarMapper.to_dto(BarMapper.from_model(model))
+        return BarMapper.entity_to_dto(BarMapper.model_to_entity(model))

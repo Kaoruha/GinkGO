@@ -19,11 +19,6 @@ class UserCredentialCRUD(BaseCRUD[MUserCredential]):
     def __init__(self):
         super().__init__(MUserCredential)
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        return {
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         return {
             'user_id': {
@@ -58,12 +53,6 @@ class UserCredentialCRUD(BaseCRUD[MUserCredential]):
 
     def _convert_input_item(self, item: Any) -> Optional[MUserCredential]:
         return None
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        return models
-
-    def _convert_output_items(self, items: List[MUserCredential], output_type: str = "model") -> List[Any]:
-        return items
 
     def get_by_user_id(self, user_id: str) -> Optional[MUserCredential]:
         results = self.find(filters={"user_id": user_id})

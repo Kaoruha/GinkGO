@@ -1086,7 +1086,8 @@ class RedisService(BaseService):
                 "func_name": func_name
             }
             
-            # 序列化并存储
+            # result 可能含 datetime/Decimal 等非 JSON 原生类型,须 default=str 兜底
+            # (CacheMapper.encode 无 default=str,故显式 dumps 再以 str 交 crud.set 原样存)
             cache_json = json.dumps(cache_data, default=str)
             success = self._crud_repo.set(full_cache_key, cache_json, expiration_seconds)
             
@@ -1109,16 +1110,16 @@ class RedisService(BaseService):
             Optional[Any]: 缓存的结果，不存在或过期时返回None
         """
         try:
-            import json
             from ginkgo.data.redis_schema import RedisKeyBuilder
 
             full_cache_key = RedisKeyBuilder.func_cache(func_name, cache_key)
-            cache_json = self._crud_repo.get(full_cache_key)
-            
-            if cache_json:
-                cache_data = json.loads(cache_json)
+            # crud.get 已 CacheMapper.decode 返回 dict;旧代码二次 json.loads(dict) 抛 TypeError
+            # 被外层 except 吞成 None —— 缓存命中也返 None(function-cache 形同虚设)。此处直接用 dict。
+            cache_data = self._crud_repo.get(full_cache_key)
+
+            if cache_data:
                 return cache_data.get("result")
-            
+
             return None
         except Exception as e:
             self._logger.ERROR(f"Failed to get function cache: {e}")
@@ -1170,9 +1171,9 @@ class RedisService(BaseService):
             Dict[str, Any]: 缓存统计信息，包含条目数、大小、时间分布等
         """
         try:
-            import json
             import time
             from ginkgo.data.redis_schema import RedisKeyPrefix
+            from ginkgo.data.mappers import CacheMapper
 
             if func_name:
                 cache_pattern = f"{RedisKeyPrefix.FUNC_CACHE}_{func_name}_*"
@@ -1193,21 +1194,21 @@ class RedisService(BaseService):
             
             for cache_key in cache_keys:
                 try:
-                    cache_json = self._crud_repo.get(cache_key)
-                    if cache_json:
-                        cache_data = json.loads(cache_json)
+                    # crud.get 已 CacheMapper.decode 返回 dict(旧二次 json.loads 同 get_function_cache bug)
+                    cache_data = self._crud_repo.get(cache_key)
+                    if cache_data:
                         func_name_from_cache = cache_data.get("func_name", "unknown")
                         timestamp = cache_data.get("timestamp", current_time)
-                        
+
                         # 按函数统计
                         if func_name_from_cache not in stats["by_function"]:
                             stats["by_function"][func_name_from_cache] = {
                                 "count": 0,
                                 "size_estimate": 0
                             }
-                        
+
                         stats["by_function"][func_name_from_cache]["count"] += 1
-                        entry_size = len(cache_json)
+                        entry_size = len(CacheMapper.encode(cache_data))
                         stats["by_function"][func_name_from_cache]["size_estimate"] += entry_size
                         stats["total_size_estimate"] += entry_size
                         

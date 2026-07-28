@@ -63,6 +63,11 @@ class ControlCommandDTO(BaseModel):
         UPDATE_SELECTOR = "update_selector"  # 更新Selector：触发ExecutionNode的selector.pick()
         UPDATE_DATA = "update_data"  # 更新数据：触发数据更新任务（已弃用）
         PAPER_TRADING = "paper_trading"  # 纸上交易：推进引擎一天
+        # deploy/unload 家族：portfolio_cli / portfolio_service / deployment_service
+        # 发往 PaperTradingWorker（消费端 _handle_command 按字面 "deploy"/"unload" 分发）。
+        # 旧 dataclass ginkgo.messages.control_command.ControlCommand 同值，wire 字面不可漂移。
+        DEPLOY = "deploy"  # 部署：加载 Portfolio 到 PaperTradingWorker 引擎
+        UNLOAD = "unload"  # 卸载：从引擎卸载 Portfolio
 
     def is_bar_snapshot(self) -> bool:
         """是否为K线快照命令"""

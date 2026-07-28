@@ -33,7 +33,7 @@ class MappingMapper:
     # ORM → Entity
     # ------------------------------------------------------------------
     @staticmethod
-    def from_model(model, mapping_type: str = "") -> Mapping:
+    def model_to_entity(model, mapping_type: str = "") -> Mapping:
         """任意映射模型 → Mapping Entity。
 
         mapping_type 形参保留（决定映射语义，调用方必传）。
@@ -95,13 +95,13 @@ class MappingMapper:
         )
 
     @staticmethod
-    def from_models(models, mapping_type: str = "") -> List[Mapping]:
-        return [MappingMapper.from_model(m, mapping_type) for m in models]
+    def models_to_entities(models, mapping_type: str = "") -> List[Mapping]:
+        return [MappingMapper.model_to_entity(m, mapping_type) for m in models]
 
     # ------------------------------------------------------------------
     # Entity → ORM（原码无写路径）
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: Mapping):
+    def entity_to_model(entity: Mapping):
         """Mapping 只读，原码无 to_model。忠实搬运 NotImplementedError。"""
         raise NotImplementedError("Mapping 无写路径，to_model 未实现")

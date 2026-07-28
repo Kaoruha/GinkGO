@@ -55,7 +55,7 @@ def test_fetch_day_bars_batch_skips_failed_and_empty_keeps_success():
     )
     feeder.bar_service = mock_bs
     bar_a = _make_bar("A.SZ")
-    with patch.object(mappers_mod.BarMapper, "from_models", return_value=[bar_a]):
+    with patch.object(mappers_mod.BarMapper, "models_to_entities", return_value=[bar_a]):
         result = feeder._fetch_day_bars_batch(
             datetime(2023, 6, 1, 9, 30), ["A.SZ", "B.SZ", "C.SZ"]
         )
@@ -87,7 +87,7 @@ def test_advance_time_passes_feedable_subset_to_fetch():
     bar_a = _make_bar("A.SZ")
     captured: list = []
     feeder.set_event_publisher(captured.append)
-    with patch.object(mappers_mod.BarMapper, "from_models", return_value=[bar_a]):
+    with patch.object(mappers_mod.BarMapper, "models_to_entities", return_value=[bar_a]):
         feeder.advance_time(datetime(2023, 6, 1, 9, 30))
 
     # feedable=[A] 传给 fetch → 逐股 get(code="A.SZ") 非全市场 code=None

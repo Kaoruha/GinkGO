@@ -106,69 +106,6 @@ class BarCRUD(BaseCRUD[MBar]):
         self._logger.WARN(f"Unsupported type for Bar conversion: {type(item)}. Please use Bar business object.")
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Bar.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'frequency': FREQUENCY_TYPES,  # K线频率字段映射
-            'source': SOURCE_TYPES          # 数据源字段映射
-        }
-
-    def _convert_models_to_business_objects(self, models: List[MBar]) -> List[Bar]:
-        """
-        🎯 Convert MBar models to Bar business objects.
-
-        Args:
-            models: List of MBar models with enum fields already fixed
-
-        Returns:
-            List of Bar business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            # 注意：Bar业务对象不需要source字段，只有MBar模型需要
-            bar = Bar(
-                code=model.code,
-                open=model.open,
-                high=model.high,
-                low=model.low,
-                close=model.close,
-                volume=model.volume,
-                amount=model.amount,
-                frequency=model.frequency,
-                timestamp=model.timestamp,
-            )
-            business_objects.append(bar)
-
-        return business_objects
-
-    def _convert_output_items(self, items: List[MBar], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MBar objects to Bar objects.
-        """
-        if output_type == "bar":
-            return [
-                Bar(
-                    code=item.code,
-                    open=item.open,
-                    high=item.high,
-                    low=item.low,
-                    close=item.close,
-                    volume=item.volume,
-                    amount=item.amount,
-                    frequency=item.frequency,
-                    timestamp=item.timestamp,
-                    # 注意：Bar业务对象不需要source字段
-                )
-                for item in items
-            ]
-        return items
-
     # Business Helper Methods
     def find_by_code_and_date_range(
         self,
@@ -282,9 +219,7 @@ class BarCRUD(BaseCRUD[MBar]):
                 page=None,
                 page_size=limit,
                 order_by=None,
-                desc_order=False,
-                output_type="model",
-                distinct_field="code",
+                desc_order=False,                distinct_field="code",
             )
         except Exception as e:
             GLOG.ERROR(f"Failed to get stock codes: {e}")

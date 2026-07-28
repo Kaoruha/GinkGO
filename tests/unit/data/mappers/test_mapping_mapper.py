@@ -25,21 +25,21 @@ class TestMappingMapperFromModel:
     def test_from_model_returns_mapping_with_mapping_type(self):
         """from_model 必传 mapping_type 形参（决定映射语义）。"""
         model = _FakeMappingModel(portfolio_id="p-1", file_id="f-1")
-        mapping = MappingMapper.from_model(model, mapping_type="PortfolioFile")
+        mapping = MappingMapper.model_to_entity(model, mapping_type="PortfolioFile")
         assert isinstance(mapping, Mapping)
         assert mapping.mapping_type == "PortfolioFile"
 
     def test_from_model_smart_detects_left_right_keys(self):
         """智能检测：遍历 potential_keys，第一个非空为 left，第二个为 right。"""
         model = _FakeMappingModel(portfolio_id="p-1", file_id="f-2")
-        mapping = MappingMapper.from_model(model, mapping_type="PortfolioFile")
+        mapping = MappingMapper.model_to_entity(model, mapping_type="PortfolioFile")
         assert mapping.left_key == "p-1"
         assert mapping.right_key == "f-2"
 
     def test_from_model_default_mapping_type_when_empty(self):
         """mapping_type 空串时回退到类名推断（原码 cls.__name__.replace('Mapping','')）。"""
         model = _FakeMappingModel(portfolio_id="p-1", file_id="f-2")
-        mapping = MappingMapper.from_model(model, mapping_type="")
+        mapping = MappingMapper.model_to_entity(model, mapping_type="")
         # Mapping.__name__ = "Mapping" → replace 后空串
         assert isinstance(mapping, Mapping)
 
@@ -50,11 +50,11 @@ class TestMappingMapperFromModel:
         """
         model = _FakeMappingModel(portfolio_id="", file_id="")
         with pytest.raises(ValueError):
-            MappingMapper.from_model(model, mapping_type="Test")
+            MappingMapper.model_to_entity(model, mapping_type="Test")
 
     def test_from_models_batch(self):
         model = _FakeMappingModel(portfolio_id="p-1", file_id="f-1")
-        mappings = MappingMapper.from_models([model, model], mapping_type="PF")
+        mappings = MappingMapper.models_to_entities([model, model], mapping_type="PF")
         assert len(mappings) == 2
         assert all(isinstance(m, Mapping) for m in mappings)
 
@@ -63,4 +63,4 @@ class TestMappingMapperToModel:
     def test_to_model_not_implemented(self):
         """原码无 to_model（Mapping 只读，无写路径）。忠实搬运 NotImplementedError。"""
         with pytest.raises(NotImplementedError):
-            MappingMapper.to_model(Mapping(left_key="a", right_key="b", mapping_type="t"))
+            MappingMapper.entity_to_model(Mapping(left_key="a", right_key="b", mapping_type="t"))
