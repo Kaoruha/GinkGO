@@ -245,3 +245,6 @@ graphify-out/
 .swarm/
 .mcp.json
 ruvector.db
+
+# 策略研究文档（个人探索，不进版本控制）
+docs/research/
