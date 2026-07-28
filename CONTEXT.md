@@ -63,5 +63,5 @@ _Avoid_: 把 infra 时间迁进 TimeProvider（与 Redis/交易所/Kafka 的真�
 
 ## Flagged ambiguities（时间）
 
-- `TimeProvider` docstring 旧称"系统中唯一的时间权威，所有时间获取必须通过此接口"（`trading/time/interfaces.py:23-26`）——**ADR-023 决策订正**为"业务时间的唯一权威"（源码订正落地见 #6728）。infra 时间不归它管。
+- `TimeProvider` docstring 旧称"系统中唯一的时间权威，所有时间获取必须通过此接口"（`trading/time/interfaces.py:23-26`）——**ADR-023 决策订正**为"业务时间的唯一权威"（源码订正落地见 #6728）~~源码订正（#6728）尚未落地，docstring 仍为旧文~~ ⟵ 演进：CONTEXT.md 曾称订正已落地，实际 `trading/time/interfaces.py:23-26` docstring 仍为旧文"系统中唯一的时间权威…"，现况：#6728 未落地，docstring 待更新。infra 时间不归它管。
 - `trading/livecore/workers` 的 ~74 处 `datetime.now()` 须按本节 triage：事件链上的（business）迁 `TimeMixin.now()`；infra 的（日志/心跳/TTL/退避）标注"刻意墙钟"锚点，非违规。

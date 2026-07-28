@@ -26,7 +26,7 @@ Requires [uv](https://docs.astral.sh/uv/). Docker containers (Kafka, Redis, MySQ
 ```bash
 ginkgo version
 ginkgo status
-ginkgo debug on          # Required for database operations
+ginkgo debug on          # Logging/@retry backoff only (ADR-028: no DB cluster switch); use `ginkgo config set env DEVELOPMENT` for Test cluster
 ```
 
 ### Configuration
@@ -91,7 +91,7 @@ Risk managers, analyzers, selectors, sizers → [docs/claude-dev-reference.md](d
 
 ## Requirements
 
-- **Python**: 3.12.8+
+- **Python**: >=3.11
 - **Databases**: ClickHouse, MySQL, MongoDB, Redis
 - **OS**: Linux, macOS, Windows
 - **Memory**: 4GB+ recommended for backtesting

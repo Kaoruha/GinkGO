@@ -2,7 +2,7 @@
 
 ## 一、实体生命周期
 
-### 1. Signal — 无状态值对象
+### 1. Signal — ~~无状态值对象~~ ⟵ 演进：曾描述为 VO，CONTEXT.md 订正为 Entity（有 uuid，Base 子类），现况：Entity
 
 ```
 Strategy.cal() / Risk.generate_signals()
@@ -45,7 +45,7 @@ Strategy.cal() / Risk.generate_signals()
 - `PARTIAL_FILLED` → `PARTIAL_FILLED`, `FILLED`, `CANCELED`
 - `FILLED` / `CANCELED` — 终态
 
-**关键方法**: `submit()`, `partial_fill(volume, price, fee)`, `fill(price, fee)`, `cancel()`, `get_fill_ratio()`
+**关键方法**: `submit()`, `partial_fill(executed_volume, executed_price, fee)`, `fill(price, fee)`, `cancel()`, `get_fill_ratio()`
 
 > 源码: `src/ginkgo/trading/bases/order_base.py`, `src/ginkgo/entities/order.py`
 
@@ -120,13 +120,10 @@ uninitialized → initializing → running ◄──► paused → stopped
 
 **Broker 层次**:
 ```
-IBroker (接口)
-  ├─ BaseBroker (基础实现: 订单生命周期、持仓管理)
-  │    ├─ LiveBrokerBase (实盘基类: API交易、异步执行)
-  │    │    ├─ OKXBroker (OKX交易所适配器)
-  │    │    └─ AlpacaBroker...
-  │    └─ SimBroker (回测模拟: 即时撮合、滑点模型、A股佣金)
-  └─ (其他交易所适配器)
+Broker(ABC) — 交易代理接口 (src/ginkgo/trading/brokers/interfaces.py:281)
+SyncBroker(ABC) — 统一Broker接口 (src/ginkgo/trading/interfaces/broker_interface.py:128)
+  └─ OKXBroker(SyncBroker) — OKX交易所适配器
+SimBroker — 回测模拟: 即时撮合、滑点模型、A股佣金
 ```
 
 > 源码: `src/ginkgo/trading/brokers/base_broker.py`, `src/ginkgo/trading/brokers/broker_manager.py`

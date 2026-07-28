@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added (2025-01 ~ 2026-05)
-- Web UI (Vue 3 + Ant Design) with portfolio/backtest/component management
+- Web UI (Vue 3 + shadcn-vue) with portfolio/backtest/component management
 - FastAPI server with SSE backtest progress streaming
 - Saga transaction manager for portfolio operations
 - OKX live trading broker with heartbeat monitor and recovery service
@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured logging with trace_id/span_id (structlog + ClickHouse/Loki)
 - Notification system (Telegram, Beep, Mail, WeChat)
 - Component parameter extraction from source code AST
-- Multiple new strategies (momentum, mean_reversion, donchian_breakout, etc.)
+- Multiple new strategies (momentum, mean_reversion, etc.)
 - MomentumSelector and PopularitySelector for dynamic stock screening
 - RatioSizer for percentage-based position sizing
 - 87-round automated strategy search with quantitative analysis
@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.8.2] - 2025-01-12
 
 ### Added
-- Complete risk management system with PositionRatioRisk, LossLimitRisk, and ProfitLimitRisk
+- Complete risk management system with PositionRatioRisk, LossLimitRisk, and ProfitTargetRisk
 - Dual risk control mechanism: passive order interception and active signal generation
 - Event-driven risk monitoring responding to price updates in real-time
 - Smart order volume adjustment instead of simple order rejection

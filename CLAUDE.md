@@ -82,7 +82,7 @@ ginkgo serve worker-backtest --id test2       # 回测 Worker
 
 ## CLI 全链路（构建→回测→模拟盘→实盘）
 
-> **可用性（2026-06-28 实测，详见 [e2e 审计](docs/e2e-cli-flow-audit.md)）**：构建 ✅ ｜ 回测 ⚠️（无数据预检、0 交易定位难）｜ 模拟盘 ⚠️（核心修复 #6164 已落地，端到端待复测）｜ 实盘 ⚠️（`account`/`deploy` 命令就绪，端到端待验证）。文档口径以审计报告为权威，勿超前于代码实际能力。
+> **可用性（2026-06-28 实测，详见 [e2e 审计](docs/e2e-cli-flow-audit.md)）**：构建 ✅ ｜ 回测 ⚠️（无数据预检、0 交易定位难）｜ 模拟盘 ⚠️（核心修复 #6164 已落地，端到端待复测）｜ 实盘 ⚠️（`account`/`deploy` 命令就绪，端到端待验证）。文档口径以审计报告为权威，勿超前于代码实际能力。（注：审计快照定格 2026-06-22 已滞后，以本节 2026-06-28 标注为准）
 
 ### 流程
 创建 Portfolio → 复用/创建 Component → 绑定组件(含参数) → 创建回测 → 运行 → [deploy 模拟/实盘]
@@ -121,6 +121,6 @@ ginkgo account list <user_id>
 > **实际命名**：DB 组件名多为 `<name>_<type>` 格式（如 `fixed_selector`/`atr_sizer`/`fixed_sizer`），部分带描述前缀（如 `qr_momentum_selector`/`sharpe_ratio`）。`bind-component` 前用 `ginkgo component list` 查实际 `file_id` 与名称；下表为短名速查。
 
 - **Strategy**（内置类 11）: random_signal, moving_average_crossover, mean_reversion, momentum, trend_follow, trend_reverse, dual_thrust, scalping, price_action, volume_activate, ml_predictor；另有 DB 脚本组件（src 无类，DB component 表实例）: social_signal, game_theory, random_choice
-- **Selector**: fixed, cn_all, momentum, popularity, multi_params
+- **Selector**: fixed, cn_all, momentum, popularity
 - **Sizer**: fixed, atr, ratio
 - **Risk**: no_risk, position_ratio, loss_limit, profit_target, max_drawdown, volatility, concentration, capital, liquidity, margin, market_cap, sector_rotation, correlation, currency, suspension, trading_time, time_based

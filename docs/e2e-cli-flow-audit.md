@@ -1,6 +1,8 @@
 # Ginkgo CLI 全链路审计报告
 
-> 日期：2026-06-22 ｜ ginkgo 0.8.1 ｜ Debug ON
+> ⚠️ 本审计定格 2026-06-22。下列 BUG 多已由后续 PR 修复（见各行 ⟵ 标注）。阅读时以行内标注为准，勿按未标注的旧结论操作。
+>
+> 原审计日期：2026-06-22 ｜ ginkgo 0.8.2 ｜ Debug ON
 > 流程：策略构建 → 回测验证 → 模拟盘 → 实盘
 > 方法：CLI 实跑 + 源码核对 + DB 直查
 
@@ -10,8 +12,8 @@
 |---|---|---|
 | 策略构建 | ✅ 可用 | — |
 | 回测验证 | ⚠️ 可用但有数据陷阱 | 无数据预检，0交易定位难 |
-| 模拟盘 | ❌ 不可用 | deploy 克隆丢组件绑定 |
-| 实盘 | ❌ 不可用 | 无 CLI 建账户，链路断 |
+| 模拟盘 | ❌ → ⚠️ 部分修复 | deploy 克隆丢组件绑定 ⟵ 已修复：#6279(25554065) + #6164(6ad4a7c0) + #6474(06256ceb) |
+| 实盘 | ❌ → ⚠️ 部分落地 | 无 CLI 建账户，链路断 ⟵ 已落地：#6289(e632a7f6 account create/list/get) |
 
 ---
 
@@ -49,19 +51,19 @@
 
 `deploy deploy <pid> --mode paper` 返回"部署成功"+建记录+发 Kafka，但 **worker 实际装配失败**。
 
-### BUG [严重] deploy 克隆未完整复制组件绑定
+### BUG [严重] deploy 克隆未完整复制组件绑定 ⟵ 已修复：#6279(25554065 deploy 克隆保留全部组件绑定) + #6164(6ad4a7c0 回测→模拟盘 deploy 丢 param) + #6474(06256ceb 种子化)
 - 部署日志只显示复制 2/4 映射（risk + selector），strategy + sizer 丢失
 - PaperTradingWorker 装配时 `Strategies: 0` → `CRITICAL No strategy found` → `Component binding failed, skipping`
 - 同一组合回测 13 信号成功，部署后却 0 策略——**回测 OK ≠ 部署 OK**
 - 定位：`deployment_service.py` 的 `_copy_graph` / 文件映射复制逻辑漏抄部分绑定
 
-### BUG [高] deploy 输出 Portfolio ID 截断
+### BUG [高] deploy 输出 Portfolio ID 截断 ⟵ 已修复：#4719(08c5fa92 rich Table id 列 fold 自适应)
 - `deploy deploy` 输出 `f918a74bc99249f5af0ac74a45b8f6e`（**31 位，丢字符**）
 - 库内真实 UUID `f918a74bc99249f5af0ac74a454b8f6e`（32 位）
 - 用户复制输出 ID 查 `deploy info` 必返回"未找到部署记录"
 - 用真实 32 位 ID 查询正常 → 确为输出展示 bug
 
-### 缺失 [中] deploy info 输出问题
+### 缺失 [中] deploy info 输出问题 ⟵ 已修复：#6285(b9273ef3 状态显示枚举名) + #5196(77775794 自动溯源回测 task_id)
 - `状态: 1`（原始 int，非"已部署"）
 - `源回测任务` 字段空（未关联 source backtest task）
 
@@ -70,20 +72,20 @@ PaperTradingWorker 对失败组合仅 `skipping`，deploy 端无回环感知，�
 
 ## Phase 4 实盘 ❌
 
-### 缺失 [严重] 无 CLI 创建实盘账户
+### 缺失 [严重] 无 CLI 创建实盘账户 ⟵ 已落地：#6289(e632a7f6 account create/list/get)
 - 顶层无 `account` 命令（`ginkgo --help | grep -c account` = 0）
 - `MLiveAccount` 表 0 条记录
 - `deploy --mode live --account <id>` 必填 account_id，但无 CLI 产生该 ID
 - 实盘链路从账户管理第一公里即断
 
-### BUG [高] 假 account_id 触发裸 SQL 错误
+### BUG [高] 假 account_id 触发裸 SQL 错误 ⟵ 已修复：#6302(be2946e3 deploy live 账户存在性校验)
 `deploy --mode live --account <假id>` → 裸 `pymysql.err.OperationalError (1054, Unknown column 'portfolio.live_account_id AS portfolio_live_account_id')`，非优雅"账户不存在"。
 - 定位：`broker_instance_crud.get_broker_by_live_account` 的 ORM/列映射问题
 
 ## 跨阶段问题
 
 - **[高]** 回测与部署无一致性校验：组件绑定可在 deploy 克隆中静默丢失
-- **[中]** Worker 参数风格不统一：`worker-backtest -id`（单横线，CLAUDE.md 记载）vs `worker-paper --id`（双横线）；`-id` 在 typer 下解析为 `-i -d` 报 "No such option: -i"
+- **[中]** Worker 参数风格不统一：`worker-backtest -id`（单横线，CLAUDE.md 记载）vs `worker-paper --id`（双横线）；`-id` 在 typer 下解析为 `-i -d` 报 "No such option: -i" ⟵ 已统一：两命令现均接受 -id/--id
 - **[中]** `ginkgo` 是 bash 包装脚本（`/home/kaoru/.local/bin/ginkgo`），对 `serve nohup` 特殊处理，增加调试复杂度
 
 ## 建议优先级
