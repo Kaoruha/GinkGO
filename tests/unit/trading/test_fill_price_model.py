@@ -26,6 +26,7 @@ from ginkgo.trading.paper.slippage_models import (
 )
 from ginkgo.trading.brokers.fill_price_model import DeterministicSlippage, AttitudePricing
 from ginkgo.trading.brokers.sim_broker import SimBroker
+from ginkgo.trading.services._assembly.infrastructure_factory import InfrastructureFactory
 
 
 class TestDeterministicSlippageFixed:
@@ -202,3 +203,23 @@ class TestSimBrokerFillPriceModelWiring:
             self._make_market_data(close=10.50),
         )
         assert price == Decimal("10.52")
+
+
+class TestCreateBrokerFromConfigSlippage:
+    """create_broker_from_config 接通 slippage_rate → DeterministicSlippage (B2 / ADR-037 D2)"""
+
+    def test_slippage_rate_injects_deterministic_slippage(self):
+        """engine_data 含 slippage_rate → SimBroker._fill_price_model = DeterministicSlippage"""
+        broker = InfrastructureFactory.create_broker_from_config({
+            "broker": "backtest",
+            "slippage_rate": 0.001,
+        })
+        assert isinstance(broker, SimBroker)
+        assert isinstance(broker._fill_price_model, DeterministicSlippage)
+
+    def test_missing_slippage_rate_defaults_to_attitude_pricing(self):
+        """engine_data 无 slippage_rate key → 默认 AttitudePricing (零回归)"""
+        broker = InfrastructureFactory.create_broker_from_config({
+            "broker": "backtest",
+        })
+        assert isinstance(broker._fill_price_model, AttitudePricing)
