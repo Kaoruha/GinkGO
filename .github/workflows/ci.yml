@@ -258,6 +258,7 @@ jobs:
             tests/unit/features/test_operator_registry.py \
             tests/unit/features/test_expression_engine.py \
             tests/unit/trading/portfolios/test_portfolio_live_fill_transactional.py \
+            tests/unit/trading/portfolios/test_t1backtest.py \
             tests/unit/features/test_factor_service_smoke.py \
             tests/unit/trading/feeders/test_backtest_feeder_fetch_smoke.py \
             tests/unit/interfaces/test_message_mapper.py \
