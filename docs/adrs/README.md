@@ -36,11 +36,16 @@
 | ADR-021 | [CLI 输出层契约（TTY 守卫 + --format/--limit + 序列化规范）](ADR-021-cli-output-layer.md) | Accepted | 2026-07-04 |
 | ADR-022 | [抽象层收敛（命名约定 + 死抽象判定）](ADR-022-abstract-layer-naming.md) | Accepted | 2026-07-12 |
 | ADR-023 | [时间 Seam 边界（Business Time 走 TimeProvider，Infra Time 走墙钟）](ADR-023-time-seam-business-infra-split.md) | Accepted | 2026-07-18 |
-| ADR-024 | [数据库端口 +1 魔法加容器守卫 + Debug 模式语义重定义](ADR-024-db-port-injection-debug-semantics.md) | Proposed（D1/2 ⟵ ADR-028） | 2026-07-20 |
+| ADR-024 | [数据库端口 +1 魔法加容器守卫 + Debug 模式语义重定义](ADR-024-db-port-injection-debug-semantics.md) | Partially Superseded（D1/D2/D3 ⟵ ADR-028） | 2026-07-20 |
 | ADR-025 | [DTO 信使角色全面复位（Mapper 家族覆盖四边界）](ADR-025-dto-messenger-full-restoration.md) | Accepted | 2026-07-24 |
+| ADR-026 | [回测应用用例层（BacktestUseCase Protocol）](ADR-026-backtest-use-case-layer.md) | Accepted | 2026-07-05 |
 | ADR-027 | [启动期集群一致性护栏（防 debug/host 漂移静默连错库）](ADR-027-env-cluster-consistency-guard.md) | Accepted（D1 ⟵ ADR-028） | 2026-07-25 |
 | ADR-028 | [GINKGO_ENV 与 DEBUGMODE 彻底解耦（集群选择单一旋钮）](ADR-028-env-cluster-decouple-debugmode.md) | Accepted | 2026-07-25 |
 | ADR-030 | [全链路 trace_id 传播契约（contextvars + DTO 字段 + Kafka header）](ADR-030-observability-trace-id-propagation.md) | Accepted | 2026-07-26 |
+| ADR-031 | [回测 fill 时序无后视（T+1 延迟队列 + 两阶段推进）](ADR-031-backtest-fill-no-lookahead.md) | Accepted | 2026-07-28 |
+| ADR-032 | [持久化模型基类分流（CH 时序审计 vs MySQL 活状态）](ADR-032-persistence-model-basesplit.md) | Accepted（含现状偏离） | 2026-07-28 |
+| ADR-033 | [PaperTradingWorker INIT/deploy 装配对称契约](ADR-033-paper-worker-assembly-symmetry.md) | Accepted | 2026-07-28 |
+| ADR-034 | [signal 跨库同名陷阱（CH 事件流 vs MySQL tracker）](ADR-034-signal-cross-store-namesake.md) | Accepted（含现状偏离） | 2026-07-28 |
 
 ## 如何新增 / 修订
 
