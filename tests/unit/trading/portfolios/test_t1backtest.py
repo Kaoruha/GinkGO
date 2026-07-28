@@ -853,3 +853,98 @@ class TestT1ConstraintValidation:
             p.on_signal(event)
         # Sizer should be called because signal is from the past
         p.sizer.cal.assert_called()
+
+
+# =========================================================================
+# 9. Risk Active Signal Emission on Price Update (ADR-011 seam 补全)
+# =========================================================================
+@pytest.mark.unit
+@pytest.mark.backtest
+class TestRiskActiveSignalEmissionOnPriceUpdate:
+    """
+    回测价格事件须触发风控 generate_signals 并发出主动信号(止损/止盈)。
+
+    背景:RiskBase 双重机制——cal() 被动调量、generate_signals() 主动信号。
+    实盘 on_price_update 同时发策略信号 + 风控信号;回测 on_price_received 此前
+    只发策略信号、漏发 generate_risk_signals,导致止损/止盈类风控(逻辑在
+    generate_signals)在回测静默失效、净值系统性虚高。
+    """
+
+    def _make_price_event(self, code="000001.SZ", close="10.0"):
+        c = Decimal(str(close))
+        bar = Bar(
+            code=code,
+            open=c, high=c, low=c, close=c,
+            volume=10000, amount=c * 10000,
+            frequency=FREQUENCY_TYPES.DAY,
+            timestamp=datetime.datetime(2024, 1, 1, tzinfo=timezone.utc),
+        )
+        return EventPriceUpdate(payload=bar)
+
+    def _wire(self, p, risk_signals, strategy_signals=None):
+        """装配:策略返回 strategy_signals(默认空),风控返回 risk_signals。"""
+        comps = _setup_portfolio(p, time_val=datetime.datetime(2030, 1, 1))
+        comps["strategy"].cal = Mock(return_value=strategy_signals or [])
+        # _setup_portfolio 加的 mock risk 其 generate_signals 返回非 list 会污染,
+        # 统一清空后换成受控 FakeRisk。
+        p._risk_managers.clear()
+        risk = FakeRisk()
+        risk.generate_signals = Mock(return_value=risk_signals)
+        p.add_risk_manager(risk)
+        return comps
+
+    def test_risk_generate_signals_invoked_on_price_update(self):
+        """价格事件触发时,风控 generate_signals 必须被调用。"""
+        p = _make_portfolio()
+        sig = _make_signal(direction=DIRECTION_TYPES.SHORT,
+                           ts=datetime.datetime(2024, 1, 1),
+                           source=SOURCE_TYPES.RISK)
+        with patch('ginkgo.trading.portfolios.t1backtest.GLOG'):
+            self._wire(p, [sig])
+            emitted = []
+            p.put = lambda e: emitted.append(e)
+            p.on_price_received(self._make_price_event())
+        assert p.risk_managers[0].generate_signals.called
+        assert len(emitted) == 1
+        assert emitted[0].payload.direction == DIRECTION_TYPES.SHORT
+
+    def test_risk_signal_emitted_with_risk_source(self):
+        """风控信号 event 须标 SOURCE_TYPES.RISK(而非 STRATEGY)。"""
+        p = _make_portfolio()
+        sig = _make_signal(direction=DIRECTION_TYPES.SHORT,
+                           ts=datetime.datetime(2024, 1, 1),
+                           source=SOURCE_TYPES.RISK)
+        with patch('ginkgo.trading.portfolios.t1backtest.GLOG'):
+            self._wire(p, [sig])
+            emitted = []
+            p.put = lambda e: emitted.append(e)
+            p.on_price_received(self._make_price_event())
+        assert emitted[0].payload.source == SOURCE_TYPES.RISK
+
+    def test_strategy_and_risk_signals_both_emitted(self):
+        """策略信号与风控信号须在同一次价格事件中都被发出(合并 seam)。"""
+        p = _make_portfolio()
+        strat_sig = _make_signal(direction=DIRECTION_TYPES.LONG,
+                                 ts=datetime.datetime(2024, 1, 1))
+        risk_sig = _make_signal(direction=DIRECTION_TYPES.SHORT,
+                                ts=datetime.datetime(2024, 1, 1),
+                                source=SOURCE_TYPES.RISK)
+        with patch('ginkgo.trading.portfolios.t1backtest.GLOG'):
+            self._wire(p, [risk_sig], strategy_signals=[strat_sig])
+            emitted = []
+            p.put = lambda e: emitted.append(e)
+            p.on_price_received(self._make_price_event())
+        assert len(emitted) == 2
+        dirs = {e.payload.direction for e in emitted}
+        assert DIRECTION_TYPES.LONG in dirs
+        assert DIRECTION_TYPES.SHORT in dirs
+
+    def test_empty_risk_signals_no_emission(self):
+        """风控 generate_signals 返回空时不发风控信号(回归保护)。"""
+        p = _make_portfolio()
+        with patch('ginkgo.trading.portfolios.t1backtest.GLOG'):
+            self._wire(p, [])
+            emitted = []
+            p.put = lambda e: emitted.append(e)
+            p.on_price_received(self._make_price_event())
+        assert emitted == []
