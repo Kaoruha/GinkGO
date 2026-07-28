@@ -66,6 +66,30 @@ class PaperTradingWorker:
         self._deviation_detectors: Dict[str, object] = {}  # portfolio_id → LiveDeviationDetector
         self._deviation_checker = None
 
+    @staticmethod
+    def _resolve_slippage_from_portfolios(db_portfolios: List[object]) -> Optional[float]:
+        """从 PAPER portfolios 读取共享 broker 的 slippage (ADR-037 D2 模拟侧)
+
+        模拟盘 broker 是共享市场模拟器 (所有 PAPER portfolio 复用同一 broker),
+        故取首个 portfolio 的 slippage 作 broker 级参数。
+
+        Args:
+            db_portfolios: MPortfolio 列表 (assemble_engine 已保证非空, 此处防御空)
+
+        Returns:
+            slippage 百分比小数; None → 调用方回退 AttitudePricing
+        """
+        if not db_portfolios:
+            return None
+        first = db_portfolios[0].slippage
+        if first is None:
+            return None
+        try:
+            return float(first)
+        except (TypeError, ValueError):
+            # 脏数据/非数值 → 回退默认 (不阻塞 worker 启动)
+            return None
+
     @property
     def deviation_checker(self):
         """Lazy-init DeviationChecker to avoid triggering evaluation module imports at load time."""
@@ -129,7 +153,11 @@ class PaperTradingWorker:
 
         # 3. 创建共享组件
         feeder = BacktestFeeder()
-        broker = SimBroker()
+        # ADR-037 D2: 从 PAPER portfolios 读 slippage → 成交价模型注入共享 broker
+        # (替代零参 SimBroker; slippage=None/脏数据 时回退 AttitudePricing 零回归)
+        from ginkgo.trading.brokers.fill_price_model import build_fill_price_model
+        slippage_rate = self._resolve_slippage_from_portfolios(db_portfolios)
+        broker = SimBroker(fill_price_model=build_fill_price_model(slippage_rate))
         gateway = TradeGateway(brokers=[broker])
         # #6103: param_service 必须注入，否则组件参数静默丢失（None 现装配期 raise）
         loader = ComponentLoader(
