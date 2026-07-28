@@ -1,4 +1,6 @@
-# ADR-022: 回测应用用例层（BacktestUseCase Protocol）
+# ADR-035: 回测应用用例层（BacktestUseCase Protocol）
+
+> **编号修正（2026-07-28）**：本文原误编为 ADR-022，与 [ADR-022 抽象层收敛](ADR-022-abstract-layer-naming.md) 撞车；初改 ADR-026 又与 #6751 的 `ADR-026-cli-client-mode` 撞号，遂顺延至 ADR-035（master 最大号 030、open PR 未占）。
 
 - **Status**: Accepted
 - **Date**: 2026-07-05

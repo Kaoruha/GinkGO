@@ -1,6 +1,6 @@
 # ADR-024: 数据库端口 +1 魔法加容器守卫 + Debug 模式语义重定义
 
-**Status:** Proposed
+**Status:** Partially Superseded by ADR-028（D1/D2/D3 已被取代；D4/D5 远程访问与 CLI 双模仍有效）
 **Date:** 2026-07-20
 **关联:** 源自 `mysql-test` 连接根因排查（memory `project_schedule_data_update_broken`）+ config 统一重构（#6640）；细化并部分 supersede ADR-004（Docker 双实例与 Debug 模式）的端口约定；关联 ADR-013（Debug 改 @retry 退避语义，仍依赖 DEBUGMODE 标记）；关联 memory `arch_database_debug_mode` / `arch_docker_mysql_test_port_13306`。
 
