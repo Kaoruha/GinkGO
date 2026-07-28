@@ -29,7 +29,7 @@ ADR-010 把 **DTO** 定位为"跨边界、**隔离两个不耦合世界**的信�
 |---|---|---|---|
 | DB | `XxxMapper`（ADR-010 已立） | ORM↔Entity↔DTO | §4 V1/V3/V9 收尾 |
 | Kafka | `MessageMapper` | wire↔BusDTO↔Event | 出站✓ / 入站补全 |
-| HTTP | `ResponseMapper` | Entity↔WebResponse | 从无到有 + `response_model` |
+| ~~HTTP~~ | ~~`ResponseMapper`~~ | ~~Entity↔WebResponse~~ | ~~从无到有 + `response_model`~~（⟵ 勘误撤销，见文末「勘误/增补」） |
 | Redis | `CacheMapper` | wire↔CacheEntry↔Entity | 从无到有，替 `json.dumps` 任意 dict |
 
 `MessageMapper`/`ResponseMapper`/`CacheMapper` **不是新抽象层**，是 ADR-010 Mapper 概念在各自边界的实例——符合 ADR-022 原则 3（单一接缝：每边界一个权威转换点）。其中 `MessageMapper` 因带 wire 依赖（kafka-python）与纯类型转换的 `XxxMapper` 异质，承认 Mapper 家族含**纯转换 / IO 转换**两亚型，不硬塞纯转换家族。
@@ -48,7 +48,7 @@ ADR-010 把 **DTO** 定位为"跨边界、**隔离两个不耦合世界**的信�
 
 1. 本文档（ADR + `CONTEXT.md`）
 2. Kafka 入站 `MessageMapper`（`OrderFeedback` drift 是活 bug，打头）
-3. HTTP `ResponseMapper`
+3. ~~HTTP `ResponseMapper`~~（⟵ 勘误撤销，见文末）
 4. Redis `CacheMapper`
 5. DB Mapper 收尾（ADR-010 §4 V1/V3/V9）
 

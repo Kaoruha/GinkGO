@@ -6,7 +6,7 @@
 
 ## Context
 
-ADR-027 的启动期护栏只是**止血**——它不消除根因，只在错配发生时拒启。根因是 ADR-024/025 都默认接受的强耦合：**`DEBUGMODE` 是"三合一旋钮"**，一个布尔同时管 ① 日志/@retry 退避（ADR-013）② MySQL/ClickHouse host（master/test）③ 宿主客户端端口首位 +1。
+ADR-027 的启动期护栏只是**止血**——它不消除根因，只在错配发生时拒启。根因是 ADR-024/027 都默认接受的强耦合：**`DEBUGMODE` 是"三合一旋钮"**，一个布尔同时管 ① 日志/@retry 退避（ADR-013）② MySQL/ClickHouse host（master/test）③ 宿主客户端端口首位 +1。
 
 三合一耦合 + `.env` 可变共享态 = 两类真实事故：
 
@@ -70,7 +70,7 @@ ADR-027 的启动期护栏只是**止血**——它不消除根因，只在错�
 
 ## Rationale
 
-- **为何彻底解耦（而非继续守卫优先）**：ADR-024/025 的守卫/护栏是"够好的修复"，但根因（三合一耦合）仍在，事故会以新形态复发（本次发现的"临时 set_debug 隐式切库"反向风险即是）。`GINKGO_ENV` 读取点仓库已存在，解耦的边际成本主要是 config.py 一个 property + CLI 一个分支 + 判据替换，远小于 ADR-024 当初评估的"重构 config.yml 结构 + 存量迁移"——因为 bridge-default 把迁移成本降到了零（未设 env 时行为不变）。这是 ADR-027 Consequences 明确点名的"未来彻底解耦"增量。
+- **为何彻底解耦（而非继续守卫优先）**：ADR-024/027 的守卫/护栏是"够好的修复"，但根因（三合一耦合）仍在，事故会以新形态复发（本次发现的"临时 set_debug 隐式切库"反向风险即是）。`GINKGO_ENV` 读取点仓库已存在，解耦的边际成本主要是 config.py 一个 property + CLI 一个分支 + 判据替换，远小于 ADR-024 当初评估的"重构 config.yml 结构 + 存量迁移"——因为 bridge-default 把迁移成本降到了零（未设 env 时行为不变）。这是 ADR-027 Consequences 明确点名的"未来彻底解耦"增量。
 - **bridge-default 的取舍**：备选是"强制所有部署显式设 GINKGO_ENV，不设就拒启"。但现存部署全未设，强制会大面积红。bridge 以零行为变化换取平滑迁移：现存部署继续工作，用户主动 `set env` 后才材料化为显式态。代价是 bridge 期间（env 未设）DEBUGMODE 仍间接影响集群（经 bridge）——但这是迁移期不可避免的过渡，且 ADR-027 护栏仍兜底。
 - **为何回测拒跑生产而非仅警告**：回测写数据到 DB（signal/order/position 落库）。PRODUCTION env 下回测 = 写生产库，是真实数据污染。警告会被忽略（CLAUDE.md 归因纪律：宁可响亮报错不留静默兜底）。拒跑是 fail-loud，用户须显式 `set env DEVELOPMENT` 才能跑——一次明确的认知动作消除整个事故类。
 - **为何 +1 判据用 IS_DEV_ENV 单判（不保留 DEBUGMODE 兜底）**：宿主 CLI 工作流是 localhost + env 决定集群。若保留 `DEBUGMODE or IS_DEV_ENV` 双判，DEBUGMODE=True 但 env=PRODUCTION 时仍会 +1，与"env 单一决定"矛盾且 reintroduce 耦合。单判 IS_DEV_ENV 让端口严格跟随集群，可预测。
@@ -91,4 +91,4 @@ ADR-027 的启动期护栏只是**止血**——它不消除根因，只在错�
 
 - ① **难逆转**：集群选择旋钮从布尔 DEBUGMODE 改为枚举 GINKGO_ENV，触及 config.py 核心 + CLI 闸门 + 守卫判据 + 回测准入——高。
 - ② **反直觉**：①"debug 不再切库"对老用户反直觉；② bridge-default"未设 env 时从 debug 推断"是隐藏迁移逻辑；③回测在 PRODUCTION 被拒跑——满足。
-- ③ **真实权衡**：彻底解耦（本 ADR，bridge 降迁移成本到零）vs 继续守卫优先（ADR-024/025，根因不除事故复发）vs 强制显式 env（大面积红）——有取舍支撑——满足。
+- ③ **真实权衡**：彻底解耦（本 ADR，bridge 降迁移成本到零）vs 继续守卫优先（ADR-024/027，根因不除事故复发）vs 强制显式 env（大面积红）——有取舍支撑——满足。

@@ -16,7 +16,7 @@
 | ADR-001 | [组件边界与单向流动](ADR-001-component-boundary.md) | Accepted | 2026-06-13 |
 | ADR-002 | [分层架构 API→Service→CRUD→DB](ADR-002-layered-architecture.md) | Accepted | 2026-06-13 |
 | ADR-003 | [引擎二态简化](ADR-003-engine-two-mode.md) | Implemented | 2026-03-28 |
-| ADR-004 | [Docker 双实例与 Debug 模式](ADR-004-dual-db-debug.md) | Accepted | 2026-06-13 |
+| ADR-004 | [Docker 双实例与 Debug 模式](ADR-004-dual-db-debug.md) | Accepted（端口⟵024；debug 切库⟵028） | 2026-06-13 |
 | ADR-005 | [组件参数序列化对称](ADR-005-param-serialization.md) | Accepted | 2026-06-13 |
 | ADR-006 | [多数据库角色分工](ADR-006-db-role-separation.md) | Accepted | 2026-06-13 |
 | ADR-007 | [表结构 Model 驱动，禁止手动 ALTER](ADR-007-schema-model-driven.md) | Accepted | 2026-06-13 |
@@ -47,6 +47,11 @@
 | ADR-034 | [signal 跨库同名陷阱（CH 事件流 vs MySQL tracker）](ADR-034-signal-cross-store-namesake.md) | Accepted（含现状偏离） | 2026-07-28 |
 | ADR-035 | [回测应用用例层（BacktestUseCase Protocol）](ADR-035-backtest-use-case-layer.md) | Accepted | 2026-07-05 |
 | ADR-036 | [回测 fill 时序无后视（T+1 延迟队列 + 两阶段推进）](ADR-036-backtest-fill-no-lookahead.md) | Accepted | 2026-07-28 |
+
+### 缺号说明
+
+- **ADR-026**：预留给 open PR #6751 的 `ADR-026-cli-client-mode`（CLI 双模，对应 ADR-024 Decision 5 的"另立 ADR"），尚未并入 master。编号占用见 [ADR-035 编号修正注](ADR-035-backtest-use-case-layer.md)。
+- **ADR-029**：跳过（无对应决策记录，正文无任何悬空引用）。
 
 ## 如何新增 / 修订
 
