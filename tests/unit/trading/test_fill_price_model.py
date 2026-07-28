@@ -24,7 +24,11 @@ from ginkgo.trading.paper.slippage_models import (
     PercentageSlippage,
     NoSlippage,
 )
-from ginkgo.trading.brokers.fill_price_model import DeterministicSlippage, AttitudePricing
+from ginkgo.trading.brokers.fill_price_model import (
+    DeterministicSlippage,
+    AttitudePricing,
+    build_fill_price_model,
+)
 from ginkgo.trading.brokers.sim_broker import SimBroker
 from ginkgo.trading.services._assembly.infrastructure_factory import InfrastructureFactory
 
@@ -223,3 +227,17 @@ class TestCreateBrokerFromConfigSlippage:
             "broker": "backtest",
         })
         assert isinstance(broker._fill_price_model, AttitudePricing)
+
+
+class TestBuildFillPriceModel:
+    """build_fill_price_model 工厂 (ADR-037 D2 统一断点: 回测+模拟共用)"""
+
+    def test_none_returns_attitude_pricing(self):
+        """slippage_rate=None → AttitudePricing (零回归默认, scipy 态度采样)"""
+        m = build_fill_price_model()
+        assert isinstance(m, AttitudePricing)
+
+    def test_rate_returns_deterministic_slippage(self):
+        """slippage_rate=数值 → DeterministicSlippage(PercentageSlippage)"""
+        m = build_fill_price_model(0.001)
+        assert isinstance(m, DeterministicSlippage)

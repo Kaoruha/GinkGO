@@ -143,3 +143,19 @@ class AttitudePricing:
 
     def __repr__(self) -> str:
         return "AttitudePricing()"
+
+
+def build_fill_price_model(slippage_rate=None) -> FillPriceModel:
+    """根据 slippage_rate 构建成交价模型 (ADR-037 D2 统一断点)
+
+    回测侧 (create_broker_from_config) 与模拟侧 (assemble_engine) 共用此工厂,
+    避免两处分别内联装配逻辑。
+
+    - slippage_rate is None: AttitudePricing (零回归默认, scipy 态度采样)
+    - slippage_rate is not None: DeterministicSlippage(PercentageSlippage)
+      (百分比小数, 0.001 = 0.1%)
+    """
+    if slippage_rate is None:
+        return AttitudePricing()
+    from ginkgo.trading.paper.slippage_models import PercentageSlippage
+    return DeterministicSlippage(PercentageSlippage(percentage=Decimal(str(slippage_rate))))

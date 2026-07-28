@@ -208,17 +208,12 @@ class InfrastructureFactory:
         default_cfg.update(cfg)
         cfg = default_cfg
 
-        # ADR-037 D2: 接通 engine_data.slippage_rate → DeterministicSlippage(PercentageSlippage)
+        # ADR-037 D2: 接通 engine_data.slippage_rate → 成交价模型 (统一工厂)
         # build_engine_data(task_helpers.py:34) 已灌入 slippage_rate (默认 0.0001);
         # 此处断点接通 --slippage 执行侧, 与 AttitudePricing 互斥择一 (B1)
-        slippage_rate = engine_data.get("slippage_rate")
-        if slippage_rate is not None:
-            from decimal import Decimal as _Decimal
-            from ginkgo.trading.paper.slippage_models import PercentageSlippage
-            from ginkgo.trading.brokers.fill_price_model import DeterministicSlippage
-            cfg["fill_price_model"] = DeterministicSlippage(
-                PercentageSlippage(percentage=_Decimal(str(slippage_rate)))
-            )
+        # 回测+模拟共用 build_fill_price_model (ADR-037 D2 统一断点)
+        from ginkgo.trading.brokers.fill_price_model import build_fill_price_model
+        cfg["fill_price_model"] = build_fill_price_model(engine_data.get("slippage_rate"))
 
         # Map mode to broker implementation
         if mode in ("backtest", "simulation", "sim", "paper"):
