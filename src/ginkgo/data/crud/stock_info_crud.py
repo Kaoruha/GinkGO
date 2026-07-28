@@ -173,12 +173,6 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
         self._logger.WARN(f"Unsupported type for StockInfo conversion: {type(item)}. Please use StockInfo business object.")
         return None
 
-    def _convert_output_items(self, items: List[MStockInfo], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MStockInfo objects for business layer.
-        """
-        return items
-
     # Business Helper Methods
     def find_by_market(self, market: str) -> ModelList[MStockInfo]:
         """
@@ -226,27 +220,3 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get stock codes: {e}")
             return []
-
-    # ============================================================================
-    # BaseCRUD Hook Methods - Enum Mapping and Business Object Conversion
-    # ============================================================================
-
-    def _convert_models_to_business_objects(self, models: List[MStockInfo]) -> List[StockInfo]:
-        """
-        🎯 Convert MStockInfo models to StockInfo business objects.
-
-        Args:
-            models: List of MStockInfo models with enum fields already fixed
-
-        Returns:
-            List of StockInfo business objects
-        """
-        business_objects = []
-        for model in models:
-            # Convert to business object (此时枚举字段已经是正确的枚举对象)
-            stock_info = StockInfoMapper.model_to_entity(model)
-            business_objects.append(stock_info)
-
-        return business_objects
-
-    

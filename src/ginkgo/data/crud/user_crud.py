@@ -81,24 +81,6 @@ class UserCRUD(BaseCRUD[MUser]):
         # 目前没有业务对象，返回None
         return None
 
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models (business object doesn't exist yet)
-        """
-        return models
-
-    def _convert_output_items(self, items: List[MUser], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MUser objects for business layer.
-        """
-        return items
-
     # ==================== 级联软删除实现 ====================
 
     def delete(

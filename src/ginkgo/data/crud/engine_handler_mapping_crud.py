@@ -71,36 +71,6 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
             )
         return None
 
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert MEngineHandlerMapping models to Mapping business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of Mapping business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为通用Mapping业务对象
-            mapping = MappingMapper.model_to_entity(model, mapping_type="EngineHandlerMapping")
-            business_objects.append(mapping)
-        return business_objects
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
-
-    def _convert_output_items(self, items: List[MEngineHandlerMapping], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MEngineHandlerMapping objects for business layer.
-        """
-        return items
-
     # Business Helper Methods
     def find_by_engine(self, engine_id: str) -> List[MEngineHandlerMapping]:
         """

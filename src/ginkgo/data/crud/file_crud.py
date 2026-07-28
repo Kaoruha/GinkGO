@@ -129,34 +129,6 @@ class FileCRUD(BaseCRUD[MFile]):
             )
         return None
 
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models (business object doesn't exist yet)
-        """
-        # For now, return models as-is since business object doesn't exist yet
-        return models
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
-
-    def _convert_output_items(self, items: List[MFile], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MFile objects for business layer.
-        """
-        if output_type == "file_info":
-            return [FileInfo(item) for item in items]
-        return items
-
     # Business Helper Methods
     def find_by_file_id(self, file_id: str) -> List[MFile]:
         """

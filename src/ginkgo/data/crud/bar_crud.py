@@ -107,27 +107,6 @@ class BarCRUD(BaseCRUD[MBar]):
         self._logger.WARN(f"Unsupported type for Bar conversion: {type(item)}. Please use Bar business object.")
         return None
 
-    def _convert_models_to_business_objects(self, models: List[MBar]) -> List[Bar]:
-        """
-        🎯 Convert MBar models to Bar business objects.
-
-        Args:
-            models: List of MBar models with enum fields already fixed
-
-        Returns:
-            List of Bar business objects
-        """
-        # 委托 BarMapper.model_to_entity(ADR-025 转换收敛;Bar 业务对象不含 source,frequency int→enum 在 Mapper)
-        return [BarMapper.model_to_entity(model) for model in models]
-
-    def _convert_output_items(self, items: List[MBar], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MBar objects to Bar objects.
-        """
-        if output_type == "bar":
-            return [BarMapper.model_to_entity(item) for item in items]
-        return items
-
     # Business Helper Methods
     def find_by_code_and_date_range(
         self,

@@ -115,25 +115,6 @@ class FactorCRUD(BaseCRUD[MFactor]):
                 return None
         return None
 
-    def _convert_models_to_business_objects(self, models: List[MFactor]) -> List[MFactor]:
-        """
-        🎯 Convert MFactor models to business objects.
-
-        Args:
-            models: List of MFactor models with enum fields already fixed
-
-        Returns:
-            List of MFactor models (Factor business object doesn't exist yet)
-        """
-        # For now, return models as-is since Factor business object doesn't exist yet
-        return models
-
-    def _convert_output_items(self, items: List[MFactor], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MFactor objects for business layer.
-        """
-        return items
-
     # ============================================================================
     # 因子特化查询方法
     # ============================================================================

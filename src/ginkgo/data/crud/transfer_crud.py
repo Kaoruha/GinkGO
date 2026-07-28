@@ -124,44 +124,6 @@ class TransferCRUD(BaseCRUD[MTransfer]):
             )
         return None
 
-    def _convert_models_to_business_objects(self, models: List[MTransfer]) -> List[Transfer]:
-        """
-        🎯 Convert MTransfer models to Transfer business objects.
-
-        Args:
-            models: List of MTransfer models with enum fields already fixed
-
-        Returns:
-            List of Transfer business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            transfer = TransferMapper.model_to_entity(model)
-            business_objects.append(transfer)
-
-        return business_objects
-
-    def _convert_output_items(self, items: List[MTransfer], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MTransfer objects to Transfer objects.
-        """
-        if output_type == "transfer":
-            return [
-                Transfer(
-                    portfolio_id=item.portfolio_id,
-                    engine_id=item.engine_id,
-                    direction=item.direction,
-                    market=item.market,
-                    money=item.money,
-                    status=item.status,
-                    timestamp=item.timestamp,
-                    source=item.source,
-                )
-                for item in items
-            ]
-        return items
-
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str, direction: Optional[TRANSFERDIRECTION_TYPES] = None,
                          start_date: Optional[Any] = None, end_date: Optional[Any] = None) -> List[MTransfer]:

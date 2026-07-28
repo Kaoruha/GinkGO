@@ -118,47 +118,6 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
             )
         return None
 
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models (business object doesn't exist yet)
-        """
-        # For now, return models as-is since business object doesn't exist yet
-        return models
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
-
-    def _convert_output_items(
-        self, items: List[MTransferRecord], output_type: str = "model"
-    ) -> List[Any]:
-        """
-        Hook method: Convert MTransferRecord objects to Transfer objects.
-        """
-        if output_type == "transfer":
-            return [
-                Transfer(
-                    portfolio_id=item.portfolio_id,
-                    direction=item.direction,
-                    market=item.market,
-                    money=item.money,
-                    status=item.status,
-                    timestamp=item.timestamp,
-                    uuid=item.uuid,
-                )
-                for item in items
-            ]
-        return items
-
     def find_by_portfolio(
         self,
         portfolio_id: str,

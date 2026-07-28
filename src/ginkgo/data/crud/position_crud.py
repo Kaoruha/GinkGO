@@ -152,30 +152,6 @@ class PositionCRUD(BaseCRUD[MPosition]):
             )
         return None
 
-    def _convert_models_to_business_objects(self, models: List[MPosition]) -> List[Position]:
-        """
-        🎯 Convert MPosition models to Position business objects.
-
-        Args:
-            models: List of MPosition models with enum fields already fixed
-
-        Returns:
-            List of Position business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            position = PositionMapper.model_to_entity(model)
-            business_objects.append(position)
-
-        return business_objects
-
-    def _convert_output_items(self, items: List[MPosition], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MPosition objects for business layer.
-        """
-        return items
-
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str, min_volume: int = 0) -> ModelList[MPosition]:
         """

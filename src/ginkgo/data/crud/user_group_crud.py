@@ -73,24 +73,6 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
         """
         return None
 
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models
-        """
-        return models
-
-    def _convert_output_items(self, items: List[MUserGroup], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MUserGroup objects for business layer.
-        """
-        return items
-
     # ==================== 业务辅助方法 ====================
 
     def find_by_name_pattern(self, name_pattern: str) -> List[MUserGroup]:

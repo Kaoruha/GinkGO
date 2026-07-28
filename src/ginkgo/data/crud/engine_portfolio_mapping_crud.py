@@ -76,36 +76,6 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping], ModelConvers
             )
         return None
 
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert MEnginePortfolioMapping models to Mapping business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of Mapping business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为通用Mapping业务对象
-            mapping = MappingMapper.model_to_entity(model, mapping_type="EnginePortfolioMapping")
-            business_objects.append(mapping)
-        return business_objects
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
-
-    def _convert_output_items(self, items: List[MEnginePortfolioMapping], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MEnginePortfolioMapping objects for business layer.
-        """
-        return items
-
     # Business Helper Methods
     
     

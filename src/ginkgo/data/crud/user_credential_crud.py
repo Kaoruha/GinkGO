@@ -54,12 +54,6 @@ class UserCredentialCRUD(BaseCRUD[MUserCredential]):
     def _convert_input_item(self, item: Any) -> Optional[MUserCredential]:
         return None
 
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        return models
-
-    def _convert_output_items(self, items: List[MUserCredential], output_type: str = "model") -> List[Any]:
-        return items
-
     def get_by_user_id(self, user_id: str) -> Optional[MUserCredential]:
         results = self.find(filters={"user_id": user_id})
         return results.first()

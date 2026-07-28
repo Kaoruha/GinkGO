@@ -72,18 +72,6 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
             }
         }
 
-    def _convert_models_to_business_objects(self, models: List[MTradeDay]) -> List[TradeDay]:
-        """
-        Convert MTradeDay models to TradeDay business objects.
-
-        Args:
-            models: List of MTradeDay models with enum fields already fixed
-
-        Returns:
-            List of TradeDay business objects
-        """
-        return [TradeDayMapper.model_to_entity(model) for model in models]
-
     def _create_from_params(self, **kwargs) -> MTradeDay:
         """
         Hook method: Create MTradeDay from parameters.
@@ -107,13 +95,6 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TUSHARE)) or SOURCE_TYPES.TUSHARE.value,
             )
         return None
-
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
 
     # Business Helper Methods
     def find_trading_days(self, start_date: Any, end_date: Any) -> ModelList[MTradeDay]:

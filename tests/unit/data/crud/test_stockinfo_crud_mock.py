@@ -9,7 +9,7 @@ StockInfoCRUD 单元测试 - Mock 数据库连接
 - 构造函数验证
 - 必要 Hook 方法存在性检查
 - 业务辅助方法测试（find_by_market, find_by_industry, search_by_name, get_all_codes,
-  _convert_input_item, _convert_models_to_business_objects）
+  _convert_input_item）
 """
 
 import pytest
@@ -243,26 +243,3 @@ class TestStockInfoBusinessMethods:
         crud_instance._logger = MagicMock()
         result = crud_instance._convert_input_item("not_a_stock_info")
         assert result is None
-
-    @pytest.mark.unit
-    def test_convert_models_to_business_objects(self, crud_instance):
-        """_convert_models_to_business_objects 应将 MStockInfo 列表转换为 StockInfo 业务对象"""
-        from ginkgo.entities import StockInfo
-
-        model = MStockInfo(
-            code="000001.SZ",
-            code_name="平安银行",
-            industry="银行",
-        )
-        model.market = MARKET_TYPES.CHINA.value
-        model.currency = CURRENCY_TYPES.CNY.value
-        model.source = SOURCE_TYPES.TUSHARE.value
-
-        # Mock StockInfoMapper.model_to_entity 返回（CRUD 改调 Mapper）
-        from ginkgo.data.mappers import StockInfoMapper
-        mock_stock_info = MagicMock(spec=StockInfo)
-        with patch.object(StockInfoMapper, 'model_to_entity', return_value=mock_stock_info):
-            result = crud_instance._convert_models_to_business_objects([model])
-
-        assert len(result) == 1
-        assert result[0] is mock_stock_info

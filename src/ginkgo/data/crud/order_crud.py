@@ -223,57 +223,6 @@ class OrderCRUD(BaseCRUD[MOrder]):
     # 默认反射生效（见 _conversion._get_enum_mappings）；direction/order_type/status
     # 声明见 model_order；source 继承自 MMysqlBase.source（MySQL 公共基类）。
 
-    def _convert_models_to_business_objects(self, models: List[MOrder]) -> List[Order]:
-        """
-        🎯 Convert MOrder models to Order business objects.
-
-        Args:
-            models: List of MOrder models with enum fields already fixed
-
-        Returns:
-            List of Order business objects
-        """
-        # 委托 OrderMapper.model_to_entity(ADR-025 转换收敛;enum int→enum 在 Mapper 内完成)
-        return [OrderMapper.model_to_entity(model) for model in models]
-
-    def _convert_output_items(self, items: List[MOrder], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MOrder objects to Order objects.
-        """
-        if output_type == "order":
-            return [OrderMapper.model_to_entity(item) for item in items]
-        elif output_type == "model":
-            # 对于默认的model输出，也需要转换枚举字段
-            converted_items = []
-            for item in items:
-                # 转换direction字段
-                if hasattr(item, 'direction') and isinstance(item.direction, int):
-                    direction_enum = DIRECTION_TYPES.from_int(item.direction)
-                    if direction_enum:
-                        item.direction = direction_enum
-
-                # 转换order_type字段
-                if hasattr(item, 'order_type') and isinstance(item.order_type, int):
-                    order_type_enum = ORDER_TYPES.from_int(item.order_type)
-                    if order_type_enum:
-                        item.order_type = order_type_enum
-
-                # 转换status字段
-                if hasattr(item, 'status') and isinstance(item.status, int):
-                    status_enum = ORDERSTATUS_TYPES.from_int(item.status)
-                    if status_enum:
-                        item.status = status_enum
-
-                # 转换source字段
-                if hasattr(item, 'source') and isinstance(item.source, int):
-                    source_enum = SOURCE_TYPES.from_int(item.source)
-                    if source_enum:
-                        item.source = source_enum
-
-                converted_items.append(item)
-            return converted_items
-        return items
-
     # Business Helper Methods
     def find_by_portfolio(
         self,
@@ -510,9 +459,11 @@ class OrderCRUD(BaseCRUD[MOrder]):
         """
         orders = self.find({"portfolio_id": portfolio_id}) or []
 
-        # 注意：find() 返回的订单经 _convert_output_items 转换后，
-        # status 为 ORDERSTATUS_TYPES 枚举实例（非 int），故须按枚举比较，而非 .value。
-        # 关联 #6092
+        # find() 返回原始 MOrder（output_type 转换 hook 已删，见本 PR）；
+        # status 为 TINYINT 原始 int（Mapped[int]，非枚举实例）。
+        # 下方 status==ORDERSTATUS_TYPES.* 系 pre-existing int-vs-Enum 比较（本 PR 不改，
+        # EnumBase 非 IntEnum，实测恒 False → 真实订单分桶恒 0；单测 mock 枚举形态掩盖）。
+        # 正确语义待单独 PR。关联 #6092
         pending_states = {
             ORDERSTATUS_TYPES.NEW,
             ORDERSTATUS_TYPES.SUBMITTED,

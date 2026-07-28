@@ -150,27 +150,6 @@ class SignalCRUD(BaseCRUD[MSignal]):
     # 默认反射生效（见 _conversion._get_enum_mappings）；direction/source
     # 声明见 model_signal.direction 与 MClickBase.source。
 
-    def _convert_models_to_business_objects(self, models: List[MSignal]) -> List[Signal]:
-        """
-        🎯 Convert MSignal models to Signal business objects.
-
-        Args:
-            models: List of MSignal models with enum fields already fixed
-
-        Returns:
-            List of Signal business objects
-        """
-        # 委托 SignalMapper.model_to_entity(ADR-025 转换收敛;含 volume/weight,忠实原 Signal.from_model,enum int→enum 在 Mapper)
-        return [SignalMapper.model_to_entity(model) for model in models]
-
-    def _convert_output_items(self, items: List[MSignal], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MSignal objects to Signal objects.
-        """
-        if output_type == "signal":
-            return [SignalMapper.model_to_entity(item) for item in items]
-        return items
-
     # Business Helper Methods
     def find_by_portfolio(
         self,

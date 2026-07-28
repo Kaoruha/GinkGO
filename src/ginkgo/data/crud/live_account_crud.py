@@ -96,14 +96,6 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
             return item
         return None
 
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """转换模型为业务对象"""
-        return models
-
-    def _convert_output_items(self, items: List[MLiveAccount], output_type: str = "model") -> List[Any]:
-        """转换MLiveAccount对象供业务层使用"""
-        return items
-
     def _process_dataframe_output(self, df: pd.DataFrame) -> pd.DataFrame:
         """处理DataFrame输出，隐藏敏感信息"""
         # 隐藏API凭证列

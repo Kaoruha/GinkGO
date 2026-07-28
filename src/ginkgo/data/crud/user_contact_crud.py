@@ -90,24 +90,6 @@ class UserContactCRUD(BaseCRUD[MUserContact]):
         """
         return None
 
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models
-        """
-        return models
-
-    def _convert_output_items(self, items: List[MUserContact], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MUserContact objects for business layer.
-        """
-        return items
-
     # ==================== 业务辅助方法 ====================
 
     def get_by_user(

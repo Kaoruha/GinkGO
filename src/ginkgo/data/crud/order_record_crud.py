@@ -191,44 +191,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             )
         return None
 
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models (business object doesn't exist yet)
-        """
-        # For now, return models as-is since business object doesn't exist yet
-        return models
-
-    def _convert_output_items(self, items: List[MOrderRecord], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MOrderRecord objects to Order objects.
-        """
-        if output_type == "order":
-            return [
-                Order(
-                    code=item.code,
-                    direction=item.direction,
-                    order_type=item.order_type,
-                    volume=item.volume,
-                    limit_price=item.limit_price,
-                    frozen_money=item.frozen_money,
-                    frozen_volume=item.frozen_volume,
-                    transaction_price=item.transaction_price,
-                    transaction_volume=item.transaction_volume,
-                    remain=item.remain,
-                    timestamp=item.timestamp,
-                    status=item.status,
-                )
-                for item in items
-            ]
-        return items
-
     # Business Helper Methods
     def find_by_portfolio(
         self,

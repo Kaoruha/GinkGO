@@ -168,25 +168,6 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             GLOG.WARN(f"Unsupported input type: {type(item)}")
             return None
 
-    def _convert_models_to_business_objects(self, models: List[MSignalTracker]) -> List[Any]:
-        """
-        🎯 Convert MSignalTracker models to business objects.
-
-        Args:
-            models: List of MSignalTracker models with enum fields already fixed
-
-        Returns:
-            List of business objects (keeping as MSignalTracker for now)
-        """
-        # For now, return models as-is since SignalTracker doesn't have a direct business object
-        return models
-
-    def _convert_output_items(self, items: List[MSignalTracker], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MSignalTracker objects for business layer.
-        """
-        return items
-
     def find_by_signal_id(self, signal_id: str) -> Optional[MSignalTracker]:
         """
         根据信号ID查找追踪记录

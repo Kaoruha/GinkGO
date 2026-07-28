@@ -70,26 +70,6 @@ class ParamCRUD(BaseCRUD[MParam]):
             )
         return None
 
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models (business object doesn't exist yet)
-        """
-        # For now, return models as-is since business object doesn't exist yet
-        return models
-
-    def _convert_output_items(self, items: List[MParam], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MParam objects for business layer.
-        """
-        return items
-
     # Business Helper Methods
     def find_by_mapping_id(self, mapping_id: str) -> ModelList[MParam]:
         """
