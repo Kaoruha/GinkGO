@@ -466,50 +466,74 @@ class PortfolioT1Backtest(PortfolioBase):
                 pass
             if signals:
                 self.blog.log_strategy_signal_event(strategy_name=strategy.name, signal_count=len(signals), signals_desc=str([f'{s.direction.name} {s.code}' for s in signals]))
-            # 处理每个信号
+            # 处理每个策略信号
             for signal in signals:
-                if signal:
-                    # 🔍 调试：跟踪信号处理
-                    signal_uuid = getattr(signal, "uuid", "N/A")[:8]
-                    GLOG.INFO(f"\n💼 [PORTFOLIO SIGNAL PROCESS] Portfolio UUID: {self.uuid[:8]}")
-                    GLOG.INFO(f"    Strategy Signal: {signal.direction.name} {signal.code} at {signal.business_timestamp}")
-                    GLOG.INFO(f"    Signal UUID: {signal_uuid}")
-                    GLOG.INFO(f"    Signal Reason: {signal.reason}")
-                    GLOG.INFO(f"    From Strategy: {strategy.name if strategy else 'Unknown'}")
+                self._emit_signal(signal, SOURCE_TYPES.STRATEGY,
+                                  origin_name=strategy.name if strategy else "Unknown")
 
-                    # 将信号保存到数据库
-                    try:
-                        signal_crud = container.cruds.signal()
-                        signal_crud.create(
-                            portfolio_id=signal.portfolio_id,
-                            engine_id=signal.engine_id,
-                            task_id=signal.task_id,
-                            timestamp=signal.business_timestamp,  # 使用业务时间，而不是系统时间
-                            code=signal.code,
-                            direction=signal.direction,
-                            reason=signal.reason,
-                            source=signal.source,
-                            business_timestamp=signal.business_timestamp,
-                        )
-                    except Exception as e:
-                        self.blog.log_engine_error_event(error_code="SIGNAL_SAVE_FAILED", error_message=str(e))
+        # 风控主动信号（止损/止盈/移动止盈等）：价格事件驱动，与策略信号合并走同一下单 seam。
+        # ADR-011 seam 补全：此前回测 on_price_received 只发策略信号、漏发
+        # generate_risk_signals，导致止损/止盈类风控（逻辑在 generate_signals）
+        # 在回测静默失效、净值系统性虚高。两类信号经此统一发射口 → engine → on_signal 下单。
+        risk_signals = self.generate_risk_signals(event)
+        for signal in risk_signals:
+            self._emit_signal(signal, SOURCE_TYPES.RISK, origin_name="RiskManagement")
 
-                    e = EventSignalGeneration(signal)
-                    e.set_source(SOURCE_TYPES.STRATEGY)
-                    # 🔍 [CRITICAL] LOG: 追踪事件发布
-                    event_uuid = getattr(e, "uuid", "N/A")[:8]
-                    GLOG.INFO(f"📤 [PUBLISHING] EventSignalGeneration: Event UUID={event_uuid}, Signal UUID={signal_uuid}")
-                    GLOG.INFO(f"    Event ID: {id(e)}, Signal Code: {signal.code}")
-                    GLOG.INFO(f"    From Portfolio: {self.name} (UUID: {self.uuid[:8]})")
+    def _emit_signal(self, signal, source, origin_name: str = "") -> None:
+        """
+        信号发射 seam（ADR-011 补全）：策略信号(STRATEGY)与风控主动信号(RISK)
+        共用同一发射路径——存 DB + 发 EventSignalGeneration 到 engine → 回流 on_signal 下单。
 
-                    for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.SIGNALGENERATION]:
-                        func(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
-                    for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.SIGNALGENERATION]:
-                        func(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
+        此前回测 on_price_received 只发策略信号、漏发风控 generate_signals 产生的
+        主动信号，止损/止盈类风控（逻辑在 generate_signals）在回测静默失效、净值虚高。
+        统一发射口后两类信号走同一 on_signal 下单链（sizer → risk.cal）。
 
-                    GLOG.INFO(f"📤 [PUTTING] EventSignalGeneration to engine: {event_uuid}")
-                    self.put(e)
-                    GLOG.INFO(f"✅ [PUBLISHED] EventSignalGeneration sent to engine: {event_uuid}")
+        Args:
+            signal: 信号对象；None 时直接返回（防御）
+            source: SOURCE_TYPES.STRATEGY / RISK，决定 event.source
+            origin_name: 信号来源名（strategy.name / "RiskManagement"），仅用于日志
+        """
+        if signal is None:
+            return
+        signal_uuid = getattr(signal, "uuid", "N/A")[:8]
+        GLOG.INFO(f"\n💼 [PORTFOLIO SIGNAL PROCESS] Portfolio UUID: {self.uuid[:8]}")
+        GLOG.INFO(f"    Signal: {signal.direction.name} {signal.code} at {signal.business_timestamp}")
+        GLOG.INFO(f"    Signal UUID: {signal_uuid}")
+        GLOG.INFO(f"    Signal Reason: {signal.reason}")
+        GLOG.INFO(f"    From: {origin_name or 'Unknown'}")
+
+        # 将信号保存到数据库
+        try:
+            signal_crud = container.cruds.signal()
+            signal_crud.create(
+                portfolio_id=signal.portfolio_id,
+                engine_id=signal.engine_id,
+                task_id=signal.task_id,
+                timestamp=signal.business_timestamp,  # 使用业务时间，而不是系统时间
+                code=signal.code,
+                direction=signal.direction,
+                reason=signal.reason,
+                source=signal.source,
+                business_timestamp=signal.business_timestamp,
+            )
+        except Exception as e:
+            self.blog.log_engine_error_event(error_code="SIGNAL_SAVE_FAILED", error_message=str(e))
+
+        e = EventSignalGeneration(signal)
+        e.set_source(source)
+        event_uuid = getattr(e, "uuid", "N/A")[:8]
+        GLOG.INFO(f"📤 [PUBLISHING] EventSignalGeneration: Event UUID={event_uuid}, Signal UUID={signal_uuid}")
+        GLOG.INFO(f"    Event ID: {id(e)}, Signal Code: {signal.code}")
+        GLOG.INFO(f"    From Portfolio: {self.name} (UUID: {self.uuid[:8]})")
+
+        for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.SIGNALGENERATION]:
+            func(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
+        for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.SIGNALGENERATION]:
+            func(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
+
+        GLOG.INFO(f"📤 [PUTTING] EventSignalGeneration to engine: {event_uuid}")
+        self.put(e)
+        GLOG.INFO(f"✅ [PUBLISHED] EventSignalGeneration sent to engine: {event_uuid}")
 
     # ===== 订单记录保存辅助方法 =====
     def _save_order_record(self, order, status, transaction_price=0, transaction_volume=0, fee=0):

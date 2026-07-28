@@ -235,8 +235,21 @@ jobs:
             -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
+        env:
+          # gate 是 conftest OOM guard 认可的「单进程安全子集」：23 文件全 mock，
+          # 本地单进程 262 节点 ~1.6s（无 Base.metadata 累积，无 OOM 风险）。
+          # 但参数化文件（operator_registry/record_cli 等）节点数随注册表状态浮动，
+          # CI 实测收集到 303 节点 > SINGLE_PROCESS_TEST_THRESHOLD(300)，且 CI 的
+          # uv sync --extra dev 不含 pytest-xdist（guard 的自动隔离路径 ImportError → exit 1）。
+          # 逃逸 GINKGO_ALLOW_SINGLE_PROCESS=1 是 guard 为本场景设计的官方逃生口：
+          # conftest.py 注释 (b) 明确把 CI smoke gate 列为「低 OOM 风险」单进程合法用例。
+          GINKGO_ALLOW_SINGLE_PROCESS: "1"
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
         # 不把当前全仓 6.85% smoke baseline 当作质量目标；无 src/api 改动时跳过。
+        # 防 hang（#6824）：本 gate 23 文件单 pytest 进程首跑卡 >40min（本地 13s/262 通过），
+        # 无 step 级/pytest 级超时 → 任一 hang 即无限占用 runner。
+        #   --timeout=300：单测试卡 300s 即失败 + dump 该测试 traceback 定位 hang 点
+        #   （pytest-timeout 已是 required_plugin；thread 法，CI 通用）。
         run: |
           uv run python -m pytest \
             tests/unit/data/crud/test_user_crud_mock.py \
@@ -258,6 +271,7 @@ jobs:
             tests/unit/features/test_operator_registry.py \
             tests/unit/features/test_expression_engine.py \
             tests/unit/trading/portfolios/test_portfolio_live_fill_transactional.py \
+            tests/unit/trading/portfolios/test_t1backtest.py \
             tests/unit/features/test_factor_service_smoke.py \
             tests/unit/trading/feeders/test_backtest_feeder_fetch_smoke.py \
             tests/unit/interfaces/test_message_mapper.py \
@@ -271,6 +285,7 @@ jobs:
             --cov=api \
             --cov-report=json:coverage.json \
             --cov-report=term-missing:skip-covered \
+            --timeout=300 \
             -q -o "addopts=" --no-header --tb=short
           uv run python scripts/check_diff_coverage.py \
             --coverage-json coverage.json \
