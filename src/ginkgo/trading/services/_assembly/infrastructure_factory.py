@@ -1,4 +1,4 @@
-# Upstream: EngineAssemblyService, TaskEngineBuilder
+# Upstream: EngineAssemblyService
 # Downstream: BacktestFeeder, OKXDataFeeder, SimBroker, OKXBroker, EXECUTION_MODE, EVENT_TYPES
 # Role: 基础设施工厂（无状态），提供DataFeeder/Broker/引擎基础设施的静态创建方法
 

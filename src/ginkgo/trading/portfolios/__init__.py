@@ -1,4 +1,4 @@
-# Upstream: EngineAssemblyService, ComponentLoader, TaskEngineBuilder
+# Upstream: EngineAssemblyService, ComponentLoader
 # Downstream: PortfolioBase, PortfolioT1Backtest, PortfolioLive
 # Role: 投资组合模块包，导出组合基类及T1回测组合和实盘组合实现
 
