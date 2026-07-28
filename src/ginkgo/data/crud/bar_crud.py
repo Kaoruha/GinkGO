@@ -16,7 +16,6 @@ from ginkgo.data.models import MBar
 from ginkgo.entities import Bar
 from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ginkgo.libs.utils.error_handler import unified_error_handler
 from ginkgo.data.access_control import restrict_crud_access
 
 
