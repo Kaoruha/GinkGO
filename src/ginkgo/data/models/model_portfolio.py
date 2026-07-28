@@ -52,6 +52,9 @@ class MPortfolio(MMysqlBase):
     total_profit: Mapped[DECIMAL] = mapped_column(DECIMAL(20, 8), default=0.00)
     risk_level: Mapped[DECIMAL] = mapped_column(DECIMAL(10, 4), default=0.10)
 
+    # 滑点率(百分比小数, 模拟盘成交价模型参数; 与回测 slippage_rate 同语义, ADR-037 D3)
+    slippage: Mapped[DECIMAL] = mapped_column(DECIMAL(10, 8), default=0.0001, comment="滑点率(百分比, 0.0001=0.01%)")
+
     # 性能指标字段
     max_drawdown: Mapped[DECIMAL] = mapped_column(DECIMAL(20, 8), default=0.00)
     sharpe_ratio: Mapped[DECIMAL] = mapped_column(DECIMAL(10, 4), default=0.00)
@@ -90,6 +93,7 @@ class MPortfolio(MMysqlBase):
         total_fee: Optional[float] = None,
         total_profit: Optional[float] = None,
         risk_level: Optional[float] = None,
+        slippage: Optional[float] = None,
         max_drawdown: Optional[float] = None,
         sharpe_ratio: Optional[float] = None,
         win_rate: Optional[float] = None,
@@ -124,6 +128,8 @@ class MPortfolio(MMysqlBase):
             self.total_profit = total_profit
         if risk_level is not None:
             self.risk_level = risk_level
+        if slippage is not None:
+            self.slippage = slippage
 
         # 更新性能指标
         if max_drawdown is not None:
