@@ -237,6 +237,10 @@ jobs:
         if: github.event_name == 'pull_request'
         # 阈值按 #6132 基线后采用温和默认：只约束 PR 新增/改动的可执行 src/api 行，
         # 不把当前全仓 6.85% smoke baseline 当作质量目标；无 src/api 改动时跳过。
+        # 防 hang（#6824）：本 gate 23 文件单 pytest 进程首跑卡 >40min（本地 13s/262 通过），
+        # 无 step 级/pytest 级超时 → 任一 hang 即无限占用 runner。
+        #   --timeout=300：单测试卡 300s 即失败 + dump 该测试 traceback 定位 hang 点
+        #   （pytest-timeout 已是 required_plugin；thread 法，CI 通用）。
         run: |
           uv run python -m pytest \
             tests/unit/data/crud/test_user_crud_mock.py \
@@ -266,6 +270,7 @@ jobs:
             --cov=api \
             --cov-report=json:coverage.json \
             --cov-report=term-missing:skip-covered \
+            --timeout=300 \
             -q -o "addopts=" --no-header --tb=short
           uv run python scripts/check_diff_coverage.py \
             --coverage-json coverage.json \
