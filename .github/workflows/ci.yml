@@ -201,6 +201,16 @@ jobs:
           uv run python -m pytest \
             tests/unit/trading/portfolios/test_portfolio_live_fill_transactional.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: backtest_feeder fetch subset smoke (#6745 feedable 子集)
+        # #6745 把 _fetch_day_bars_batch 从全市场批量 get(code=None) 改为只取 feedable
+        # 子集逐股 get(code=str)（消除 115h 全市场复权）。方法体（backtest_feeder.py
+        # L231-242 三分支：空 codes 早返 / 取失败 continue / 正常映射 + advance_time
+        # 调用点 L172）被 containers import 链触达但 smoke 不调方法体 → diff coverage gate 红。
+        # 本 smoke mock bar_service 调起全部分支补覆盖信号，并锁定 feedable 子集逐股取契约。
+        # 独立 step 使 push→master 时也跑（gate 仅 PR 触发），同时纳入下方 gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest tests/unit/trading/feeders/test_backtest_feeder_fetch_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: GINKGO_ENV + cluster guard smoke (PR6773 ADR-028 集群选择+护栏)
         # #6773 config.py 新增 ENV property（bridge 推断）/ IS_DEV_ENV / set_env /
         # _assert_cluster_consistency 被 import 链触达但方法体无 smoke 调用（gate 测试
@@ -211,6 +221,17 @@ jobs:
         run: |
           uv run python -m pytest \
             tests/unit/libs/test_config_env_cluster_guard_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
+      - name: FactorService 增量物化 + 走步 smoke (#6792/#6793)
+        # #6792 calculate_factors_by_library（增量物化 5 分支）+ #6793
+        # walk_forward_factor_evaluation（走步切折 PIT）+ calculate_alpha158_factors
+        # （get_all_factors→get_all_expressions 改名）被 containers import 链触达
+        # （class 定义行 executed → 非 exempt）但方法体无 smoke 调用 → diff coverage
+        # gate 红。本 smoke mock 依赖调起方法体补覆盖信号。独立 step 使 push→master
+        # 时也跑，同时纳入下方 gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest \
+            tests/unit/features/test_factor_service_smoke.py \
             -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
@@ -237,6 +258,9 @@ jobs:
             tests/unit/features/test_operator_registry.py \
             tests/unit/features/test_expression_engine.py \
             tests/unit/trading/portfolios/test_portfolio_live_fill_transactional.py \
+            tests/unit/features/test_factor_service_smoke.py \
+            tests/unit/trading/feeders/test_backtest_feeder_fetch_smoke.py \
+            tests/unit/interfaces/test_message_mapper.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \

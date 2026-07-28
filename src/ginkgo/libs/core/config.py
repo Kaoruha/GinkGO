@@ -574,23 +574,23 @@ class GinkgoConfig(object):
             return
         GinkgoConfig._cluster_guard_done = True
         is_dev = self.IS_DEV_ENV
-        env_label, expect_suffix = ("TEST", "-test") if is_dev else ("PROD", "-master")
+        env_label = "TEST" if is_dev else "PROD"
+        expect_suffix = "-test" if is_dev else "-master"  # 期望后缀；host 落体系却不符=漂移
         hosts = {
             "MySQL": os.environ.get("GINKGO_MYSQL_HOST", ""),
             "ClickHouse": os.environ.get("GINKGO_CLICKHOUSE_HOST", ""),
         }
         if os.environ.get("GINKGO_SKIP_CLUSTER_GUARD", "") != "1":
             for name, host in hosts.items():
-                if host.endswith("-test") or host.endswith("-master"):
-                    if host.endswith("-test") != is_dev:
-                        raise RuntimeError(
-                            f"[Ginkgo Env Guard] {name} host={host!r} 与 GINKGO_ENV={self.ENV} "
-                            f"冲突：env={'DEVELOPMENT(应 -test)' if is_dev else 'PRODUCTION(应 -master)'}。"
-                            f"运行 `ginkgo config set env {'DEVELOPMENT' if is_dev else 'PRODUCTION'}` "
-                            f"重对齐 .env 后重启。"
-                        )
-        import sys
-        color = "31" if not is_dev else "32"  # PROD 红 / TEST 绿
+                # 仅当 host 落 master/test 体系时校验；localhost/外部域名跳过
+                if host.endswith(("-test", "-master")) and not host.endswith(expect_suffix):
+                    raise RuntimeError(
+                        f"[Ginkgo Env Guard] {name} host={host!r} 与 GINKGO_ENV={self.ENV} "
+                        f"冲突：env={'DEVELOPMENT(应 -test)' if is_dev else 'PRODUCTION(应 -master)'}。"
+                        f"运行 `ginkgo config set env {'DEVELOPMENT' if is_dev else 'PRODUCTION'}` "
+                        f"重对齐 .env 后重启。"
+                    )
+        color = 32 if is_dev else 31  # 绿=TEST / 红=PROD
         line = (
             f"=== [{env_label}] MySQL={hosts['MySQL']} / "
             f"ClickHouse={hosts['ClickHouse']} ==="
@@ -809,8 +809,8 @@ class GinkgoConfig(object):
             else:
                 # 迁移桥：未设 env 字段时从 DEBUGMODE 推断，保证零行为变化
                 val = "DEVELOPMENT" if self.DEBUGMODE else "PRODUCTION"
-            os.environ[key] = str(val)
-        return str(val).upper()
+            os.environ[key] = val
+        return val.upper()
 
     @property
     def IS_DEV_ENV(self) -> bool:

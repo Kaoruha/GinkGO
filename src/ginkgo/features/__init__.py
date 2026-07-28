@@ -28,7 +28,7 @@ Ginkgo Features Module - 特征因子解析引擎
     
     # 获取因子定义
     alpha158 = services.features.definitions.alpha158()
-    expressions = alpha158.get_all_factors()
+    expressions = alpha158.get_all_expressions()
     
     # 表达式处理服务
     expr_service = services.features.services.expression()
@@ -100,13 +100,13 @@ def get_alpha158_expressions():
     """
     便捷函数：获取Alpha158因子表达式
     """
-    return Alpha158Factors.get_all_factors()
+    return Alpha158Factors.get_all_expressions()
 
 def get_core_expressions():
     """
     便捷函数：获取核心因子表达式
     """
-    return Alpha158Factors.get_core_factors()
+    return Alpha158Factors.get_expressions_by_category("core")
 
 def validate_expressions(expressions):
     """

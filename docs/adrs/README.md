@@ -41,6 +41,7 @@
 | ADR-027 | [启动期集群一致性护栏（防 debug/host 漂移静默连错库）](ADR-027-env-cluster-consistency-guard.md) | Accepted（D1 ⟵ ADR-028） | 2026-07-25 |
 | ADR-028 | [GINKGO_ENV 与 DEBUGMODE 彻底解耦（集群选择单一旋钮）](ADR-028-env-cluster-decouple-debugmode.md) | Accepted | 2026-07-25 |
 | ADR-029 | [BaseCRUD 转换钩子族退役,Entity↔ORM 收敛到 Mapper](ADR-029-basecrud-hook-retirement.md) | Accepted（§4 ⟵ ADR-010） | 2026-07-26 |
+| ADR-030 | [全链路 trace_id 传播契约（contextvars + DTO 字段 + Kafka header）](ADR-030-observability-trace-id-propagation.md) | Accepted | 2026-07-26 |
 
 ## 如何新增 / 修订
 
