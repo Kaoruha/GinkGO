@@ -32,17 +32,6 @@ class FileCRUD(BaseCRUD[MFile]):
     def __init__(self):
         super().__init__(MFile)
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for FileCRUD.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'type': FILE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         """
         定义 File 数据的字段配置 - 必填字段验证

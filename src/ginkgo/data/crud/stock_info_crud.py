@@ -18,7 +18,6 @@ from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
 from ginkgo.entities import StockInfo
 from ginkgo.data.crud.model_conversion import ModelList
-from ginkgo.data.mappers import StockInfoMapper
 
 
 @restrict_crud_access

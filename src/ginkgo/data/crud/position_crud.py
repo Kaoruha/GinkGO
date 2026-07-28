@@ -19,7 +19,6 @@ from ginkgo.data.models import MPosition
 from ginkgo.entities import Position
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ginkgo.data.mappers import PositionMapper
 
 
 @restrict_crud_access

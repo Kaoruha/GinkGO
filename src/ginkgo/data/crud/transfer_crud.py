@@ -18,7 +18,6 @@ from ginkgo.data.models import MTransfer
 from ginkgo.enums import SOURCE_TYPES, TRANSFERDIRECTION_TYPES, TRANSFERSTATUS_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
 from ginkgo.entities import Transfer
-from ginkgo.data.mappers import TransferMapper
 
 
 @restrict_crud_access
