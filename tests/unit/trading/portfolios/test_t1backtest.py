@@ -48,6 +48,26 @@ from ginkgo.trading.time.providers import LogicalTimeProvider
 from datetime import timezone
 
 
+@pytest.fixture(autouse=True)
+def _isolate_persistence_container():
+    """隔离持久层 container,杜绝 DB 依赖(#6824 CI hang 根因)。
+
+    t1backtest.py 三处持久 seam 全经 container:
+      - add_position L114 / _save_order_record L551:函数内 `from ginkgo.data.containers
+        import container` local re-import(调用时重新绑定源模块属性)
+      - _emit_signal L507:用模块级 container(L50 import 绑定的名字)
+    原 test 只 patch `ginkgo.trading.portfolios.t1backtest.container`(覆盖 L507),却
+    被两处 local re-import 绕过 → add_position/_save_order_record 直连 ClickHouse。
+    CI 无 ClickHouse 时 create_click_connection 的 retry+backoff ~300s,触发 pytest-timeout
+    per-test hang(本地服务在则快连过,故仅 CI 暴露)。
+    本 fixture autouse 同时 patch 源(覆盖 local re-import)与模块级(覆盖 L507),三 seam
+    全 no-op,断言(均查内存 p.positions/frozen_volume/order.remain/emitted)不受影响。
+    """
+    with patch('ginkgo.data.containers.container'), \
+         patch('ginkgo.trading.portfolios.t1backtest.container'):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Minimal concrete subclasses for components that need isinstance checks
 # ---------------------------------------------------------------------------
