@@ -252,9 +252,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
         return self.find(
             filters=filters,
             order_by="business_timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def delete_by_portfolio(self, portfolio_id: str) -> int:
         """

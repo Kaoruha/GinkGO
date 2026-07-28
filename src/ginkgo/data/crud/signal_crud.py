@@ -175,9 +175,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             page=page,
             page_size=page_size,
             order_by="timestamp",
-            desc_order=desc_order,
-            output_type="signal"
-        )
+            desc_order=desc_order,        )
 
     def find_by_engine(
         self,
@@ -198,9 +196,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="signal"
-        )
+            desc_order=True,        )
 
     def find_by_code_and_direction(
         self,
@@ -225,9 +221,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="signal"
-        )
+            desc_order=True,        )
 
     def get_latest_signals(
         self, portfolio_id: str, limit: int = 10, page: Optional[int] = None
@@ -310,7 +304,5 @@ class SignalCRUD(BaseCRUD[MSignal]):
         return self.find(
             filters=filters,
             order_by="business_timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 

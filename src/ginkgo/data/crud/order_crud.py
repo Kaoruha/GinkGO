@@ -459,7 +459,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         """
         orders = self.find({"portfolio_id": portfolio_id}) or []
 
-        # find() 返回原始 MOrder（output_type 转换 hook 已删，见本 PR）；
+        # find() 返回原始 MOrder（CRUD↔ModelList 契约,见本 PR）；
         # status 为 TINYINT 原始 int（Mapped[int]，非枚举实例）。
         # 下方 status==ORDERSTATUS_TYPES.* 系 pre-existing int-vs-Enum 比较（本 PR 不改，
         # EnumBase 非 IntEnum，实测恒 False → 真实订单分桶恒 0；单测 mock 枚举形态掩盖）。

@@ -142,9 +142,7 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="transfer",
-        )
+            desc_order=True,        )
 
     def get_total_transfer_amount(
         self,

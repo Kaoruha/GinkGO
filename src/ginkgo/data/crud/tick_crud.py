@@ -780,7 +780,6 @@ class TickCRUD:
             page_size=page_size,
             order_by="timestamp",
             desc_order=False,  # Ticks usually sorted chronologically
-            output_type="model",
         )
 
     def find_by_price_range(

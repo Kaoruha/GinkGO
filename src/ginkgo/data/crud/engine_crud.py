@@ -136,9 +136,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         return self.find(
             filters={"status": status},
             order_by="update_at",
-            desc_order=True,
-            output_type="model",
-        )
+            desc_order=True,        )
 
     def find_by_name_pattern(self, name_pattern: str) -> List[MEngine]:
         """
@@ -147,9 +145,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         return self.find(
             filters={"name__like": name_pattern},
             order_by="update_at",
-            desc_order=True,
-            output_type="model",
-        )
+            desc_order=True,        )
 
     def get_all_uuids(self) -> List[str]:
         """

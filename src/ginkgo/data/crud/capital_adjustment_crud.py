@@ -139,9 +139,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
         return self.find(
             filters={"reason__like": reason},
             order_by="timestamp",
-            desc_order=True,
-            output_type="model",
-        )
+            desc_order=True,        )
 
     def find_by_business_time(
         self,
@@ -170,6 +168,4 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
         return self.find(
             filters=filters,
             order_by="business_timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )

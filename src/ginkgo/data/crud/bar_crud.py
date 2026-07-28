@@ -220,9 +220,7 @@ class BarCRUD(BaseCRUD[MBar]):
                 page=None,
                 page_size=limit,
                 order_by=None,
-                desc_order=False,
-                output_type="model",
-                distinct_field="code",
+                desc_order=False,                distinct_field="code",
             )
         except Exception as e:
             GLOG.ERROR(f"Failed to get stock codes: {e}")

@@ -110,18 +110,20 @@ class _Conversion:
         """
         return None  # Default: no conversion supported
 
-    def _convert_output_items(self, items: list, output_type: str = "model") -> list:
+    def _convert_output_items(self, items: list) -> list:
         """
-        Hook method: Override to support output type conversion.
+        Hook method: Override to transform output items (default: no-op).
+
+        find() 末尾调 ``self._convert_output_items(results)``(不传 output_type);
+        CRUD↔ModelList 契约下 find 恒返原始 ModelList,本 hook 默认 no-op。
 
         Args:
             items: List of model instances
-            output_type: Desired output type
 
         Returns:
-            List of converted output objects
+            List of output objects (default: as-is)
         """
-        return items  # Default: return model instances as-is
+        return items
 
     def _get_enum_mappings(self) -> Dict[str, Any]:
         """字段→enum 映射(ADR c1):真值下沉到 model 字段定义。

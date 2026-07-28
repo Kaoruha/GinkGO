@@ -219,9 +219,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             page=page,
             page_size=page_size,
             order_by="timestamp",
-            desc_order=desc_order,
-            output_type="model"
-        )
+            desc_order=desc_order,        )
 
     def find_by_order_id(self, order_id: str) -> List[MOrderRecord]:
         """
@@ -230,9 +228,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters={"order_id": order_id},
             order_by="timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def find_by_code_and_status(
         self,
@@ -257,9 +253,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def find_pending_orders(
         self,
@@ -279,9 +273,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def find_filled_orders(
         self,
@@ -304,9 +296,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters=filters,
             order_by="timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
     def delete_by_portfolio(self, portfolio_id: str) -> None:
         """
@@ -404,7 +394,5 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         return self.find(
             filters=filters,
             order_by="business_timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )
 
