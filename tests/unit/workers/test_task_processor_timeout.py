@@ -27,7 +27,7 @@ except ImportError:
 
 
 def _full_backtest_config() -> BacktestConfig:
-    """ADR-018：BacktestConfig 删默认值后须显式传全 11 字段。"""
+    """ADR-018：BacktestConfig 删默认值后须显式传全 12 字段。"""
     return BacktestConfig(
         start_date="2025-01-01",
         end_date="2025-12-31",
@@ -39,6 +39,7 @@ def _full_backtest_config() -> BacktestConfig:
         stop_loss_ratio=0.05,
         take_profit_ratio=0.15,
         frequency="DAY",
+        fill_price_policy="attitude",
         analyzers=[],
     )
 

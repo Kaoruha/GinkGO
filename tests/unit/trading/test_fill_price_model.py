@@ -210,34 +210,57 @@ class TestSimBrokerFillPriceModelWiring:
 
 
 class TestCreateBrokerFromConfigSlippage:
-    """create_broker_from_config 接通 slippage_rate → DeterministicSlippage (B2 / ADR-037 D2)"""
+    """create_broker_from_config 接通 fill_price_policy → 成交价模型 (ADR-037 D2 + 方案B)"""
 
-    def test_slippage_rate_injects_deterministic_slippage(self):
-        """engine_data 含 slippage_rate → SimBroker._fill_price_model = DeterministicSlippage"""
+    def test_slippage_policy_injects_deterministic_slippage(self):
+        """engine_data fill_price_policy='slippage' → DeterministicSlippage"""
         broker = InfrastructureFactory.create_broker_from_config({
             "broker": "backtest",
+            "fill_price_policy": "slippage",
             "slippage_rate": 0.001,
         })
         assert isinstance(broker, SimBroker)
         assert isinstance(broker._fill_price_model, DeterministicSlippage)
 
-    def test_missing_slippage_rate_defaults_to_attitude_pricing(self):
-        """engine_data 无 slippage_rate key → 默认 AttitudePricing (零回归)"""
+    def test_default_policy_is_attitude_pricing(self):
+        """engine_data 无 fill_price_policy → 默认 attitude → AttitudePricing (零回归)"""
         broker = InfrastructureFactory.create_broker_from_config({
             "broker": "backtest",
         })
         assert isinstance(broker._fill_price_model, AttitudePricing)
 
+    def test_explicit_attitude_policy_overrides_slippage_rate(self):
+        """policy='attitude' 显式 → AttitudePricing (即使有 slippage_rate; 方案B: policy 决定非数值)"""
+        broker = InfrastructureFactory.create_broker_from_config({
+            "broker": "backtest",
+            "fill_price_policy": "attitude",
+            "slippage_rate": 0.001,
+        })
+        assert isinstance(broker._fill_price_model, AttitudePricing)
+
 
 class TestBuildFillPriceModel:
-    """build_fill_price_model 工厂 (ADR-037 D2 统一断点: 回测+模拟共用)"""
+    """build_fill_price_model(policy, slippage_rate) 工厂 (ADR-037 D2 + 方案B 显式 policy)
 
-    def test_none_returns_attitude_pricing(self):
-        """slippage_rate=None → AttitudePricing (零回归默认, scipy 态度采样)"""
+    policy 显式选择成交价模型 (默认 attitude=零回归; slippage=接通确定性滑点)。
+    """
+
+    def test_default_policy_is_attitude(self):
+        """build_fill_price_model() 默认 attitude → AttitudePricing (零回归)"""
         m = build_fill_price_model()
         assert isinstance(m, AttitudePricing)
 
-    def test_rate_returns_deterministic_slippage(self):
-        """slippage_rate=数值 → DeterministicSlippage(PercentageSlippage)"""
-        m = build_fill_price_model(0.001)
+    def test_attitude_policy_explicit(self):
+        """policy='attitude' 显式 → AttitudePricing"""
+        m = build_fill_price_model("attitude")
+        assert isinstance(m, AttitudePricing)
+
+    def test_slippage_policy_with_rate(self):
+        """policy='slippage' + rate=0.001 → DeterministicSlippage"""
+        m = build_fill_price_model("slippage", 0.001)
+        assert isinstance(m, DeterministicSlippage)
+
+    def test_slippage_policy_rate_defaults(self):
+        """policy='slippage' 无 rate → DeterministicSlippage (默认 0.0001)"""
+        m = build_fill_price_model("slippage")
         assert isinstance(m, DeterministicSlippage)

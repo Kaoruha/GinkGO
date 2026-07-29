@@ -44,7 +44,7 @@ def _make_processor(task) -> BacktestProcessor:
 
 
 def _full_backtest_config(start: str = "2025-01-01", end: str = "2025-06-01") -> BacktestConfig:
-    """ADR-018：BacktestConfig 删默认值后，进程内构造须显式传全 11 字段。
+    """ADR-018：BacktestConfig 删默认值后，进程内构造须显式传全 12 字段。
     config 内容对 task_processor 测试无关，集中此 helper 避免每处重复。"""
     return BacktestConfig(
         start_date=start,
@@ -57,6 +57,7 @@ def _full_backtest_config(start: str = "2025-01-01", end: str = "2025-06-01") ->
         stop_loss_ratio=0.05,
         take_profit_ratio=0.15,
         frequency="DAY",
+        fill_price_policy="attitude",
         analyzers=[],
     )
 

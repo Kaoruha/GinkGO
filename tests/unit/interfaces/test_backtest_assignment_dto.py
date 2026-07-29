@@ -24,7 +24,7 @@ from ginkgo.interfaces.dtos.backtest_assignment_dto import (
 # ---------- helpers ----------
 
 def _full_config_dict():
-    """完整 config（全 11 字段），用于 round-trip。"""
+    """完整 config（全 12 字段），用于 round-trip。"""
     return {
         "start_date": "2025-01-01",
         "end_date": "2025-12-31",
@@ -36,6 +36,7 @@ def _full_config_dict():
         "stop_loss_ratio": 0.07,
         "take_profit_ratio": 0.2,
         "frequency": "WEEK",
+        "fill_price_policy": "attitude",
         "analyzers": [{"name": "win_rate", "type": "analyzer", "config": {"window": 30}}],
     }
 
@@ -83,7 +84,7 @@ class TestRoundTrip:
 
 class TestDefaults:
     def test_defaults_applied_when_optional_missing(self):
-        """config 只给 required，9 optional 填默认（消除消费端硬编码默认表）。"""
+        """config 只给 required，10 optional 填默认（消除消费端硬编码默认表）。"""
         raw = {
             "task_uuid": "t1", "portfolio_uuid": "p1", "name": "n", "command": "start",
             "config": {"start_date": "2025-01-01", "end_date": "2025-12-31"},

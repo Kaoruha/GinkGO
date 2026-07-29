@@ -145,17 +145,20 @@ class AttitudePricing:
         return "AttitudePricing()"
 
 
-def build_fill_price_model(slippage_rate=None) -> FillPriceModel:
-    """根据 slippage_rate 构建成交价模型 (ADR-037 D2 统一断点)
+def build_fill_price_model(policy="attitude", slippage_rate=None) -> FillPriceModel:
+    """根据 fill_price_policy 构建成交价模型 (ADR-037 D2 + 方案B 显式选择)
 
-    回测侧 (create_broker_from_config) 与模拟侧 (assemble_engine) 共用此工厂,
-    避免两处分别内联装配逻辑。
+    回测侧 (create_broker_from_config) 与模拟侧 (assemble_engine) 共用此工厂。
 
-    - slippage_rate is None: AttitudePricing (零回归默认, scipy 态度采样)
-    - slippage_rate is not None: DeterministicSlippage(PercentageSlippage)
-      (百分比小数, 0.001 = 0.1%)
+    - policy='attitude' (默认): AttitudePricing (scipy 态度采样, 零回归默认)
+    - policy='slippage': DeterministicSlippage(PercentageSlippage)
+      slippage_rate 默认 0.0001 (0.01%); 百分比小数, 0.001 = 0.1%
+
+    policy 显式选择成交价模型: 默认 attitude 保回测零回归,
+    显式 slippage 接通确定性滑点。二者互斥不叠加 (ADR-037 Considered A 否决叠加)。
     """
-    if slippage_rate is None:
-        return AttitudePricing()
-    from ginkgo.trading.paper.slippage_models import PercentageSlippage
-    return DeterministicSlippage(PercentageSlippage(percentage=Decimal(str(slippage_rate))))
+    if policy == "slippage":
+        from ginkgo.trading.paper.slippage_models import PercentageSlippage
+        rate = slippage_rate if slippage_rate is not None else 0.0001
+        return DeterministicSlippage(PercentageSlippage(percentage=Decimal(str(rate))))
+    return AttitudePricing()

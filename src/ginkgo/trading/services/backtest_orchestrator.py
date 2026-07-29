@@ -101,6 +101,7 @@ class BacktestOrchestrator:
             stop_loss_ratio=config_snapshot.get("stop_loss_ratio", 0.05),
             take_profit_ratio=config_snapshot.get("take_profit_ratio", 0.15),
             frequency=config_snapshot.get("frequency", "DAY"),
+            fill_price_policy=config_snapshot.get("fill_price_policy", "attitude"),
             analyzers=[],
         )
 

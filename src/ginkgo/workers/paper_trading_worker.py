@@ -153,11 +153,18 @@ class PaperTradingWorker:
 
         # 3. 创建共享组件
         feeder = BacktestFeeder()
-        # ADR-037 D2: 从 PAPER portfolios 读 slippage → 成交价模型注入共享 broker
-        # (替代零参 SimBroker; slippage=None/脏数据 时回退 AttitudePricing 零回归)
+        # ADR-037 D2 + 方案B: 从 PAPER portfolios 读 slippage → 成交价模型注入共享 broker
+        # paper 侧 portfolio.slippage 表示确定性滑点 (模拟盘买卖价差, 非态度采样);
+        # slippage=None/脏数据 → attitude 态度采样回退。
+        # 注: paper 侧无零回归约束, 保留 A1 语义 (slippage_rate 推导 policy);
+        #     回测侧方案B 用 policy 显式 (config_snapshot.fill_price_policy), 见 ADR-037。
         from ginkgo.trading.brokers.fill_price_model import build_fill_price_model
         slippage_rate = self._resolve_slippage_from_portfolios(db_portfolios)
-        broker = SimBroker(fill_price_model=build_fill_price_model(slippage_rate))
+        if slippage_rate is None:
+            fill_price_model = build_fill_price_model("attitude")
+        else:
+            fill_price_model = build_fill_price_model("slippage", slippage_rate)
+        broker = SimBroker(fill_price_model=fill_price_model)
         gateway = TradeGateway(brokers=[broker])
         # #6103: param_service 必须注入，否则组件参数静默丢失（None 现装配期 raise）
         loader = ComponentLoader(

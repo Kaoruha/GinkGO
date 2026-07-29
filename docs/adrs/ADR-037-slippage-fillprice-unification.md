@@ -100,3 +100,27 @@ SimBroker 的 `_get_random_transaction_price` 改调 `self._fill_price_model.cal
 - **B2** engine_data.slippage 通路（`create_broker_from_config` 读 → FillPriceModel）+ 清 TaskEngineBuilder 死代码（D4）
 - **A1** 模拟盘装配统一（`assemble_engine` 注入 engine_data.slippage + FillPriceModel）+ `MPortfolio.slippage` 列（D3）
 - **B3** `--slippage` 端到端生效 + 态度采样行为零回归（测试）
+
+## Amendment (2026-07-29): 方案B 显式 fill_price_policy
+
+实现 B3 e2e 时暴露 D2 的设计冲突: D2 "create_broker_from_config 读 slippage_rate → DeterministicSlippage" 未处理 **slippage_rate 默认值 0.0001**——默认回测走 DeterministicSlippage 而非 AttitudePricing, 违背 D1 "回测行为零回归" 与 Considered C 否决理由 ("破坏回测现有成交价分布行为")。
+
+### 决策: 分离"模型选择"与"率值"
+
+新增 `fill_price_policy` 字段 (attitude/slippage), 与 `slippage_rate` (率值) 分离:
+
+- **policy='attitude' (默认)**: AttitudePricing → 回测零回归 (默认不接通滑点, 保 scipy 态度采样分布)
+- **policy='slippage'**: DeterministicSlippage(PercentageSlippage(slippage_rate)) → 显式接通 `--slippage`
+
+工厂签名改为 `build_fill_price_model(policy="attitude", slippage_rate=None)`。向后兼容: 旧 config_snapshot / engine_data 无 `fill_price_policy` key → 默认 attitude (零回归, 旧快照可复现)。
+
+### 各层落地
+
+- **wire spec**: `config_snapshot.fill_price_policy` key; DTO `BacktestAssignmentConfig.fill_price_policy`; schema `EngineConfig.fill_price_policy` (均默认 "attitude")
+- **状态主体**: `BacktestConfig.fill_price_policy` (required, ADR-018 纪律——新字段同样无默认, assignment 显式传全)
+- **装配**: `build_engine_data` 灌入 `engine_data.fill_price_policy`; `create_broker_from_config` 传 `(policy, rate)` 给工厂
+- **paper 侧**: 保留 A1 语义 (`slippage_rate` 推导 policy: 有值→slippage, None→attitude)。paper 是实时模拟盘无零回归约束, 不强制 policy 显式; `MPortfolio.fill_price_policy` 列留作后续增强
+
+### 与 Considered C 的关系
+
+方案B 不否定 Considered C (弃 scipy 态度)。C 否决的是"**默认**弃态度"; 方案B 保留 AttitudePricing 作**默认** (零回归), 仅在显式 `policy='slippage'` 时用 DeterministicSlippage, 二者互斥择一 (Considered A 否决叠加)。Epic 目标"--slippage 端到端生效"由"显式选择 policy='slippage'"达成, 而非 D2 原始的"默认 slippage_rate 接通"——后者会破坏零回归。

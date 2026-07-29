@@ -62,6 +62,8 @@ class BacktestConfig:
     stop_loss_ratio: float
     take_profit_ratio: float
     frequency: str
+    # 成交价策略 (ADR-037 D2 + 方案B): attitude=态度采样零回归 / slippage=确定性滑点
+    fill_price_policy: str
     # 分析器配置（Engine 级别）
     analyzers: list[AnalyzerConfig]
 
@@ -95,6 +97,7 @@ def assignment_to_backtest_config(cmd) -> "BacktestConfig":
         stop_loss_ratio=cfg.stop_loss_ratio,
         take_profit_ratio=cfg.take_profit_ratio,
         frequency=cfg.frequency,
+        fill_price_policy=cfg.fill_price_policy,
         analyzers=analyzers,
     )
 

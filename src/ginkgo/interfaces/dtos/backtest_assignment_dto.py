@@ -28,7 +28,7 @@ class MalformedAssignmentError(ValueError):
 
 
 class BacktestAssignmentConfig(BaseModel):
-    """wire spec：start 命令的回测配置（11 字段，唯一默认表）。
+    """wire spec：start 命令的回测配置（12 字段，唯一默认表）。
 
     默认值原样来自消费端 node.py:346-353 的硬编码表（双源靠巧合对齐）；
     契约化后此表是唯一源，worker BacktestConfig 默认删除（迁移 ③）。
@@ -47,6 +47,8 @@ class BacktestAssignmentConfig(BaseModel):
     stop_loss_ratio: float = 0.05
     take_profit_ratio: float = 0.15
     frequency: str = "DAY"
+    # ADR-037 D2 + 方案B: 成交价策略 (attitude=态度采样零回归 / slippage=确定性滑点接通)
+    fill_price_policy: str = "attitude"
     analyzers: list[dict] = Field(default_factory=list)  # 透传 list[dict]，worker 侧转 AnalyzerConfig（ADR-010 信使/主体分离）
 
 
