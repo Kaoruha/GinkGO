@@ -90,6 +90,22 @@ class PaperTradingWorker:
             # 脏数据/非数值 → 回退默认 (不阻塞 worker 启动)
             return None
 
+    @staticmethod
+    def _build_fill_price_model(slippage_rate):
+        """paper 侧成交价模型注入 (ADR-037 D2 + 方案B).
+
+        slippage_rate=None/脏 → attitude (态度采样, 零回归回退);
+        否则 slippage (确定性滑点, 接通 SlippageModel). paper 侧无零回归约束,
+        保留 A1 语义 (slippage_rate 推导 policy); 回测侧方案B 用 policy 显式
+        (config_snapshot.fill_price_policy), 见 ADR-037.
+
+        Returns: FillPriceModel (AttitudePricing | DeterministicSlippage)
+        """
+        from ginkgo.trading.brokers.fill_price_model import build_fill_price_model
+        if slippage_rate is None:
+            return build_fill_price_model("attitude")
+        return build_fill_price_model("slippage", slippage_rate)
+
     @property
     def deviation_checker(self):
         """Lazy-init DeviationChecker to avoid triggering evaluation module imports at load time."""
@@ -158,12 +174,8 @@ class PaperTradingWorker:
         # slippage=None/脏数据 → attitude 态度采样回退。
         # 注: paper 侧无零回归约束, 保留 A1 语义 (slippage_rate 推导 policy);
         #     回测侧方案B 用 policy 显式 (config_snapshot.fill_price_policy), 见 ADR-037。
-        from ginkgo.trading.brokers.fill_price_model import build_fill_price_model
         slippage_rate = self._resolve_slippage_from_portfolios(db_portfolios)
-        if slippage_rate is None:
-            fill_price_model = build_fill_price_model("attitude")
-        else:
-            fill_price_model = build_fill_price_model("slippage", slippage_rate)
+        fill_price_model = self._build_fill_price_model(slippage_rate)
         broker = SimBroker(fill_price_model=fill_price_model)
         gateway = TradeGateway(brokers=[broker])
         # #6103: param_service 必须注入，否则组件参数静默丢失（None 现装配期 raise）
