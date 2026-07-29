@@ -4,8 +4,10 @@
 两层防御：
 1. 派发期（防新增）：producer.send 返回 False → start_task 标 task failed 并报错，
    不再 fire-and-forget 留下永久 running 孤儿。
-2. 兜底（清存量）：cleanup_orphan_tasks 扫描 running 超 N 分钟无进展的任务标 failed，
-   处理历史孤儿与 Worker 重启丢消息场景。
+2. 兜底（清存量）：cleanup_orphan_tasks 判定改为"running 任务不被任何活跃 worker
+   心跳持有 → 孤儿 → 标 failed"（#6846）。不再用 start_time 超时（worker crash/
+   丢消息场景下 start_time 无法区分"真在跑"与"已丢"）；心跳持有集才是"有 worker
+   在管这事"的真实信号。Redis 不可达时跳过本轮，防基础设施抖动误杀全量。
 
 参考既有 mock 模式：test_backtest_task_assignment_payload.py。
 """
@@ -102,82 +104,82 @@ class TestStartDispatchFailure:
 # ---------- 兜底：清存量孤儿 ----------
 
 class TestCleanupOrphanTasks:
-    """cleanup_orphan_tasks 扫描 running 超 N 分钟无进展的任务标 failed。"""
+    """cleanup_orphan_tasks: running 任务不被任何活跃 worker 心跳持有 → 孤儿 → 标 failed。"""
+
+    def _set_held(self, service, held):
+        """注入 _get_held_task_uuids 返回值（set=被持有集，None=Redis 不可达）。"""
+        service._get_held_task_uuids = MagicMock(return_value=held)
 
     @pytest.mark.unit
-    def test_stale_running_marked_failed(self, service):
-        """running + start_time 早于阈值 → 标 failed。"""
-        # naive local，与 worker progress_tracker.py 写入语态一致（#4853 review 契约）。
-        now = datetime.now()
-        stale = _make_task(
-            status="running",
-            start_time=now - timedelta(minutes=60),
-        )
-        stale.uuid = "stale-uuid"
-        service._crud_repo.get_running_tasks.return_value = [stale]
+    def test_orphan_not_held_marked_failed(self, service):
+        """running + 不被任何活跃 worker 持有 → 标 failed。"""
+        orphan = _make_task(status="running")
+        orphan.uuid = "orphan-1"
+        service._crud_repo.get_running_tasks.return_value = [orphan]
+        self._set_held(service, set())
         service.update_status = MagicMock(return_value=ServiceResult.success({}, "ok"))
 
-        result = service.cleanup_orphan_tasks(timeout_minutes=30)
+        result = service.cleanup_orphan_tasks()
 
         assert result.is_success()
         service.update_status.assert_called_once()
         assert service.update_status.call_args.kwargs.get("status") == "failed"
-        assert "stale-uuid" == service.update_status.call_args.args[0]
+        assert service.update_status.call_args.args[0] == "orphan-1"
 
     @pytest.mark.unit
-    def test_fresh_running_not_touched(self, service):
-        """running + start_time 新鲜 → 不动。"""
-        # naive local，与 worker progress_tracker.py 写入语态一致（#4853 review 契约）。
-        now = datetime.now()
-        fresh = _make_task(
-            status="running",
-            start_time=now - timedelta(minutes=5),
-        )
-        service._crud_repo.get_running_tasks.return_value = [fresh]
+    def test_held_running_not_touched(self, service):
+        """running + 被活跃 worker 持有 → 不动。"""
+        held_task = _make_task(status="running")
+        held_task.uuid = "held-1"
+        service._crud_repo.get_running_tasks.return_value = [held_task]
+        self._set_held(service, {"held-1"})
         service.update_status = MagicMock()
 
-        result = service.cleanup_orphan_tasks(timeout_minutes=30)
+        result = service.cleanup_orphan_tasks()
 
         assert result.is_success()
         service.update_status.assert_not_called()
 
     @pytest.mark.unit
-    def test_running_without_start_time_skipped(self, service):
-        """running 但 start_time=None（数据残缺）→ 跳过不崩。"""
-        no_time = _make_task(status="running", start_time=None)
-        service._crud_repo.get_running_tasks.return_value = [no_time]
+    def test_mixed_only_orphans_marked(self, service):
+        """held 与 orphan 混合 → 仅 orphan 被标 failed。"""
+        held = _make_task(status="running"); held.uuid = "held"
+        orphan = _make_task(status="running"); orphan.uuid = "orphan"
+        service._crud_repo.get_running_tasks.return_value = [held, orphan]
+        self._set_held(service, {"held"})
+        service.update_status = MagicMock(return_value=ServiceResult.success({}, "ok"))
+
+        service.cleanup_orphan_tasks()
+
+        marked = [c.args[0] for c in service.update_status.call_args_list]
+        assert marked == ["orphan"]
+
+    @pytest.mark.unit
+    def test_redis_down_skips_cleanup(self, service):
+        """_get_held_task_uuids 返回 None（Redis 不可达）→ 跳过本轮，不误杀。"""
+        orphan = _make_task(status="running"); orphan.uuid = "orphan-x"
+        service._crud_repo.get_running_tasks.return_value = [orphan]
+        self._set_held(service, None)
         service.update_status = MagicMock()
 
-        result = service.cleanup_orphan_tasks(timeout_minutes=30)
+        result = service.cleanup_orphan_tasks()
 
         assert result.is_success()
         service.update_status.assert_not_called()
 
     @pytest.mark.unit
-    def test_naive_local_start_time_cleaned_within_real_timeout(self, service):
-        """回归守护（#4853 PR #6565 review 抓的 bug）。
-
-        worker progress_tracker.py 写 start_time=datetime.now() 是 naive local
-        （宿主 Asia/Shanghai UTC+8）。cleanup 阈值必须与 worker 写入同语态
-        （naive local），否则 naive 北京时间被 replace(tzinfo=utc) 当 UTC 解释，
-        task 看起来比实际年轻 8 小时，声明的 30min timeout 实际变 ~8h30min，
-        孤儿永久不被清理 —— issue #4853 痛点未被有效兜底。
-
-        构造 naive local start_time = now-35min（与 worker 写入语态一致），
-        timeout=30min → 必须触发 failed。
-        """
-        naive_local_now = datetime.now()  # 无 tzinfo，模拟 worker 写入
-        stale = _make_task(
+    def test_failure_message_includes_business_timestamp(self, service):
+        """告警消息含 business_timestamp，便于运维定位最后业务推进点。"""
+        orphan = _make_task(
             status="running",
-            start_time=naive_local_now - timedelta(minutes=35),
+            business_timestamp=datetime(2026, 7, 28, 12, 0, 0),
         )
-        stale.uuid = "stale-naive-local"
-        service._crud_repo.get_running_tasks.return_value = [stale]
+        orphan.uuid = "orphan-ts"
+        service._crud_repo.get_running_tasks.return_value = [orphan]
+        self._set_held(service, set())
         service.update_status = MagicMock(return_value=ServiceResult.success({}, "ok"))
 
-        result = service.cleanup_orphan_tasks(timeout_minutes=30)
+        service.cleanup_orphan_tasks()
 
-        assert result.is_success()
-        service.update_status.assert_called_once()
-        assert service.update_status.call_args.kwargs.get("status") == "failed"
-        assert service.update_status.call_args.args[0] == "stale-naive-local"
+        msg = service.update_status.call_args.kwargs.get("error_message", "")
+        assert "2026-07-28" in msg

@@ -13,8 +13,8 @@ Redis Schema - 统一管理 Redis 键命名和数据结构
 4. 所有 Redis 键的集中管理
 """
 
-from dataclasses import dataclass, asdict
-from typing import Optional, Dict, Any
+from dataclasses import dataclass, asdict, field
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 from enum import Enum
 import json
@@ -246,11 +246,15 @@ class BacktestWorkerHeartbeat(BaseHeartbeat):
     max_tasks: int
     started_at: str
     last_heartbeat: str
+    # #6846: 当前持有的 task_uuid 集合。此前仅 running_tasks 计数，无法判定
+    # "某 running 任务是否被活跃 worker 持有"；孤儿治理改心跳判定后需 union 此字段。
+    task_uuids: List[str] = field(default_factory=list)
 
     @classmethod
     def create(cls, worker_id: str, status: WorkerStatus,
                running_tasks: int = 0, max_tasks: int = 5,
-               started_at: str = None) -> "BacktestWorkerHeartbeat":
+               started_at: str = None,
+               task_uuids: List[str] = None) -> "BacktestWorkerHeartbeat":
         """创建心跳数据"""
         now = datetime.now().isoformat()
         return cls(
@@ -260,7 +264,8 @@ class BacktestWorkerHeartbeat(BaseHeartbeat):
             running_tasks=running_tasks,
             max_tasks=max_tasks,
             started_at=started_at or now,
-            last_heartbeat=now
+            last_heartbeat=now,
+            task_uuids=task_uuids or [],
         )
 
     def update_heartbeat(self, running_tasks: int = None) -> "BacktestWorkerHeartbeat":
