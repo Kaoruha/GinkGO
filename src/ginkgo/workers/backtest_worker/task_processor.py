@@ -32,6 +32,7 @@ from ginkgo import services
 from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.trading.time.clock import now as clock_now
 from ginkgo.libs.core.logger import _trace_id_ctx
+from ginkgo.data.services.base_service import ServiceResult
 
 
 class BacktestProcessor(Thread):
@@ -132,9 +133,8 @@ class BacktestProcessor(Thread):
             self.task.completed_at = datetime.utcnow()
             self.task.result = result.data
 
-            self.progress_tracker.report_completed(self.task, None)
-            self._ingest_task_logs()
-            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
+            # #6845: 完成上报据回写结果分级日志，不再无条件 'completed successfully' 撒谎
+            self._report_completion()
 
         except Exception as e:
             self._exception = e
@@ -148,6 +148,24 @@ class BacktestProcessor(Thread):
             GLOG.ERROR(traceback.format_exc())
         finally:
             GLOG.clear_context()
+
+    def _report_completion(self):
+        """上报完成并据回写结果分级日志（#6845: DB 失败不再无条件 'completed successfully' 撒谎）。
+
+        report_completed 返回 ServiceResult：
+        - success / NOT_FOUND 容错（progress_tracker 已转 success）→ INFO 'completed successfully'
+        - error（DB 故障，code=UPDATE_FAILED）→ WARN 回写失败（回测本身完成，但状态卡 DB，不再静默撒谎）
+        - None（旧契约/无 task_service）→ 保持 INFO，向后兼容
+        """
+        write_result = self.progress_tracker.report_completed(self.task, None)
+        self._ingest_task_logs()
+        if isinstance(write_result, ServiceResult) and not write_result.is_success():
+            GLOG.WARN(
+                f"[{self.task.task_uuid[:8]}] Backtest completed but status write to DB failed: "
+                f"{getattr(write_result, 'message', '')}"
+            )
+        else:
+            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
 
     def _wait_for_engine_completion(self, timeout: float = 3600.0):
         """⚠️ 死代码（#6483）：无调用点。

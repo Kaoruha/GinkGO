@@ -17,6 +17,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from ginkgo.data.services.base_service import ServiceResult
+
 try:
     from ginkgo.workers.backtest_worker.task_processor import BacktestProcessor
     from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestConfig
@@ -139,3 +141,47 @@ class TestAggregateResultsRoutesTracebackToGlog:
         assert any("Traceback" in m for m in errors), (
             f"GLOG.ERROR 未收到 traceback，收到: {errors}"
         )
+
+
+@pytest.mark.skipif(not HAS_MODULE, reason="BacktestProcessor not available")
+@pytest.mark.tdd
+class TestReportCompletionHonorsStatusWrite_6845:
+    """#6845: 完成上报据回写结果分级日志，DB 失败不再无条件 'completed successfully' 撒谎。"""
+
+    def test_logs_completed_when_write_succeeds(self, monkeypatch):
+        cfg = _full_backtest_config()
+        task = BacktestTask.create(portfolio_uuid="ptid", name="t", config=cfg)
+        proc = _make_processor(task)
+        proc._ingest_task_logs = MagicMock()  # 避免真实 LogIngester 灌库
+        proc.progress_tracker.report_completed.return_value = ServiceResult.success(message="ok")
+
+        infos = []
+        spy = types.SimpleNamespace(
+            WARN=lambda msg: None, ERROR=lambda msg: None,
+            INFO=lambda msg: infos.append(msg), DEBUG=lambda msg: None,
+        )
+        monkeypatch.setattr("ginkgo.workers.backtest_worker.task_processor.GLOG", spy)
+
+        proc._report_completion()
+
+        assert proc.progress_tracker.report_completed.called
+        assert any("completed successfully" in m for m in infos), f"应打 completed，got {infos}"
+
+    def test_warns_when_write_fails(self, monkeypatch):
+        cfg = _full_backtest_config()
+        task = BacktestTask.create(portfolio_uuid="ptid", name="t", config=cfg)
+        proc = _make_processor(task)
+        proc._ingest_task_logs = MagicMock()
+        proc.progress_tracker.report_completed.return_value = ServiceResult.error("boom", code="UPDATE_FAILED")
+
+        warns, infos = [], []
+        spy = types.SimpleNamespace(
+            WARN=lambda msg: warns.append(msg), ERROR=lambda msg: None,
+            INFO=lambda msg: infos.append(msg), DEBUG=lambda msg: None,
+        )
+        monkeypatch.setattr("ginkgo.workers.backtest_worker.task_processor.GLOG", spy)
+
+        proc._report_completion()
+
+        assert any("status write" in m.lower() for m in warns), f"应 WARN 回写失败，got {warns}"
+        assert not any("completed successfully" in m for m in infos), "DB 失败不应撒谎打 completed"
