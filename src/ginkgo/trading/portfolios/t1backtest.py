@@ -171,15 +171,6 @@ class PortfolioT1Backtest(PortfolioBase):
 
         super().advance_time(time, *args, **kwargs)
 
-        # ===== 步骤3: 批处理模式处理 =====
-        if self._batch_processing_enabled and self._batch_processor:
-            try:
-                pending_orders = self.force_process_pending_batches()
-                if pending_orders:
-                    self.blog.log_time_advance_event(time=time, position_count=0, delayed_count=0, cash=0, pending_orders=len(pending_orders))
-            except Exception as e:
-                self.blog.log_engine_error_event(error_code="BATCH_PROCESS_FAILED", error_message=str(e))
-
         # ===== 步骤4: T+1信号批量处理 =====
         # 推进到新时间后，批量处理上期的延迟信号
         delayed_signals_count = len(self._signals)
@@ -276,28 +267,6 @@ class PortfolioT1Backtest(PortfolioBase):
         if not self.is_all_set():
             GLOG.WARN(f"Signal dropped: portfolio not ready, {signal_payload.code}")
             return
-
-        if self._batch_processing_enabled and self._batch_processor:
-            try:
-                # T+1机制：当天信号延迟到明天处理
-                # 注意：批处理模式也需要处理时区问题
-                business_time_normalized = normalize_time_for_comparison(event.business_timestamp)
-                current_time_normalized = normalize_time_for_comparison(current_time)
-
-                # T+1延迟机制：如果信号时间 >= 当前时间，则延迟到下一个时间点处理
-                if business_time_normalized >= current_time_normalized:
-                    if business_time_normalized > current_time_normalized:
-                        self.blog.log_t1_delay_event(code=event.code, reason=f"Future signal from {event.business_timestamp}")
-                    self._signals.append(event.payload)
-                    return
-
-                # 使用批处理感知的信号处理
-                self._batch_aware_on_signal(event)
-                return
-
-            except Exception as e:
-                self.blog.log_engine_error_event(error_code="BATCH_SIGNAL_FAILED", error_message=str(e))
-                # 继续执行传统处理逻辑
 
         # 传统T+1处理逻辑
         # T+1, Order will send after 1 day that signal comes.
