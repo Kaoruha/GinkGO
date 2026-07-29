@@ -132,9 +132,7 @@ class BacktestProcessor(Thread):
             self.task.completed_at = datetime.utcnow()
             self.task.result = result.data
 
-            self.progress_tracker.report_completed(self.task, None)
-            self._ingest_task_logs()
-            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
+            self._report_completion()
 
         except Exception as e:
             self._exception = e
@@ -148,6 +146,24 @@ class BacktestProcessor(Thread):
             GLOG.ERROR(traceback.format_exc())
         finally:
             GLOG.clear_context()
+
+    def _report_completion(self):
+        """#6845: 回测引擎成功后回写任务状态，并诚实反映写库结果。
+
+        状态写失败（DB 异常）发 WARN——不再无脑打 "Backtest completed successfully"
+        撒谎（原 fire-and-forget 丢弃返回值，写失败也声称成功）。任务不存在
+        （tolerable，update_status code=NOT_FOUND）由 progress_tracker 归一为 success，
+        仍记完成日志。report_failed 路径（except 分支）保持原样——失败已 ERROR 落库。
+        """
+        write_result = self.progress_tracker.report_completed(self.task, None)
+        self._ingest_task_logs()
+        if write_result is not None and not write_result.is_success():
+            GLOG.WARN(
+                f"[{self.task.task_uuid[:8]}] Backtest status write FAILED: "
+                f"{write_result.message} (engine finished but task status not persisted)"
+            )
+        else:
+            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
 
     def _wait_for_engine_completion(self, timeout: float = 3600.0):
         """⚠️ 死代码（#6483）：无调用点。

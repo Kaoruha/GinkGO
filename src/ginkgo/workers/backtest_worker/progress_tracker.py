@@ -22,6 +22,7 @@ from ginkgo.libs import GLOG
 from ginkgo.workers.backtest_worker.models import BacktestTask, EngineStage
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
+from ginkgo.data.services.base_service import ServiceResult
 
 
 class ProgressTracker:
@@ -103,8 +104,8 @@ class ProgressTracker:
             # 其他阶段只更新 current_stage
             self._write_progress_to_db(task.task_uuid, current_stage=stage.value)
 
-    def report_completed(self, task: BacktestTask, result: dict):
-        """上报完成"""
+    def report_completed(self, task: BacktestTask, result: dict) -> ServiceResult:
+        """上报完成。#6845: 返回状态回写结果，调用方据此 WARN 告警（不再 fire-and-forget 撒谎）。"""
         self._send_to_kafka(
             {
                 "type": "completed",
@@ -116,11 +117,11 @@ class ProgressTracker:
         )
         GLOG.INFO(f"[{task.task_uuid[:8]}] Reported completion")
 
-        # 更新数据库状态为 completed
-        self._write_status_to_db(task.task_uuid, "completed", result=result)
+        # 更新数据库状态为 completed（传播结果供调用方判定）
+        return self._write_status_to_db(task.task_uuid, "completed", result=result)
 
-    def report_failed(self, task: BacktestTask, error: str):
-        """上报失败"""
+    def report_failed(self, task: BacktestTask, error: str) -> ServiceResult:
+        """上报失败。#6845: 返回状态回写结果（DB 写失败时调用方可感知）。"""
         self._send_to_kafka(
             {
                 "type": "failed",
@@ -132,11 +133,11 @@ class ProgressTracker:
         )
         GLOG.ERROR(f"[{task.task_uuid[:8]}] Reported failure: {error}")
 
-        # 更新数据库状态为 failed
-        self._write_status_to_db(task.task_uuid, "failed", error_message=error)
+        # 更新数据库状态为 failed（传播结果供调用方判定）
+        return self._write_status_to_db(task.task_uuid, "failed", error_message=error)
 
-    def report_cancelled(self, task: BacktestTask):
-        """上报取消"""
+    def report_cancelled(self, task: BacktestTask) -> ServiceResult:
+        """上报取消。#6845: 返回状态回写结果。"""
         self._send_to_kafka(
             {
                 "type": "cancelled",
@@ -147,11 +148,11 @@ class ProgressTracker:
         )
         GLOG.INFO(f"[{task.task_uuid[:8]}] Reported cancellation")
 
-        # 更新数据库状态为 stopped
-        self._write_status_to_db(task.task_uuid, "stopped")
+        # 更新数据库状态为 stopped（传播结果供调用方判定）
+        return self._write_status_to_db(task.task_uuid, "stopped")
 
-    def report_failed_by_uuid(self, task_uuid: str, error: str):
-        """通过 UUID 上报失败（无需完整 BacktestTask 对象）"""
+    def report_failed_by_uuid(self, task_uuid: str, error: str) -> ServiceResult:
+        """通过 UUID 上报失败（无需完整 BacktestTask 对象）。#6845: 返回状态回写结果。"""
         short_uuid = task_uuid[:8] if task_uuid else "unknown"
         self._send_to_kafka(
             {
@@ -164,8 +165,8 @@ class ProgressTracker:
         )
         GLOG.ERROR(f"[{short_uuid}] Reported failure by UUID: {error}")
 
-        # 更新数据库状态为 failed
-        self._write_status_to_db(task_uuid, "failed", error_message=error)
+        # 更新数据库状态为 failed（传播结果供调用方判定）
+        return self._write_status_to_db(task_uuid, "failed", error_message=error)
 
     def _send_to_kafka(self, message: dict):
         """发送消息到Kafka"""
@@ -189,7 +190,12 @@ class ProgressTracker:
         total_orders: int = 0,
         total_signals: int = 0,
     ):
-        """写入进度到数据库（用于SSE推送）"""
+        """写入进度到数据库（用于SSE推送）。
+
+        刻意保持 fire-and-forget（与 _write_status_to_db 不同）：进度写入是瞬态
+        SSE 订阅流，丢一次只会让前端进度卡 2s，不会导致任务状态分歧（终态 status
+        写在 _write_status_to_db，那里才须诚实传播失败）。
+        """
         if self.task_service is None:
             return
 
@@ -207,10 +213,16 @@ class ProgressTracker:
 
     def _write_status_to_db(
         self, task_id: str, status: str, error_message: str = "", result: dict = None, current_stage: str = None
-    ):
-        """写入任务状态到数据库"""
+    ) -> ServiceResult:
+        """写入任务状态到数据库。
+
+        #6845: 状态回写失败必须可见——不再撒谎。返回 ServiceResult 供调用方判定：
+        - 成功：success
+        - 任务不存在（update_status code=NOT_FOUND）：success（预期容许，任务可能未预先创建）
+        - DB 写失败 / 异常：failure（真故障，调用方须 WARN 告警）
+        """
         if self.task_service is None:
-            return
+            return ServiceResult.success(message="task_service not configured, status write skipped")
 
         try:
             from datetime import datetime
@@ -250,9 +262,17 @@ class ProgressTracker:
                 uuid=task_id, status=status, error_message=error_message, **result_fields  # task_id 与 uuid 等价
             )
             if not result_obj.is_success():
+                # #6845: 区分"任务不存在"(容许) vs "DB 写失败"(真故障)。
+                # 任务可能未预先创建（aggregator 路径），not-found 不算故障，避免假告警。
+                if result_obj.code == "NOT_FOUND":
+                    GLOG.INFO(f"Task {task_id[:8]}... not found, status write skipped (tolerable)")
+                    return ServiceResult.success()
                 GLOG.ERROR(f"Failed to write status to DB: {result_obj.message}")
+                return ServiceResult.error(f"Failed to write status to DB: {result_obj.message}")
+            return ServiceResult.success(result_obj.data, f"Status {status} written for {task_id[:8]}...")
         except Exception as e:
             GLOG.ERROR(f"Error writing status to DB: {e}")
+            return ServiceResult.error(f"Error writing status to DB: {e}")
 
     def get_task_status(self, task_uuid: str) -> Optional[str]:
         """

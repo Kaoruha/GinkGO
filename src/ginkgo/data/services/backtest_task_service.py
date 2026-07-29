@@ -335,7 +335,9 @@ class BacktestTaskService(BaseService):
             if not task:
                 task = self._crud_repo.get_by_task_id(uuid)
             if not task:
-                return ServiceResult.error(f"Backtest task not found: {uuid}")
+                # #6845: 标 code=NOT_FOUND，让下游（progress_tracker._write_status_to_db）
+                # 能区分"任务不存在"(预期容许)与"DB 写失败"(真故障)，不再一刀切告警。
+                return ServiceResult.error(f"Backtest task not found: {uuid}", code="NOT_FOUND")
 
             # 使用真实的 uuid 更新
             real_uuid = task.uuid
@@ -347,7 +349,7 @@ class BacktestTaskService(BaseService):
             )
 
             if updated_count == 0:
-                return ServiceResult.error(f"Backtest task not found: {real_uuid}")
+                return ServiceResult.error(f"Backtest task not found: {real_uuid}", code="NOT_FOUND")
 
             GLOG.INFO(f"Updated task {real_uuid[:8]}... status to: {status}")
 
