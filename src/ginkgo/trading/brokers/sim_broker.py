@@ -55,7 +55,6 @@ class SimBroker(BrokerCacheMixin):
                 - attitude: 撮合态度 (OPTIMISTIC/PESSIMISTIC/RANDOM)
                 - commission_rate: 手续费率 (默认0.0003)
                 - commission_min: 最小手续费 (默认5)
-                - slip_base: 滑点基数 (默认0.01)
         """
         super().__init__(name=name)
 
@@ -66,11 +65,10 @@ class SimBroker(BrokerCacheMixin):
         self._attitude = config.get("attitude", ATTITUDE_TYPES.RANDOM)
         self._commission_rate = Decimal(str(config.get("commission_rate", 0.0003)))
         self._commission_min = Decimal(str(config.get("commission_min", 5)))
-        self._slip_base = config.get("slip_base", 0.01)
         self._slippage_tolerance = Decimal(str(config.get("slippage_tolerance", 0.05)))
 
-        # ADR-037 D1: 成交价模型, 默认 AttitudePricing (移植原 _get_random_transaction_price, 零回归)
-        # 可注入 DeterministicSlippage 接通 --slippage (B2 装配通路)
+        # ADR-037 D1 + 方案B: 成交价模型由 build_fill_price_model(policy, rate) 注入;
+        # 默认 AttitudePricing (态度采样, 零回归), policy=slippage → DeterministicSlippage。
         self._fill_price_model = fill_price_model or AttitudePricing()
 
         # 设置市场属性（用于Router市场映射）
