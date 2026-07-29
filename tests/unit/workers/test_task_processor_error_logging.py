@@ -139,3 +139,58 @@ class TestAggregateResultsRoutesTracebackToGlog:
         assert any("Traceback" in m for m in errors), (
             f"GLOG.ERROR 未收到 traceback，收到: {errors}"
         )
+
+
+@pytest.mark.skipif(not HAS_MODULE, reason="BacktestProcessor not available")
+@pytest.mark.tdd
+class TestRunStatusWriteTruthful:
+    """#6845: 回测完成时若状态回写失败，日志必须如实反映（WARN），不再无条件
+    打 "Backtest completed successfully" 撒谎。not-found 容错不算失败。"""
+
+    def test_run_warns_when_status_write_fails(self, monkeypatch):
+        from ginkgo.data.services.base_service import ServiceResult
+
+        cfg = _full_backtest_config()
+        task = BacktestTask.create(portfolio_uuid="ptid", name="t", config=cfg)
+        proc = _make_processor(task)
+        proc._assembly_service = MagicMock()
+        proc._portfolio_service = MagicMock()
+        proc.trace_id = None
+
+        # report_completed 返回 DB 异常 error（状态写失败，回测本身成功）
+        tracker = MagicMock()
+        tracker.report_completed.return_value = ServiceResult.error(
+            "Failed to write status to DB: connection lost"
+        )
+        proc.progress_tracker = tracker
+        proc._ingest_task_logs = MagicMock()
+
+        # orchestrator 返回成功（回测结果已算出，只是状态没记上）
+        fake_orch = MagicMock()
+        fake_orch.run.return_value = ServiceResult.success({"ok": True})
+        monkeypatch.setattr(
+            "ginkgo.trading.services.backtest_orchestrator.BacktestOrchestrator",
+            lambda **kw: fake_orch,
+        )
+        monkeypatch.setattr("ginkgo.data.containers.container", MagicMock())
+
+        warned, infoed = [], []
+        spy = types.SimpleNamespace(
+            WARN=lambda m: warned.append(m),
+            ERROR=lambda m: None,
+            INFO=lambda m: infoed.append(m),
+            DEBUG=lambda m: None,
+            clear_context=lambda: None,
+            set_log_category=lambda c: None,
+        )
+        monkeypatch.setattr("ginkgo.workers.backtest_worker.task_processor.GLOG", spy)
+        monkeypatch.setattr("ginkgo.workers.backtest_worker.task_processor.time", MagicMock())
+
+        proc.run()
+
+        assert any("status write failed" in m for m in warned), (
+            f"状态写失败应 WARN，收到 warns={warned}"
+        )
+        assert not any("completed successfully" in m for m in infoed), (
+            f"状态写失败时不应再撒谎 'completed successfully': {infoed}"
+        )

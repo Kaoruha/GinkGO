@@ -132,9 +132,16 @@ class BacktestProcessor(Thread):
             self.task.completed_at = datetime.utcnow()
             self.task.result = result.data
 
-            self.progress_tracker.report_completed(self.task, None)
+            # #6845: 状态回写失败须可见——回测本身成功，但若终态没记上 DB 不能撒谎 "completed successfully"。
+            # not-found 已容错为 success（任务可能未预创建），只有真 DB 异常才 WARN。
+            status_result = self.progress_tracker.report_completed(self.task, None)
             self._ingest_task_logs()
-            GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
+            if status_result is not None and not status_result.is_success():
+                GLOG.WARN(
+                    f"[{self.task.task_uuid[:8]}] Backtest completed but status write failed: {status_result.message}"
+                )
+            else:
+                GLOG.INFO(f"[{self.task.task_uuid[:8]}] Backtest completed successfully")
 
         except Exception as e:
             self._exception = e

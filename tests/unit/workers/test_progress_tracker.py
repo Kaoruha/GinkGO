@@ -80,3 +80,77 @@ class TestProgressReportNoSyncHttpNotify:
             tracker.report_completed(task, result={"total_pnl": 1.0})
 
         mock_post.assert_not_called()
+
+
+@pytest.mark.skipif(not HAS_MODULE, reason="ProgressTracker not available")
+@pytest.mark.tdd
+class TestStatusWriteTruthful:
+    """#6845: 状态回写失败必须可见——report_* 返回 ServiceResult，不再 void 吞掉。
+
+    区分两种失败：
+    - task 未预创建（not-found）→ 容错，返回 success（汇总/回测可继续）
+    - DB 异常 → 返回 error（调用方可 WARN/告警，不再撒谎）
+    """
+
+    def test_report_completed_returns_success_when_db_write_ok(self):
+        """DB 写成功时 report_completed 返回 is_success() 的 ServiceResult（非 None）。"""
+        task = BacktestTask(
+            task_uuid="8b7b8cd8d69444db9a59e01862e601d6",
+            portfolio_uuid="P",
+            name="n",
+            config=None,
+        )
+        task.completed_at = None
+        task_service = MagicMock()
+        task_service.update_status.return_value = MagicMock(is_success=lambda: True)
+        tracker = ProgressTracker(worker_id="w1", kafka_producer=MagicMock(), task_service=task_service)
+
+        with patch("requests.post"):
+            result = tracker.report_completed(task, result={"total_pnl": 1.0})
+
+        assert result is not None, "report_completed 不应返回 None（#6845：状态写结果须可见）"
+        assert result.is_success(), "DB 写成功应返回 success"
+
+    def test_report_completed_not_found_is_non_fatal_success(self):
+        """task 未预创建（not-found）→ 容错返回 success（汇总/回测可继续，非致命）。
+
+        区分点：update_status 返回 "Backtest task not found" 与 DB 异常 "Failed to update"
+        必须区别对待——前者是预期容错，后者是真失败。
+        """
+        from ginkgo.data.services.base_service import ServiceResult
+
+        task = BacktestTask(
+            task_uuid="8b7b8cd8d69444db9a59e01862e601d6",
+            portfolio_uuid="P",
+            name="n",
+            config=None,
+        )
+        task.completed_at = None
+        task_service = MagicMock()
+        task_service.update_status.return_value = ServiceResult.error(
+            "Backtest task not found: deadbeef"
+        )
+        tracker = ProgressTracker(worker_id="w1", kafka_producer=MagicMock(), task_service=task_service)
+
+        with patch("requests.post"):
+            result = tracker.report_completed(task, result={"total_pnl": 1.0})
+
+        assert result.is_success(), "not-found 应容错为 success（任务可能未预创建，非致命）"
+
+    def test_report_completed_db_error_returns_error(self):
+        """DB 异常（update_status 抛异常）→ 返回 error 且不抛出（失败对调用方可见，不撒谎）。"""
+        task = BacktestTask(
+            task_uuid="8b7b8cd8d69444db9a59e01862e601d6",
+            portfolio_uuid="P",
+            name="n",
+            config=None,
+        )
+        task.completed_at = None
+        task_service = MagicMock()
+        task_service.update_status.side_effect = Exception("OperationalError: connection lost")
+        tracker = ProgressTracker(worker_id="w1", kafka_producer=MagicMock(), task_service=task_service)
+
+        with patch("requests.post"):
+            result = tracker.report_completed(task, result={"total_pnl": 1.0})
+
+        assert result is not None and not result.is_success(), "DB 异常应返回 error（可见），而非 None"

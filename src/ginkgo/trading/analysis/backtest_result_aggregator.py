@@ -136,9 +136,14 @@ class BacktestResultAggregator:
                 )
 
                 if not update_result.is_success():
-                    GLOG.ERROR(f"Failed to update backtest task: {update_result.error}")
-                    # 不返回错误，允许汇总继续完成（任务可能未预先创建）
-                    GLOG.WARN(f"Backtest task may not exist. Create it before running backtest.")
+                    msg = getattr(update_result, "error", None) or getattr(update_result, "message", "") or ""
+                    # #6845: not-found 容错（任务可能未预先创建，合法场景，静默 INFO 不告警）；
+                    # DB 异常 / 写失败才是真失败，不再 return success 撒谎，让 orchestrator 据实判定。
+                    if "not found" in msg.lower():
+                        GLOG.INFO(f"Backtest task not found, status write skipped (non-fatal): {msg}")
+                    else:
+                        GLOG.ERROR(f"Failed to persist backtest status to DB: {msg}")
+                        return ServiceResult.error(f"Failed to persist backtest status: {msg}")
 
             # 同步绩效指标到 MPortfolio
             try:
