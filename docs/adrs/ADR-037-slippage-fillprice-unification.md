@@ -56,7 +56,7 @@ SimBroker 的 `_get_random_transaction_price` 改调 `self._fill_price_model.cal
 ### D3 存储：各随范式（R 方案）
 
 - **回测**：`slippage_rate` 留 `config_snapshot` JSON（已 wire，ADR-018），不动。
-- **模拟盘**：`MPortfolio` 加 `slippage` 独立列（长驻持续参数，与 `initial_capital`/`cash` 同范式）。
+- **模拟盘**：`MPortfolio` 加 `slippage` 独立列（长驻持续参数，与 `initial_capital`/`cash` 同范式）。**⚠️ 已被 Amendment 2 回退**：e2e 暴露 schema 漂移 + 共享 SimBroker 存N用1，改 GCONF 配置。
 - **归一**：两者上游适配（回测 `build_engine_data` / 模拟盘 `assemble_engine`）都灌入 `engine_data.slippage`；D2 工厂单点消费。**认知统一在 D2 层（engine_data），不在存储物理层**——强行物理统一（P/Q）破坏一侧语义（任务快照 vs 长驻列）。
 
 ### D4 死代码清理：整体清理 TaskEngineBuilder（并入 B2）
@@ -124,3 +124,54 @@ SimBroker 的 `_get_random_transaction_price` 改调 `self._fill_price_model.cal
 ### 与 Considered C 的关系
 
 方案B 不否定 Considered C (弃 scipy 态度)。C 否决的是"**默认**弃态度"; 方案B 保留 AttitudePricing 作**默认** (零回归), 仅在显式 `policy='slippage'` 时用 DeterministicSlippage, 二者互斥择一 (Considered A 否决叠加)。Epic 目标"--slippage 端到端生效"由"显式选择 policy='slippage'"达成, 而非 D2 原始的"默认 slippage_rate 接通"——后者会破坏零回归。
+
+## Amendment 2 (2026-07-29): D3 回退 — 模拟盘 slippage 改 GCONF 配置（共享 SimBroker 存 N 用 1 + schema 漂移根因）
+
+### 触发
+
+B3 e2e 验证暴露 D3（`MPortfolio.slippage` 列）的两个致命缺陷：
+
+1. **schema 漂移**：`MPortfolio.slippage` 列由 model 定义，但 MySQL 表无此列（`create_all` 只建表不 ALTER，ADR 纪律）。回测 `portfolio create` 的 INSERT 带 slippage 列 → `Unknown column 'slippage'` → 回测 portfolio create 全失败、e2e 阻断。mock smoke（`test_model_portfolio_slippage_smoke`）不命中 DB INSERT，完全漏检（同 arch_create_all_no_alter_drift 教训）。
+
+2. **共享 SimBroker 存 N 用 1**（深度装配分析）：slippage 存 `MPortfolio`（per-portfolio）或 `MDeployment`（per-department）都导致"存多个值，worker 只用一个"——语义错配。
+
+### 根因：共享 SimBroker → slippage 是 broker 级 = worker 级
+
+paper worker 装配（`PaperTradingWorker.assemble_engine` INIT 路径）事实：
+- 单 `TimeControlledEventEngine`（约 L152，单例）
+- `broker = SimBroker(fill_price_model=...)` 在 portfolio 遍历**之外**建（循环外，约 L170，只建一次）
+- 遍历所有 PAPER portfolio（约 L188）→ `engine.add_portfolio()`，**多 portfolio 共用同一 broker**
+
+→ 一个 worker 一个常驻 SimBroker，一个 fill_price_model，一个 slippage。per-portfolio / per-department 存了多个 slippage，worker 只取一个（`_resolve_slippage_from_portfolios` 取 `db_portfolios[0]`），其余静默丢弃。运行时 deploy（`_handle_deploy`）更甚：只 add_portfolio 不重建 broker，T1+ deploy 的 slippage 进黑洞。严格是"存 N，用 ≤1"。
+
+### 决策：回退 D3 + 模拟盘 slippage 改 GCONF 配置
+
+- **回退 D3**：删 `MPortfolio.slippage` 列 + `update()` 的 slippage 分支。回测 portfolio create 不再带此列 → schema 漂移消除 → e2e 解阻。
+- **GCONF 加 slippage 配置项**（paper worker 专属段，默认 None→attitude 零滑点）。
+- **paper worker INIT 改读 GCONF**：`_resolve_slippage_from_portfolios` → 读 GCONF，配 SimBroker。方法语义不变（None→attitude / 有值→slippage），仅数据源从 MPortfolio 列换 GCONF。
+- **回测不动**：slippage 仍走 `config_snapshot` JSON（per-task，ADR-018），经 `fill_price_policy` 显式（Amendment 1）。
+- **deploy 命令不传 slippage**：运行时改不了已建 broker。
+
+### 三方案对比（模拟盘 slippage 存储位置）
+
+| 方案 | 与共享 SimBroker 语义 | schema 漂移 | 评价 |
+|---|---|---|---|
+| ~~MPortfolio.slippage（D3 原方案）~~ | 存 N 用 1 | ✅ 污染回测 portfolio create | 最差（已回退）|
+| MDeployment.slippage | 存 N 用 1 | 仅 deploy 链路 | 次优（per-department 假象误导）|
+| **GCONF（本方案）** | ✅ 一 broker 一值，存=用=1 | ✅ 零（脱离 DB）| 最优 |
+
+### 回测/模拟盘分叉的架构依据（非疏忽）
+
+- **回测 SimBroker 是 per-task**（每次回测新建，跑完弃）→ slippage per-task = `config_snapshot` JSON 合理。
+- **模拟盘 SimBroker 是 worker 级常驻**（一个 worker 一个，挂多 portfolio）→ slippage worker 级 = GCONF 合理。
+- 分叉反映 per-task vs worker 级 SimBroker 的执行语义差异，非设计疏忽。二者仍汇入同一个 `DeterministicSlippage` 适配器（D1 模型实现统一）——这才是 Epic "死深度 + 死参数" 修复本质（L0 模型实现 / L1 数值载体统一，L2 激活 / L3 存储各随范式）。
+- 实盘（真 Broker）无 slippage（交易所定价），GCONF slippage 不影响实盘。
+
+### 生效语义与限制
+
+- GCONF slippage 改后需**重启 worker**（SimBroker 在 INIT 建一次，不热更）。
+- 当前 slippage 是 **PercentageSlippage（固定百分比）**，非市场冲击模型——`成交价 = close × (1 ± 百分比)`，与订单量/深度/波动率无关。Epic 标题"死深度"实质只修了"抽象零 caller + 死参数"，未建模真实深度（平方根冲击等仍无实现，留后续）。
+
+### 与 Amendment 1（方案 B）的关系
+
+Amendment 1 的方案 B（显式 `fill_price_policy`）覆盖**回测侧**（config_snapshot + policy 显式）；本 Amendment 2 修订**模拟盘侧存储**（MPortfolio.slippage → GCONF）。paper 侧仍保留 A1 语义（slippage_rate 推导 policy：有值→slippage，None→attitude），只是 rate 来源从 MPortfolio 列改为 GCONF。

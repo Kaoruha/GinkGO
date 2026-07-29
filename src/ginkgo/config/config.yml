@@ -133,6 +133,15 @@ epsilon: 1e-5
 cpu_ratio: 0.8
 quiet: True
 
+# 模拟盘共享 SimBroker 滑点率 (ADR-037 Amendment 2)
+# paper worker 是 1 worker 1 共享 SimBroker (挂多 PAPER portfolio), slippage 是 broker 级
+# = worker 级参数, 故存 GCONF (存=用=1) 而非 per-portfolio/per-deployment (存 N 用 1).
+# None/缺省 (默认) → AttitudePricing 态度采样 (零滑点);
+# 有值 (如 0.001 = 0.1%) → DeterministicSlippage(PercentageSlippage) 确定性滑点.
+# 改后须重启 worker (SimBroker INIT 建一次, 不热更).
+# 回测侧 slippage 走 config_snapshot (per-task, ADR-018), 实盘真 Broker 无 slippage, 均不读此配置.
+paper_slippage_rate:
+
 # 通知系统配置
 notifications:
   # Discord 渠道配置
