@@ -327,14 +327,14 @@ class BacktestTaskService(BaseService):
         try:
             valid_statuses = ["created", "pending", "running", "completed", "failed", "stopped"]
             if status not in valid_statuses:
-                return ServiceResult.error(f"Invalid status: {status}")
+                return ServiceResult.error(f"Invalid status: {status}", code="INVALID_STATUS")
 
             # 查找任务，支持 uuid 或 task_id
             task = self._crud_repo.get_by_uuid(uuid)
             if not task:
                 task = self._crud_repo.get_by_task_id(uuid)
             if not task:
-                return ServiceResult.error(f"Backtest task not found: {uuid}")
+                return ServiceResult.error(f"Backtest task not found: {uuid}", code="NOT_FOUND")
 
             # 使用真实的 uuid 更新
             real_uuid = task.uuid
@@ -346,7 +346,7 @@ class BacktestTaskService(BaseService):
             )
 
             if updated_count == 0:
-                return ServiceResult.error(f"Backtest task not found: {real_uuid}")
+                return ServiceResult.error(f"Backtest task not found: {real_uuid}", code="NOT_FOUND")
 
             GLOG.INFO(f"Updated task {real_uuid[:8]}... status to: {status}")
 
@@ -355,7 +355,7 @@ class BacktestTaskService(BaseService):
 
         except Exception as e:
             GLOG.ERROR(f"Failed to update task status: {e}")
-            return ServiceResult.error(f"Failed to update task status: {str(e)}")
+            return ServiceResult.error(f"Failed to update task status: {str(e)}", code="UPDATE_FAILED")
 
     @retry(max_try=3)
     def delete(self, uuid: str) -> ServiceResult:
