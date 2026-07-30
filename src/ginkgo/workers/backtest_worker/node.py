@@ -102,6 +102,24 @@ class BacktestWorker:
         from ginkgo import services
         task_service = services.data.backtest_task_service()
 
+        # #6846: 启动期兜底清理上次异常退出残留的 running 孤儿（心跳判定：不被任何
+        # 活跃 worker 持有的 running task → 标 failed）。对称 paper_trading_worker
+        # 启动期调 portfolio_service.reset_stale_running()。清理失败非致命，不阻断启动。
+        try:
+            result = task_service.cleanup_orphan_tasks()
+            if result.is_success():
+                data = result.data or {}
+                cleaned = data.get("cleaned", 0)
+                if cleaned:
+                    GLOG.WARN(
+                        f"Startup cleanup: marked {cleaned} orphan task(s) failed "
+                        f"(total running scanned: {data.get('total_running', 0)})"
+                    )
+            else:
+                GLOG.WARN(f"Startup orphan cleanup returned non-success: {result.error}")
+        except Exception as e:
+            GLOG.WARN(f"Startup orphan cleanup failed (non-fatal, worker continues): {e}")
+
         # 初始化Kafka Producer（进度上报）
         self.progress_producer = GinkgoProducer()
         self.progress_tracker = ProgressTracker(
@@ -490,7 +508,8 @@ class BacktestWorker:
                 status=WorkerStatus.RUNNING if self.is_running else WorkerStatus.STOPPED,
                 running_tasks=len(self.tasks),
                 max_tasks=self.max_backtests,
-                started_at=self.started_at
+                started_at=self.started_at,
+                task_uuids=list(self.tasks.keys()),
             )
 
             redis.setex(key, RedisTTL.BACKTEST_WORKER_HEARTBEAT, heartbeat.to_json())

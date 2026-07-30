@@ -9,6 +9,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 import sys
+import json
 
 project_root = Path(__file__).parent.parent.parent
 _path = str(project_root / "src")
@@ -137,3 +138,101 @@ class TestStartTaskSkipStopped:
         # stopped 应被 skip：不创建 processor，不重置状态
         assert MockProc.call_count == 0, "stopped 任务不应创建 processor（应 skip）"
         worker.progress_tracker.task_service.update_status.assert_not_called()
+
+
+@pytest.mark.unit
+class TestSendHeartbeatCarriesTaskUuids:
+    """#6846: _send_heartbeat 须把 self.tasks 的 uuid 集合写入心跳。
+
+    孤儿治理（cleanup_orphan_tasks）改心跳判定后，需从活跃 worker 心跳 union
+    出"被持有的 task 集合"。worker 必须在心跳里声明自己持有哪些 task。
+    """
+
+    def test_heartbeat_records_held_task_uuids(self):
+        """self.tasks 中的 task uuid 写入心跳 task_uuids。"""
+        from ginkgo.workers.backtest_worker.node import BacktestWorker
+
+        worker = BacktestWorker("test-hb-uuids")
+        worker.is_running = True
+        worker.tasks = {"task-held-aaa": MagicMock(), "task-held-bbb": MagicMock()}
+        redis = MagicMock()
+        worker._get_redis = MagicMock(return_value=redis)
+
+        worker._send_heartbeat()
+
+        redis.setex.assert_called_once()
+        payload = json.loads(redis.setex.call_args.args[2])
+        assert set(payload["task_uuids"]) == {"task-held-aaa", "task-held-bbb"}
+
+    def test_heartbeat_empty_when_no_tasks(self):
+        """无在跑任务时心跳 task_uuids 为空列表。"""
+        from ginkgo.workers.backtest_worker.node import BacktestWorker
+
+        worker = BacktestWorker("test-hb-empty")
+        worker.is_running = True
+        worker.tasks = {}
+        redis = MagicMock()
+        worker._get_redis = MagicMock(return_value=redis)
+
+        worker._send_heartbeat()
+
+        payload = json.loads(redis.setex.call_args.args[2])
+        assert payload["task_uuids"] == []
+
+
+@pytest.mark.unit
+class TestStartCallsCleanup:
+    """#6846: BacktestWorker.start() 启动时调 cleanup_orphan_tasks。
+
+    对称 portfolio_service.reset_stale_running()（paper_trading_worker 启动期调用）：
+    worker 重启时兜底清理上次异常退出残留的 running 孤儿。清理失败须非致命
+    （不应阻断 worker 启动）。
+    """
+
+    def _stub_start_io(self, worker):
+        """屏蔽 start() 的 Redis/Kafka/线程 IO，仅保留 services + cleanup 路径。"""
+        worker._is_worker_id_in_use = MagicMock(return_value=False)
+        worker._cleanup_old_heartbeat_data = MagicMock()
+        worker._send_heartbeat = MagicMock()
+        worker._start_heartbeat_thread = MagicMock()
+        worker._start_task_consumer_thread = MagicMock()
+        worker._start_cleanup_thread = MagicMock()
+
+    def test_start_invokes_cleanup_orphan_tasks(self):
+        from ginkgo.workers.backtest_worker.node import BacktestWorker
+        from ginkgo.data.services.base_service import ServiceResult
+
+        worker = BacktestWorker("test-start-cleanup")
+        self._stub_start_io(worker)
+        task_service = MagicMock()
+        task_service.cleanup_orphan_tasks.return_value = ServiceResult.success(
+            {"cleaned": 0, "total_running": 0}, "ok"
+        )
+        fake_services = MagicMock()
+        fake_services.data.backtest_task_service.return_value = task_service
+
+        with patch("ginkgo.workers.backtest_worker.node.GinkgoProducer"), \
+             patch("ginkgo.workers.backtest_worker.node.ProgressTracker"), \
+             patch("ginkgo.services", fake_services):
+            worker.start()
+
+        task_service.cleanup_orphan_tasks.assert_called_once()
+
+    def test_start_survives_cleanup_exception(self):
+        """cleanup 抛异常时 start 不应阻断（非致命），worker 仍进入 running。"""
+        from ginkgo.workers.backtest_worker.node import BacktestWorker
+
+        worker = BacktestWorker("test-start-cleanup-err")
+        self._stub_start_io(worker)
+        task_service = MagicMock()
+        task_service.cleanup_orphan_tasks.side_effect = RuntimeError("cleanup boom")
+        fake_services = MagicMock()
+        fake_services.data.backtest_task_service.return_value = task_service
+
+        with patch("ginkgo.workers.backtest_worker.node.GinkgoProducer"), \
+             patch("ginkgo.workers.backtest_worker.node.ProgressTracker"), \
+             patch("ginkgo.services", fake_services):
+            worker.start()  # 不应抛
+
+        assert worker.is_running is True
+        task_service.cleanup_orphan_tasks.assert_called_once()

@@ -16,9 +16,8 @@ import time
 import json
 from typing import List, Union, Any, Optional, Dict
 import pandas as pd
-from datetime import datetime, timedelta, timezone
 
-from ginkgo.libs import cache_with_expiration, retry, GLOG
+from ginkgo.libs import cache_with_expiration, retry, GLOG, datetime_normalize
 from ginkgo.libs.data.number import convert_to_float
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.base_service import BaseService, ServiceResult
@@ -386,53 +385,68 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to delete backtest task {uuid[:8]}...: {e}")
             return ServiceResult.error(f"Failed to delete backtest task: {str(e)}")
 
-    def cleanup_orphan_tasks(self, timeout_minutes: int = 30) -> ServiceResult:
+    def cleanup_orphan_tasks(self) -> ServiceResult:
         """
-        清理孤儿回测任务（#4853）。
+        清理孤儿回测任务（#6846）。
 
-        扫描 status=running 但 start_time 早于 timeout_minutes 的任务，标记为 failed。
-        处理两类孤儿：
-        - Worker 重启期间 Kafka 消息丢失（派发成功但 Worker 未消费）
-        - 派发期未被 send 返回值检查拦截的历史残留（本方法上线前的存量）
+        判定：running 任务不被任何活跃 worker 心跳持有 → 孤儿 → 标 failed。
+        心跳 TTL 30s，worker crash / 丢 Kafka 消息后心跳过期即不再声明持有该 task，
+        遂被判定孤儿，兜底状态机防永久 running。
 
-        与 portfolio_service.reset_stale_running() 同构：状态机兜底，防永久 running。
+        相比 #4853 旧的 start_time 超时判定，心跳持有集才是"有 worker 在管这事"
+        的真实信号：worker 正常在跑 → 心跳声明持有 → 不动；worker 死了 → 心跳过期
+        → 持有集不含该 task → 标 failed。start_time 无法区分"真在跑"与"已丢"，
+        且 naive/UTC 语态漂移让 30min 阈值形同虚设。
 
-        Args:
-            timeout_minutes: running 状态超时阈值（分钟），默认 30。
+        告警消息含 business_timestamp（worker 上报 current_date 时同步写入，①），
+        便于运维定位最后业务推进点。
 
         Returns:
-            ServiceResult: data 含 cleaned（标记 failed 数量）与 total_running（扫描时 running 总数）。
+            ServiceResult: data 含 cleaned（标记 failed 数量）、total_running（扫描时
+            running 总数）；Redis 不可达时 skipped=True 且 cleaned=0（防基础设施抖动误杀全量）。
         """
         try:
             running = self._crud_repo.get_running_tasks()
-            # 阈值语态绑死 worker 写入端：progress_tracker.py:218 写 naive local
-            # datetime.now()（宿主 Asia/Shanghai UTC+8）。两端必须同语态比较，
-            # 否则 naive 北京时间被 replace(tzinfo=utc) 当 UTC 解释会看起来年轻 8h，
-            # 30min timeout 实际变 ~8h30min（#4853 PR #6565 review 抓的 bug）。
-            # 治本（worker 改 aware UTC）属全仓 naive→UTC 迁移，超出本 PR 范围，
-            # 迁移完成时同步此行回 datetime.now(timezone.utc)。
-            threshold = datetime.now() - timedelta(minutes=timeout_minutes)
+            if not running:
+                return ServiceResult.success(
+                    {"cleaned": 0, "total_running": 0},
+                    "无 running 任务",
+                )
+
+            held = self._get_held_task_uuids()
+            # Redis 不可达：无法区分"真孤儿"与"基础设施抖动"，本轮跳过防误杀全量。
+            if held is None:
+                GLOG.WARN("跳过本轮孤儿清理：无法读取活跃 worker 心跳（Redis 不可达）")
+                return ServiceResult.success(
+                    {"cleaned": 0, "total_running": len(running), "skipped": True},
+                    "Redis 不可达，跳过孤儿清理",
+                )
+
             cleaned = 0
-
             for task in running:
-                st = task.start_time
-                if st is None:
-                    # start_time 残缺无法判定，跳过（不崩，留给下次或人工）。
+                if task.uuid in held:
                     continue
-
-                if st < threshold:
-                    self.update_status(
-                        task.uuid, status="failed",
-                        error_message=(
-                            f"Orphan task: running > {timeout_minutes}min without progress "
-                            "(worker lost Kafka message or crashed)"
-                        ),
-                    )
-                    cleaned += 1
-                    GLOG.INFO(f"Marked orphan backtest task {task.uuid[:8]}... as failed")
+                bt = getattr(task, "business_timestamp", None)
+                bt_str = bt.strftime("%Y-%m-%d %H:%M:%S") if bt else "N/A"
+                self.update_status(
+                    task.uuid, status="failed",
+                    error_message=(
+                        f"Orphan task: no active worker holds it "
+                        f"(worker crashed or lost Kafka message). "
+                        f"last business_timestamp={bt_str}"
+                    ),
+                )
+                cleaned += 1
+                GLOG.INFO(
+                    f"Marked orphan backtest task {task.uuid[:8]}... as failed "
+                    f"(not held by any active worker)"
+                )
 
             if cleaned > 0:
-                GLOG.INFO(f"Cleaned {cleaned}/{len(running)} orphan running backtest tasks")
+                GLOG.INFO(
+                    f"Cleaned {cleaned}/{len(running)} orphan running backtest tasks "
+                    f"(held by active workers: {len(held)})"
+                )
 
             return ServiceResult.success(
                 {"cleaned": cleaned, "total_running": len(running)},
@@ -441,6 +455,43 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"Failed to cleanup orphan backtest tasks: {e}")
             return ServiceResult.error(f"Failed to cleanup orphan backtest tasks: {str(e)}")
+
+    def _get_held_task_uuids(self):
+        """
+        读取所有活跃 backtest worker 心跳，union 出被持有的 task_uuid 集合（#6846）。
+
+        SCAN 枚举 backtest:worker:* 心跳键（TTL 30s，过期即视为该 worker 已死），
+        解析每条心跳的 task_uuids 字段取并集。
+
+        Returns:
+            set: 被持有的 task_uuid 集合（无活跃 worker 时为空集）。
+            None: Redis 不可达 / 读取异常，无法判定。调用方据此跳过本轮，防误杀全量。
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPrefix, BacktestWorkerHeartbeat,
+            )
+            from ginkgo.data.drivers import create_redis_connection
+
+            redis = create_redis_connection()
+            held = set()
+            pattern = f"{RedisKeyPrefix.BACKTEST_WORKER_HEARTBEAT}:*"
+            for key in redis.scan_iter(match=pattern, count=100):
+                raw = redis.get(key)
+                if not raw:
+                    continue
+                if isinstance(raw, bytes):
+                    raw = raw.decode("utf-8", errors="ignore")
+                try:
+                    hb = BacktestWorkerHeartbeat.from_json(raw)
+                    held.update(hb.task_uuids)
+                except Exception:
+                    # 单条心跳解析失败不拖垮整轮；坏数据留给下次或人工。
+                    continue
+            return held
+        except Exception as e:
+            GLOG.WARN(f"读取 worker 心跳失败，跳过本轮孤儿清理: {e}")
+            return None
 
     def get_statistics(self) -> ServiceResult:
         """
@@ -585,6 +636,10 @@ class BacktestTaskService(BaseService):
                 updates["current_stage"] = current_stage
             if current_date is not None:
                 updates["current_date"] = current_date
+                # #6846: business_timestamp 此前恒 None——worker 每次上报 current_date
+                # （回测当前处理的业务日期）却未落库，使其无法作"业务推进"信号。
+                # 同步写入，供孤儿判定告警与运维定位（与 current_date 同源同值）。
+                updates["business_timestamp"] = datetime_normalize(current_date)
 
             if not updates:
                 return ServiceResult.error("No progress fields to update")
