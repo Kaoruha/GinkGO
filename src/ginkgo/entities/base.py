@@ -9,10 +9,8 @@
 
 import pandas as pd
 
-from types import FunctionType, MethodType
-from enum import Enum
-
 from ginkgo.enums import SOURCE_TYPES, COMPONENT_TYPES
+from ginkgo.libs.data.dataframe import to_dataframe as _to_dataframe
 from ginkgo.libs.data.number import convert_to_float as _convert_to_float_impl
 from ginkgo.libs.data.number import convert_to_int as _convert_to_int_impl
 from ginkgo.libs.data.number import convert_to_bool as _convert_to_bool_impl
@@ -104,34 +102,8 @@ class Base(object):
         self._source = source
 
     def to_dataframe(self) -> pd.DataFrame:
-        """
-        Convert Object's parameters to DataFrame.
-        Args:
-            None
-        Returns:
-            A dataframe convert from this.
-        """
-        item = {}
-        methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
-        for param in self.__dir__():
-            if param in methods:
-                continue
-            if param.startswith("_"):
-                continue
-            if isinstance(self.__getattribute__(param), MethodType):
-                continue
-            if isinstance(self.__getattribute__(param), FunctionType):
-                continue
-
-            if isinstance(self.__getattribute__(param), Enum):
-                item[param] = self.__getattribute__(param).value
-            elif isinstance(self.__getattribute__(param), str):
-                item[param] = self.__getattribute__(param).strip(b"\x00".decode())
-            else:
-                item[param] = self.__getattribute__(param)
-
-        df = pd.DataFrame.from_dict(item, orient="index").transpose()
-        return df
+        """Convert Object's parameters to DataFrame."""
+        return _to_dataframe(self)
 
     def _convert_to_float(self, value, default: float = 0.0) -> float:
         """

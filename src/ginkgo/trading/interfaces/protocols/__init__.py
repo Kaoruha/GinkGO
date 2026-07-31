@@ -1,6 +1,6 @@
-# Upstream: interfaces.__init__, 全系统组件类型检查
-# Downstream: protocols.portfolio_info
-# Role: Protocol接口协议模块包入口，导出PortfolioInfo运行时可检查协议
+# Upstream: interfaces.__init__
+# Downstream: (无存活 Protocol，原 portfolio_info 已删，零消费方)
+# Role: Protocol接口协议模块包入口（收口，暂无导出）
 
 
 
@@ -8,13 +8,8 @@
 """
 Trading Framework Protocol Interfaces
 
-This module provides Protocol interfaces for the Ginkgo trading framework components.
-These interfaces define contracts that ensure type safety and consistent behavior
-across different implementations.
+Protocol 接口占位包。原 PortfolioInfo 协议（零消费方，analyzer 收 plain Dict）
+已在 #6864 删除；此包保留为接口层命名空间，待未来协议接入时再恢复导出。
 """
 
-from .portfolio_info import PortfolioInfo
-
-__all__ = [
-    "PortfolioInfo"
-]
+__all__ = []
