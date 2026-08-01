@@ -502,8 +502,9 @@ class TickCRUD:
         """
         🎯 Define field-to-enum mappings for Tick.
 
-        Returns:
-            Dictionary mapping field names to enum classes
+        MTick 是 __abstract__=True 的 SA 抽象模型(无 __table__),BaseCRUD 默认
+        反射走 __table__.columns 对抽象模型返 {}。故 Tick 保留 override 作真值
+        源(ADR-031 抽象模型例外,非反射迁移候选)。
         """
         return {
             'direction': TICKDIRECTION_TYPES,  # Tick方向字段映射
@@ -579,31 +580,6 @@ class TickCRUD:
         from ginkgo.data.crud.base_crud import BaseCRUD
         return BaseCRUD(model_class)
 
-    def _convert_models_to_business_objects(self, models: List) -> List[Tick]:
-        """
-        🎯 Convert MTick models to Tick business objects.
-
-        Args:
-            models: List of MTick models with enum fields already fixed
-
-        Returns:
-            List of Tick business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            tick = Tick(
-                code=model.code,
-                price=model.price,
-                volume=model.volume,
-                direction=model.direction,
-                timestamp=model.timestamp,
-                source=model.source,
-            )
-            business_objects.append(tick)
-
-        return business_objects
-
     def _safe_enum_convert(self, value, enum_class):
         """
         Utility method: Safe enum conversion with error handling.
@@ -621,18 +597,6 @@ class TickCRUD:
             return enum_class(value)
         except (ValueError, TypeError):
             return value  # Return original value if conversion fails
-
-    def _convert_output_items(self, items: List) -> List[Any]:
-        """
-        Hook method: Convert MTick objects to Tick objects for business layer.
-        Called by BaseCRUD.find() template method.
-        Automatically gets @time_logger effects.
-
-        Note: This method is deprecated in favor of the new unified conversion architecture.
-        ModelList will use _convert_to_business_objects() for conversion.
-        """
-        # 为了向后兼容，保留此方法，但不使用
-        return items
 
     def _convert_models_to_dataframe(self, models) -> pd.DataFrame:
         """
@@ -672,37 +636,6 @@ class TickCRUD:
             data.append(model_dict)
 
         return pd.DataFrame(data)
-
-    def _convert_to_business_objects(self, models) -> List:
-        """
-        标准接口：转换Tick Models为业务对象列表，包含枚举转换
-        支持单个或多个models
-
-        Args:
-            models: 单个Tick Model或Tick Model列表
-
-        Returns:
-            业务对象列表
-        """
-        # 处理单个model或多个models
-        if not isinstance(models, list):
-            models = [models]
-
-        if not models:
-            return []
-
-        # 批量转换枚举字段
-        enum_mappings = self._get_enum_mappings()
-        for model in models:
-            for column, enum_class in enum_mappings.items():
-                if hasattr(model, column):
-                    current_value = getattr(model, column)
-                    converted_value = self._safe_enum_convert(current_value, enum_class)
-                    if converted_value is not None:
-                        setattr(model, column, converted_value)
-
-        # 调用业务对象转换Hook
-        return self._convert_models_to_business_objects(models)
 
     # ============================================================================
     # Business Helper Methods - Use these for common query patterns
@@ -847,7 +780,6 @@ class TickCRUD:
             page_size=page_size,
             order_by="timestamp",
             desc_order=False,  # Ticks usually sorted chronologically
-            output_type="model",
         )
 
     def find_by_price_range(

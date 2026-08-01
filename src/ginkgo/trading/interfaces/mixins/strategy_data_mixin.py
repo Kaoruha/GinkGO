@@ -155,7 +155,7 @@ class StrategyDataMixin:
                 return []
 
             # 转换为Bar实体列表（ADR-010: 走 Mapper 层，不再经 to_entities 懒转换）
-            bars = BarMapper.from_models(result.data)
+            bars = BarMapper.models_to_entities(result.data)
 
             # 过滤无效数据
             bars = [b for b in bars if b.timestamp is not None]

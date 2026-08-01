@@ -418,28 +418,38 @@ class DataManager(threading.Thread):
         GLOG.INFO("DataManager main loop ended")
 
     def _process_interest_updates(self) -> None:
-        """处理 interest updates 消息"""
-        try:
-            for message in self._consumer_interest.consume(timeout_ms=100):
+        """处理 interest updates 消息 (ADR-025 第②步: 经 MessageMapper.decode β 校验)"""
+        from ginkgo.interfaces.mappers import MessageMapper
+
+        consumer = self._consumer_interest.consumer if self._consumer_interest else None
+        if consumer is None:
+            return
+        # ADR-025 第②步: GinkgoConsumer 无 .consume(); 底层 kafka-python KafkaConsumer
+        # 用 .poll() 非阻塞轮询, 返回 {TopicPartition: [Message]}。message.value 已是 dict。
+        poll_result = consumer.poll(timeout_ms=100, max_records=100)
+        for messages in poll_result.values():
+            for message in messages:
                 try:
-                    dto = InterestUpdateDTO.model_validate_json(message.value)
+                    dto = MessageMapper.decode(message.value, InterestUpdateDTO)
                     self.update_subscriptions(dto)
                 except Exception as e:
                     GLOG.ERROR(f"Failed to process interest update: {e}")
-        except Exception as e:
-            pass  # 超时是正常的
 
     def _process_control_commands(self) -> None:
-        """处理 control commands 消息"""
-        try:
-            for message in self._consumer_control.consume(timeout_ms=100):
+        """处理 control commands 消息 (ADR-025 第②步: 经 MessageMapper.decode β 校验)"""
+        from ginkgo.interfaces.mappers import MessageMapper
+
+        consumer = self._consumer_control.consumer if self._consumer_control else None
+        if consumer is None:
+            return
+        poll_result = consumer.poll(timeout_ms=100, max_records=100)
+        for messages in poll_result.values():
+            for message in messages:
                 try:
-                    dto = ControlCommandDTO.model_validate_json(message.value)
+                    dto = MessageMapper.decode(message.value, ControlCommandDTO)
                     self._handle_control_command(dto)
                 except Exception as e:
                     GLOG.ERROR(f"Failed to process control command: {e}")
-        except Exception as e:
-            pass  # 超时是正常的
 
     def update_subscriptions(self, dto: InterestUpdateDTO) -> None:
         """

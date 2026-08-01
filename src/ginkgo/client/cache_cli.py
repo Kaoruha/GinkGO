@@ -13,7 +13,7 @@ from typing import Optional
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.table import Table
-from ginkgo.client.cli_utils import confirm_or_exit
+from ginkgo.client.cli_utils import confirm_or_exit, announce_dry_run
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
 console = Console()
@@ -46,6 +46,10 @@ def clear(
     force: Annotated[
         bool,
         typer.Option("--force", "-f", help=":warning: Skip confirmation prompt")
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help=":eye: Preview the scope to be cleared without deleting (skips confirm; no writes)")
     ] = False,
 ):
     """
@@ -81,8 +85,18 @@ def clear(
     
     # Confirmation prompt
     console.print(f":warning: [yellow]About to clear {operation_desc}[/yellow]")
+
+    # dry-run：预览 scope 后返回，不确认、不清除（精确计数用 `cache status`）
+    if dry_run:
+        announce_dry_run(f"清除 {operation_desc}", console=console)
+        console.print(
+            f"[cyan]:eye: Would clear {operation_desc}. No cache entries deleted.[/cyan]"
+        )
+        console.print("[dim]Run `ginkgo cache status` for per-type key counts.[/dim]")
+        return
+
     confirm_or_exit("Are you sure you want to proceed?", yes_flag=force)
-    
+
     # Perform cache clearing operations
     try:
         with Progress(

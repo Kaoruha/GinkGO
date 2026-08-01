@@ -484,7 +484,7 @@ class StockinfoService(BaseService):
                        desc_order: bool = False) -> ServiceResult:
         """出口②：data 是 List[StockInfo] Entity（类型即契约）。
 
-        ADR-010：消费 Entity 语义走此出口，经 StockInfoMapper.from_models 转换。
+        ADR-010：消费 Entity 语义走此出口，经 StockInfoMapper.models_to_entities 转换。
         空结果返空 list。
         """
         try:
@@ -493,7 +493,7 @@ class StockinfoService(BaseService):
                 market=market, status=status, limit=limit, offset=offset,
                 order_by=order_by, desc_order=desc_order,
             )
-            entities = StockInfoMapper.from_models(model_list) if model_list else []
+            entities = StockInfoMapper.models_to_entities(model_list) if model_list else []
             return ServiceResult.success(
                 data=entities,
                 message=f"Successfully retrieved {len(entities)} stock records (Entity list)",

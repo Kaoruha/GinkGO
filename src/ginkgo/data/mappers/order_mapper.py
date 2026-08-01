@@ -4,8 +4,11 @@
 并修正 from_model 的 order_id=model.uuid（Order.__init__ 无此形参，被 kwargs 吞掉
 导致 uuid 丢失）→ uuid=model.uuid。
 
-铁律：不 import CRUD；不含 to_dataframe（DF 出口留 CRUD）。
+铁律：不 import CRUD。``to_dataframe`` 为 DF 下沉试点（ADR-025；enum 映射经
+``__table__`` 反射 ADR-031 c1），输出与 CRUD ``_convert_models_to_dataframe``
+等价（对照实证 test_signal_order_df_mapper_parity）。
 """
+import pandas as pd
 from typing import List, Optional
 
 from ginkgo.data.models import MOrder
@@ -38,7 +41,7 @@ class OrderMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: Order) -> MOrder:
+    def entity_to_model(entity: Order) -> MOrder:
         """Entity → ORM。直构 MOrder（update() 是 singledispatch，全 kwargs 调用会失败）。"""
         return MOrder(
             portfolio_id=entity.portfolio_id,
@@ -62,7 +65,7 @@ class OrderMapper:
         )
 
     @staticmethod
-    def from_model(model: MOrder) -> Order:
+    def model_to_entity(model: MOrder) -> Order:
         """ORM → Entity。修正：uuid=model.uuid（旧版 order_id= 被丢弃）。"""
         if not isinstance(model, MOrder):
             raise TypeError(f"Expected MOrder, got {type(model).__name__}")
@@ -87,8 +90,41 @@ class OrderMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[Order]:
-        return [OrderMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[Order]:
+        return [OrderMapper.model_to_entity(m) for m in models]
+
+    # ------------------------------------------------------------------
+    # ORM → DataFrame（DF 下沉试点，ADR-025；enum 映射经 __table__ 反射，ADR-031）
+    # ------------------------------------------------------------------
+    @staticmethod
+    def models_to_dataframe(models) -> pd.DataFrame:
+        """ORM 列表 → DataFrame。enum 字段 int→enum 实例（经 ``__table__`` 反射）。
+
+        无副作用纯转换（不改 model）；输出与 CRUD ``_convert_models_to_dataframe``
+        等价（对照实证 ``test_signal_order_df_mapper_parity``）。DF 出口下沉 mapper
+        的试点，落地后 ``ModelList.to_dataframe`` 可委托此处（见 ADR-031 Future Work）。
+        """
+        if not models:
+            return pd.DataFrame()
+        mappings = {}
+        for col in models[0].__table__.columns:
+            enum_cls = (col.info or {}).get("enum")
+            if enum_cls is not None:
+                mappings[col.name] = enum_cls
+        rows = []
+        for m in models:
+            d = m.__dict__.copy()
+            d.pop("_sa_instance_state", None)
+            for name, enum_cls in mappings.items():
+                v = d.get(name)
+                if v is None:
+                    continue
+                try:
+                    d[name] = enum_cls(v)
+                except (ValueError, TypeError):
+                    pass  # 保留原值（对照 CRUD _safe_enum_convert）
+            rows.append(d)
+        return pd.DataFrame(rows)
 
     # ------------------------------------------------------------------
     # Entity/ORM ↔ DTO
@@ -99,7 +135,7 @@ class OrderMapper:
     # 避免浮点精度丢失）。
     # ------------------------------------------------------------------
     @staticmethod
-    def to_dto(entity: Order) -> OrderSubmissionDTO:
+    def entity_to_dto(entity: Order) -> OrderSubmissionDTO:
         """Entity → OrderSubmissionDTO。"""
         return OrderSubmissionDTO(
             order_id=entity.uuid,
@@ -112,7 +148,7 @@ class OrderMapper:
         )
 
     @staticmethod
-    def from_dto(dto) -> Order:
+    def dto_to_entity(dto) -> Order:
         """OrderSubmissionDTO → Entity。direction name→enum；price/volume 还原。"""
         if not isinstance(dto, OrderSubmissionDTO):
             raise TypeError(f"Expected OrderSubmissionDTO, got {type(dto).__name__}")

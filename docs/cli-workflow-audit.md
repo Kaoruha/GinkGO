@@ -22,6 +22,7 @@
 ### 修复 4: `portfolio get` — is_live 属性不存在
 - **文件:** `portfolio_cli.py:346`
 - **改法:** `portfolio.is_live` → `portfolio.mode`
+- **现状:** 两种取值并存，修复不彻底 — `:365` 用 `getattr(portfolio,"mode",None)` 但 `:456` 仍写 `portfolio.is_live`
 
 ### 修复 5: `param list` — get_page_filtered 不存在
 - **文件:** `param_cli.py` 全文重写

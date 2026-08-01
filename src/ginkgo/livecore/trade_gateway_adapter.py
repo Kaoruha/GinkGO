@@ -45,7 +45,7 @@ from ginkgo.trading.brokers.base_broker import BaseBroker
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
-from ginkgo.libs import GLOG
+from ginkgo.libs import GLOG, GCONF
 
 
 class TradeGatewayAdapter(Thread):
@@ -78,6 +78,9 @@ class TradeGatewayAdapter(Thread):
         self.filled_orders = 0  # 已成交订单
         self.expired_orders = 0  # 超时订单
         self.failed_orders = 0  # 失败订单
+
+        # P3: PRODUCTION env 下模拟成交被禁的一次性告警去重（避免每 tick 刷屏）
+        self._prod_mock_fill_warned = False
 
         # 运行状态
         self.is_running = False
@@ -186,18 +189,15 @@ class TradeGatewayAdapter(Thread):
         self.total_orders += 1
 
         try:
-            # 构造Order对象
-            order = Order(
-                portfolio_id=order_data['portfolio_id'],
-                engine_id=order_data.get('engine_id', 'live_engine'),
-                task_id=order_data.get('task_id', 'live_run'),
-                code=order_data['code'],
-                direction=DIRECTION_TYPES(order_data['direction']),
-                order_type=ORDER_TYPES.LIMITORDER,
-                status=ORDERSTATUS_TYPES.NEW,
-                volume=order_data['volume'],
-                limit_price=order_data['limit_price']
-            )
+            # ADR-025 第②步: raw dict → OrderSubmissionDTO (model_validate β 校验)
+            # → MessageMapper.submission_to_order 构造骨架 Order。
+            # 修正旧 drift: DTO 无 limit_price 字段, 旧代码 order_data['limit_price'] 必 KeyError;
+            # 正解 limit_price 取 dto.price (见 MessageMapper.submission_to_order)。
+            from ginkgo.interfaces.dtos import OrderSubmissionDTO
+            from ginkgo.interfaces.mappers import MessageMapper
+
+            dto = MessageMapper.decode(order_data, OrderSubmissionDTO)
+            order = MessageMapper.submission_to_order(dto)
 
             # 提交到TradeGateway（同步，确认提交）
             # TODO: Phase 3调用TradeGateway.submit_order()
@@ -273,6 +273,9 @@ class TradeGatewayAdapter(Thread):
         if not pending_orders:
             return
 
+        # ADR-028: 集群判据不依赖 order，上提到循环外（避免每待成交订单重复读 ENV）
+        is_production = GCONF.ENV == "PRODUCTION"
+
         # 遍历待成交订单
         for order in pending_orders:
             try:
@@ -293,13 +296,21 @@ class TradeGatewayAdapter(Thread):
                     continue
 
                 # #3961 MVP阶段：模拟成交逻辑 - 仅在非生产环境执行
-                import os
-                is_production = os.getenv("GINKGO_ENV", "development") == "production"
+                # ADR-028：集群判据统一走 GCONF.ENV（大写），不再裸读小写 env var（避免 bridge 不触发 + 大小写冲突）
+                # P3: PRODUCTION 下模拟成交被禁；非容器 paper worker(宿主直跑)若 config.yml debug=False
+                #     且未设 GINKGO_ENV → bridge 推断 PRODUCTION → 订单卡 SUBMITTED。开发场景设
+                #     GINKGO_ENV=DEVELOPMENT 即恢复模拟成交。一次性 WARN 兼顾可诊断与不刷屏。
                 if is_production:
+                    if not self._prod_mock_fill_warned:
+                        GLOG.WARN("PRODUCTION env 下模拟成交已禁用，订单将保持 SUBMITTED；"
+                                  "paper worker 开发场景请设 GINKGO_ENV=DEVELOPMENT")
+                        self._prod_mock_fill_warned = True
                     continue
 
                 if time_elapsed >= 1.0 and order.status == ORDERSTATUS_TYPES.SUBMITTED:
-                    # 生成成交事件
+                    # 模拟成交 = 全量成交终态; 显式 order_status=FILLED 让 DTO 自描述终态
+                    # (review #6778 altitude), 避免 fallback order.status=SUBMITTED 致
+                    # consumer 永不 pop / 下游 is_final 漏判 release_frozen (#5492)。
                     fill_event = EventOrderPartiallyFilled(
                         order=order,
                         filled_quantity=float(order.volume),  # 全部成交
@@ -308,7 +319,8 @@ class TradeGatewayAdapter(Thread):
                         commission=Decimal('5.25'),  # 模拟手续费
                         portfolio_id=order.portfolio_id,
                         engine_id=order.engine_id,
-                        task_id=order.task_id
+                        task_id=order.task_id,
+                        order_status=ORDERSTATUS_TYPES.FILLED,
                     )
 
                     # 发布到Kafka
@@ -348,10 +360,11 @@ class TradeGatewayAdapter(Thread):
                 engine_id=fill_event.engine_id,
                 task_id=fill_event.task_id,
                 code=fill_event.order.code,
-                direction=fill_event.order.direction.value,
+                direction=str(fill_event.order.direction.value),
                 filled_quantity=fill_event.filled_quantity,
                 fill_price=fill_event.fill_price,
-                timestamp=fill_event.timestamp.isoformat()
+                timestamp=fill_event.timestamp.isoformat(),
+                order_status=str(fill_event.order_status.value) if fill_event.order_status else None,
             )
 
             # 发布到Kafka

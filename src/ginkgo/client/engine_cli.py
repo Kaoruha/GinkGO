@@ -18,7 +18,7 @@ from decimal import Decimal
 import pandas as pd
 
 from ginkgo.data.services.base_service import ServiceResult
-from ginkgo.client.cli_utils import build_list_result, format_result
+from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run, reject_in_production
 
 # 导入辅助函数（从 engine_cli_helpers.py 提取）
 from ginkgo.client.engine_cli_helpers import (
@@ -485,6 +485,10 @@ def run(
     console.print("   Use [cyan]'ginkgo backtest run <task_id>'[/cyan] instead.")
     console.print()
 
+    # ADR-028: 回测防误连生产 —— set_debug 现仅开日志不再切库，PRODUCTION env 下回测直连 master 写数据，故拒跑
+    # 置于 resolve_engine_id（DB 调用）之前 fail-fast，避免生产 env 下做无谓 DB 查询
+    reject_in_production("回测")
+
     # 如果提供了engine_id，尝试解析为UUID
     if engine_id:
         original_identifier = engine_id
@@ -806,24 +810,36 @@ def run(
 def delete(
     engine_id: str = typer.Argument(..., help="Engine UUID"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview cascade scope (portfolio mappings) without deleting (skips confirm)"),
 ):
     """
     :wastebasket: Delete engine.
     """
-    if not confirm:
-        console.print(":x: Please use --confirm to delete engine")
+    # dry-run 安全：不删除，无需 --confirm；其余路径仍要求显式 --confirm
+    if not confirm and not dry_run:
+        console.print(":x: Please use --confirm to delete engine (or --dry-run to preview)")
         raise typer.Exit(1)
 
-    console.print(f":wastebasket: Deleting engine: {engine_id}")
+    if dry_run:
+        announce_dry_run(f"删除 engine {engine_id}（含 portfolio 映射级联）", console=console)
+    else:
+        console.print(f":wastebasket: Deleting engine: {engine_id}")
 
     try:
         from ginkgo.data.containers import container
 
         engine_service = container.engine_service()
-        result = engine_service.delete(engine_id)
+        result = engine_service.delete(engine_id, dry_run=dry_run)
 
         if result.success:
-            console.print(":white_check_mark: Engine deleted successfully")
+            if dry_run:
+                d = result.data or {}
+                console.print(
+                    f"[cyan]:eye: Would delete engine {engine_id}: "
+                    f"{d.get('mappings_would_delete', 0)} portfolio mapping(s) would be removed.[/cyan]"
+                )
+            else:
+                console.print(":white_check_mark: Engine deleted successfully")
         else:
             console.print(f":x: Failed to delete engine: {result.error}")
             raise typer.Exit(1)
@@ -976,13 +992,21 @@ def unbind_portfolio(
     engine_id: str = typer.Argument(..., help="Engine UUID or name"),
     portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without unbinding (skips confirm)"),
 ):
     """
     :broken_link: Unbind an engine from a portfolio.
     """
-    if not confirm:
+    if not confirm and not dry_run:
         console.print(":x: Please use --confirm to unbind portfolio")
         raise typer.Exit(1)
+
+    if dry_run:
+        announce_dry_run(f"解绑 engine {engine_id} 的 portfolio {portfolio_id}", console=console)
+        console.print(
+            f"[cyan]:eye: Would unbind engine {engine_id} from portfolio {portfolio_id}.[/cyan]"
+        )
+        return
 
     from ginkgo.data.containers import container
 

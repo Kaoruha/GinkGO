@@ -50,7 +50,7 @@ class MClickBase(Base, MBase):
     meta: Mapped[Optional[str]] = mapped_column(String(), default="{}")
     desc: Mapped[Optional[str]] = mapped_column(String(), default="This man is lazy, there is no description.")
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
-    source: Mapped[int] = mapped_column(types.Int8, default=-1)
+    source: Mapped[int] = mapped_column(types.Int8, default=-1, info={"enum": SOURCE_TYPES})
 
     def get_source_enum(self):
         """Convert database source integer back to enum for business layer"""

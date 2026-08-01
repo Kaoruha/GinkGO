@@ -37,7 +37,7 @@ class MUserContact(MMysqlBase, ModelConversion):
 
     # 外键和核心字段
     user_id: Mapped[str] = mapped_column(String(32), ForeignKey("users.uuid"), nullable=False, index=True)
-    contact_type: Mapped[int] = mapped_column(TINYINT, default=CONTACT_TYPES.EMAIL.value)
+    contact_type: Mapped[int] = mapped_column(TINYINT, default=CONTACT_TYPES.EMAIL.value, info={"enum": CONTACT_TYPES})
     address: Mapped[str] = mapped_column(String(512), default="")
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

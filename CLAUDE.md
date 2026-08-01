@@ -35,11 +35,12 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 
 ### 数据库
 - **禁止手动 ALTER TABLE**，表由 Model 定义 + `ginkgo init` 自动创建
-- Docker 双实例：Master(非Debug) | Test(Debug，端口首位+1)
+- Docker 双实例：Master(PRODUCTION) | Test(DEVELOPMENT，端口首位+1)
 - ClickHouse=时序 | MySQL=关系 | Redis=缓存 | MongoDB=文档
 
-### Debug 模式
-数据库操作前必须开启：`ginkgo debug on`
+### 集群与 Debug（ADR-028 解耦）
+- 集群选择：`ginkgo config set env PRODUCTION|DEVELOPMENT`（PRODUCTION=Master / DEVELOPMENT=Test，DEV 端口首位 +1）
+- Debug：`ginkgo debug on` 仅开日志/退避，**不再切库**（ADR-028 起与集群解耦）
 
 ### 基础组件
 **禁止擅自修改 Base 类**（BaseCRUD、BaseService 等），在具体实现层处理
@@ -61,7 +62,8 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 ## Key Commands
 ```bash
 ginkgo version / status                       # 版本/状态
-ginkgo debug on                               # 开启 debug（必须）
+ginkgo config set env DEVELOPMENT             # 切 Test 集群（端口 +1）；PRODUCTION=Master
+ginkgo debug on                               # 开日志/退避（ADR-028 起不再切库）
 ginkgo serve api                              # API 服务器 (:8000)
 ginkgo serve webui                            # Web UI (:5173)
 ginkgo serve worker-backtest --id test2       # 回测 Worker
@@ -80,7 +82,7 @@ ginkgo serve worker-backtest --id test2       # 回测 Worker
 
 ## CLI 全链路（构建→回测→模拟盘→实盘）
 
-> **可用性（2026-06-28 实测，详见 [e2e 审计](docs/e2e-cli-flow-audit.md)）**：构建 ✅ ｜ 回测 ⚠️（无数据预检、0 交易定位难）｜ 模拟盘 ⚠️（核心修复 #6164 已落地，端到端待复测）｜ 实盘 ⚠️（`account`/`deploy` 命令就绪，端到端待验证）。文档口径以审计报告为权威，勿超前于代码实际能力。
+> **可用性（2026-06-28 实测，详见 [e2e 审计](docs/e2e-cli-flow-audit.md)）**：构建 ✅ ｜ 回测 ⚠️（无数据预检、0 交易定位难）｜ 模拟盘 ⚠️（核心修复 #6164 已落地，端到端待复测）｜ 实盘 ⚠️（`account`/`deploy` 命令就绪，端到端待验证）。文档口径以审计报告为权威，勿超前于代码实际能力。（注：审计快照定格 2026-06-22 已滞后，以本节 2026-06-28 标注为准）
 
 ### 流程
 创建 Portfolio → 复用/创建 Component → 绑定组件(含参数) → 创建回测 → 运行 → [deploy 模拟/实盘]
@@ -119,6 +121,6 @@ ginkgo account list <user_id>
 > **实际命名**：DB 组件名多为 `<name>_<type>` 格式（如 `fixed_selector`/`atr_sizer`/`fixed_sizer`），部分带描述前缀（如 `qr_momentum_selector`/`sharpe_ratio`）。`bind-component` 前用 `ginkgo component list` 查实际 `file_id` 与名称；下表为短名速查。
 
 - **Strategy**（内置类 11）: random_signal, moving_average_crossover, mean_reversion, momentum, trend_follow, trend_reverse, dual_thrust, scalping, price_action, volume_activate, ml_predictor；另有 DB 脚本组件（src 无类，DB component 表实例）: social_signal, game_theory, random_choice
-- **Selector**: fixed, cn_all, momentum, popularity, multi_params
+- **Selector**: fixed, cn_all, momentum, popularity
 - **Sizer**: fixed, atr, ratio
 - **Risk**: no_risk, position_ratio, loss_limit, profit_target, max_drawdown, volatility, concentration, capital, liquidity, margin, market_cap, sector_rotation, correlation, currency, suspension, trading_time, time_based

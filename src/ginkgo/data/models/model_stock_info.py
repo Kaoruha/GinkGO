@@ -29,8 +29,8 @@ class MStockInfo(MMysqlBase, ModelConversion):
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     code_name: Mapped[str] = mapped_column(String(32), default="ginkgo_test_name")
     industry: Mapped[str] = mapped_column(String(32), default="ginkgo_test_industry")
-    currency: Mapped[int] = mapped_column(TINYINT, default=-1)
-    market: Mapped[int] = mapped_column(TINYINT, default=-1)
+    currency: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": CURRENCY_TYPES})
+    market: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": MARKET_TYPES})
     list_date: Mapped[datetime.datetime] = mapped_column(DateTime)
     delist_date: Mapped[datetime.datetime] = mapped_column(DateTime)
 

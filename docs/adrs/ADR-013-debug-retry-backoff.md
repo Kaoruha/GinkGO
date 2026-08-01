@@ -18,7 +18,7 @@ else:
 - 正常模式：失败后 `30s × backoff_factor^i` 指数退避，最多 `max_try` 次。
 - Debug 模式：**跳过全部等待，立即连续重试**。
 
-这与 CLAUDE.md 的 debug 用途产生张力：数据库操作要求 debug ON（连 test 实例避污染，见 ADR-004）。但 `ginkgo_tushare.py` 的批量同步用 `@retry(max_try=11)`（:235）等高频远端调用——debug ON 下遇瞬时限流会**立即重试 5~11 次**，正是触发 tushare 远端封禁的行为模式。
+这与 CLAUDE.md 的 debug 用途产生张力：数据库操作要求 debug ON（~~连 test 实例避污染，见 ADR-004~~；⟵ ADR-028 取代：debug 不再切库，连 test 由 `GINKGO_ENV=DEVELOPMENT` 决定）。但 `ginkgo_tushare.py` 的批量同步用 `@retry(max_try=11)`（:235）等高频远端调用——debug ON 下遇瞬时限流会**立即重试 5~11 次**，正是触发 tushare 远端封禁的行为模式。
 
 单股单次同步（≤3yr = 1 次 API）retry 不触发，安全；批量同步（多股 × 多年）在 debug ON 下有封禁风险。
 
@@ -40,7 +40,7 @@ else:
 - **难逆转**：debug 改变 retry 语义是隐式跨系统耦合，~160 调用点依赖现状。
 - **反直觉**：一个"调试开关"（debug）竟影响生产 API 封禁风险——本 ADR 即该反直觉行为的锚点，防未来把"debug 跳过退避"当 bug 误改。
 - **验证方式**：批量同步遇瞬时限流时，debug ON 会让 `@retry` 立即重试 5~11 次加剧封禁——批量前关 debug 或加显式 token-bucket 限流；单股单次同步 retry 不触发，安全。
-- **交叉引用**：ADR-004（Docker 双实例与 Debug 模式——debug 连 test DB 的用途）；本决策的 debug 即 ADR-004 的同一个 `GCONF.DEBUGMODE`。
+- **交叉引用**：ADR-004（Docker 双实例与 Debug 模式）~~——debug 连 test DB 的用途~~（⟵ ADR-028 起 debug 不再切库）；ADR-028（GINKGO_ENV 与 DEBUGMODE 解耦）。本决策的 debug 即 ADR-004/028 的同一个 `GCONF.DEBUGMODE`（仅日志/退避语义）。
 
 ## 判定标准自检
 

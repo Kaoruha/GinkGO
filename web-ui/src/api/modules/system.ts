@@ -34,6 +34,8 @@ export interface WorkerInfo {
   max_tasks?: number
   portfolio_count?: number
   jobs_count?: number
+  running_tasks?: number
+  pending_tasks?: number
   last_heartbeat: string
 }
 

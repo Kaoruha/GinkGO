@@ -40,12 +40,6 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
             self._encryption_service = get_encryption_service()
         return self._encryption_service
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """定义字段到枚举的映射"""
-        return {
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         """定义LiveAccount数据的字段配置"""
         return {
@@ -101,14 +95,6 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
         if isinstance(item, MLiveAccount):
             return item
         return None
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """转换模型为业务对象"""
-        return models
-
-    def _convert_output_items(self, items: List[MLiveAccount], output_type: str = "model") -> List[Any]:
-        """转换MLiveAccount对象供业务层使用"""
-        return items
 
     def _process_dataframe_output(self, df: pd.DataFrame) -> pd.DataFrame:
         """处理DataFrame输出，隐藏敏感信息"""

@@ -1,7 +1,11 @@
 # ADR-004: Docker 双实例与 Debug 模式
 
-**Status:** Accepted
+**Status:** Accepted（端口约定部分 supersede by [ADR-024](ADR-024-db-port-injection-debug-semantics.md)；debug 切库语义 supersede by [ADR-028](ADR-028-env-cluster-decouple-debugmode.md)）
 **Date:** 2026-06-13
+
+> **演进说明（ADR-024）**：双实例概念（Master/Test）保留；~~debug 切库语义保留~~（⟵ 已被 ADR-028 取代，见下）；"+1 端口派生"约定收窄为**仅宿主客户端**（config.py 加 `is_container_environment()` 守卫），不再无差别对容器内服务 +1（曾致 TaskTimer 连 mysql-test:13306 ECONNREFUSED，bar 停滞 8.5 月）。详见 ADR-024。
+>
+> **演进说明（ADR-028，2026-07-25）**：~~"Debug 模式决定连哪个库（master/test）+ 端口 +1"~~ 的语义已被 ADR-028 supersede——集群选择改由 `GINKGO_ENV ∈ {PRODUCTION, DEVELOPMENT}` 单一决定，`DEBUGMODE` 退回纯日志/@retry 退避语义（ADR-013），不再决定 host、不再决定 +1。切集群用 `ginkgo config set env DEVELOPMENT|PRODUCTION`。正文 Decision 中"Debug 下端口 +1 指向 test / `ginkgo debug on` 切库"的旧断言亦相应失效（见正文删除线）。
 
 ## Context
 
@@ -16,10 +20,10 @@ Docker 部署两套数据库（ClickHouse + MySQL），用端口前缀区分：
 | master | 非 Debug（生产） | 8123 | 3306 |
 | test | Debug（开发/测试） | 18123 | 13306 |
 
-- Debug 模式下 `GCONF.CLICKPORT` 端口首位 +1（8123 → 18123），自动指向 test 实例。
+- ~~Debug 模式下 `GCONF.CLICKPORT` 端口首位 +1（8123 → 18123），自动指向 test 实例。~~（⟵ ADR-028 取代：DEBUGMODE 不再决定 host/端口，集群由 `GINKGO_ENV` 决定）
 - `.env` 默认 `GINKGO_CLICKHOUSE_HOST=clickhouse-test`。
 - Vector 默认连 `clickhouse-test`，与 Worker/API 保持一致。
-- 开启 Debug：`ginkgo debug on`。
+- 开启 Debug：`ginkgo debug on`（⟵ ADR-028 起 debug 仅切日志/退避，不再切库；切集群用 `ginkgo config set env DEVELOPMENT|PRODUCTION`）。
 
 ## Rationale
 

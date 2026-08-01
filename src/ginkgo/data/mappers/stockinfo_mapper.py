@@ -29,7 +29,7 @@ class StockInfoMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: StockInfo, model_class=MStockInfo) -> MStockInfo:
+    def entity_to_model(entity: StockInfo, model_class=MStockInfo) -> MStockInfo:
         """Entity → ORM。model_class 形参保留（VO 动态表选择）。
 
         忠实原码：model_class(...) 直接构造。**未传 market**（原码即如此，
@@ -47,7 +47,7 @@ class StockInfoMapper:
         )
 
     @staticmethod
-    def from_model(model: MStockInfo) -> StockInfo:
+    def model_to_entity(model: MStockInfo) -> StockInfo:
         """ORM → Entity。market/currency int→enum + 还原 uuid（原码即如此，无丢失）。
 
         忠实原码：market/currency 先做 int/str→enum 转换（避免 StockInfo.__init__
@@ -81,5 +81,5 @@ class StockInfoMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[StockInfo]:
-        return [StockInfoMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[StockInfo]:
+        return [StockInfoMapper.model_to_entity(m) for m in models]

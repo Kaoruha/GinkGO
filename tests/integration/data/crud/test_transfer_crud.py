@@ -933,7 +933,7 @@ class TestTransferCRUDDataTypes:
                 pytest.skip("没有找到数据，跳过业务对象转换测试")
 
             # 使用ModelList的to_entities方法转换为业务对象
-            business_objects = TransferMapper.from_models(model_results)
+            business_objects = TransferMapper.models_to_entities(model_results)
             business_object = business_objects[0]
 
             # 验证返回的对象（可能是MTransfer模型或Transfer业务对象）
@@ -980,7 +980,7 @@ class TestTransferCRUDDataTypes:
             print(f"✓ 转换为DataFrame: {df.shape}")
 
             # 测试转换为业务对象
-            entities = TransferMapper.from_models(results)
+            entities = TransferMapper.models_to_entities(results)
             print(f"✓ 转换为业务对象: {len(entities)}个")
 
             # 验证转换后的对象类型

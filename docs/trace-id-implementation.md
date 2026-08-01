@@ -8,7 +8,7 @@
 
 ### T025-T028: 测试编写 (Red 阶段)
 
-在 `tests/unit/libs/test_core_logger.py` 中添加了 4 个测试类，共 6 个测试方法：
+在 `tests/unit/libs/test_core_logger_existing.py` 中添加了 4 个测试类，共 6 个测试方法：
 
 1. **TestTraceIdManagement** (3 个测试)
    - `test_set_trace_id_returns_token` - 验证 set_trace_id 返回 Token
@@ -162,5 +162,5 @@ trace_id 可与以下系统集成：
 ## 相关文件
 
 - 实现: `/home/kaoru/Ginkgo/src/ginkgo/libs/core/logger.py`
-- 测试: `/home/kaoru/Ginkgo/tests/unit/libs/test_core_logger.py`
+- 测试: `/home/kaoru/Ginkgo/tests/unit/libs/test_core_logger_existing.py`
 - 演示: `/home/kaoru/Ginkgo/tests/integration/trace_id_demo.py`

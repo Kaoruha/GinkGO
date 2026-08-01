@@ -51,7 +51,7 @@ class MFactor(MClickBase, ModelConversion):
     )
 
     # 实体标识字段
-    entity_type: Mapped[int] = mapped_column(types.Int8, default=-1)  # 实体类型枚举值
+    entity_type: Mapped[int] = mapped_column(types.Int8, default=-1, info={"enum": ENTITY_TYPES})  # 实体类型枚举值
     entity_id: Mapped[str] = mapped_column(String(), default="")      # 实体具体标识
 
     # 因子字段

@@ -15,7 +15,7 @@ from rich.table import Table
 import json
 import datetime
 
-from ginkgo.client.cli_utils import build_list_result, format_result
+from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run
 from ginkgo.data.services.base_service import ServiceResult
 
 from typing import Optional, List
@@ -491,6 +491,7 @@ def create(
 def delete(
     identifier: str = typer.Argument(..., help="Component UUID or name"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: Preview without deleting (skips confirm)"),
 ):
     """
     :wastebasket: Delete a component.
@@ -500,6 +501,13 @@ def delete(
     try:
         file_service = container.file_service()
         mfile = _resolve_file(file_service, identifier)
+
+        if dry_run:
+            announce_dry_run(f"删除 component {mfile.name}", console=console)
+            console.print(
+                f"[cyan]:eye: Would delete component '{mfile.name}' ({mfile.uuid[:8]}...).[/cyan]"
+            )
+            return
 
         if not force and not typer.confirm(f"Delete component '{mfile.name}' ({mfile.uuid[:8]}...)?"):
             raise typer.Exit(0)

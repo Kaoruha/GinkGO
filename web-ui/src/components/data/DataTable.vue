@@ -149,7 +149,7 @@ const wrapperStyle = computed(() => {
   if (!props.maxHeight) return {}
   const raw = props.maxHeight
   const h = typeof raw === 'number' || /^\d+$/.test(String(raw)) ? `${raw}px` : raw
-  return { maxHeight: h, overflowY: 'auto' }
+  return { maxHeight: h, overflowY: 'auto' as const }
 })
 
 // Auto-add action column

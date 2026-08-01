@@ -105,7 +105,7 @@ def _register_all_commands():
         return LazyTyper(module_name, app_name).app
 
     # 新的模块化命令架构 - 使用独立的CLI文件
-    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli, config_cli, serve_cli, logging_cli, deploy_cli, backtest_cli, comparison_cli, record_cli, dev_cli, test_cli, cache_cli, account_cli
+    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli, config_cli, serve_cli, logging_cli, deploy_cli, backtest_cli, comparison_cli, record_cli, dev_cli, test_cli, cache_cli, account_cli, factor_cli
 
     _main_app.add_typer(data_cli.app, name="data", help=":page_facing_up: Data management")
     _main_app.add_typer(engine_cli.app, name="engine", help=":fire: Engine management")
@@ -127,6 +127,7 @@ def _register_all_commands():
     _main_app.add_typer(deploy_cli.app, name="deploy", help="Deploy backtest to paper/live trading")
     _main_app.add_typer(account_cli.app, name="account", help=":credit_card: Live account management (实盘账户)")
     _main_app.add_typer(backtest_cli.app, name="backtest", help=":chart_with_upwards_trend: Backtest task management")
+    _main_app.add_typer(factor_cli.app, name="factor", help=":bar_chart: Factor materialization & management (#6792)")
 
     # Serve commands (api, webui, worker-data, worker-backtest, etc.)
     _main_app.add_typer(serve_cli.app, name="serve", help=":rocket: Start services in foreground")
@@ -165,6 +166,7 @@ def _register_all_commands():
     _main_app.command(name="status", help=":bar_chart: System status")(core_cli.status)
     _main_app.command(name="version", help=":rabbit: Version info")(core_cli.version if hasattr(core_cli, 'version') else lambda: None)
     _main_app.command(name="debug", help=":bug: Toggle debug mode")(core_cli.debug if hasattr(core_cli, 'debug') else lambda: None)
+    _main_app.command(name="cleanup", help=":broom: Cleanup orphaned data (mappings, params, dead tasks, cache)")(core_cli.cleanup if hasattr(core_cli, 'cleanup') else lambda: None)
     # serve 命令已移到 serve_cli.app (包含 api, webui, worker-data, worker-backtest 等子命令)
     # Configuration 已整合到 get/set config 命令中
 

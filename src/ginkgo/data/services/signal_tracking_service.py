@@ -419,12 +419,13 @@ class SignalTrackingService(BaseService):
 
     
     @retry(max_try=3)
-    def cleanup(self, days_to_keep: int = 30) -> ServiceResult:
+    def cleanup(self, days_to_keep: int = 30, dry_run: bool = False) -> ServiceResult:
         """
         清理旧的追踪记录
 
         Args:
             days_to_keep: 保留天数
+            dry_run: 仅统计将清理数量，不实际删除（默认 False 执行删除）
 
         Returns:
             ServiceResult[int]: 删除的记录数
@@ -441,9 +442,12 @@ class SignalTrackingService(BaseService):
                 if record.create_at and record.create_at < cutoff_date:
                     to_delete.append(record)
 
-            # 逐条删除
+            # 逐条删除（dry-run 只计数）
             deleted_count = 0
             for record in to_delete:
+                if dry_run:
+                    deleted_count += 1
+                    continue
                 try:
                     self._crud_repo.delete_by_uuid(record.uuid)
                     deleted_count += 1
@@ -451,7 +455,8 @@ class SignalTrackingService(BaseService):
                     GLOG.WARN(f"Failed to delete signal tracking record {record.uuid}: {e}")
 
             if deleted_count > 0:
-                GLOG.INFO(f"Cleaned up {deleted_count} old signal tracking records")
+                action = "Will clean up" if dry_run else "Cleaned up"
+                GLOG.INFO(f"{action} {deleted_count} old signal tracking records")
             else:
                 GLOG.DEBUG("No old signal tracking records to clean up")
 

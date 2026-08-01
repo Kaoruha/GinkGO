@@ -253,6 +253,9 @@ class TimeControlledEventEngine(EventEngine, TimeAwareComponent):
         # 在引擎线程中绑定 EngineContext 引用（contextvars 不跨线程传播）
         GLOG.bind_context(engine_context=self._engine_context)
         GLOG.set_log_category("backtest")
+        # #6786 AC4: engine 子线程恢复 trace_id，使回测事件链（strategy/fill/
+        # portfolio handler 经 _process_backtest_event 同步调用）日志带 trace_id。
+        self._restore_trace_context()
 
         GLOG.INFO(f"{self.name}: Main loop started - Mode: {self.mode}")
         GLOG.INFO(f"{self.name}: main_flag.is_set() = {main_flag.is_set()} at start")

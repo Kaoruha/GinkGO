@@ -30,10 +30,10 @@ def test_to_model_roundtrip_preserves_uuid():
     """Order.to_model → MOrder；from_model 还原，uuid 必须保真（修 order_id→uuid bug）。"""
     order = _make_order()
     expected_uuid = order.uuid
-    model = OrderMapper.to_model(order)
+    model = OrderMapper.entity_to_model(order)
     assert model.code == "000001.SZ"
     assert model.volume == 100
-    restored = OrderMapper.from_model(model)
+    restored = OrderMapper.model_to_entity(model)
     assert restored.uuid == expected_uuid  # 关键：旧 from_model 丢 uuid，现已修
     assert restored.code == "000001.SZ"
     assert restored.volume == 100
@@ -41,13 +41,13 @@ def test_to_model_roundtrip_preserves_uuid():
 
 def test_from_model_rejects_wrong_type():
     with pytest.raises(TypeError):
-        OrderMapper.from_model(object())
+        OrderMapper.model_to_entity(object())
 
 
 def test_from_models_batch():
     orders = [_make_order(), _make_order()]
-    models = [OrderMapper.to_model(o) for o in orders]
-    restored = OrderMapper.from_models(models)
+    models = [OrderMapper.entity_to_model(o) for o in orders]
+    restored = OrderMapper.models_to_entities(models)
     assert len(restored) == 2
     assert all(r.code == "000001.SZ" for r in restored)
 
@@ -55,7 +55,7 @@ def test_from_models_batch():
 def test_to_dto_smoke():
     """to_dto 不崩，关键字段映射正确（对接 OrderSubmissionDTO）。"""
     order = _make_order()
-    dto = OrderMapper.to_dto(order)
+    dto = OrderMapper.entity_to_dto(order)
     assert dto.code == "000001.SZ"
     assert dto.volume == 100.0
     assert dto.portfolio_id == "p1"
@@ -64,7 +64,7 @@ def test_to_dto_smoke():
 def test_model_to_dto_smoke():
     """ORM→DTO 直转（路径①，跳过 Entity）。"""
     order = _make_order()
-    model = OrderMapper.to_model(order)
+    model = OrderMapper.entity_to_model(order)
     dto = OrderMapper.model_to_dto(model)
     assert dto.code == "000001.SZ"
     assert dto.volume == 100.0
@@ -73,8 +73,8 @@ def test_model_to_dto_smoke():
 def test_dto_roundtrip():
     """to_dto → from_dto 可逆：direction enum↔name、volume int↔float、limit_price 数↔str。"""
     order = _make_order()  # direction=LONG, volume=100, limit_price=10.5
-    dto = OrderMapper.to_dto(order)
-    restored = OrderMapper.from_dto(dto)
+    dto = OrderMapper.entity_to_dto(order)
+    restored = OrderMapper.dto_to_entity(dto)
     assert restored.direction == DIRECTION_TYPES.LONG
     assert restored.volume == 100
     assert restored.limit_price == 10.5
@@ -95,7 +95,7 @@ def test_dto_market_order_price():
         volume=100,
         limit_price=0,
     )
-    dto = OrderMapper.to_dto(order)
+    dto = OrderMapper.entity_to_dto(order)
     assert dto.price is None  # 0 → None（市价单哨兵）
-    restored = OrderMapper.from_dto(dto)
+    restored = OrderMapper.dto_to_entity(dto)
     assert restored.limit_price == 0

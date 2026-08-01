@@ -796,7 +796,7 @@ class BarService(BaseService):
                  order_by: str = "timestamp", desc_order: bool = False) -> ServiceResult:
         """出口②：data 是 List[Bar] Entity（类型即契约）。
 
-        ADR-010：消费 Entity 语义走此出口，经 BarMapper.from_models 转换。
+        ADR-010：消费 Entity 语义走此出口，经 BarMapper.models_to_entities 转换。
         同样不复权。空结果返空 list。
         """
         try:
@@ -811,7 +811,7 @@ class BarService(BaseService):
                 filters=filters, page=page, page_size=page_size,
                 order_by=order_by, desc_order=desc_order,
             )
-            entities = mappers.BarMapper.from_models(model_list) if model_list else []
+            entities = mappers.BarMapper.models_to_entities(model_list) if model_list else []
             return ServiceResult.success(
                 data=entities,
                 message=f"Retrieved {len(entities)} bar records (Entity list, no adjustment)",

@@ -78,14 +78,18 @@ class TestMappingEnumMappings:
     """_get_enum_mappings 枚举映射测试"""
 
     @pytest.mark.unit
-    def test_enum_mappings_has_source_and_file(self, mapping_crud):
-        """映射包含 source 和 file 两个枚举"""
+    def test_enum_mappings_reflection_exact(self, mapping_crud):
+        """反射映射精确等于 {source}。
+
+        type 是旧 override 的 dead key(file):键名不匹配真实列名、``hasattr(item, field)``
+        恒 False → 从未生效。下沉它会激活该列的 int→enum 实例转换(EnumBase 非 IntEnum,
+        下游 int 比较会断)= 行为变更,刻意不 sink,留待单独 PR 带 downstream 核对
+        (ADR-031 行为保持口径,#4652 纪律;见 test_source_enum_reflection_c6.py)。
+        ``==`` 捕捉多/缺 key 两种偏离。
+        """
         mappings = mapping_crud._get_enum_mappings()
 
-        assert "source" in mappings
-        assert "file" in mappings
-        assert mappings["source"] is SOURCE_TYPES
-        assert mappings["file"] is FILE_TYPES
+        assert mappings == {"source": SOURCE_TYPES}
 
 
 # ============================================================

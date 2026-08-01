@@ -45,9 +45,10 @@ class RetryConfig:
 ```
 
 **默认配置**:
+- `RetryConfig` 类默认 `max_delay=60.0`
+- `OKXBroker.DEFAULT_RETRY_CONFIG` 覆盖为 `max_delay=30.0`
 - 最多重试 3 次
 - 延迟序列: 1s → 2s → 4s (指数增长)
-- 最大延迟 30 秒
 - ±20% 随机抖动避免雷击效应
 
 ### 3. 核心重试方法

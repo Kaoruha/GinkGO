@@ -30,7 +30,7 @@ class AdjustfactorMapper:
     # Entity ↔ ORM
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: Adjustfactor, model_class=MAdjustfactor) -> MAdjustfactor:
+    def entity_to_model(entity: Adjustfactor, model_class=MAdjustfactor) -> MAdjustfactor:
         """Entity → ORM。model_class 形参保留（VO 动态表选择）。
 
         忠实原码：model_class(...) 直接构造，传 fore_adjustfactor 等带下划线
@@ -47,7 +47,7 @@ class AdjustfactorMapper:
         )
 
     @staticmethod
-    def from_model(model: MAdjustfactor) -> Adjustfactor:
+    def model_to_entity(model: MAdjustfactor) -> Adjustfactor:
         """ORM → Entity。还原 uuid（原码即如此，无丢失）。
 
         忠实原码：getattr 兜底默认值（code→'defaultcode'，timestamp→'1990-01-01'，
@@ -66,5 +66,5 @@ class AdjustfactorMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[Adjustfactor]:
-        return [AdjustfactorMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[Adjustfactor]:
+        return [AdjustfactorMapper.model_to_entity(m) for m in models]

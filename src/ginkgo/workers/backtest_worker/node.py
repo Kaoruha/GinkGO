@@ -102,6 +102,24 @@ class BacktestWorker:
         from ginkgo import services
         task_service = services.data.backtest_task_service()
 
+        # #6846: 启动期兜底清理上次异常退出残留的 running 孤儿（心跳判定：不被任何
+        # 活跃 worker 持有的 running task → 标 failed）。对称 paper_trading_worker
+        # 启动期调 portfolio_service.reset_stale_running()。清理失败非致命，不阻断启动。
+        try:
+            result = task_service.cleanup_orphan_tasks()
+            if result.is_success():
+                data = result.data or {}
+                cleaned = data.get("cleaned", 0)
+                if cleaned:
+                    GLOG.WARN(
+                        f"Startup cleanup: marked {cleaned} orphan task(s) failed "
+                        f"(total running scanned: {data.get('total_running', 0)})"
+                    )
+            else:
+                GLOG.WARN(f"Startup orphan cleanup returned non-success: {result.error}")
+        except Exception as e:
+            GLOG.WARN(f"Startup orphan cleanup failed (non-fatal, worker continues): {e}")
+
         # 初始化Kafka Producer（进度上报）
         self.progress_producer = GinkgoProducer()
         self.progress_tracker = ProgressTracker(
@@ -200,12 +218,10 @@ class BacktestWorker:
                     # 处理消息 {TopicPartition: [ConsumerRecord]}
                     for tp, records in messages.items():
                         for message in records:
-                            # GinkgoConsumer 已反序列化，message.value 直接是 dict
-                            assignment = message.value
-
-                            # #5399②: 不在派发前提前提交 offset——派发失败会导致任务静默丢失
-                            # commit 移到 _handle_task_assignment 正常完成决策后（at-least-once）
-                            self._handle_task_assignment(assignment)
+                            # #6786: _dispatch_message 从 message.headers 恢复 trace_id，
+                            # with_trace_id 包 _handle_task_assignment；at-least-once offset
+                            # 提交逻辑不变（仍在 _handle_task_assignment 决策后提交）
+                            self._dispatch_message(message)
 
                 except Exception as e:
                     if not self.should_stop:
@@ -213,6 +229,40 @@ class BacktestWorker:
 
         self.task_consumer_thread = Thread(target=consume_tasks, daemon=True)
         self.task_consumer_thread.start()
+
+    def _dispatch_message(self, message):
+        """处理单条 Kafka 消息：恢复 trace_id（#6786）+ 派发到 _handle_task_assignment。
+
+        #6786: 从 message.headers 读 trace_id，with_trace_id 包 _handle_task_assignment，
+        使派发决策日志（槽位等待 / 畸形处理 / offset 提交）带 trace_id，与 API 提交端
+        grep 同一值串联。engine 线程的 trace_id 传播由 BacktestProcessor 接力
+        （_start_task 取 contextvars 传 processor，run() 入口恢复）。
+        无 header / 解码失败时向后兼容（不注入 trace_id，不阻断消费）。
+        """
+        assignment = message.value
+        tid = self._extract_trace_id(message.headers)
+        if tid:
+            with GLOG.with_trace_id(tid):
+                self._handle_task_assignment(assignment)
+        else:
+            self._handle_task_assignment(assignment)
+
+    @staticmethod
+    def _extract_trace_id(headers) -> Optional[str]:
+        """从 Kafka ConsumerRecord.headers [(key, bytes_value)] 提取 trace_id。
+
+        kafka-python ConsumerRecord.headers 为 list[(str, bytes)] 或 None。解码失败
+        graceful 降级返 None（不抛 UnicodeDecodeError 进 consume except，避免毒丸重投死循环）。
+        """
+        if not headers:
+            return None
+        for key, value in headers:
+            if key == "trace_id" and value:
+                try:
+                    return value.decode("utf-8")
+                except (UnicodeDecodeError, AttributeError):
+                    return None
+        return None
 
     def _handle_task_assignment(self, assignment: dict):
         """处理任务分配（ADR-018：from_payload + match 判别联合）。
@@ -353,7 +403,11 @@ class BacktestWorker:
             GLOG.INFO(f"  with {len(task.config.analyzers)} analyzers: {[a.name for a in task.config.analyzers]}")
 
         # 创建Processor
-        processor = BacktestProcessor(task, self.worker_id, self.progress_tracker)
+        # #6786: 从 consume 线程 GLOG contextvars 取 trace_id 传入 processor（contextvars
+        # 不跨线程自动传播，processor.start() spawn 的 engine 线程需 run() 入口 _init_trace_context
+        # 手动恢复）。_dispatch_message 的 with_trace_id 此时仍在栈上，get_trace_id() 可见。
+        trace_id = GLOG.get_trace_id()
+        processor = BacktestProcessor(task, self.worker_id, self.progress_tracker, trace_id=trace_id)
 
         with self.task_lock:
             self.tasks[task.task_uuid] = processor
@@ -454,7 +508,8 @@ class BacktestWorker:
                 status=WorkerStatus.RUNNING if self.is_running else WorkerStatus.STOPPED,
                 running_tasks=len(self.tasks),
                 max_tasks=self.max_backtests,
-                started_at=self.started_at
+                started_at=self.started_at,
+                task_uuids=list(self.tasks.keys()),
             )
 
             redis.setex(key, RedisTTL.BACKTEST_WORKER_HEARTBEAT, heartbeat.to_json())

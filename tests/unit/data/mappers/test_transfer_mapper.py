@@ -36,12 +36,12 @@ class TestTransferMapperToModel:
     def test_to_model_returns_mtransfer(self):
         """to_model 按 from_model 反向实现（写路径经 CRUD _convert_input_item 旁证）。"""
         entity = _make_transfer()
-        model = TransferMapper.to_model(entity)
+        model = TransferMapper.entity_to_model(entity)
         assert isinstance(model, MTransfer)
 
     def test_to_model_preserves_core_fields(self):
         entity = _make_transfer()
-        model = TransferMapper.to_model(entity)
+        model = TransferMapper.entity_to_model(entity)
         assert model.portfolio_id == "p-1"
         assert model.engine_id == "e-1"
         assert model.task_id == "t-1"
@@ -50,7 +50,7 @@ class TestTransferMapperToModel:
     def test_to_model_enums_validated_to_int(self):
         """enum 经 validate_input 转 int（ORM 存 int）。"""
         entity = _make_transfer()
-        model = TransferMapper.to_model(entity)
+        model = TransferMapper.entity_to_model(entity)
         assert model.direction == TRANSFERDIRECTION_TYPES.IN.value
         assert model.market == MARKET_TYPES.CHINA.value
         assert model.status == TRANSFERSTATUS_TYPES.PENDING.value
@@ -58,7 +58,7 @@ class TestTransferMapperToModel:
     def test_to_model_restores_uuid(self):
         """uuid 还原（原码惯例）。"""
         entity = _make_transfer()
-        model = TransferMapper.to_model(entity)
+        model = TransferMapper.entity_to_model(entity)
         assert model.uuid == entity.uuid
 
 
@@ -89,17 +89,17 @@ class TestTransferMapperFromModel:
         本测试锁定 task_id 保真（修正搬运退化，#6117）。
         """
         model = _make_mtransfer(task_id="task-xyz")
-        back = TransferMapper.from_model(model)
+        back = TransferMapper.model_to_entity(model)
         assert back.task_id == "task-xyz"
 
     def test_from_model_returns_transfer(self):
         model = _make_mtransfer()
-        back = TransferMapper.from_model(model)
+        back = TransferMapper.model_to_entity(model)
         assert isinstance(back, Transfer)
 
     def test_from_model_preserves_core_fields(self):
         model = _make_mtransfer()
-        back = TransferMapper.from_model(model)
+        back = TransferMapper.model_to_entity(model)
         assert back.portfolio_id == "p-1"
         assert back.engine_id == "e-1"
         assert back.task_id == "t-1"
@@ -110,6 +110,6 @@ class TestTransferMapperFromModels:
     def test_from_models_batch_preserves_task_id(self):
         """批量 from_model 逐个调用 from_model，task_id 同样保真。"""
         model = _make_mtransfer(task_id="batch-1")
-        back = TransferMapper.from_models([model])
+        back = TransferMapper.models_to_entities([model])
         assert len(back) == 1
         assert back[0].task_id == "batch-1"

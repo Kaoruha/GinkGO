@@ -203,3 +203,84 @@ class TestFactorCRUDConstruction:
         assert factor_crud._is_clickhouse is True
         assert factor_crud._is_mysql is False
 
+
+# ============================================================
+# #6792 Phase 1: get_materialized_entities 增量物化决策查询
+# ============================================================
+
+
+class TestFactorCRUDMaterializedEntities:
+    """get_materialized_entities: 查已物化 entity 集合,支撑增量物化决策。"""
+
+    @pytest.mark.unit
+    def test_returns_distinct_entity_ids(self, factor_crud):
+        """[start,end] 内对指定 factors 有数据的 distinct entity_id(distinct_field 下推 SQL)。"""
+        factor_crud.find = MagicMock(return_value=["000001.SZ", "000002.SZ"])
+
+        result = factor_crud.get_materialized_entities(
+            entity_type=ENTITY_TYPES.STOCK,
+            factor_names=["KMID", "MA5"],
+            start_time=datetime(2024, 1, 1),
+            end_time=datetime(2024, 1, 31),
+        )
+
+        assert set(result) == {"000001.SZ", "000002.SZ"}
+
+    @pytest.mark.unit
+    def test_passes_correct_filters_and_distinct_field(self, factor_crud):
+        """find 用 entity_type + factor_name__in + timestamp gte/lte,distinct_field=entity_id。"""
+        factor_crud.find = MagicMock(return_value=[])
+
+        factor_crud.get_materialized_entities(
+            entity_type=ENTITY_TYPES.STOCK,
+            factor_names=["KMID"],
+            start_time=datetime(2024, 1, 1),
+            end_time=datetime(2024, 1, 31),
+        )
+
+        call_kwargs = factor_crud.find.call_args[1]
+        assert call_kwargs["filters"]["entity_type"] == ENTITY_TYPES.STOCK.value
+        assert call_kwargs["filters"]["factor_name__in"] == ["KMID"]
+        assert call_kwargs["filters"]["timestamp__gte"] == datetime(2024, 1, 1)
+        assert call_kwargs["filters"]["timestamp__lte"] == datetime(2024, 1, 31)
+        assert call_kwargs["distinct_field"] == "entity_id"
+
+
+# ============================================================
+# #6793 Phase 2: get_latest_factors_by_entity PIT 能力 (at_time)
+# ============================================================
+
+
+class TestFactorCRUDPIT:
+    """get_latest_factors_by_entity: at_time 参数下推 timestamp__lte (PIT 能力)。
+
+    crud 层提供 PIT 过滤能力(at_time 可选);硬约束在读取入口(reader)层。
+    """
+
+    @pytest.mark.unit
+    def test_at_time_pushes_timestamp_lte_to_find(self, factor_crud):
+        """at_time 给定 → find filters 含 timestamp__lte=at_time (排除未来因子值)。"""
+        factor_crud.find = MagicMock(return_value=[])
+        at = datetime(2024, 6, 1)
+
+        factor_crud.get_latest_factors_by_entity(
+            entity_type=ENTITY_TYPES.STOCK, entity_id="000001.SZ",
+            factor_names=["ROC"], at_time=at,
+        )
+
+        call_filters = factor_crud.find.call_args[1]["filters"]
+        assert call_filters["timestamp__lte"] == at
+
+    @pytest.mark.unit
+    def test_no_at_time_leaves_no_timestamp_filter(self, factor_crud):
+        """at_time=None → find filters 无 timestamp__lte (向后兼容, 运维全量查询)。"""
+        factor_crud.find = MagicMock(return_value=[])
+
+        factor_crud.get_latest_factors_by_entity(
+            entity_type=ENTITY_TYPES.STOCK, entity_id="000001.SZ",
+            factor_names=["ROC"],
+        )
+
+        call_filters = factor_crud.find.call_args[1]["filters"]
+        assert "timestamp__lte" not in call_filters
+

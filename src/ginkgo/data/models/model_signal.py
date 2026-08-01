@@ -29,7 +29,7 @@ class MSignal(MClickBase, MBacktestRecordBase):
 
     portfolio_id: Mapped[str] = mapped_column(String(), default="")
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
-    direction: Mapped[int] = mapped_column(types.Int8, default=-1)
+    direction: Mapped[int] = mapped_column(types.Int8, default=-1, info={"enum": DIRECTION_TYPES})
     reason: Mapped[str] = mapped_column(String(), default="")
     volume: Mapped[int] = mapped_column(types.Int64, default=0)  # 建议交易量
     weight: Mapped[float] = mapped_column(types.Float32, default=0.0)  # 信号权重或资金分配比例

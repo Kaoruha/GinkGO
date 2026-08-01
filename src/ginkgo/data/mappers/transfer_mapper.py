@@ -27,7 +27,7 @@ class TransferMapper:
     # Entity → ORM（按 from_model 反向实现，CRUD _convert_input_item 旁证）
     # ------------------------------------------------------------------
     @staticmethod
-    def to_model(entity: Transfer) -> MTransfer:
+    def entity_to_model(entity: Transfer) -> MTransfer:
         """Entity → ORM。
 
         按 from_model 反向 + CRUD _convert_input_item（transfer_crud.py:113-123）
@@ -58,7 +58,7 @@ class TransferMapper:
     # ORM → Entity（忠实原码 transfer.py:218-239，含 task_id）
     # ------------------------------------------------------------------
     @staticmethod
-    def from_model(model: MTransfer) -> Transfer:
+    def model_to_entity(model: MTransfer) -> Transfer:
         """ORM → Entity。
 
         忠实原码（transfer.py:218-239，含 task_id）：direction/market/status
@@ -77,5 +77,5 @@ class TransferMapper:
         )
 
     @staticmethod
-    def from_models(models) -> List[Transfer]:
-        return [TransferMapper.from_model(m) for m in models]
+    def models_to_entities(models) -> List[Transfer]:
+        return [TransferMapper.model_to_entity(m) for m in models]

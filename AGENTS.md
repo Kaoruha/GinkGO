@@ -31,18 +31,17 @@ src/ginkgo/
 
 ### 常用命令
 ```bash
-ginkgo system config set --debug on   # 数据库操作必须
+ginkgo config set env DEVELOPMENT      # 切 Test 集群（debug 不再管 DB，ADR-028）
 ginkgo serve api                      # API服务器
 ginkgo serve webui                    # Web界面
 ```
 
 ### 关键文件
 - `CLAUDE.md` - 完整项目指南
-- `docs/entity-relationships.md` - 实体关系
-- `MEMORY.md` - 上下文记忆
+- `docs/entity-lifecycles-and-flows.md` - 实体生命周期与流程
 
 ## 编码规范
-- Python 3.12.8 + 类型提示
+- Python >=3.11 + 类型提示
 - Black格式化 (120列)
 - 测试优先: `pytest -m "unit and not slow"`
 

@@ -4,7 +4,7 @@ OrderRecordCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
 - _get_field_config: 字段配置结构与验证规则
-- _get_enum_mappings: 枚举映射（DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES）
+- _get_enum_mappings: 枚举映射（DIRECTION_TYPES, SOURCE_TYPES）
 - _create_from_params: 参数转 MOrderRecord 模型
 - Business Helper: find_by_portfolio, count_by_portfolio
 - 构造与类型检查
@@ -90,18 +90,21 @@ class TestOrderRecordCRUDEnumMappings:
     """_get_enum_mappings 枚举映射测试"""
 
     @pytest.mark.unit
-    def test_enum_mappings_has_all_enums(self, order_record_crud):
-        """映射包含 direction/order/orderstatus/source 四个枚举"""
+    def test_enum_mappings_reflection_exact(self, order_record_crud):
+        """反射映射精确等于 {direction, source}。
+
+        order_type/status 是旧 override 的 dead key(order/orderstatus):键名不匹配
+        真实列名、``hasattr(item, field)`` 恒 False → 从未生效。下沉它们会激活这两列的
+        int→enum 实例转换(EnumBase 非 IntEnum,下游 int 比较会断)= 行为变更,刻意不 sink,
+        留待单独 PR 带 downstream 核对(ADR-031 行为保持口径,#4652 纪律;
+        见 test_source_enum_reflection_c6.py)。``==`` 捕捉多/缺 key 两种偏离。
+        """
         mappings = order_record_crud._get_enum_mappings()
 
-        assert "direction" in mappings
-        assert "order" in mappings
-        assert "orderstatus" in mappings
-        assert "source" in mappings
-        assert mappings["direction"] is DIRECTION_TYPES
-        assert mappings["order"] is ORDER_TYPES
-        assert mappings["orderstatus"] is ORDERSTATUS_TYPES
-        assert mappings["source"] is SOURCE_TYPES
+        assert mappings == {
+            "direction": DIRECTION_TYPES,
+            "source": SOURCE_TYPES,
+        }
 
 
 # ============================================================

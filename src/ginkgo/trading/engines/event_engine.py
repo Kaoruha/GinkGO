@@ -40,6 +40,7 @@ from queue import Queue, Empty
 from ginkgo.trading.engines.base_engine import BaseEngine
 from ginkgo.enums import EXECUTION_MODE
 from ginkgo.libs import GCONF, GLOG
+from ginkgo.libs.core.logger import _trace_id_ctx
 from ginkgo.trading.core.status import EngineStatus, EventStats, QueueInfo
 
 
@@ -76,6 +77,10 @@ class EventEngine(BaseEngine):
         self._timer_thread.daemon = True
         self._timer_thread_started = False
         self._pause_flag = threading.Event()  # 暂停标志
+        # #6786 AC4: start() 时从当前线程（BacktestProcessor 线程，已 set trace_id）
+        # 捕获 trace_id，供 main_loop/timer_loop 在 engine 子线程恢复。
+        # contextvars 不跨线程自动传播，须手动接力（见 _restore_trace_context）。
+        self._trace_id: Optional[str] = None
 
         # === 事件处理器注册 ===
         self._handlers: dict[EVENT_TYPES, list] = {}
@@ -195,12 +200,27 @@ class EventEngine(BaseEngine):
         """实现BaseEngine的抽象方法"""
         self._process(event)
 
+    def _restore_trace_context(self) -> None:
+        """#6786 AC4: 在 engine 子线程入口恢复 trace_id 到本线程 contextvars。
+
+        contextvars 不跨线程自动传播：main_loop/timer_loop 跑在 engine 自起的
+        Thread 里，看不到 BacktestProcessor 线程 set 的 trace_id。start() 已把
+        trace_id 捕获到 self._trace_id，本方法在子线程入口 set 回 _trace_id_ctx，
+        使后续 _process → strategy/fill/portfolio handler 的 GLOG 日志带 trace_id。
+        无 trace_id 时 noop（向后兼容非 API 入口 / 旧消息）。
+        """
+        if self._trace_id:
+            _trace_id_ctx.set(self._trace_id)
+
     def main_loop(self, *args, **kwargs) -> None:
         """
         Main event processing loop - 默认实现从事件队列中获取并处理事件
         """
         # 在引擎线程中绑定 EngineContext 引用（contextvars 不跨线程传播）
         GLOG.bind_context(engine_context=self._engine_context)
+        # #6786 AC4: engine 子线程恢复 trace_id，使 strategy/fill/portfolio 日志
+        # 带 trace_id（main_loop 内同步调用 _process → 各 handler，同线程可见）。
+        self._restore_trace_context()
 
         while not self._main_flag.is_set():
             # 检查暂停标志
@@ -232,6 +252,8 @@ class EventEngine(BaseEngine):
         """
         Timer Task. Something like crontab or systemd timer
         """
+        # #6786 AC4: timer 子线程同样须恢复 trace_id（与 main_loop 对称）。
+        self._restore_trace_context()
         while True:
             if self._timer_flag.is_set():
                 break
@@ -276,6 +298,10 @@ class EventEngine(BaseEngine):
         """
         if not super().start():
             return False
+
+        # #6786 AC4: 在 start() 时（调用方 BacktestProcessor 线程已 set trace_id）
+        # 捕获 trace_id；main_loop/timer_loop 在 engine 子线程入口接力恢复。
+        self._trace_id = GLOG.get_trace_id()
 
         # 清除暂停标志，允许主循环继续运行
         self._pause_flag.clear()

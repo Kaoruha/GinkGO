@@ -99,55 +99,6 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for CapitalAdjustment.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'source': SOURCE_TYPES  # 数据源字段映射
-        }
-
-    def _convert_models_to_business_objects(self, models: List[MCapitalAdjustment]) -> List[CapitalAdjustment]:
-        """
-        🎯 Convert MCapitalAdjustment models to CapitalAdjustment business objects.
-
-        Args:
-            models: List of MCapitalAdjustment models with enum fields already fixed
-
-        Returns:
-            List of CapitalAdjustment business objects
-        """
-        business_objects = []
-        for model in models:
-            try:
-                # 转换source字段为枚举类型
-                source_enum = SOURCE_TYPES.from_int(model.source) if isinstance(model.source, int) else model.source
-
-                # 直接构造CapitalAdjustment业务对象
-                capital_adjustment = CapitalAdjustment(
-                    portfolio_id=model.portfolio_id,
-                    amount=model.amount,
-                    timestamp=model.timestamp,
-                    reason=model.reason,
-                    source=source_enum
-                )
-                business_objects.append(capital_adjustment)
-            except Exception as e:
-                GLOG.ERROR(f"Failed to convert MCapitalAdjustment to CapitalAdjustment: {e}")
-                # 如果转换失败，继续处理其他对象
-                continue
-
-        return business_objects
-
-    def _convert_output_items(self, items: List[MCapitalAdjustment], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MCapitalAdjustment objects for business layer.
-        """
-        return items
-
     # Business Helper Methods
     def find_by_portfolio(
         self,
@@ -188,9 +139,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
         return self.find(
             filters={"reason__like": reason},
             order_by="timestamp",
-            desc_order=True,
-            output_type="model",
-        )
+            desc_order=True,        )
 
     def find_by_business_time(
         self,
@@ -219,6 +168,4 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
         return self.find(
             filters=filters,
             order_by="business_timestamp",
-            desc_order=True,
-            output_type="model"
-        )
+            desc_order=True,        )

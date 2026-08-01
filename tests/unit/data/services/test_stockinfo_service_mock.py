@@ -185,7 +185,7 @@ class TestGet:
     @pytest.mark.unit
     def test_get_all(self, service, mock_deps):
         """无过滤条件时返回所有记录（ADR-010：get 委托 Entity 出口，返 List[StockInfo]）"""
-        # get() 现委托 get_stockinfos() -> StockInfoMapper.from_models(model_list)
+        # get() 现委托 get_stockinfos() -> StockInfoMapper.models_to_entities(model_list)
         # mock crud_repo.find 返回 truthy ModelList（非 None 即走 from_models 分支），
         # 再 patch from_models 返回真实 List[StockInfo]，反映新契约。
         mock_model_list = MagicMock()
@@ -197,7 +197,7 @@ class TestGet:
             _StockInfo(code="000001.SZ", code_name="平安银行"),
             _StockInfo(code="000002.SZ", code_name="万科A"),
         ]
-        with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.from_models",
+        with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.models_to_entities",
                    return_value=expected_entities) as mock_map:
             result = service.get()
 

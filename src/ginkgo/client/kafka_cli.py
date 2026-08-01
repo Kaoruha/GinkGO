@@ -12,7 +12,7 @@ from typing import Optional
 from rich.console import Console
 
 from ginkgo.libs import GLOG
-from ginkgo.client.cli_utils import confirm_or_exit
+from ginkgo.client.cli_utils import confirm_or_exit, announce_dry_run
 
 app = typer.Typer(
     help=":satellite: Module for [bold medium_spring_green]KAFKA[/]. [grey62]Kafka queue management commands.[/grey62]",
@@ -31,21 +31,23 @@ def status():
 @app.command()
 def reset(
     queue_name: Optional[str] = typer.Option(None, help="指定队列名称，为空则重置所有"),
-    force: bool = typer.Option(False, "--force", help="强制重置，跳过确认")
+    force: bool = typer.Option(False, "--force", help="强制重置，跳过确认"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: 仅预览将受影响的 worker/主题，不停止 worker、不重建主题（跳过确认）"),
 ):
     """重置Kafka队列状态"""
     console.print("[bold yellow]:arrows_counterclockwise: Resetting Kafka queues...[/]")
-    _reset_kafka_queues(queue_name, force)
+    _reset_kafka_queues(queue_name, force, dry_run=dry_run)
 
 
 @app.command()
 def purge(
     queue_name: str = typer.Argument(..., help="要清理的队列名称"),
     confirm: bool = typer.Option(False, "--yes", "-y", "--confirm", help="跳过确认提示"),
+    dry_run: bool = typer.Option(False, "--dry-run", help=":eye: 仅预览将清理的消息数量，不实际消费/删除（跳过确认）"),
 ):
     """清理指定队列的所有消息"""
     console.print(f"[bold red][red]:wastebasket:[/red] Purging queue: {queue_name}[/]")
-    _purge_queue_messages(queue_name, confirm)
+    _purge_queue_messages(queue_name, confirm, dry_run=dry_run)
 
 
 @app.command()
@@ -141,20 +143,41 @@ def _check_queue_status():
         console.print(f"[red]{traceback.format_exc()}[/]")
 
 
-def _reset_kafka_queues(queue_name: Optional[str], force: bool):
-    """重置Kafka队列 - 基于install.py的kafka_reset逻辑"""
+def _reset_kafka_queues(queue_name: Optional[str], force: bool, *, dry_run: bool = False):
+    """重置Kafka队列 - 基于install.py的kafka_reset逻辑
+
+    dry_run=True：只读地报告将受影响的 worker 数与重建范围，不停止 worker、
+    不重建主题、跳过确认。
+    """
     try:
         from ginkgo.libs.core.threading import GinkgoThreadManager
         from ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
 
-        if queue_name:
-            console.print(f"[yellow]:warning: You are about to reset the Kafka queue: '{queue_name}'[/]")
-            console.print("[red]This will delete all messages and recreate the topic![/]")
+        scope = f"queue '{queue_name}'" if queue_name else "ALL Kafka queues"
+        if dry_run:
+            announce_dry_run(f"重置 {scope}（停止 worker + 重建主题）", console=console)
         else:
-            console.print("[yellow]:warning: You are about to reset ALL Kafka queues![/]")
-            console.print("[red]This will delete all topics and recreate them![/]")
+            if queue_name:
+                console.print(f"[yellow]:warning: You are about to reset the Kafka queue: '{queue_name}'[/]")
+                console.print("[red]This will delete all messages and recreate the topic![/]")
+            else:
+                console.print("[yellow]:warning: You are about to reset ALL Kafka queues![/]")
+                console.print("[red]This will delete all topics and recreate them![/]")
+            confirm_or_exit("[bold red]Are you sure you want to continue?[/]", yes_flag=force)
 
-        confirm_or_exit("[bold red]Are you sure you want to continue?[/]", yes_flag=force)
+        # dry-run：只读探 worker 数后预览返回，绝不 reset_all_workers / kafka_topic_set
+        if dry_run:
+            try:
+                gtm = GinkgoThreadManager()
+                worker_count = gtm.get_worker_count()
+            except Exception as e:
+                worker_count = None
+                console.print(f"[yellow]Warning: Could not read worker count: {e}[/]")
+            if worker_count is not None:
+                console.print(f"[cyan]:eye: {worker_count} worker(s) would be stopped.[/cyan]")
+            console.print(f"[cyan]:eye: {scope} topic(s) would be deleted and recreated.[/cyan]")
+            console.print("[cyan]No workers stopped, no topics recreated.[/cyan]")
+            return
 
         console.print("[yellow]:arrows_counterclockwise: Resetting Kafka queues...[/]")
 
@@ -205,17 +228,22 @@ def _reset_kafka_queues(queue_name: Optional[str], force: bool):
         console.print(f"[red]{traceback.format_exc()}[/]")
 
 
-def _purge_queue_messages(queue_name: str, confirm: bool):
-    """清理队列消息 - 使用KafkaService实现"""
+def _purge_queue_messages(queue_name: str, confirm: bool, *, dry_run: bool = False):
+    """清理队列消息 - 使用KafkaService实现
+
+    dry_run=True：仅探主题存在性 + 取当前消息数后预览返回，不消费/不删除、跳过确认。
+    """
     try:
         from ginkgo.data.containers import container
         import time
 
-        console.print(f"[yellow]:warning: You are about to purge ALL messages from queue: '{queue_name}'[/]")
-        console.print("[red]This will permanently delete all pending messages![/]")
-        confirm_or_exit("[bold red]Are you sure you want to continue?[/]", yes_flag=confirm)
-
-        console.print(f"[red]:wastebasket: Purging messages from queue: {queue_name}[/]")
+        if dry_run:
+            announce_dry_run(f"清理队列 '{queue_name}' 的全部消息", console=console)
+        else:
+            console.print(f"[yellow]:warning: You are about to purge ALL messages from queue: '{queue_name}'[/]")
+            console.print("[red]This will permanently delete all pending messages![/]")
+            confirm_or_exit("[bold red]Are you sure you want to continue?[/]", yes_flag=confirm)
+            console.print(f"[red]:wastebasket: Purging messages from queue: {queue_name}[/]")
 
         # 获取KafkaService实例
         kafka_service = container.kafka_service()
@@ -230,6 +258,14 @@ def _purge_queue_messages(queue_name: str, confirm: bool):
         console.print("[blue]Step 2: Getting initial message count...[/]")
         initial_count = kafka_service.get_message_count(queue_name)
         console.print(f"[blue]Initial messages in queue: {initial_count}[/]")
+
+        # dry-run：到此为止，仅预览，不进入消费/删除
+        if dry_run:
+            console.print(
+                f"[cyan]:eye: Would purge ~{initial_count} message(s) from '{queue_name}'. "
+                f"No messages consumed or deleted.[/cyan]"
+            )
+            return
 
         # 使用KafkaCRUD来消费和删除消息
         console.print("[blue]Step 3: Consuming and discarding messages...[/]")

@@ -1,6 +1,6 @@
 # Ginkgo Web UI 功能规格书
 
-> 版本: 0.8.1 · 更新日期: 2026-04-18
+> 版本: 0.11.0 · 更新日期: 2026-04-18
 
 ## 1. 系统概览
 
@@ -15,7 +15,6 @@
 | 样式 | TailwindCSS |
 | 图表 | ECharts + Lightweight Charts (TradingView) |
 | 代码编辑 | Monaco Editor (vue-monaco-editor) |
-| 节点编辑 | 自研 Node Graph Editor |
 | HTTP | Axios |
 | 实时通信 | WebSocket + SSE (Server-Sent Events) |
 | 路由 | Vue Router 4 (HTML5 History Mode) |
@@ -41,7 +40,7 @@
 - **API 模块**: 按业务域拆分（backtest、portfolio、live、system 等），每个模块导出类型化的请求方法
 - **Store**: Pinia Composition API 风格，管理领域状态、分页、WebSocket 实时更新
 - **Composable**: 可复用逻辑（加载状态、错误处理、分页、WebSocket、可取消请求等）
-- **Component**: 页面组件 + 公共组件 + 图表组件 + Node Graph 编辑器
+- **Component**: 页面组件 + 公共组件 + 图表组件
 
 ### 1.3 全局布局
 
@@ -58,8 +57,8 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 
 | 环节 | 实现 |
 |------|------|
-| 登录 | `POST /api/v1/auth/login` → JWT access_token |
-| Token 存储 | `localStorage['access_token']` |
+| 登录 | `POST /api/v1/auth/login` → 返回 `token` 字段（JWT） |
+| Token 存储 | `localStorage['access_token']` 键名存储 |
 | 用户信息 | `localStorage['user_info']` |
 | 请求鉴权 | Axios 拦截器自动注入 `Authorization: Bearer <token>` |
 | 路由守卫 | `router.beforeEach` 检查 `isAuthenticated()` |
@@ -75,23 +74,12 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 | 分组 | 图标 | 菜单项 | 路由 | 说明 |
 |------|------|--------|------|------|
 | — | LayoutDashboard | 总览 | `/dashboard` | 系统概览 |
-| — | Wallet | 组合管理 | `/portfolio` | 投资组合 CRUD |
-| **策略回测** | Rocket | 回测列表 | `/backtest` | 回测任务管理 |
-| | | 回测对比 | `/backtest/compare` | 多任务对比 |
-| **样本验证** | FlaskConical | 滚动前推 | `/validation/walkforward` | Walk Forward 验证 |
-| | | 蒙特卡洛 | `/validation/montecarlo` | 随机模拟 |
-| | | 敏感性分析 | `/validation/sensitivity` | 参数敏感性 |
-| **模拟盘** | TrendingUp | 模拟交易 | `/paper` | Paper Trading 监控 |
-| | | 模拟订单 | `/paper/orders` | Paper Trading 订单 |
-| **实盘交易** | Zap | 实盘交易 | `/live` | 实盘监控 |
-| | | 实盘订单 | `/live/orders` | 订单管理 |
-| | | 实盘持仓 | `/live/positions` | 持仓管理 |
-| | | 行情数据 | `/live/market` | 行情订阅 |
-| | | 账号配置 | `/live/account-config` | 交易所 API 凭证 |
-| | | 账号信息 | `/live/account-info` | 余额与持仓 |
-| | | Broker 管理 | `/live/broker-management` | Broker 实例控制 |
-| | | 交易历史 | `/live/trade-history` | 历史成交 |
-| | | 交易控制 | `/live/trading-control` | 交易启停控制台 |
+| — | Wallet | 组合管理 | `/portfolios` | 投资组合 CRUD |
+| **策略回测** | Rocket | 回测中心 | `/backtests` | 回测任务管理 |
+| | | 回测对比 | `/backtests/compare` | 多任务对比 |
+| **样本验证** | FlaskConical | 验证中心 | `/validation` | 策略验证 |
+| **模拟盘** | TrendingUp | 模拟交易 | `/trading/paper` | Paper Trading 监控 |
+| **实盘交易** | Zap | 实盘交易 | `/trading/live` | 实盘监控 |
 | — — — | | | | |
 | **因子研究** | FileSearch | IC 分析 | `/research/ic` | 信息系数 |
 | | | 因子分层 | `/research/layering` | 分层回测 |
@@ -258,8 +246,8 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 
 | 属性 | 值 |
 |------|-----|
-| 路由 | `/backtest` |
-| 文件 | `views/stage1/BacktestList.vue` |
+| 路由 | `/backtests` |
+| 文件 | `views/backtest/BacktestListPage.vue` |
 | Store | `useBacktestStore` |
 
 **功能描述**: 回测任务全生命周期管理，支持批量操作、实时进度更新。
@@ -280,19 +268,19 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 **权限控制**: `canStartTask`、`canStopTask`、`canCancelTask`、`canDeleteTask` 方法
 
 **API 端点**:
-- `GET /api/v1/backtest` — 列表（分页）
-- `POST /api/v1/backtest` — 创建
-- `POST /api/v1/backtest/:uuid/start` — 启动
-- `POST /api/v1/backtest/:uuid/stop` — 停止
-- `POST /api/v1/backtest/:uuid/cancel` — 取消
-- `DELETE /api/v1/backtest/:uuid` — 删除
+- `GET /api/v1/backtests/` — 列表（分页）
+- `POST /api/v1/backtests/` — 创建
+- `POST /api/v1/backtests/:uuid/start` — 启动
+- `POST /api/v1/backtests/:uuid/stop` — 停止
+- `POST /api/v1/backtests/:uuid/cancel` — 取消
+- `DELETE /api/v1/backtests/:uuid` — 删除
 
 #### 3.4.2 回测详情 `/backtest/:id`
 
 | 属性 | 值 |
 |------|-----|
-| 路由 | `/backtest/:id` |
-| 文件 | `views/stage1/BacktestDetail.vue` |
+| 路由 | `/portfolios/:id/backtests/:backtestId` |
+| 文件 | `views/portfolio/tabs/BacktestTab.vue` |
 | Store | `useBacktestStore` |
 
 **功能描述**: 回测结果完整查看器，标签页式布局。
@@ -315,19 +303,19 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 **操作**: 重新运行、停止、删除（权限控制）
 
 **API 端点**:
-- `GET /api/v1/backtest/:uuid` — 详情
-- `GET /api/v1/backtest/:uuid/netvalue` — 净值数据
-- `GET /api/v1/backtest/:uuid/analyzers` — 分析器数据
-- `GET /api/v1/backtest/:uuid/signals` — 信号
-- `GET /api/v1/backtest/:uuid/orders` — 订单
-- `GET /api/v1/backtest/:uuid/positions` — 持仓
+- `GET /api/v1/backtests/:uuid` — 详情
+- `GET /api/v1/backtests/:uuid/netvalue` — 净值数据
+- `GET /api/v1/backtests/:uuid/analyzers` — 分析器数据
+- `GET /api/v1/backtests/:uuid/signals` — 信号
+- `GET /api/v1/backtests/:uuid/orders` — 订单
+- `GET /api/v1/backtests/:uuid/positions` — 持仓
 
 #### 3.4.3 回测对比 `/backtest/compare`
 
 | 属性 | 值 |
 |------|-----|
-| 路由 | `/backtest/compare` |
-| 文件 | `views/stage1/BacktestCompare.vue` |
+| 路由 | `/backtests/compare` |
+| 文件 | `views/backtest/BacktestComparePage.vue`（规划未实现） |
 
 **功能描述**: 选择 2-5 个已完成回测任务进行对比。
 
@@ -338,7 +326,7 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 - 净值曲线叠加对比
 
 **API 端点**:
-- `GET /api/v1/backtest/compare` — 对比数据
+- `GET /api/v1/backtests/compare` — 对比数据
 
 ---
 
@@ -845,7 +833,6 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 | `useBacktestStore` | `stores/backtest.ts` | 回测任务全生命周期、实时进度、批量操作、权限检查 |
 | `useSystemStore` | `stores/system.ts` | 系统状态监控、Worker 管理、自动刷新 |
 | `useLoadingStore` | `stores/loading.ts` | 全局优先级加载状态 (LOW/NORMAL/HIGH/CRITICAL) |
-| `useNodeGraphStore` | `stores/nodeGraph.ts` | 节点图编辑器状态 |
 | `useDashboardStore` | `stores/dashboard.ts` | 仪表盘统计 (占位) |
 
 ### 4.2 API 模块清单
@@ -853,19 +840,22 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 | 模块 | 文件 | 基础路径 | 端点数 |
 |------|------|----------|--------|
 | auth | `modules/auth.ts` | `/api/v1/auth/` | 5 |
-| portfolio | `modules/portfolio.ts` | `/api/v1/portfolio` | 8 |
-| backtest | `modules/backtest.ts` | `/api/v1/backtest` | 13 |
-| system | `modules/system.ts` | `/v1/system/` | 10 |
+| portfolio | `modules/portfolio.ts` | `/api/v1/portfolios/` | 8 |
+| backtest | `modules/backtest.ts` | `/api/v1/backtests/` | 13 |
+| system | `modules/system.ts` | `/api/v1/system/` | 9 |
 | live | `modules/live.ts` | `/api/v1/accounts` | 8 |
-| trading | `modules/trading.ts` | `/v1/paper-trading/` + `/v1/live-trading/` | 18 |
+| trading | `modules/trading.ts` | `/api/v1/paper-trading/` + `/api/v1/live-trading/` | 18 |
 | data | `modules/data.ts` | `/api/v1/data/` | 8 |
 | components | `modules/components.ts` | `/api/v1/components/` | 6 |
 | file | `modules/file.ts` | `/v1/` | 5 |
-| settings | `modules/settings.ts` | `/v1/settings/` | 20+ |
-| nodeGraph | `modules/nodeGraph.ts` | `/v1/node-graphs/` | 9 |
-| research | `modules/research.ts` | `/v1/research/` | 5 |
-| optimization | `modules/optimization.ts` | `/v1/optimization/` | 3 |
-| validation | `modules/validation.ts` | `/v1/validation/` | 3 |
+| settings | `modules/settings.ts` | `/api/v1/settings/` | 20+ |
+| broker | `modules/broker.ts` | `/api/v1/brokers/` | 5 |
+| deployment | `modules/deployment.ts` | `/api/v1/deployments/` | 4 |
+| taskTimer | `modules/taskTimer.ts` | `/api/v1/task-timer/` | 3 |
+| tradeHistory | `modules/tradeHistory.ts` | `/api/v1/trade-history/` | 6 |
+| research | `modules/research.ts` | `/api/v1/research/` | 5 |
+| optimization | `modules/optimization.ts` | `/api/v1/optimization/` | 3 |
+| validation | `modules/validation.ts` | `/api/v1/validation/` | 3 |
 | order | `modules/order.ts` | `/api/v1/orders` + `/api/v1/positions` | 4 |
 | market | `modules/market.ts` | `/api/v1/market/` | 8 |
 | apiKey | `modules/apiKey.ts` | `/api/v1/api-keys/` | 8 |
@@ -878,7 +868,7 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 - 发布/订阅模式: `subscribe(eventType, handler)`
 - 支持通配符 `'*'` 监听所有事件
 - 开发环境端口映射: 5173 → 8000
-- 端点: `/ws`
+- 端点: `/ws/portfolio`
 - 用途: 回测进度实时推送
 
 #### SSE (`composables/useRealtime.ts`)
@@ -900,42 +890,29 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 | `StatCard` | 统计指标卡片 |
 | `TableActions` | 表格行操作按钮 |
 | `ListPageLayout` | 列表页通用布局 |
+| `ListPage` | 列表页完整组件 |
+| `SearchSelect` | 搜索选择器 |
 | `EmptyState` | 空状态占位 |
 | `GlobalLoading` | 全页加载指示器 |
 | `LoadingOverlay` | 叠加层加载动画 |
 
 ### 5.2 图表组件 (`components/charts/`)
 
-| 组件 | 类型 | 用途 |
+| 组件 | 路径 | 用途 |
 |------|------|------|
-| `BaseChart` | 基类 | ECharts 基础封装 |
-| `LineChart` | 折线图 | 通用折线 |
-| `AreaChart` | 面积图 | 面积填充 |
-| `CandlestickChart` | 蜡烛图 | K线展示 |
-| `HistogramChart` | 柱状图 | 分布展示 |
-| `NetValueChart` | 净值曲线 | 回测净值+基准 |
-| `DrawdownChart` | 回撤图 | 最大回撤可视化 |
-| `PnlChart` | 盈亏图 | 盈亏分布 |
-| `PositionChart` | 持仓图 | 持仓可视化 |
-| `ICIRChart` | ICIR 图 | 因子 ICIR 趋势 |
-| `LayeringReturnChart` | 分层收益图 | 分组收益对比 |
+| `BaseChart` | `BaseChart.vue` | ECharts 基础封装 |
+| `NetValueChart` | `NetValueChart.vue` | 回测净值曲线 |
+| `LineChart` | `common/LineChart.vue` | 通用折线图 |
+| `AreaChart` | `common/AreaChart.vue` | 面积图 |
+| `CandlestickChart` | `common/CandlestickChart.vue` | K线图 |
+| `HistogramChart` | `common/HistogramChart.vue` | 柱状图 |
+| `DrawdownChart` | `backtest/DrawdownChart.vue` | 回撤图 |
+| `PnlChart` | `backtest/PnlChart.vue` | 盈亏图 |
+| `ICIRChart` | `factor/ICIRChart.vue` | ICIR 图 |
+| `LayeringReturnChart` | `factor/LayeringReturnChart.vue` | 分层收益图 |
 
-### 5.3 Node Graph 编辑器 (`components/node-graph/`)
-
-| 组件 | 用途 |
-|------|------|
-| `NodeGraphEditor` | 主编辑器容器 |
-| `NodeGraphCanvas` | 画布渲染 |
-| `NodeComponent` | 单节点渲染 |
-| `NodePalette` | 可拖拽节点面板 |
-| `NodePropertyPanel` | 属性编辑面板 |
-| `NodeCreateMenu` | 节点创建上下文菜单 |
-| `GraphValidator` | 验证结果显示 |
-| `ConnectionLine` | 连线渲染 |
-
-**Composable**: `useNodeGraph` — 提供 20 步撤销/重做、节点/边 CRUD、验证（引擎+组合节点、连接规则、环路检测）
-
-**节点类型**: `strategy` | `selector` | `sizer` | `risk`
+### 5.3 Node Graph 编辑器
+> **规划未实现** — 当前无 NodeGraph 相关 store/组件/composable。以下为规划文档，非实际代码。
 
 ### 5.4 Composable 清单
 
@@ -952,7 +929,6 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 | `useTable<T>` | 通用表格状态（分页、加载） |
 | `useListPage<T, P>` | 完整列表页模式（搜索+分页+筛选） |
 | `useCrudStore<T>` | 通用 CRUD Store 工厂 |
-| `useNodeGraph` | 节点图编辑操作（撤销/重做/验证） |
 | `useComponentList` | 组件列表弹窗状态 |
 | `useStatusFormat` | 状态格式化映射 |
 
@@ -989,6 +965,6 @@ App.vue 实现侧边栏 + 顶栏 + 内容区布局：
 - Worker 管理 (`/system/workers`) — "功能开发中"
 - 告警中心 (`/system/alerts`) — "功能开发中"
 
-### 6.5 规划中 (代码存在但未注册路由)
+### 6.5 规划中
 
-- Node Graph 编辑器 (`BacktestGraphEditor.vue`) — 可视化拖拽编辑器，可编译为回测任务
+- ~~Node Graph 编辑器 (`BacktestGraphEditor.vue`) — 可视化拖拽编辑器，可编译为回测任务~~（规划未实现，组件不存在）

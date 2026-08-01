@@ -365,3 +365,39 @@ class TestSystemServiceModuleStatus:
         service._check_infrastructure = MagicMock(return_value={"mock": True})
         result = service.get_infrastructure_status()
         assert result == {"mock": True}
+
+
+# ── SystemService 错误统计测试 (#6785) ────────────────────────────────
+
+
+@pytest.mark.unit
+class TestSystemServiceErrorStats:
+    """SystemService 错误统计包装测试 (#6785)。
+
+    GLOG.get_error_stats/clear_error_stats 已实现 (logger.py:519/538)，本切片在
+    SystemService 暴露包装，供 API 层 /system/error-stats 端点走 Service 层调用。
+    """
+
+    def test_get_error_stats_returns_glog_stats(self):
+        """get_error_stats 透传 GLOG.get_error_stats 的进程内错误统计。"""
+        service = SystemService()
+        glog_stats = {
+            "total_error_patterns": 2,
+            "top_error_patterns": [{"pattern_hash": "h1", "count": 3}],
+            "total_error_count": 5,
+        }
+        with patch("ginkgo.core.services.system_service.GLOG.get_error_stats",
+                   return_value=glog_stats) as mock_glog:
+            result = service.get_error_stats()
+
+        mock_glog.assert_called_once()
+        assert result == glog_stats
+
+    def test_reset_error_stats_clears_glog(self):
+        """reset_error_stats 调 GLOG.clear_error_stats 清零进程内错误统计。"""
+        service = SystemService()
+        with patch("ginkgo.core.services.system_service.GLOG.clear_error_stats") as mock_clear:
+            result = service.reset_error_stats()
+
+        mock_clear.assert_called_once()
+        assert result == {"reset": True}

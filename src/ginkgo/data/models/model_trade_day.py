@@ -26,7 +26,7 @@ class MTradeDay(MMysqlBase, ModelConversion):
     __abstract__ = False
     __tablename__ = "trade_day"
 
-    market: Mapped[int] = mapped_column(TINYINT, default=-1)
+    market: Mapped[int] = mapped_column(TINYINT, default=-1, info={"enum": MARKET_TYPES})
     is_open: Mapped[bool] = mapped_column(Boolean, default=True)
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
 

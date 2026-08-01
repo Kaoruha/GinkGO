@@ -16,7 +16,7 @@
 | ADR-001 | [组件边界与单向流动](ADR-001-component-boundary.md) | Accepted | 2026-06-13 |
 | ADR-002 | [分层架构 API→Service→CRUD→DB](ADR-002-layered-architecture.md) | Accepted | 2026-06-13 |
 | ADR-003 | [引擎二态简化](ADR-003-engine-two-mode.md) | Implemented | 2026-03-28 |
-| ADR-004 | [Docker 双实例与 Debug 模式](ADR-004-dual-db-debug.md) | Accepted | 2026-06-13 |
+| ADR-004 | [Docker 双实例与 Debug 模式](ADR-004-dual-db-debug.md) | Accepted（端口⟵024；debug 切库⟵028） | 2026-06-13 |
 | ADR-005 | [组件参数序列化对称](ADR-005-param-serialization.md) | Accepted | 2026-06-13 |
 | ADR-006 | [多数据库角色分工](ADR-006-db-role-separation.md) | Accepted | 2026-06-13 |
 | ADR-007 | [表结构 Model 驱动，禁止手动 ALTER](ADR-007-schema-model-driven.md) | Accepted | 2026-06-13 |
@@ -36,7 +36,24 @@
 | ADR-021 | [CLI 输出层契约（TTY 守卫 + --format/--limit + 序列化规范）](ADR-021-cli-output-layer.md) | Accepted | 2026-07-04 |
 | ADR-022 | [抽象层收敛（命名约定 + 死抽象判定）](ADR-022-abstract-layer-naming.md) | Accepted | 2026-07-12 |
 | ADR-023 | [时间 Seam 边界（Business Time 走 TimeProvider，Infra Time 走墙钟）](ADR-023-time-seam-business-infra-split.md) | Accepted | 2026-07-18 |
+| ADR-024 | [数据库端口 +1 魔法加容器守卫 + Debug 模式语义重定义](ADR-024-db-port-injection-debug-semantics.md) | Partially Superseded（D1/D2/D3 ⟵ ADR-028） | 2026-07-20 |
+| ADR-025 | [DTO 信使角色全面复位（Mapper 家族覆盖四边界）](ADR-025-dto-messenger-full-restoration.md) | Accepted | 2026-07-24 |
 | ADR-026 | [CLI Client 模式（混合架构：数据面直连 DB + 控制面 API + JWT）](ADR-026-cli-client-mode.md) | Accepted | 2026-07-22 |
+| ADR-027 | [启动期集群一致性护栏（防 debug/host 漂移静默连错库）](ADR-027-env-cluster-consistency-guard.md) | Accepted（D1 ⟵ ADR-028） | 2026-07-25 |
+| ADR-028 | [GINKGO_ENV 与 DEBUGMODE 彻底解耦（集群选择单一旋钮）](ADR-028-env-cluster-decouple-debugmode.md) | Accepted | 2026-07-25 |
+| ADR-030 | [全链路 trace_id 传播契约（contextvars + DTO 字段 + Kafka header）](ADR-030-observability-trace-id-propagation.md) | Accepted | 2026-07-26 |
+| ADR-031 | [enum 映射真值下沉 model 字段 info（字段→Enum 映射单源归位）](ADR-031-enum-mapping-field-info-sink.md) | Accepted | 2026-07-28 |
+| ADR-032 | [持久化模型基类分流（CH 时序审计 vs MySQL 活状态）](ADR-032-persistence-model-basesplit.md) | Accepted（含现状偏离） | 2026-07-28 |
+| ADR-033 | [PaperTradingWorker INIT/deploy 装配对称契约](ADR-033-paper-worker-assembly-symmetry.md) | Accepted | 2026-07-28 |
+| ADR-034 | [signal 跨库同名陷阱（CH 事件流 vs MySQL tracker）](ADR-034-signal-cross-store-namesake.md) | Accepted（含现状偏离） | 2026-07-28 |
+| ADR-035 | [回测应用用例层（BacktestUseCase Protocol）](ADR-035-backtest-use-case-layer.md) | Accepted | 2026-07-05 |
+| ADR-036 | [回测 fill 时序无后视（T+1 延迟队列 + 两阶段推进）](ADR-036-backtest-fill-no-lookahead.md) | Accepted | 2026-07-28 |
+| ADR-038 | [日志表 TTL 自动清理（ginkgo_logs_* 三表 TTL 接线 + 存量 drop/reseed）](ADR-038-log-table-ttl-cleanup.md) | Accepted | 2026-07-29 |
+| ADR-039 | [实盘走 ExecutionNode 分布式，移除 LiveEngine 迁移孤儿](ADR-039-liveengine-removal-distributed-live.md) | Accepted | 2026-07-29 |
+
+### 缺号说明
+
+- **ADR-029**：跳过（无对应决策记录，正文无任何悬空引用）。
 
 ## 如何新增 / 修订
 

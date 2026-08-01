@@ -19,6 +19,7 @@ from datetime import datetime
 
 from ginkgo.libs import GLOG, time_logger, retry
 from ginkgo.data.drivers import create_redis_connection
+from ginkgo.data.mappers.cache_mapper import CacheMapper
 
 
 class RedisCRUD:
@@ -93,7 +94,7 @@ class RedisCRUD:
                 
             # 序列化复杂数据类型
             if isinstance(value, (dict, list)):
-                serialized_value = json.dumps(value)
+                serialized_value = CacheMapper.encode(value)
             else:
                 serialized_value = value
             
@@ -133,7 +134,7 @@ class RedisCRUD:
             # 尝试反序列化
             data_str = data if isinstance(data, str) else data.decode('utf-8')
             try:
-                return json.loads(data_str)
+                return CacheMapper.decode(data_str)
             except json.JSONDecodeError:
                 return data_str
                 
@@ -355,7 +356,7 @@ class RedisCRUD:
                 
             # 序列化复杂数据类型
             if isinstance(value, (dict, list)):
-                serialized_value = json.dumps(value)
+                serialized_value = CacheMapper.encode(value)
             else:
                 serialized_value = str(value)
                 
@@ -392,7 +393,7 @@ class RedisCRUD:
             # 尝试反序列化
             data_str = data if isinstance(data, str) else data.decode('utf-8')
             try:
-                return json.loads(data_str)
+                return CacheMapper.decode(data_str)
             except json.JSONDecodeError:
                 return data_str
                 
@@ -425,7 +426,7 @@ class RedisCRUD:
                 
                 # 尝试反序列化值
                 try:
-                    result[field_str] = json.loads(value_str)
+                    result[field_str] = CacheMapper.decode(value_str)
                 except json.JSONDecodeError:
                     result[field_str] = value_str
                     
@@ -487,7 +488,7 @@ class RedisCRUD:
                     # 尝试反序列化
                     value_str = value if isinstance(value, str) else value.decode('utf-8')
                     try:
-                        results.append(json.loads(value_str))
+                        results.append(CacheMapper.decode(value_str))
                     except json.JSONDecodeError:
                         results.append(value_str)
                         

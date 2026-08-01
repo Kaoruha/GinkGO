@@ -19,7 +19,6 @@ from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import GLOG, cache_with_expiration
 from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
-from ginkgo.data.mappers import MappingMapper
 
 
 @restrict_crud_access
@@ -70,47 +69,6 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
-
-
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'source': SOURCE_TYPES
-        }
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert MEngineHandlerMapping models to Mapping business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of Mapping business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为通用Mapping业务对象
-            mapping = MappingMapper.from_model(model, mapping_type="EngineHandlerMapping")
-            business_objects.append(mapping)
-        return business_objects
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
-
-    def _convert_output_items(self, items: List[MEngineHandlerMapping], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MEngineHandlerMapping objects for business layer.
-        """
-        return items
 
     # Business Helper Methods
     def find_by_engine(self, engine_id: str) -> List[MEngineHandlerMapping]:

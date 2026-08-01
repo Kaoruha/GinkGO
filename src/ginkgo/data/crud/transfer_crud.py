@@ -18,7 +18,6 @@ from ginkgo.data.models import MTransfer
 from ginkgo.enums import SOURCE_TYPES, TRANSFERDIRECTION_TYPES, TRANSFERSTATUS_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
 from ginkgo.entities import Transfer
-from ginkgo.data.mappers import TransferMapper
 
 
 @restrict_crud_access
@@ -123,58 +122,6 @@ class TransferCRUD(BaseCRUD[MTransfer]):
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
-
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Transfer.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'direction': TRANSFERDIRECTION_TYPES,  # 转账方向字段映射
-            'status': TRANSFERSTATUS_TYPES,         # 转账状态字段映射
-            'market': MARKET_TYPES,                # 市场类型字段映射
-            'source': SOURCE_TYPES                # 数据源字段映射
-        }
-
-    def _convert_models_to_business_objects(self, models: List[MTransfer]) -> List[Transfer]:
-        """
-        🎯 Convert MTransfer models to Transfer business objects.
-
-        Args:
-            models: List of MTransfer models with enum fields already fixed
-
-        Returns:
-            List of Transfer business objects
-        """
-        business_objects = []
-        for model in models:
-            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
-            transfer = TransferMapper.from_model(model)
-            business_objects.append(transfer)
-
-        return business_objects
-
-    def _convert_output_items(self, items: List[MTransfer], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MTransfer objects to Transfer objects.
-        """
-        if output_type == "transfer":
-            return [
-                Transfer(
-                    portfolio_id=item.portfolio_id,
-                    engine_id=item.engine_id,
-                    direction=item.direction,
-                    market=item.market,
-                    money=item.money,
-                    status=item.status,
-                    timestamp=item.timestamp,
-                    source=item.source,
-                )
-                for item in items
-            ]
-        return items
 
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str, direction: Optional[TRANSFERDIRECTION_TYPES] = None,

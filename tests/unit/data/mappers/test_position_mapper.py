@@ -34,12 +34,12 @@ def _make_position(**overrides) -> Position:
 class TestPositionMapperRoundtrip:
     def test_to_model_returns_mposition(self):
         entity = _make_position()
-        model = PositionMapper.to_model(entity)
+        model = PositionMapper.entity_to_model(entity)
         assert isinstance(model, MPosition)
 
     def test_to_model_preserves_core_fields(self):
         entity = _make_position()
-        model = PositionMapper.to_model(entity)
+        model = PositionMapper.entity_to_model(entity)
         assert model.code == "SH600000"
         assert model.volume == 1000
         assert model.frozen_volume == 200
@@ -48,26 +48,26 @@ class TestPositionMapperRoundtrip:
 
     def test_to_model_preserves_uuid(self):
         entity = _make_position()
-        model = PositionMapper.to_model(entity)
+        model = PositionMapper.entity_to_model(entity)
         # model.uuid 被赋为 entity.uuid（原码行为保留）
         assert model.uuid == entity.uuid
 
     def test_to_model_serializes_empty_settlement_queue(self):
         entity = _make_position()
-        model = PositionMapper.to_model(entity)
+        model = PositionMapper.entity_to_model(entity)
         # 空队列序列化为 "[]"
         assert model.settlement_queue_json == "[]"
 
     def test_from_model_preserves_uuid(self):
         entity = _make_position()
-        model = PositionMapper.to_model(entity)
-        back = PositionMapper.from_model(model)
+        model = PositionMapper.entity_to_model(entity)
+        back = PositionMapper.model_to_entity(model)
         assert back.uuid == entity.uuid
 
     def test_roundtrip_code_volume(self):
         entity = _make_position(code="SZ000001", volume=5000)
-        model = PositionMapper.to_model(entity)
-        back = PositionMapper.from_model(model)
+        model = PositionMapper.entity_to_model(entity)
+        back = PositionMapper.model_to_entity(model)
         assert back.code == "SZ000001"
         assert back.volume == 5000
 
@@ -79,8 +79,8 @@ class TestPositionMapperRoundtrip:
             frozen_money=3000,
             fee=12.5,
         )
-        model = PositionMapper.to_model(entity)
-        back = PositionMapper.from_model(model)
+        model = PositionMapper.entity_to_model(entity)
+        back = PositionMapper.model_to_entity(model)
         assert back.frozen_volume == 300
         assert back.settlement_frozen_volume == 80
         assert back.settlement_days == 2
@@ -97,8 +97,8 @@ class TestPositionMapperRoundtrip:
             'buy_date': now,
             'settlement_date': now + datetime.timedelta(days=1),
         }]
-        model = PositionMapper.to_model(entity)
-        back = PositionMapper.from_model(model)
+        model = PositionMapper.entity_to_model(entity)
+        back = PositionMapper.model_to_entity(model)
         # mapper 直读/直写 _settlement_queue（无公开 property），测试忠实其访问方式
         assert len(back._settlement_queue) == 1
         assert back._settlement_queue[0]['volume'] == 500
@@ -107,22 +107,22 @@ class TestPositionMapperRoundtrip:
     def test_from_model_bad_json_fallback_empty(self):
         """settlement_queue_json 坏值时 from_model fallback []（验异常路径）。"""
         entity = _make_position()
-        model = PositionMapper.to_model(entity)
+        model = PositionMapper.entity_to_model(entity)
         model.settlement_queue_json = "not-json"
-        back = PositionMapper.from_model(model)
+        back = PositionMapper.model_to_entity(model)
         assert back._settlement_queue == []
 
 
 class TestPositionMapperFromModelGuard:
     def test_from_model_rejects_non_mposition(self):
         with pytest.raises(TypeError):
-            PositionMapper.from_model(object())
+            PositionMapper.model_to_entity(object())
 
 
 class TestPositionMapperFromModels:
     def test_from_models_maps_all(self):
         entities = [_make_position(code="A"), _make_position(code="B")]
-        models = [PositionMapper.to_model(e) for e in entities]
-        back = PositionMapper.from_models(models)
+        models = [PositionMapper.entity_to_model(e) for e in entities]
+        back = PositionMapper.models_to_entities(models)
         assert len(back) == 2
         assert {b.code for b in back} == {"A", "B"}

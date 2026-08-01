@@ -4,7 +4,7 @@ TransferRecordCRUD 单元测试（Mock 数据库连接）
 
 覆盖范围：
 - _get_field_config: 字段配置结构与验证规则
-- _get_enum_mappings: 枚举映射（TRANSFERDIRECTION_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, SOURCE_TYPES）
+- _get_enum_mappings: 枚举映射（MARKET_TYPES, SOURCE_TYPES）
 - _create_from_params: 参数转 MTransferRecord 模型
 - Business Helper: find_by_portfolio, get_total_transfer_amount
 - 构造与类型检查
@@ -89,18 +89,21 @@ class TestTransferRecordCRUDEnumMappings:
     """_get_enum_mappings 枚举映射测试"""
 
     @pytest.mark.unit
-    def test_enum_mappings_has_all_enums(self, transfer_record_crud):
-        """映射包含 transferdirection/market/source/transferstatus 四个枚举"""
+    def test_enum_mappings_reflection_exact(self, transfer_record_crud):
+        """反射映射精确等于 {market, source}。
+
+        direction/status 是旧 override 的 dead key(transferdirection/transferstatus):
+        键名不匹配真实列名、``hasattr(item, field)`` 恒 False → 从未生效。下沉它们会激活
+        这两列的 int→enum 实例转换(EnumBase 非 IntEnum,下游 int 比较会断)= 行为变更,
+        刻意不 sink,留待单独 PR 带 downstream 核对(ADR-031 行为保持口径,#4652 纪律;
+        见 test_source_enum_reflection_c6.py)。``==`` 捕捉多/缺 key 两种偏离。
+        """
         mappings = transfer_record_crud._get_enum_mappings()
 
-        assert "transferdirection" in mappings
-        assert "market" in mappings
-        assert "source" in mappings
-        assert "transferstatus" in mappings
-        assert mappings["transferdirection"] is TRANSFERDIRECTION_TYPES
-        assert mappings["market"] is MARKET_TYPES
-        assert mappings["source"] is SOURCE_TYPES
-        assert mappings["transferstatus"] is TRANSFERSTATUS_TYPES
+        assert mappings == {
+            "market": MARKET_TYPES,
+            "source": SOURCE_TYPES,
+        }
 
 
 # ============================================================

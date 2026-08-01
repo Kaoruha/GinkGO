@@ -34,18 +34,6 @@ class UserCRUD(BaseCRUD[MUser]):
     def __init__(self):
         super().__init__(MUser)
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for UserCRUD.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'user_type': USER_TYPES,
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         """
         定义 User 数据的字段配置 - 必填字段验证
@@ -92,24 +80,6 @@ class UserCRUD(BaseCRUD[MUser]):
         """
         # 目前没有业务对象，返回None
         return None
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models (business object doesn't exist yet)
-        """
-        return models
-
-    def _convert_output_items(self, items: List[MUser], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MUser objects for business layer.
-        """
-        return items
 
     # ==================== 级联软删除实现 ====================
 

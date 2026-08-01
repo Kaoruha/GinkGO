@@ -135,38 +135,6 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             )
         return None
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for Adjustfactor.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'source': SOURCE_TYPES  # 数据源字段映射
-        }
-
-    def _convert_models_to_business_objects(self, models: List[MAdjustfactor]) -> List[MAdjustfactor]:
-        """
-        🎯 Convert MAdjustfactor models to business objects.
-
-        Args:
-            models: List of MAdjustfactor models with enum fields already fixed
-
-        Returns:
-            List of MAdjustfactor models (Adjustfactor business object doesn't exist yet)
-        """
-        # For now, return models as-is since Adjustfactor business object doesn't exist yet
-        return models
-
-    def _convert_output_items(self, items: List[MAdjustfactor], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MAdjustfactor objects for business layer.
-        Called by BaseCRUD.find() template method.
-        Automatically gets @time_logger effects.
-        """
-        return items  # Return model objects directly
-
     # ============================================================================
     # Business Helper Methods - Use these for common query patterns
     # ============================================================================

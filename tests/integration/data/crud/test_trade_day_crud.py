@@ -195,7 +195,7 @@ class TestTradeDayCRUDQuery:
         """测试根据市场查询TradeDay"""
         # 查询中国市场
         china_result = self.crud.find(filters={"market": MARKET_TYPES.CHINA})
-        china_entities = TradeDayMapper.from_models(china_result)
+        china_entities = TradeDayMapper.models_to_entities(china_result)
 
         assert len(china_entities) >= 0, "应能查询中国市场数据"
         for entity in china_entities[:5]:
@@ -210,7 +210,7 @@ class TestTradeDayCRUDQuery:
     def test_find_by_market_parametrized(self, market):
         """参数化测试不同市场的查询"""
         result = self.crud.find(filters={"market": market})
-        entities = TradeDayMapper.from_models(result)
+        entities = TradeDayMapper.models_to_entities(result)
 
         # 验证查询结果市场类型正确
         for entity in entities:
@@ -226,7 +226,7 @@ class TestTradeDayCRUDQuery:
             "timestamp__lte": end_date
         })
 
-        entities = TradeDayMapper.from_models(result)
+        entities = TradeDayMapper.models_to_entities(result)
         for entity in entities:
             assert start_date <= entity.timestamp <= end_date, \
                 "查询结果应在时间范围内"
@@ -254,7 +254,7 @@ class TestTradeDayCRUDQuery:
         """参数化测试按状态查询"""
         result = self.crud.find(filters={"is_open": is_open})
 
-        for entity in TradeDayMapper.from_models(result):
+        for entity in TradeDayMapper.models_to_entities(result):
             assert entity.is_open == is_open, \
                 f"查询结果应全是{expected_name}"
 
@@ -723,7 +723,7 @@ class TestTradeDayCRUDCreate:
         result = self.crud.find(filters={"uuid": created_day.uuid})
         assert len(result) == 1
 
-        entity = TradeDayMapper.from_models(result)[0]
+        entity = TradeDayMapper.models_to_entities(result)[0]
         assert entity.market == MARKET_TYPES.NASDAQ, "市场应为NASDAQ"
         assert entity.is_open == False, "应为休市状态"
 

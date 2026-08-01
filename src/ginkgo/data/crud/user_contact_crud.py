@@ -29,18 +29,6 @@ class UserContactCRUD(BaseCRUD[MUserContact]):
     def __init__(self):
         super().__init__(MUserContact)
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings for UserContactCRUD.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'contact_type': CONTACT_TYPES,
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         """
         定义 UserContact 数据的字段配置 - 必填字段验证
@@ -101,24 +89,6 @@ class UserContactCRUD(BaseCRUD[MUserContact]):
         Hook method: Convert objects to MUserContact.
         """
         return None
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """
-        🎯 Convert models to business objects.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of models
-        """
-        return models
-
-    def _convert_output_items(self, items: List[MUserContact], output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert MUserContact objects for business layer.
-        """
-        return items
 
     # ==================== 业务辅助方法 ====================
 

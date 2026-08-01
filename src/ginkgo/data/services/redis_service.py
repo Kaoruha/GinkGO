@@ -657,38 +657,43 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to update task status: {e}")
             return False
     
-    def cleanup_dead_tasks(self, max_idle_time: int = 3600) -> int:
+    def cleanup_dead_tasks(self, max_idle_time: int = 3600, dry_run: bool = False) -> int:
         """
         清理超过最大空闲时间的死任务，维护Redis存储空间
 
         Args:
             max_idle_time: 最大空闲时间（秒），默认1小时
+            dry_run: 仅统计将清理数量，不实际删除（默认 False 执行删除）
 
         Returns:
             int: 清理的任务数量
         """
         try:
             import time
-            
+
             current_time = time.time()
             cleaned_count = 0
-            
+
             # 获取所有任务键
             task_keys = self._crud_repo.keys("ginkgo_task_*")
-            
+
             for task_key in task_keys:
                 task_status = self.get_task_status_by_key(task_key)
                 if task_status and 'updated_at' in task_status:
                     last_update = task_status['updated_at']
                     if current_time - last_update > max_idle_time:
-                        # 任务超过最大空闲时间，删除
-                        if self._crud_repo.delete(task_key):
+                        # 任务超过最大空闲时间，删除（dry-run 只计数）
+                        if dry_run:
+                            cleaned_count += 1
+                            self._logger.DEBUG(f"[dry-run] would clean dead task: {task_key}")
+                        elif self._crud_repo.delete(task_key):
                             cleaned_count += 1
                             self._logger.DEBUG(f"Cleaned dead task: {task_key}")
-            
+
             if cleaned_count > 0:
-                self._logger.INFO(f"Cleaned {cleaned_count} dead tasks")
-            
+                action = "Will clean" if dry_run else "Cleaned"
+                self._logger.INFO(f"{action} {cleaned_count} dead tasks")
+
             return cleaned_count
         except Exception as e:
             self._logger.ERROR(f"Failed to cleanup dead tasks: {e}")
@@ -1081,7 +1086,8 @@ class RedisService(BaseService):
                 "func_name": func_name
             }
             
-            # 序列化并存储
+            # result 可能含 datetime/Decimal 等非 JSON 原生类型,须 default=str 兜底
+            # (CacheMapper.encode 无 default=str,故显式 dumps 再以 str 交 crud.set 原样存)
             cache_json = json.dumps(cache_data, default=str)
             success = self._crud_repo.set(full_cache_key, cache_json, expiration_seconds)
             
@@ -1104,16 +1110,16 @@ class RedisService(BaseService):
             Optional[Any]: 缓存的结果，不存在或过期时返回None
         """
         try:
-            import json
             from ginkgo.data.redis_schema import RedisKeyBuilder
 
             full_cache_key = RedisKeyBuilder.func_cache(func_name, cache_key)
-            cache_json = self._crud_repo.get(full_cache_key)
-            
-            if cache_json:
-                cache_data = json.loads(cache_json)
+            # crud.get 已 CacheMapper.decode 返回 dict;旧代码二次 json.loads(dict) 抛 TypeError
+            # 被外层 except 吞成 None —— 缓存命中也返 None(function-cache 形同虚设)。此处直接用 dict。
+            cache_data = self._crud_repo.get(full_cache_key)
+
+            if cache_data:
                 return cache_data.get("result")
-            
+
             return None
         except Exception as e:
             self._logger.ERROR(f"Failed to get function cache: {e}")
@@ -1165,9 +1171,9 @@ class RedisService(BaseService):
             Dict[str, Any]: 缓存统计信息，包含条目数、大小、时间分布等
         """
         try:
-            import json
             import time
             from ginkgo.data.redis_schema import RedisKeyPrefix
+            from ginkgo.data.mappers import CacheMapper
 
             if func_name:
                 cache_pattern = f"{RedisKeyPrefix.FUNC_CACHE}_{func_name}_*"
@@ -1188,21 +1194,21 @@ class RedisService(BaseService):
             
             for cache_key in cache_keys:
                 try:
-                    cache_json = self._crud_repo.get(cache_key)
-                    if cache_json:
-                        cache_data = json.loads(cache_json)
+                    # crud.get 已 CacheMapper.decode 返回 dict(旧二次 json.loads 同 get_function_cache bug)
+                    cache_data = self._crud_repo.get(cache_key)
+                    if cache_data:
                         func_name_from_cache = cache_data.get("func_name", "unknown")
                         timestamp = cache_data.get("timestamp", current_time)
-                        
+
                         # 按函数统计
                         if func_name_from_cache not in stats["by_function"]:
                             stats["by_function"][func_name_from_cache] = {
                                 "count": 0,
                                 "size_estimate": 0
                             }
-                        
+
                         stats["by_function"][func_name_from_cache]["count"] += 1
-                        entry_size = len(cache_json)
+                        entry_size = len(CacheMapper.encode(cache_data))
                         stats["by_function"][func_name_from_cache]["size_estimate"] += entry_size
                         stats["total_size_estimate"] += entry_size
                         
@@ -1221,11 +1227,16 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to get function cache stats: {e}")
             return {"total_entries": 0, "by_function": {}, "error": str(e)}
     
-    def cleanup_expired_function_cache(self) -> int:
+    def cleanup_expired_function_cache(self, dry_run: bool = False) -> int:
         """
         检查并统计过期的函数缓存条目数量
 
-        Note: Redis会自动清理过期的键，但这个方法可以用于手动检查和统计
+        Note: Redis会自动清理过期的键，但这个方法可以用于手动检查和统计。
+        本方法只统计不删除（Redis TTL 自动回收过期键），dry_run 形参仅为
+        与其他 cleanup 方法接口一致而保留，不改变行为。
+
+        Args:
+            dry_run: 接口对齐用（本方法始终只统计，不实际删除）
 
         Returns:
             int: 检查的缓存条目数量
@@ -1234,14 +1245,14 @@ class RedisService(BaseService):
             from ginkgo.data.redis_schema import RedisKeyPrefix
             cache_pattern = f"{RedisKeyPrefix.FUNC_CACHE}_*"
             cache_keys = self._crud_repo.keys(cache_pattern)
-            
+
             checked_count = 0
             for cache_key in cache_keys:
                 # 尝试获取TTL，如果返回-2则表示键已过期或不存在
                 ttl = self._crud_repo.ttl(cache_key)
                 if ttl == -2:  # Key doesn't exist (expired)
                     checked_count += 1
-                    
+
             self._logger.DEBUG(f"Checked {len(cache_keys)} function cache entries, {checked_count} were expired")
             return checked_count
         except Exception as e:

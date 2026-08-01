@@ -32,12 +32,6 @@ class MarketSubscriptionCRUD(BaseCRUD[MMarketSubscription]):
     def __init__(self):
         super().__init__(MMarketSubscription)
 
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """定义字段到枚举的映射"""
-        return {
-            'source': SOURCE_TYPES,
-        }
-
     def _get_field_config(self) -> dict:
         """定义MarketSubscription数据的字段配置"""
         return {
@@ -57,14 +51,6 @@ class MarketSubscriptionCRUD(BaseCRUD[MMarketSubscription]):
         if isinstance(item, MMarketSubscription):
             return item
         return None
-
-    def _convert_models_to_business_objects(self, models: List) -> List:
-        """转换模型为业务对象"""
-        return models
-
-    def _convert_output_items(self, items: List[MMarketSubscription], output_type: str = "model") -> List[Any]:
-        """转换MMarketSubscription对象供业务层使用"""
-        return items
 
     # ==================== 订阅专用CRUD操作 ====================
 

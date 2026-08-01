@@ -25,7 +25,6 @@ from datetime import timedelta
 if TYPE_CHECKING:
     from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
     from ginkgo.trading.strategies import BaseStrategy
-    from ginkgo.trading.signal_processing.batch_processor import TimeWindowBatchProcessor
     from ginkgo.trading.engines.base_engine import BaseEngine
 else:
     # 运行时导入，避免循环依赖
@@ -131,11 +130,6 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
         # 注意：不要覆盖_context_mixin提供的_engine_id，它由ContextMixin管理
         self._interested: List = []
         self._engine_put = None
-
-        # 批处理相关属性
-        self._batch_processor: Optional["TimeWindowBatchProcessor"] = None
-        self._batch_processing_enabled = False
-        self._original_on_signal = None  # 保存原始信号处理方法以便回退
 
         # 默认分析器配置
         self._use_default_analyzers = use_default_analyzers
@@ -848,7 +842,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
         positions_data = []
         for code, pos in self._positions.items():
             from ginkgo.data.mappers import PositionMapper
-            model = PositionMapper.to_model(pos)
+            model = PositionMapper.entity_to_model(pos)
             positions_data.append({
                 "portfolio_id": model.portfolio_id,
                 "engine_id": model.engine_id,
@@ -886,7 +880,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
         self._positions = {}
 
         for p_dict in state.get("positions", []):
-            # 利用 MPosition 的 update 方法，再通过 PositionMapper.from_model 转换
+            # 利用 MPosition 的 update 方法，再通过 PositionMapper.model_to_entity 转换
             from ginkgo.data.models import MPosition
             from ginkgo.data.mappers import PositionMapper
             m_pos = MPosition()
@@ -906,7 +900,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
                 fee=p_dict["fee"],
             )
             m_pos.uuid = p_dict.get("uuid", "")
-            pos = PositionMapper.from_model(m_pos)
+            pos = PositionMapper.model_to_entity(m_pos)
             self._positions[p_dict["code"]] = pos
 
         self.update_worth()
@@ -993,51 +987,6 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
             except Exception as e:
                 GLOG.ERROR(f"Risk manager {risk_manager.name} generate signal failed: {e}")
         return signals
-
-    # ========== 批处理系统支持（简化版本）==========
-
-    def enable_batch_processing(self, batch_processor: "TimeWindowBatchProcessor") -> None:
-        """
-        启用批处理模式
-        """
-        try:
-            from ginkgo.trading.signal_processing.batch_processor import TimeWindowBatchProcessor
-
-            if not isinstance(batch_processor, TimeWindowBatchProcessor):
-                GLOG.ERROR("Invalid batch processor type")
-                return
-
-            # 保存原始信号处理方法
-            if not self._original_on_signal:
-                self._original_on_signal = self.on_signal
-
-            self._batch_processor = batch_processor
-            self._batch_processing_enabled = True
-
-            # 设置批处理器的组合信息获取函数
-            self._batch_processor.get_portfolio_info = self.get_info
-
-            GLOG.INFO(f"Batch processing enabled with {batch_processor.window_type.value} window")
-
-        except Exception as e:
-            GLOG.ERROR(f"Failed to enable batch processing: {e}")
-
-    def disable_batch_processing(self) -> None:
-        """禁用批处理模式，回退到原始信号处理"""
-        self._batch_processing_enabled = False
-        self._batch_processor = None
-        GLOG.INFO("Batch processing disabled")
-
-    def get_batch_processing_stats(self) -> Dict:
-        """
-        获取批处理统计信息
-        """
-        if not self._batch_processing_enabled or not self._batch_processor:
-            return {"enabled": False}
-
-        stats = self._batch_processor.get_stats()
-        stats["enabled"] = True
-        return stats
 
     def _on_time_advance(self, new_time: datetime.datetime) -> None:
         """

@@ -2,7 +2,6 @@
 Redis client utilities for API Server
 """
 
-import json
 from typing import Optional, Any
 import asyncio
 import redis.asyncio as aioredis
@@ -60,10 +59,14 @@ async def set_backtest_progress(task_uuid: str, progress_data: dict, ttl: int = 
         progress_data: 进度数据字典
         ttl: 过期时间（秒）
     """
+    # 延迟import: 模块级 import 会拉起 ginkgo.data.mappers.__init__ 链式加载
+    # 13 个 mapper + crud/drivers (实测 +598ms / 158 模块), 下沉函数内对齐
+    # _get_redis_config() 的 GCONF 延迟模式; import 在 try 外, 失败响亮抛 (#4652)
+    from ginkgo.data.mappers.cache_mapper import CacheMapper
     try:
         redis = await get_redis()
         key = f"backtest:progress:{task_uuid}"
-        value = json.dumps(progress_data, ensure_ascii=False)
+        value = CacheMapper.encode(progress_data)
         await redis.setex(key, ttl, value)
         logger.debug(f"Set progress for {task_uuid[:8]}: {progress_data.get('progress', 0):.1f}%")
     except Exception as e:
@@ -80,12 +83,13 @@ async def get_backtest_progress(task_uuid: str) -> Optional[dict]:
     Returns:
         进度数据字典，不存在时返回 None
     """
+    from ginkgo.data.mappers.cache_mapper import CacheMapper  # 延迟import (同 set_backtest_progress)
     try:
         redis = await get_redis()
         key = f"backtest:progress:{task_uuid}"
         value = await redis.get(key)
         if value:
-            return json.loads(value)
+            return CacheMapper.decode(value)
         return None
     except Exception as e:
         logger.error(f"Failed to get progress from Redis: {e}")

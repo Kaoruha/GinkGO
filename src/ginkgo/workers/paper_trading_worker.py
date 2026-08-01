@@ -1130,18 +1130,8 @@ class PaperTradingWorker:
                             break
 
                         try:
-                            from ginkgo.messages.control_command import ControlCommand
-                            cmd = ControlCommand.from_dict(message.value)
-
-                            GLOG.INFO(
-                                f"[PAPER-WORKER] Received command: {cmd.command}, "
-                                f"params: {cmd.params}"
-                            )
-
-                            success = self._handle_command(cmd.command, cmd.params)
-
-                            # 发送处理结果
-                            self._send_response(cmd.command, success, cmd.params)
+                            # #6787: _dispatch_command 恢复 trace_id 到 GLOG contextvars
+                            self._dispatch_command(message)
 
                             # 成功处理后提交 offset
                             try:
@@ -1159,6 +1149,51 @@ class PaperTradingWorker:
             except Exception as e:
                 if self._running:
                     GLOG.ERROR(f"[PAPER-WORKER] Error in consume loop: {e}")
+
+    def _dispatch_command(self, message) -> None:
+        """处理单条 CONTROL_COMMANDS 消息（#6787: 恢复 trace_id 到 GLOG contextvars, AC2/AC3）。
+
+        从 message.headers 解码 trace_id，with_trace_id 包 _handle_command，使 deploy
+        全链路日志（_handle_deploy 的 GLOG.INFO/ERROR）带同一 trace_id，与 API deploy
+        端 grep 同值串联（AC4）。paper + live 均经此路径（_handle_deploy 接受 PAPER/LIVE
+        mode，仅拒 BACKTEST）。无 header / 解码失败时 graceful 降级（不注入、不阻断消费，
+        向后兼容旧消息与非 API 入口）。
+        """
+        from contextlib import nullcontext
+        from ginkgo.interfaces.dtos import ControlCommandDTO
+        from ginkgo.interfaces.mappers.message_mapper import MessageMapper
+
+        # ADR-025 ②: 消费侧统一经 MessageMapper.decode(raw, ControlCommandDTO)。
+        # 与 data_manager.py:449 / portfolio_processor.py:498 同一入站转换点。
+        # wire 兼容：旧 dataclass ControlCommand.to_dict() 发的 {command,params,timestamp}
+        # 仍能被 DTO.model_validate 解析（余 source/correlation_id/trace_id/span_id 缺失走默认）。
+        cmd = MessageMapper.decode(message.value, ControlCommandDTO)
+        tid = self._extract_trace_id(message.headers)
+        with (GLOG.with_trace_id(tid) if tid else nullcontext()):
+            # 入口日志置于 trace_id 作用域内（AC4）：grep trace_id 可串联消费端入口
+            GLOG.INFO(
+                f"[PAPER-WORKER] Received command: {cmd.command}, "
+                f"params: {cmd.params}"
+            )
+            success = self._handle_command(cmd.command, cmd.params)
+            self._send_response(cmd.command, success, cmd.params)
+
+    @staticmethod
+    def _extract_trace_id(headers) -> Optional[str]:
+        """从 Kafka message headers 解码 trace_id（#6787: 复用 #6786 header 传播模式）。
+
+        headers 为 kafka list[(str, bytes)]。graceful 降级：无 header / key 缺失 /
+        解码失败（非法 UTF-8 毒丸消息）时返回 None，不抛——单条畸形消息不阻断整个消费循环。
+        """
+        if not headers:
+            return None
+        try:
+            for key, value in headers:
+                if key == "trace_id" and value is not None:
+                    return value.decode("utf-8")
+        except Exception:
+            return None
+        return None
 
     def _send_response(self, command: str, success: bool, params: Dict) -> None:
         """

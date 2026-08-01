@@ -17,12 +17,16 @@ _Avoid_: Entity（现状与之同承 Base，待分离）
 _Avoid_: Entity、DTO
 
 **DTO**:
-跨边界、搬运有状态对象的状态投影、以**隔离两个不耦合世界**为目的的纯数据载体（无自身生命周期）。亚型：BusDTO(Kafka)、WebResponse(HTTP)、CacheEntry(Redis)。
-_Avoid_: 把 ORM Model 或 ValueObject 称为 DTO
+跨边界、搬运有状态对象的状态投影、以**隔离两个不耦合世界**为目的的纯数据载体（无自身生命周期）。亚型：BusDTO(Kafka)、WebResponse(HTTP)、CacheEntry(Redis)。信使**双侧对称**：出站封装（Entity→DTO→wire）与入站反序列化（wire→DTO→Entity）都必须经 DTO——禁单侧使用（只出站不经入站）或 consumer 手抓 dict 重组领域对象（drift 温床，ADR-025）。
+_Avoid_: 把 ORM Model 或 ValueObject 称为 DTO；单侧使用 DTO；手抓 dict 重组领域对象
+
+**Mapper**:
+跨边界转换的**唯一转换点**，独立于 CRUD（不 import CRUD）。覆盖四边界亚型：`XxxMapper`(DB, ORM↔Entity↔DTO) / `MessageMapper`(Kafka, wire↔BusDTO↔Event) / `ResponseMapper`(HTTP, Entity↔WebResponse) / `CacheMapper`(Redis, wire↔CacheEntry↔Entity)。分**纯转换**（`XxxMapper`/`ResponseMapper`）与 **IO 转换**（`MessageMapper`/`CacheMapper` 带 wire 依赖）两亚型。决策见 ADR-010 §1（DB 边界）+ ADR-025（推广四边界）。
+_Avoid_: 在 Entity/DTO 类内嵌转换方法；绕过 Mapper 手抓 dict / 裸 `json.dumps`；新建与 Mapper 平行的第二个转换层（违反 ADR-022 原则 3 单一接缝）
 
 ## Relationships
 
-- **Entity 是状态的主体，DTO 是状态的信使，ORM Model 是状态的归宿。**
+- **Entity 是状态的主体，DTO 是状态的信使，ORM Model 是状态的归宿。Mapper 是唯一转换点**：Entity↔ORM Model↔DTO 所有跨形态转换经 Mapper，四边界各一亚型（ADR-025）。
 - 三者是同一业务对象的不同形态：DTO 不持有不变量，ORM Model 不持有行为，Entity 二者皆有。
 - **ValueObject** 与 Entity 同属领域层，区别在有无身份；二者皆不可与 DTO 混称。
 
@@ -59,5 +63,5 @@ _Avoid_: 把 infra 时间迁进 TimeProvider（与 Redis/交易所/Kafka 的真�
 
 ## Flagged ambiguities（时间）
 
-- `TimeProvider` docstring 旧称"系统中唯一的时间权威，所有时间获取必须通过此接口"（`trading/time/interfaces.py:23-26`）——**ADR-023 决策订正**为"业务时间的唯一权威"（源码订正落地见 #6728）。infra 时间不归它管。
+- `TimeProvider` docstring 旧称"系统中唯一的时间权威，所有时间获取必须通过此接口"（`trading/time/interfaces.py:23-26`）——**ADR-023 决策订正**为"业务时间的唯一权威"（源码订正落地见 #6728）~~源码订正（#6728）尚未落地，docstring 仍为旧文~~ ⟵ 演进：CONTEXT.md 曾称订正已落地，实际 `trading/time/interfaces.py:23-26` docstring 仍为旧文"系统中唯一的时间权威…"，现况：#6728 未落地，docstring 待更新。infra 时间不归它管。
 - `trading/livecore/workers` 的 ~74 处 `datetime.now()` 须按本节 triage：事件链上的（business）迁 `TimeMixin.now()`；infra 的（日志/心跳/TTL/退避）标注"刻意墙钟"锚点，非违规。
