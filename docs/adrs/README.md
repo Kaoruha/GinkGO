@@ -38,6 +38,7 @@
 | ADR-023 | [时间 Seam 边界（Business Time 走 TimeProvider，Infra Time 走墙钟）](ADR-023-time-seam-business-infra-split.md) | Accepted | 2026-07-18 |
 | ADR-024 | [数据库端口 +1 魔法加容器守卫 + Debug 模式语义重定义](ADR-024-db-port-injection-debug-semantics.md) | Partially Superseded（D1/D2/D3 ⟵ ADR-028） | 2026-07-20 |
 | ADR-025 | [DTO 信使角色全面复位（Mapper 家族覆盖四边界）](ADR-025-dto-messenger-full-restoration.md) | Accepted | 2026-07-24 |
+| ADR-026 | [CLI Client 模式（混合架构：数据面直连 DB + 控制面 API + JWT）](ADR-026-cli-client-mode.md) | Accepted | 2026-07-22 |
 | ADR-027 | [启动期集群一致性护栏（防 debug/host 漂移静默连错库）](ADR-027-env-cluster-consistency-guard.md) | Accepted（D1 ⟵ ADR-028） | 2026-07-25 |
 | ADR-028 | [GINKGO_ENV 与 DEBUGMODE 彻底解耦（集群选择单一旋钮）](ADR-028-env-cluster-decouple-debugmode.md) | Accepted | 2026-07-25 |
 | ADR-030 | [全链路 trace_id 传播契约（contextvars + DTO 字段 + Kafka header）](ADR-030-observability-trace-id-propagation.md) | Accepted | 2026-07-26 |
@@ -52,7 +53,6 @@
 
 ### 缺号说明
 
-- **ADR-026**：预留给 open PR #6751 的 `ADR-026-cli-client-mode`（CLI 双模，对应 ADR-024 Decision 5 的"另立 ADR"），尚未并入 master。编号占用见 [ADR-035 编号修正注](ADR-035-backtest-use-case-layer.md)。
 - **ADR-029**：跳过（无对应决策记录，正文无任何悬空引用）。
 
 ## 如何新增 / 修订

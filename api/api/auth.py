@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 import bcrypt
 
-from middleware.auth import create_access_token
+from middleware.auth import create_access_token, token_blacklist
+from jose import JWTError, jwt
 from core.config import settings
 from core.logging import logger
 from core.response import ok
@@ -170,6 +171,114 @@ async def login(login_request: LoginRequest, req: Request):
             "display_name": user_info.get("display_name", user_info["username"]),
             "is_admin": credential.is_admin
         }
+    }
+    return ok(data=response_data)
+
+
+@router.post("/refresh")
+async def refresh_token(req: Request):
+    """凭当前 (近过期) JWT 换新 JWT —— 无感续期 (ADR-026)。
+
+    - PUBLIC path，自鉴权：从 ``Authorization: Bearer`` 提取 token。
+    - jose decode 带 60s leeway，允许刚过 exp 的边界 token（应对时钟漂移）；
+      过期超过 leeway → 401，client 须重新 ``login``。
+    - 仍校验黑名单（logout/改密码撤销的 token 不能 refresh）。
+    - #5899: is_active/is_admin 从 DB 实查（与 /auth/verify、/auth/me 一致），不信任
+      payload；否则被禁用用户 / 被降权管理员可借每次 refresh 无限续期原权限。
+    - DB 查询异常 → fail-closed 拒绝续签（503，不发新 token）：is_active/is_admin 依赖 DB，
+      DB 故障时无法核验身份，不能放行续期（否则被禁用用户可借 DB 故障窗口续期）。
+      旧 token 不受影响（自然过期），仅阻断本次续签。
+    - 重签保留 user_uuid/credential_uuid/username + DB-fresh is_admin，新 jti/exp。
+
+    注：MVP 不在 refresh 时把旧 token 加入黑名单（旧 token 自然将过期）；
+    未来可做 token rotation 强撤销。
+    """
+    authorization = req.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token",
+        )
+    token = authorization[7:]
+
+    try:
+        # leeway=60s：允许刚过 exp 的边界 token，应对 client/server 时钟漂移。
+        # python-jose 的 leeway 走 options（不是顶层 kwarg），否则 TypeError。
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=["HS256"], options={"leeway": 60}
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalid or too far expired; please login again",
+        )
+
+    # 黑名单 token（logout / 改密码撤销）不允许 refresh
+    if token_blacklist.check_revoked(payload):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+        )
+
+    # #5899: is_active / is_admin 从 DB 实查（与 /auth/verify、/auth/me 一致），
+    # 不信任 JWT payload 中的值 —— 黑名单只覆盖 logout/改密码，不覆盖 disable/demote。
+    user_uuid = payload.get("user_uuid")
+    if not user_uuid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalid; please login again",
+        )
+    is_admin = False
+    try:
+        svc = get_user_service()
+        credential = svc.get_credential(user_uuid)
+        if credential is None:
+            # 凭据/用户已删除 —— 不发新 token
+            logger.warning(f"Refresh denied: credential not found, user={user_uuid}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account no longer exists",
+            )
+        if not credential.is_active:
+            # 账户已禁用 —— 不发新 token，强制重新登录（登录入口会 403）
+            logger.warning(f"Refresh denied: account disabled, user={user_uuid}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account is disabled",
+            )
+        is_admin = credential.is_admin
+    except HTTPException:
+        raise
+    except Exception as e:
+        # #5899: fail-closed —— DB 不可用时无法核验 is_active/is_admin，拒绝续签（不发新 token）。
+        # is_active/is_admin 依赖 DB，DB 故障时不能放行续期，否则被禁用（is_active=False）用户
+        # 可借 DB 故障窗口 refresh 续期。旧 token 不受影响（自然过期），仅阻断本次续签。
+        logger.warning(f"#5899: DB query failed for refresh, denying, user={user_uuid}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to verify account status; please retry shortly",
+        )
+
+    new_data = {
+        "user_uuid": user_uuid,
+        "credential_uuid": payload.get("credential_uuid"),
+        "username": payload.get("username"),
+        "is_admin": is_admin,
+    }
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    new_token = create_access_token(new_data, access_token_expires)
+    expires_at = datetime.utcnow() + access_token_expires
+
+    logger.info(f"Token refreshed for user: {payload.get('username')}")
+
+    response_data = {
+        "token": new_token,
+        "expires_at": expires_at.isoformat() + "Z",
+        "user": {
+            "uuid": new_data.get("user_uuid"),
+            "username": new_data.get("username"),
+            "is_admin": bool(new_data.get("is_admin", False)),
+        },
     }
     return ok(data=response_data)
 

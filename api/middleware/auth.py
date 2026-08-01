@@ -95,6 +95,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/login",
         "/api/v1/auth/register",
         "/api/v1/auth/verify",
+        "/api/v1/auth/refresh",
     }
 
     async def dispatch(self, request: Request, call_next):

@@ -531,6 +531,51 @@ class TestBacktestRunTaskBanner:
         assert "port-banner-" in plain, f"输出应含 Portfolio 截断，实际: {plain!r}"
 
 
+class TestBacktestRunRemoteTimeout:
+    """ADR-024 review Fix 4：``--remote --timeout N`` 必须透传到 ``RemoteBacktestRunner.run(timeout=N)``。
+
+    漏传会让 option 被接受却静默走无限轮询——正是所修的「CLI 无限阻塞」bug 回归。
+    故断言 ``run`` 调用的 ``timeout`` kwarg 与命令行一致。
+    """
+
+    @patch("ginkgo.client.remote.services.RemoteBacktestRunner")
+    def test_remote_timeout_passed_to_runner(self, mock_runner_cls):
+        from ginkgo.client.backtest_cli import app
+
+        mock_runner = MagicMock()
+        mock_runner.get_status.return_value = {"name": "RemoteBT"}
+        mock_runner.run.return_value = ("completed", {"name": "RemoteBT"}, None)
+        mock_runner_cls.return_value = mock_runner
+
+        invoke_result = runner.invoke(
+            app, ["run", "task-timeout-001", "--remote", "--timeout", "120"]
+        )
+        assert invoke_result.exit_code == 0, (
+            f"期望 exit_code=0，实际 {invoke_result.exit_code}；"
+            f"exception={invoke_result.exception!r}"
+        )
+        mock_runner.run.assert_called_once()
+        kwargs = mock_runner.run.call_args.kwargs
+        assert kwargs.get("timeout") == 120, f"timeout 应透传 120，实际 kwargs={kwargs!r}"
+
+    @patch("ginkgo.client.remote.services.RemoteBacktestRunner")
+    def test_remote_timeout_zero_normalizes_to_none(self, mock_runner_cls):
+        """``--timeout 0`` = 不限（poll_timeout 归一为 None），透传给 runner.run(timeout=None)。"""
+        from ginkgo.client.backtest_cli import app
+
+        mock_runner = MagicMock()
+        mock_runner.get_status.return_value = {"name": "RemoteBT"}
+        mock_runner.run.return_value = ("completed", {}, None)
+        mock_runner_cls.return_value = mock_runner
+
+        invoke_result = runner.invoke(
+            app, ["run", "task-timeout-002", "--remote", "--timeout", "0"]
+        )
+        assert invoke_result.exit_code == 0, invoke_result.exception
+        kwargs = mock_runner.run.call_args.kwargs
+        assert kwargs.get("timeout") is None, f"--timeout 0 应归一为 None，实际 {kwargs!r}"
+
+
 class TestBacktestRunTaskListDataGuard:
     """#6449 review fix: result.data 是 list（非 dict）时 FINALIZING 不得抛 AttributeError。
 
