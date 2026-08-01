@@ -856,9 +856,11 @@ class BacktestTaskService(BaseService):
             kafka_config = {}
             # 从 snapshot 恢复所有字段作为基础
             # ADR-018：死字段 broker_type/broker_attitude/commission_min 不进 wire spec（消费端 BacktestConfig 不读）
+            # ADR-037 方案B：fill_price_policy 与 slippage_rate 同列透传——消费端 BacktestConfig 读此字段
+            # 决定成交价模型；漏传则 DTO 回退默认 attitude，--fill-price-policy slippage 在 API/WebUI→Kafka→worker 路径静默失效
             for key in ("initial_cash", "commission_rate", "slippage_rate", "frequency",
                         "benchmark_return", "max_position_ratio",
-                        "stop_loss_ratio", "take_profit_ratio"):
+                        "stop_loss_ratio", "take_profit_ratio", "fill_price_policy"):
                 if key in snapshot_config:
                     kafka_config[key] = snapshot_config[key]
 

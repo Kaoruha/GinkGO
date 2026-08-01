@@ -40,6 +40,7 @@ def _make_task(**overrides):
         "initial_cash": 200000.0,
         "commission_rate": 0.0005,
         "slippage_rate": 0.0002,
+        "fill_price_policy": "slippage",
         "frequency": "DAY",
     })
     for k, v in overrides.items():
@@ -108,7 +109,28 @@ class TestStartTaskRestoresConfigFromSnapshot:
         assert config["initial_cash"] == 200000.0
         assert config["commission_rate"] == 0.0005
         assert config["slippage_rate"] == 0.0002
+        assert config["fill_price_policy"] == "slippage"
         assert config["frequency"] == "DAY"
+
+    @pytest.mark.unit
+    def test_fill_price_policy_passthrough_to_kafka_config(self, service):
+        """ADR-037 方案B：fill_price_policy 必须透传到 Kafka config。漏传则 worker 回退默认 attitude，
+        --fill-price-policy slippage 在 API/WebUI→Kafka→worker 路径静默失效（Epic #6851 死参数痛点）。"""
+        task = _make_task(config_snapshot=json.dumps({
+            "start_date": "2025-06-01",
+            "end_date": "2026-06-01",
+            "fill_price_policy": "slippage",
+            "slippage_rate": 0.002,
+        }))
+        _setup_task(service, task)
+
+        with _mock_kafka_and_container() as mock_producer:
+            result = service.start_task(uuid="uuid-1234-5678")
+
+        assert result.is_success(), f"start_task failed: {result.error}"
+        config = _get_kafka_config(mock_producer)
+        assert config["fill_price_policy"] == "slippage"
+        assert config["slippage_rate"] == 0.002
 
     @pytest.mark.unit
     def test_explicit_params_override_config_snapshot(self, service):
