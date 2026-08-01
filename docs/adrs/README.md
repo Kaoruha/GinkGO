@@ -47,6 +47,8 @@
 | ADR-034 | [signal 跨库同名陷阱（CH 事件流 vs MySQL tracker）](ADR-034-signal-cross-store-namesake.md) | Accepted（含现状偏离） | 2026-07-28 |
 | ADR-035 | [回测应用用例层（BacktestUseCase Protocol）](ADR-035-backtest-use-case-layer.md) | Accepted | 2026-07-05 |
 | ADR-036 | [回测 fill 时序无后视（T+1 延迟队列 + 两阶段推进）](ADR-036-backtest-fill-no-lookahead.md) | Accepted | 2026-07-28 |
+| ADR-038 | [日志表 TTL 自动清理（ginkgo_logs_* 三表 TTL 接线 + 存量 drop/reseed）](ADR-038-log-table-ttl-cleanup.md) | Accepted | 2026-07-29 |
+| ADR-039 | [实盘走 ExecutionNode 分布式，移除 LiveEngine 迁移孤儿](ADR-039-liveengine-removal-distributed-live.md) | Accepted | 2026-07-29 |
 
 ### 缺号说明
 
