@@ -394,8 +394,12 @@ def add(value, *args, **kwargs) -> any:
     """
     from ginkgo.data.models import MClickBase, MMysqlBase
     if not isinstance(value, (MClickBase, MMysqlBase)):
-        GLOG.ERROR(f"Can not add {value} to database.")
-        return
+        # ADR-029 §Decision 1：响亮失败铁律。非 Model 入 driver 应 raise 而非 silent None，
+        # 避免上层（add_batch 经 _do_add_batch）误判成功。Entity→Model 收敛由 Mapper 承担。
+        raise TypeError(
+            f"drivers.add expects MClickBase/MMysqlBase instance, got {type(value).__name__}; "
+            f"convert via Mapper.entity_to_model before add."
+        )
 
     GLOG.DEBUG("Try add data to session.")
     session = kwargs.get("session")

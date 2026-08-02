@@ -560,45 +560,6 @@ class TickCRUD:
         except (ValueError, TypeError):
             return value  # Return original value if conversion fails
 
-    def _convert_models_to_dataframe(self, models) -> pd.DataFrame:
-        """
-        标准接口：转换Tick Models为DataFrame，包含枚举转换
-        支持单个或多个models
-
-        Args:
-            models: 单个Tick Model或Tick Model列表
-
-        Returns:
-            pandas DataFrame
-        """
-        # 获取枚举映射
-        enum_mappings = self._get_enum_mappings()
-
-        # 处理单个model或多个models
-        if not isinstance(models, list):
-            models = [models]
-
-        if not models:
-            return pd.DataFrame()
-
-        # 批量转换
-        data = []
-        for model in models:
-            model_dict = model.__dict__.copy()
-            model_dict.pop('_sa_instance_state', None)
-
-            # 转换枚举字段
-            for column, enum_class in enum_mappings.items():
-                if column in model_dict:
-                    current_value = model_dict[column]
-                    converted_value = self._safe_enum_convert(current_value, enum_class)
-                    if converted_value is not None:
-                        model_dict[column] = converted_value
-
-            data.append(model_dict)
-
-        return pd.DataFrame(data)
-
     # ============================================================================
     # Business Helper Methods - Use these for common query patterns
     # ============================================================================

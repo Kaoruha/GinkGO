@@ -188,11 +188,12 @@ class _CoreCRUD(Generic[T], ABC):
             DF 转换走 ``ginkgo.data.mappers.models_to_dataframe``）
         """
         try:
-            # 只进行类型转换，不进行数据验证
-            converted_items = self._convert_input_batch(items)
-            result = self._do_add_batch(converted_items, session)
+            # ADR-029 §Decision 1：转换钩子族退役，items 须为 Model 实例列表。
+            # 非 Model 入 driver.add/add_all 会 raise（响亮失败铁律）。
+            # enum 字段在 _do_add_batch 内逐项 _validate_item_enum_fields 校正。
+            result = self._do_add_batch(items, session)
             # 返回实际插入的对象（已解绑session），而不是原始转换的对象
-            return list(converted_items)
+            return list(items)
         except Exception as e:
             GLOG.ERROR(f"Failed to add {self.model_class.__name__} items in batch: {e}")
             raise
@@ -502,12 +503,14 @@ class _CoreCRUD(Generic[T], ABC):
         """
         Hook method: Override to customize batch addition logic.
         """
-        converted_items = self._convert_input_batch(items)
+        # ADR-029 §Decision 1：转换收敛到 Mapper（调用方在 service 层经
+        # ``entity_to_model`` 转 Model 实例后传入）；本 hook 仅做 enum 校正。
+        validated_items = [self._validate_item_enum_fields(item) for item in items]
 
         with self._session_scope(session) as s:
-            result = add_all(converted_items, session=s)
+            result = add_all(validated_items, session=s)
 
-        GLOG.DEBUG(f"Added {len(converted_items)} {self.model_class.__name__} items in batch")
+        GLOG.DEBUG(f"Added {len(validated_items)} {self.model_class.__name__} items in batch")
         return result
 
     def _do_find(
@@ -596,7 +599,9 @@ class _CoreCRUD(Generic[T], ABC):
                 for obj in results:
                     s.expunge(obj)
 
-            return self._convert_output_items(results)
+            # ADR-029 §Decision 1：_convert_output_items hook 退役，find 恒返原始 list。
+            # 出站转换（Entity/DF）由 service 层走 Mapper / models_to_dataframe。
+            return results
 
     def _do_remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> None:
         """

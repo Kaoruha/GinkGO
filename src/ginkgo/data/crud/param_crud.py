@@ -56,18 +56,8 @@ class ParamCRUD(BaseCRUD[MParam]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MParam]:
-        """
-        Hook method: Convert param objects to MParam.
-        """
-        if hasattr(item, 'mapping_id'):
-            return MParam(
-                mapping_id=getattr(item, 'mapping_id', ''),
-                index=getattr(item, 'index', 0),
-                value=getattr(item, 'value', ''),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役。
+    # 调用方 mapping_service.add_batch:575 / deployment_service.add:509 均传 MParam 实例。
 
     # Business Helper Methods
     def find_by_mapping_id(self, mapping_id: str) -> list:

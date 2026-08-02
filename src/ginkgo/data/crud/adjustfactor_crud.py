@@ -113,27 +113,9 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TUSHARE)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MAdjustfactor]:
-        """
-        Hook method: Convert adjustment factor objects to MAdjustfactor for database operations.
-        Called by BaseCRUD.add_batch() template method.
-        Automatically gets @time_logger + @retry effects.
-        """
-        if hasattr(item, "timestamp") and hasattr(item, "code") and hasattr(item, "adjustfactor"):
-            code = getattr(item, "code")
-            # #5431: 空 code 跳过该行(返回 None),防 order_by 首键被空值污染默认分页。
-            # 批量入库跳过坏行 > 中断整批;None=跳过是本 hook 既有契约。
-            if not code:
-                return None
-            return MAdjustfactor(
-                timestamp=datetime_normalize(getattr(item, "timestamp")),
-                code=code,
-                foreadjustfactor=to_decimal(getattr(item, "foreadjustfactor", 1.0)),
-                backadjustfactor=to_decimal(getattr(item, "backadjustfactor", 1.0)),
-                adjustfactor=to_decimal(getattr(item, "adjustfactor", 1.0)),
-                source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.TUSHARE)),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役。
+    # 调用方 adjustfactor_service.add:145 经 mappers.dataframe_to_adjustfactor_models
+    # 转 MAdjustfactor 实例后传入，isinstance(model_class) 短路直传 driver。
 
     # ============================================================================
     # Business Helper Methods - Use these for common query patterns

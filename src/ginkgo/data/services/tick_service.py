@@ -638,9 +638,9 @@ class TickService(BaseService):
                     'volume': t.volume,
                     'direction': t.direction
                 } for t in tick_data])
-            elif hasattr(tick_data, 'to_dataframe'):
-                df = tick_data.to_dataframe()
             else:
+                # ADR-029 §Decision 9：ModelList 退役后无 to_dataframe 路径，
+                # 非列表输入假定已是 DataFrame。
                 df = tick_data
 
             # Basic validations

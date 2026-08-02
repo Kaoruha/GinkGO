@@ -90,33 +90,9 @@ class FileCRUD(BaseCRUD[MFile]):
             desc=kwargs.get("desc"),  # 添加desc参数
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MFile]:
-        """
-        Hook method: Convert file objects to MFile.
-        """
-        if isinstance(item, FileInfo):
-            # Convert string type to enum if needed
-            file_type = item.type
-            if isinstance(file_type, str):
-                type_mapping = {
-                    "TEXT": FILE_TYPES.OTHER,
-                    "PYTHON": FILE_TYPES.STRATEGY,
-                    "JSON": FILE_TYPES.OTHER,
-                    "ANALYZER": FILE_TYPES.ANALYZER,
-                    "INDEX": FILE_TYPES.INDEX,
-                    "STRATEGY": FILE_TYPES.STRATEGY,
-                    "ENGINE": FILE_TYPES.ENGINE,
-                    "HANDLER": FILE_TYPES.HANDLER,
-                }
-                file_type = type_mapping.get(file_type.upper(), FILE_TYPES.OTHER)
-            
-            return MFile(
-                type=FILE_TYPES.validate_input(file_type),
-                name=item.name,
-                data=getattr(item, 'data', b""),
-                source=SOURCE_TYPES.validate_input(item.source),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役。
+    # 调用方 file_service.add:688 经 create_new_version 构造 MFile 实例后传入；
+    # FileInfo Entity 路径在生产代码中无 .add 调用（如需，应在 service 层经 Mapper 完成）。
 
     # Business Helper Methods
     def find_by_file_id(self, file_id: str) -> List[MFile]:

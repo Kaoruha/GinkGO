@@ -30,8 +30,6 @@ from ginkgo.data.services.analyzer_service import AnalyzerService
 
 
 def _make_empty_modellist() -> list:
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
     return []
 
 
@@ -39,8 +37,6 @@ def _make_analyzer_modellist() -> list:
     from ginkgo.data.models import MAnalyzerRecord
 
     model = MAnalyzerRecord()
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"name": "SharpeRatio", "value": 1.5}])
     return [model]
 
 

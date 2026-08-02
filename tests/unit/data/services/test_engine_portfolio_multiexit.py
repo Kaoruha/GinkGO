@@ -29,8 +29,6 @@ from ginkgo.data.services.portfolio_service import PortfolioService
 
 
 def _make_empty_modellist() -> list:
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
     return []
 
 
@@ -38,8 +36,6 @@ def _make_engine_modellist() -> list:
     from ginkgo.data.models import MEngine
 
     model = MEngine(name="test-engine", is_live=False)
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"name": "test-engine", "is_live": False}])
     return [model]
 
 
@@ -47,8 +43,6 @@ def _make_portfolio_modellist() -> list:
     from ginkgo.data.models import MPortfolio
 
     model = MPortfolio(name="test-portfolio")
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"name": "test-portfolio"}])
     return [model]
 
 

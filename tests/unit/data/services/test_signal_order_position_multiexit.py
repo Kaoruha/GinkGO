@@ -34,8 +34,6 @@ from ginkgo.data.services.position_service import PositionService
 
 
 def _make_empty_modellist() -> list:
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
     return []
 
 
@@ -43,8 +41,6 @@ def _make_signal_modellist() -> list:
     from ginkgo.data.models import MSignal
 
     model = MSignal()
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"code": "000001.SZ", "direction": 1}])
     return [model]
 
 
@@ -52,8 +48,6 @@ def _make_order_modellist() -> list:
     from ginkgo.data.models import MOrder
 
     model = MOrder()
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"code": "000001.SZ", "status": 3}])
     return [model]
 
 
@@ -61,8 +55,6 @@ def _make_position_modellist() -> list:
     from ginkgo.data.models import MPosition
 
     model = MPosition()
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"code": "000001.SZ", "volume": 100}])
     return [model]
 
 

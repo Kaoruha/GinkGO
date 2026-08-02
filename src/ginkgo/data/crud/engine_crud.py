@@ -101,23 +101,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
             engine_kwargs["desc"] = kwargs["desc"]
         return MEngine(**engine_kwargs)
 
-    def _convert_input_item(self, item: Any) -> Optional[MEngine]:
-        """
-        Hook method: Convert engine objects to MEngine.
-        """
-        if hasattr(item, "name"):
-            return MEngine(
-                name=getattr(item, "name", "test_engine"),
-                status=ENGINESTATUS_TYPES.validate_input(getattr(item, "status", ENGINESTATUS_TYPES.IDLE)),
-                is_live=getattr(item, "is_live", False),
-                source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
-                config_hash=getattr(item, "config_hash", ""),
-                current_task_id=getattr(item, "current_task_id", ""),
-                run_count=getattr(item, "run_count", 0),
-                config_snapshot=getattr(item, "config_snapshot", "{}"),
-                broker_attitude=ATTITUDE_TYPES.validate_input(getattr(item, "broker_attitude", ATTITUDE_TYPES.OPTIMISTIC)),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役（生产无 .add/.add_batch 调用）。
 
     # Business Helper Methods
     def find_by_uuid(self, uuid: str) -> List[MEngine]:

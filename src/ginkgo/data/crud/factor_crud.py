@@ -91,16 +91,13 @@ class FactorCRUD(BaseCRUD[MFactor]):
         )
         return factor
 
-    def _convert_input_item(self, item: Any) -> Optional[MFactor]:
+    def _dict_to_factor(self, item: Any) -> Optional[MFactor]:
+        """dict/Series → MFactor 私有转换（ADR-029 §Decision 7 逃生口）。
+
+        factor 不接 Entity，本就不走 Mapper.entity_to_model 范式；mixin 转换钩子
+        退役后由本类承担。dict/Series → ``_create_from_params`` → MFactor。
         """
-        支持输入类型转换
-        
-        Args:
-            item: 输入项，可以是字典、Series等
-            
-        Returns:
-            Optional[MFactor]: 转换后的因子对象
-        """
+
         if isinstance(item, dict):
             try:
                 return self._create_from_params(**item)
@@ -114,6 +111,24 @@ class FactorCRUD(BaseCRUD[MFactor]):
                 GLOG.DEBUG(f"Failed to convert Series to MFactor: {e}")
                 return None
         return None
+
+    def add_batch(self, items: List[Any], session: Optional[Any] = None) -> list:
+        """Override: dict/Series 入站先经 ``_dict_to_factor`` 转 MFactor，
+        再走 ``BaseCRUD.add_batch`` 标准路径。
+
+        ADR-029 §Decision 7 逃生口：factor_service.add_factor_batch:115 传 dict
+        列表（validated_factors），本 override 内联转换以避免 driver raise
+        （响亮失败铁律对 dict 入站的有限豁免）。Model 实例透传 super().add_batch。
+        """
+        converted: List[MFactor] = []
+        for item in items:
+            if isinstance(item, MFactor):
+                converted.append(item)
+            else:
+                m = self._dict_to_factor(item)
+                if m is not None:
+                    converted.append(m)
+        return super().add_batch(converted, session)
 
     # ============================================================================
     # 因子特化查询方法

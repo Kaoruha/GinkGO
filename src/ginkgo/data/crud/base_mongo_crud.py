@@ -470,37 +470,6 @@ class BaseMongoCRUD(Generic[T], ABC):
         return self.get(uuid) is not None
 
     @time_logger
-    def _convert_to_business_objects(self, models: List[T]) -> List[Any]:
-        """
-        转换为业务对象（占位实现）
-
-        Args:
-            models: 模型列表
-
-        Returns:
-            业务对象列表
-        """
-        # 默认返回模型本身，子类可以重写
-        return models
-
-    @time_logger
-    def _convert_models_to_dataframe(self, models: List[T]) -> pd.DataFrame:
-        """
-        转换为 DataFrame
-
-        Args:
-            models: 模型列表
-
-        Returns:
-            pandas DataFrame
-        """
-        if not models:
-            return pd.DataFrame()
-
-        # 使用 Pydantic 的 model_dump 方法
-        return pd.DataFrame([model.model_dump() for model in models])
-
-    @time_logger
     def _process_dataframe_output(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         处理 DataFrame 输出（占位实现）

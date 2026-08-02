@@ -11,8 +11,8 @@ def _model_list(rows, dataframe=None):
     """构造 list 形态 CRUD 结果。
 
     ADR-029 §Decision 9：CRUD 直接返 list，service 调 ``models_to_dataframe`` 走
-    ``__table__`` 反射。原 ``crud._convert_models_to_dataframe`` 桩已失效——若需
-    控制 DF 输出，调用方应直接 ``patch models_to_dataframe``。
+    ``__table__`` 反射。原 CRUD DF 钩子桩已失效（hook 已退役）——若需控制 DF
+    输出，调用方应直接 ``patch models_to_dataframe``。
     """
     return list(rows)
 

@@ -27,8 +27,6 @@ from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
 
 
 def _make_empty_modellist() -> list:
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
     return []
 
 
@@ -37,10 +35,6 @@ def _make_bar_modellist() -> list:
 
     model = MBar(code="000001", open=10.0, high=11.0, low=9.5, close=10.5,
                  volume=1000, amount=10500.0, frequency=1)
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"code": "000001", "open": 10.0}]
-    )
     return [model]
 
 

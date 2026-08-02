@@ -316,7 +316,7 @@ class TestOrderBusinessMethods:
 
     @pytest.mark.unit
     def test_get_order_summary_non_empty_buckets(self, crud_instance):
-        """get_order_summary 非空时应按状态正确分桶（status 为枚举实例，模拟 find 经 _convert_output_items 转换后的真实形态）。关联 #6092"""
+        """get_order_summary 非空时应按状态正确分桶（status 为枚举实例，模拟 find 出站形态）。关联 #6092"""
         def mk(status, volume, tv=0, tp=0, fee=0):
             o = MagicMock()
             o.status = status

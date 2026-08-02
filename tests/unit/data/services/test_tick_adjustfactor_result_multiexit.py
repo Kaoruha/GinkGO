@@ -35,8 +35,6 @@ from ginkgo.data.services.result_service import ResultService
 
 
 def _make_empty_modellist() -> list:
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
     return []
 
 
@@ -44,10 +42,6 @@ def _make_tick_modellist() -> list:
     from ginkgo.data.models import MTick
 
     model = MTick()
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"code": "000001.SZ", "price": 10.0, "volume": 100}]
-    )
     return [model]
 
 
@@ -55,10 +49,6 @@ def _make_adjustfactor_modellist() -> list:
     from ginkgo.data.models import MAdjustfactor
 
     model = MAdjustfactor()
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"code": "000001.SZ", "adjust_factor": 1.0}]
-    )
     return [model]
 
 
@@ -66,10 +56,6 @@ def _make_analyzer_modellist() -> list:
     from ginkgo.data.models import MAnalyzerRecord
 
     model = MAnalyzerRecord()
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"name": "net_value", "value": 1.05}]
-    )
     return [model]
 
 

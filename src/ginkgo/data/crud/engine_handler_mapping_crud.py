@@ -57,17 +57,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MEngineHandlerMapping]:
-        """
-        Hook method: Convert mapping objects to MEngineHandlerMapping.
-        """
-        if hasattr(item, 'engine_id') and hasattr(item, 'handler_id'):
-            return MEngineHandlerMapping(
-                engine_id=getattr(item, 'engine_id'),
-                handler_id=getattr(item, 'handler_id'),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役（生产无 .add/.add_batch 调用）。
 
     # Business Helper Methods
     def find_by_engine(self, engine_id: str) -> List[MEngineHandlerMapping]:

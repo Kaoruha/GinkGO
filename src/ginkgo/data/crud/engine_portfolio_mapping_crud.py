@@ -59,20 +59,8 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MEnginePortfolioMapping]:
-        """
-        Hook method: Convert mapping objects to MEnginePortfolioMapping.
-        只使用模型实际支持的字段：engine_id, portfolio_id, engine_name, portfolio_name, source
-        """
-        if hasattr(item, 'engine_id') and hasattr(item, 'portfolio_id'):
-            return MEnginePortfolioMapping(
-                engine_id=getattr(item, 'engine_id'),
-                portfolio_id=getattr(item, 'portfolio_id'),
-                engine_name=getattr(item, 'engine_name', ''),
-                portfolio_name=getattr(item, 'portfolio_name', ''),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役。
+    # 调用方 mapping_service.add_batch:306 传 MEnginePortfolioMapping 实例。
 
     # Business Helper Methods
     

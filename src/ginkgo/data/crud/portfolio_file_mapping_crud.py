@@ -58,20 +58,8 @@ class PortfolioFileMappingCRUD(BaseCRUD[MPortfolioFileMapping]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MPortfolioFileMapping]:
-        """
-        Hook method: Convert mapping objects to MPortfolioFileMapping.
-        只使用模型实际支持的字段：portfolio_id, file_id, name, type, source
-        """
-        if hasattr(item, 'portfolio_id') and hasattr(item, 'file_id'):
-            return MPortfolioFileMapping(
-                portfolio_id=getattr(item, 'portfolio_id'),
-                file_id=getattr(item, 'file_id'),
-                name=getattr(item, 'name', 'ginkgo_bind'),
-                type=FILE_TYPES.validate_input(getattr(item, 'type', FILE_TYPES.OTHER)),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役。
+    # 调用方 mapping_service.add_batch:413 传 MPortfolioFileMapping 实例。
 
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str) -> list:

@@ -57,9 +57,6 @@ class TestBaseCRUDAbstract:
             def _create_from_params(self, **kwargs):
                 return MagicMock()
 
-            def _convert_input_item(self, item):
-                return None
-
         # 验证自动注册被调用
         mock_mapping.register.assert_called_once_with(MBar, MinimalBarCRUD)
 

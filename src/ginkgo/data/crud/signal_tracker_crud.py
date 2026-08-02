@@ -102,70 +102,9 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             execution_mode=EXECUTION_MODE.validate_input(kwargs.get("execution_mode", EXECUTION_MODE.PAPER)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MSignalTracker]:
-        """
-        转换输入项为 MSignalTracker 对象
-
-        Args:
-            item: 输入项 (Signal, dict, pd.Series 等)
-
-        Returns:
-            Optional[MSignalTracker]: 转换后的对象
-        """
-        if isinstance(item, MSignalTracker):
-            return item
-        elif isinstance(item, Signal):
-            # 从Signal对象创建追踪记录
-            return MSignalTracker(
-                signal_id=item.uuid,
-                portfolio_id=item.portfolio_id,
-                expected_code=item.code,
-                expected_direction=DIRECTION_TYPES.validate_input(getattr(item, 'direction', DIRECTION_TYPES.LONG)),
-                expected_price=float(getattr(item, 'price', 0)),
-                expected_volume=getattr(item, 'volume', 0),
-                expected_timestamp=datetime_normalize(getattr(item, 'timestamp')),
-                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp')),
-                engine_id=getattr(item, 'engine_id', ''),
-                task_id=getattr(item, 'task_id', ''),
-                account_type=ACCOUNT_TYPE.validate_input(getattr(item, 'account_type', ACCOUNT_TYPE.PAPER)),
-                execution_mode=EXECUTION_MODE.validate_input(getattr(item, 'execution_mode', EXECUTION_MODE.PAPER)),
-            )
-        elif isinstance(item, dict):
-            # 从字典创建追踪记录，使用模型构造函数
-            return MSignalTracker(
-                signal_id=item.get('signal_id'),
-                strategy_id=item.get('strategy_id', ''),
-                portfolio_id=item.get('portfolio_id'),
-                expected_code=item.get('expected_code'),
-                expected_direction=DIRECTION_TYPES.validate_input(item.get('expected_direction')),
-                expected_price=to_decimal(item.get('expected_price')),
-                expected_volume=item.get('expected_volume'),
-                expected_timestamp=datetime_normalize(item.get('expected_timestamp')),
-                business_timestamp=datetime_normalize(item.get('business_timestamp')),
-                engine_id=item.get('engine_id', ''),
-                task_id=item.get('task_id', ''),
-                account_type=ACCOUNT_TYPE.validate_input(item.get('account_type')),
-                execution_mode=EXECUTION_MODE.validate_input(item.get('execution_mode')),
-            )
-        elif isinstance(item, pd.Series):
-            # 从pandas Series创建追踪记录
-            return MSignalTracker(
-                signal_id=item.get("signal_id"),
-                portfolio_id=item.get("portfolio_id"),
-                expected_code=item.get("expected_code"),
-                expected_direction=DIRECTION_TYPES.validate_input(item.get("expected_direction")),
-                expected_price=to_decimal(item.get("expected_price")),
-                expected_volume=item.get("expected_volume"),
-                expected_timestamp=datetime_normalize(item.get("expected_timestamp")),
-                business_timestamp=datetime_normalize(item.get("business_timestamp")),
-                engine_id=item.get("engine_id", ""),
-                task_id=item.get("task_id", ""),
-                account_type=ACCOUNT_TYPE.validate_input(item.get("account_type")),
-                execution_mode=EXECUTION_MODE.validate_input(item.get("execution_mode")),
-            )
-        else:
-            GLOG.WARN(f"Unsupported input type: {type(item)}")
-            return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役（4 路多态：Model/Signal/dict/Series）。
+    # 调用方 signal_tracking_service.add:89 经 MSignalTracker(...) 直接构造后传入；
+    # Signal/dict/Series 三分支无生产调用方。
 
     def find_by_signal_id(self, signal_id: str) -> Optional[MSignalTracker]:
         """

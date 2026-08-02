@@ -115,22 +115,8 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MAnalyzerRecord]:
-        """
-        Hook method: Convert analyzer record objects to MAnalyzerRecord.
-        """
-        if hasattr(item, 'portfolio_id') and (hasattr(item, 'name') or hasattr(item, 'analyzer_name')):
-            return MAnalyzerRecord(
-                portfolio_id=getattr(item, 'portfolio_id'),
-                engine_id=getattr(item, 'engine_id', ''),
-                name=getattr(item, 'name', getattr(item, 'analyzer_name', '')),
-                analyzer_id=getattr(item, 'analyzer_id', ''),
-                timestamp=datetime_normalize(getattr(item, 'timestamp', datetime.now())),
-                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
-                value=to_decimal(getattr(item, 'value', 0)),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役（生产无 .add/.add_batch 调用，
+    # analyzer_service.add_record 走 .create → _create_from_params）。
 
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str, analyzer_name: Optional[str] = None,
