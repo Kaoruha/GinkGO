@@ -251,6 +251,11 @@ class TestDeleteOrdersByPortfolio:
         assert result.is_success()
         mock_crud.delete_by_portfolio.assert_called_once_with("portfolio-123")
 
+    def test_rejects_empty_portfolio_id(self, order_svc):
+        result = order_svc.delete_orders_by_portfolio("")
+
+        assert result.is_failure()
+
 
 class TestUpsertOrderStatusOverride:
     """ADR-029 Task 8：upsert_order ``status_override``（回测 4 态接线）。
@@ -401,11 +406,6 @@ class TestCreateOrderRecord:
 
         assert result.is_failure()
         assert "DB connection failed" in result.message
-
-    def test_rejects_empty_portfolio_id(self, order_svc):
-        result = order_svc.delete_orders_by_portfolio("")
-
-        assert result.is_failure()
 
 
 class TestGetOrdersDfFilters:

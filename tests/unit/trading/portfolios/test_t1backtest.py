@@ -1001,21 +1001,48 @@ class TestSaveOrderRecordDoubleWrite:
 
             assert mock_order_service.upsert_order.call_args.kwargs["status_override"] == target_status
 
-    def test_morder_upsert_failure_does_not_mask_morderrecord_success(self):
-        """MOrder upsert 失败：MOrderRecord 已写，整体仍返回 success（不互相阻塞）。"""
+    def test_morder_upsert_failure_returns_false_but_morderrecord_still_written(self):
+        """fix1 Important #1：MOrder upsert 失败 → 返回 False（诚实传播响亮失败），
+        但 MOrderRecord 仍写（双写解耦不中断回测，WARN 非 raise）。"""
         p = self._make_portfolio_for_save()
         order = _make_order()
 
+        mock_result_service = MagicMock()
+        mock_result_service.create_order_record.return_value = MagicMock(success=True)
         mock_order_service = MagicMock()
         mock_order_service.upsert_order.return_value = MagicMock(
             is_success=Mock(return_value=False), message="DB error"
         )
         with patch('ginkgo.data.containers.container') as mock_container, \
              patch('ginkgo.trading.portfolios.t1backtest.container', mock_container):
-            mock_container.result_service().create_order_record.return_value = MagicMock(success=True)
+            mock_container.result_service.return_value = mock_result_service
             mock_container.order_service.return_value = mock_order_service
 
             result = p._save_order_record(order, ORDERSTATUS_TYPES.NEW)
 
-        # MOrderRecord 已写 → 整体 success（WARN 不阻塞）
-        assert result is True
+        # fix1 Important #1：返回值诚实——MOrder upsert 失败 → False（非 True）
+        assert result is False
+        # 双写解耦保留：MOrderRecord 仍写（不因 MOrder 失败而 skip）
+        mock_result_service.create_order_record.assert_called_once()
+        mock_order_service.upsert_order.assert_called_once()
+
+    def test_morderrecord_failure_returns_false(self):
+        """fix1 Important #1：MOrderRecord 失败 → 返回 False（响亮失败铁律）。"""
+        p = self._make_portfolio_for_save()
+        order = _make_order()
+
+        mock_result_service = MagicMock()
+        mock_result_service.create_order_record.return_value = MagicMock(success=False)
+        mock_order_service = MagicMock()
+        mock_order_service.upsert_order.return_value = MagicMock(
+            is_success=Mock(return_value=True), message="ok"
+        )
+        with patch('ginkgo.data.containers.container') as mock_container, \
+             patch('ginkgo.trading.portfolios.t1backtest.container', mock_container):
+            mock_container.result_service.return_value = mock_result_service
+            mock_container.order_service.return_value = mock_order_service
+
+            result = p._save_order_record(order, ORDERSTATUS_TYPES.NEW)
+
+        # MOrderRecord 失败 → False（即使 MOrder upsert 成功）
+        assert result is False

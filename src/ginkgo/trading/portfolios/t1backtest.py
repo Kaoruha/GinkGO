@@ -517,12 +517,22 @@ class PortfolioT1Backtest(PortfolioBase):
           ``status_override`` 必传——事件链中 ``order.status`` 是事件前状态
           （NEW/SUBMITTED），MOrder 须写事件后状态。
 
+        双写解耦设计（fix1 Important #1）：双写独立，**任一失败不 raise、不中断
+        回测**——MOrderRecord 是审计层（必成功），MOrder 是当前态（best-effort）。
+        但**返回值诚实反映双写结果**（响亮失败铁律）：双写均成→True，MOrder
+        upsert 失败→False（同时 WARN 含 upsert_result.message，非静默）。4 调用方
+        （on_signal/on_order_partially_filled/on_order_rejected/on_order_cancel_ack）
+        均不消费返回值，故改返回值语义不影响调用方。
+
         Args:
             order: 订单对象
             status: 订单状态（事件后目标状态）
             transaction_price: 成交价格
             transaction_volume: 成交数量
             fee: 手续费
+
+        Returns:
+            bool: 双写均成功 True；MOrderRecord 失败或 MOrder upsert 失败 False
         """
         try:
             from ginkgo.data.containers import container
@@ -559,7 +569,8 @@ class PortfolioT1Backtest(PortfolioBase):
                 )
 
             GLOG.INFO(f"[PERSISTENCE] Order record saved: code={order.code} status={status.name} price={transaction_price} vol={transaction_volume}")
-            return result.success
+            # fix1 Important #1：诚实返回双写结果（响亮失败铁律），双写解耦意图不变（不 raise）
+            return bool(result.success) and upsert_result.is_success()
         except Exception as e:
             GLOG.ERROR(f"[PERSISTENCE ERROR] Failed to save order record: {e}")
             self.blog.log_engine_error_event(error_code="ORDER_SAVE_FAILED", error_message=str(e))
