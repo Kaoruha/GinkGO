@@ -142,6 +142,81 @@ class TestUpdateOrder:
         assert result.is_failure()
 
 
+class TestUpsertOrder:
+    """ADR-029 Task 7：upsert_order seam（暂不被调，为 Task 8 实盘订单持久化铺路）。
+
+    存在判断：order_crud.get_by_uuid。
+      - 存在 → 复用 update_order（modify 语义，仅更可变字段）
+      - 不存在 → OrderMapper.entity_to_model → order_crud.add
+    """
+
+    def test_insert_when_not_exists(self, order_svc, mock_crud):
+        """uuid 不存在 → mapper.entity_to_model → crud.add（insert 分支）。"""
+        from ginkgo.entities import Order
+        from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+
+        mock_crud.get_by_uuid.return_value = None
+        mock_crud.add.return_value = None
+
+        order = Order(
+            portfolio_id="p1", engine_id="e1", task_id="t1",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.MARKETORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=100, limit_price=10.0,
+        )
+
+        result = order_svc.upsert_order(order)
+
+        assert result.is_success()
+        assert result.data["action"] == "insert"
+        mock_crud.get_by_uuid.assert_called_once_with(order.uuid)
+        mock_crud.add.assert_called_once()
+        # add 收到的是 MOrder（经 OrderMapper.entity_to_model）
+        added = mock_crud.add.call_args[0][0]
+        from ginkgo.data.models import MOrder
+        assert isinstance(added, MOrder)
+        assert added.code == "000001.SZ"
+
+    def test_update_when_exists(self, order_svc, mock_crud):
+        """uuid 存在 → 走 update_order（modify 分支，不调 add）。"""
+        from ginkgo.entities import Order
+        from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+
+        existing = MagicMock()
+        existing.uuid = "existing-uuid"
+        mock_crud.get_by_uuid.return_value = existing
+        mock_crud.modify.return_value = None
+
+        order = Order(
+            portfolio_id="p1", engine_id="e1", task_id="t1",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.MARKETORDER,
+            status=ORDERSTATUS_TYPES.FILLED,
+            volume=100, limit_price=10.0,
+            uuid="existing-uuid",
+        )
+
+        result = order_svc.upsert_order(order)
+
+        assert result.is_success()
+        assert result.data["action"] == "update"
+        mock_crud.get_by_uuid.assert_called_once_with("existing-uuid")
+        mock_crud.add.assert_not_called()
+        mock_crud.modify.assert_called_once()
+
+    def test_rejects_order_without_uuid(self, order_svc):
+        # Order Entity 构造时 uuid="" 会自动生成（Base.__init__）；用 MagicMock
+        # 模拟无 uuid 的订单对象，覆盖守卫分支。
+        order = MagicMock()
+        order.uuid = None
+
+        result = order_svc.upsert_order(order)
+        assert result.is_failure()
+
+
 class TestGetOrderSummary:
     """See #18: 订单统计分析，从 CRUD 查询后计算指标"""
 

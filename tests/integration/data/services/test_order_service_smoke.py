@@ -10,6 +10,8 @@ Run: pytest tests/integration/data/services/test_order_service_smoke.py -v -s
 import pytest
 
 from ginkgo.data.containers import container
+from ginkgo.data.mappers import OrderMapper
+from ginkgo.entities import Order
 from ginkgo.enums import ORDERSTATUS_TYPES, ORDER_TYPES, DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import GCONF
 
@@ -24,6 +26,35 @@ def order_svc():
     return container.order_service()
 
 
+def _seed_order_via_mapper(
+    portfolio_id, engine_id, task_id, code, direction, status,
+    volume, limit_price, transaction_price, transaction_volume, fee,
+):
+    """ADR-029 Task 7：经 OrderMapper.entity_to_model → order_crud.add 装配测试数据。
+
+    替代旧 order_crud.create(**kwargs) 隐式 _create_from_params 路径（hook 已删）。
+    """
+    order_crud = container.cruds.order()
+    entity = Order(
+        portfolio_id=portfolio_id,
+        engine_id=engine_id,
+        task_id=task_id,
+        code=code,
+        direction=direction,
+        order_type=ORDER_TYPES.MARKETORDER,
+        status=status,
+        volume=volume,
+        limit_price=limit_price,
+        transaction_price=transaction_price,
+        transaction_volume=transaction_volume,
+        fee=fee,
+    )
+    entity.set_source(SOURCE_TYPES.TEST)
+    model = OrderMapper.entity_to_model(entity)
+    order_crud.add(model)
+    return model.uuid
+
+
 @pytest.fixture(scope="module")
 def sample_orders(order_svc):
     """Create test orders, yield portfolio_id, cleanup after."""
@@ -31,24 +62,18 @@ def sample_orders(order_svc):
     portfolio_id = "SMOKE_TEST_ORDER_SVC"
 
     for i, status in enumerate([ORDERSTATUS_TYPES.SUBMITTED, ORDERSTATUS_TYPES.FILLED]):
-        order_crud.create(
+        _seed_order_via_mapper(
             portfolio_id=portfolio_id,
             engine_id="smoke-engine",
             task_id="smoke-task",
             code=f"00000{i+1}.SZ",
             direction=DIRECTION_TYPES.LONG if i == 0 else DIRECTION_TYPES.SHORT,
-            order_type=ORDER_TYPES.MARKETORDER,
             status=status,
             volume=100 * (i + 1),
             limit_price=10.0,
-            frozen=0.0,
             transaction_price=10.0,
             transaction_volume=100 if status == ORDERSTATUS_TYPES.FILLED else 0,
-            remain=0.0,
             fee=5.0,
-            source=SOURCE_TYPES.TEST.value,
-            timestamp="2025-05-01",
-            business_timestamp=None,
         )
 
     yield portfolio_id
@@ -81,16 +106,12 @@ class TestOrderServiceSmoke:
         order_crud = container.cruds.order()
         portfolio_id = "SMOKE_TEST_ORDER_DEL"
 
-        order_crud.create(
+        _seed_order_via_mapper(
             portfolio_id=portfolio_id, engine_id="e", task_id="t",
             code="000001.SZ", direction=DIRECTION_TYPES.LONG,
-            order_type=ORDER_TYPES.MARKETORDER,
             status=ORDERSTATUS_TYPES.SUBMITTED, volume=100,
-            limit_price=10.0, frozen=0.0,
-            transaction_price=0.0, transaction_volume=0,
-            remain=0.0, fee=0.0,
-            source=SOURCE_TYPES.TEST.value, timestamp="2025-05-01",
-            business_timestamp=None,
+            limit_price=10.0,
+            transaction_price=0.0, transaction_volume=0, fee=0.0,
         )
 
         result = order_svc.delete_orders_by_portfolio(portfolio_id)

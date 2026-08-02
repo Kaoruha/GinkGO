@@ -1,12 +1,14 @@
 # Upstream: Portfolio Manager (订单查询)、API Server (订单接口)、TradeGatewayAdapter (实盘订单状态)
-# Downstream: BaseService (继承基类)、OrderCRUD (订单数据访问)、GLOG (日志)
+# Downstream: BaseService (继承基类)、OrderCRUD (订单数据访问)、OrderMapper (Entity↔ORM 收敛)、GLOG (日志)
 # Role: OrderService订单业务服务层，编排OrderCRUD提供订单查询、更新、统计、清理等接口
 
 from typing import Any, List, Optional
 
 import pandas as pd
 
+from ginkgo.data.mappers import OrderMapper
 from ginkgo.data.services.base_service import BaseService, ServiceResult
+from ginkgo.entities import Order
 from ginkgo.libs import GLOG
 
 
@@ -212,6 +214,53 @@ class OrderService(BaseService):
             return ServiceResult.success(message="订单更新成功")
         except Exception as e:
             GLOG.ERROR(f"更新订单失败: {e}")
+            return ServiceResult.error(str(e))
+
+    def upsert_order(self, order: Order) -> ServiceResult:
+        """ADR-029 Task 7 upsert seam（暂不被调，为 Task 8 实盘订单持久化铺路）。
+
+        存在判断：``order_crud.get_by_uuid(order.uuid)``（``find({"uuid":..., "is_del": False})``）。
+          - 存在 → 复用 ``update_order``（modify 语义，仅更新 order 上的可变字段：
+            status / transaction_* / remain / fee / exchange_*）
+          - 不存在 → ``OrderMapper.entity_to_model(order)`` → ``order_crud.add(model)``
+            （入站经 mapper 收敛转换，退役 ``_convert_input_item`` hook）
+
+        设计选择（存在判断）：用 ``get_by_uuid`` 而非 ``modify`` 返 affected_rows。
+        原因：``BaseCRUD.modify`` 公开签名是 ``-> None``（``_do_modify`` 虽返 rowcount
+        但 ``order_crud.modify`` override 不传播）；改 ``modify`` 签名会侵入 BaseCRUD
+        契约（ADR-029 §Decision 8 仅允许 Task 1-10 微调 BaseCRUD 本体）。``get_by_uuid``
+        是显式存在判断，语义清晰，多一次 SELECT 但避开签名破坏。
+
+        Args:
+            order: Order Entity（需有 uuid）
+
+        Returns:
+            ServiceResult.data: {"uuid": 写入/更新 model.uuid, "action": "insert"|"update"}
+        """
+        if not getattr(order, "uuid", None):
+            return ServiceResult.error("订单缺少 uuid")
+
+        try:
+            existing = self._crud_repo.get_by_uuid(order.uuid)
+            if existing is not None:
+                # modify 语义：复用 update_order（仅更新可变字段）
+                result = self.update_order(order)
+                if not result.is_success():
+                    return result
+                return ServiceResult.success(
+                    data={"uuid": order.uuid, "action": "update"},
+                    message=f"Order upserted (update): {order.uuid}",
+                )
+
+            # insert 语义：Order Entity → mapper → crud.add
+            model = OrderMapper.entity_to_model(order)
+            self._crud_repo.add(model)
+            return ServiceResult.success(
+                data={"uuid": model.uuid, "action": "insert"},
+                message=f"Order upserted (insert): {model.uuid}",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"upsert_order failed: {e}")
             return ServiceResult.error(str(e))
 
     def get_order_summary(self, portfolio_id: str) -> ServiceResult:

@@ -75,12 +75,18 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
             self.code = code
 
         # 枚举类型 - 自动转换
+        # ADR-029 Task 7（I-2 fix，仿 tick/stockinfo/signal）：``validate_input(x) or DEFAULT``
+        # 在 x=OTHER(0) 时被 falsy 吞 → 改为 ``validated if validated is not None else DEFAULT``。
+        # 仅 None/非法值走默认；OTHER(0) 与 VOID(-1) 保真。
         if direction is not None:
-            self.direction = DIRECTION_TYPES.validate_input(direction) or DIRECTION_TYPES.LONG.value
+            _v = DIRECTION_TYPES.validate_input(direction)
+            self.direction = _v if _v is not None else DIRECTION_TYPES.LONG.value
         if order_type is not None:
-            self.order_type = ORDER_TYPES.validate_input(order_type) or ORDER_TYPES.LIMITORDER.value
+            _v = ORDER_TYPES.validate_input(order_type)
+            self.order_type = _v if _v is not None else ORDER_TYPES.LIMITORDER.value
         if status is not None:
-            self.status = ORDERSTATUS_TYPES.validate_input(status) or ORDERSTATUS_TYPES.NEW.value
+            _v = ORDERSTATUS_TYPES.validate_input(status)
+            self.status = _v if _v is not None else ORDERSTATUS_TYPES.NEW.value
 
         # 数值属性
         if volume is not None:
@@ -104,7 +110,8 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
         if business_timestamp is not None:
             self.business_timestamp = datetime_normalize(business_timestamp)
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.TUSHARE.value
+            _v = SOURCE_TYPES.validate_input(source)
+            self.source = _v if _v is not None else SOURCE_TYPES.TUSHARE.value
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -143,11 +150,14 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
         if code is not None:
             self.code = code
         if direction is not None:
-            self.direction = DIRECTION_TYPES.validate_input(direction) or -1
+            _v = DIRECTION_TYPES.validate_input(direction)
+            self.direction = _v if _v is not None else -1
         if order_type is not None:
-            self.order_type = ORDER_TYPES.validate_input(order_type) or -1
+            _v = ORDER_TYPES.validate_input(order_type)
+            self.order_type = _v if _v is not None else -1
         if status is not None:
-            self.status = ORDERSTATUS_TYPES.validate_input(status) or -1
+            _v = ORDERSTATUS_TYPES.validate_input(status)
+            self.status = _v if _v is not None else -1
         if volume is not None:
             self.volume = volume
         if limit_price is not None:
@@ -169,15 +179,19 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
         if business_timestamp is not None:
             self.business_timestamp = datetime_normalize(business_timestamp)
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            _v = SOURCE_TYPES.validate_input(source)
+            self.source = _v if _v is not None else -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df["code"]
-        self.direction = DIRECTION_TYPES.validate_input(df["direction"]) or -1
-        self.order_type = ORDER_TYPES.validate_input(df["order_type"]) or -1
-        self.status = ORDERSTATUS_TYPES.validate_input(df["status"]) or -1
+        _v = DIRECTION_TYPES.validate_input(df["direction"])
+        self.direction = _v if _v is not None else -1
+        _v = ORDER_TYPES.validate_input(df["order_type"])
+        self.order_type = _v if _v is not None else -1
+        _v = ORDERSTATUS_TYPES.validate_input(df["status"])
+        self.status = _v if _v is not None else -1
         self.volume = df["volume"]
         self.limit_price = to_decimal(df["limit_price"])
         self.frozen_money = to_decimal(df["frozen_money"] if "frozen_money" in df else df.get("frozen", 0))
@@ -191,7 +205,8 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
         self.portfolio_id = df["portfolio_id"]
         self.engine_id = df["engine_id"]
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            _v = SOURCE_TYPES.validate_input(df["source"])
+            self.source = _v if _v is not None else -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:
