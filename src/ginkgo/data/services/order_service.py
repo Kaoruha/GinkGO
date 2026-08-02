@@ -9,7 +9,7 @@ import pandas as pd
 from ginkgo.data.mappers import OrderMapper
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.entities import Order
-from ginkgo.libs import GLOG
+from ginkgo.libs import GLOG, retry
 
 
 class OrderService(BaseService):
@@ -216,14 +216,19 @@ class OrderService(BaseService):
             GLOG.ERROR(f"更新订单失败: {e}")
             return ServiceResult.error(str(e))
 
-    def upsert_order(self, order: Order) -> ServiceResult:
-        """ADR-029 Task 7 upsert seam（暂不被调，为 Task 8 实盘订单持久化铺路）。
+    def upsert_order(self, order: Order, status_override=None) -> ServiceResult:
+        """ADR-029 Task 7 upsert seam + Task 8 ``status_override``（回测 4 态接线）。
 
         存在判断：``order_crud.get_by_uuid(order.uuid)``（``find({"uuid":..., "is_del": False})``）。
-          - 存在 → 复用 ``update_order``（modify 语义，仅更新 order 上的可变字段：
-            status / transaction_* / remain / fee / exchange_*）
+          - 存在 → modify 语义（仅更可变字段：status / transaction_* / remain / fee /
+            exchange_*）
           - 不存在 → ``OrderMapper.entity_to_model(order)`` → ``order_crud.add(model)``
             （入站经 mapper 收敛转换，退役 ``_convert_input_item`` hook）
+
+        ``status_override``（Task 8）：回测事件链中 ``order.status`` 是**事件前状态**
+        （如 NEW/SUBMITTED），而 MOrder 须写**事件后状态**（FILLED/REJECTED/CANCELED）。
+        传入 ``status_override`` 显式指定目标状态；``None`` 时回退 ``order.status``。
+        回测 4 态天然分支：NEW→new uuid→insert；FILLED/REJECTED/CANCELED→同 uuid→update。
 
         设计选择（存在判断）：用 ``get_by_uuid`` 而非 ``modify`` 返 affected_rows。
         原因：``BaseCRUD.modify`` 公开签名是 ``-> None``（``_do_modify`` 虽返 rowcount
@@ -233,6 +238,7 @@ class OrderService(BaseService):
 
         Args:
             order: Order Entity（需有 uuid）
+            status_override: 目标状态（ORDERSTATUS_TYPES）；None 用 order.status
 
         Returns:
             ServiceResult.data: {"uuid": 写入/更新 model.uuid, "action": "insert"|"update"}
@@ -240,20 +246,35 @@ class OrderService(BaseService):
         if not getattr(order, "uuid", None):
             return ServiceResult.error("订单缺少 uuid")
 
+        effective_status = (
+            status_override if status_override is not None
+            else getattr(order, "status", None)
+        )
+
         try:
             existing = self._crud_repo.get_by_uuid(order.uuid)
             if existing is not None:
-                # modify 语义：复用 update_order（仅更新可变字段）
-                result = self.update_order(order)
-                if not result.is_success():
-                    return result
+                # modify 语义：构造 updates（status 用 effective_status，
+                # 不走 update_order 因其硬读 order.status 无法 override）
+                updates = {}
+                if effective_status is not None:
+                    updates["status"] = effective_status
+                for attr in ("transaction_price", "transaction_volume",
+                             "remain", "fee", "exchange_order_id", "exchange_response"):
+                    val = getattr(order, attr, None)
+                    if val is not None:
+                        updates[attr] = val
+
+                self._crud_repo.modify(filters={"uuid": order.uuid}, updates=updates)
                 return ServiceResult.success(
                     data={"uuid": order.uuid, "action": "update"},
                     message=f"Order upserted (update): {order.uuid}",
                 )
 
-            # insert 语义：Order Entity → mapper → crud.add
+            # insert 语义：Order Entity → mapper → crud.add（status 用 effective）
             model = OrderMapper.entity_to_model(order)
+            if effective_status is not None:
+                model.status = effective_status
             self._crud_repo.add(model)
             return ServiceResult.success(
                 data={"uuid": model.uuid, "action": "insert"},
@@ -262,6 +283,40 @@ class OrderService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"upsert_order failed: {e}")
             return ServiceResult.error(str(e))
+
+    @retry(max_try=3)
+    def create_order_record(self, **kwargs) -> ServiceResult:
+        """ADR-029 Task 8：MOrderRecord 写入收敛到 OrderService。
+
+        原 ``result_service.create_order_record:648`` 写逻辑迁此。``result_service``
+        改 thin delegate 委托本方法——签名 ``**kwargs`` 不变以保调用方透明
+        （``trade_gateway:338`` / ``t1backtest:522``）。
+
+        OrderService 统管 MOrder（``upsert_order``）+ MOrderRecord（本方法），
+        但 ``OrderRecordCRUD`` 不经构造注入（避免 container wiring 改动），
+        走懒 import——与原 ``result_service`` 写路径同模式。
+
+        Args:
+            **kwargs: MOrderRecord 字段（order_id/portfolio_id/engine_id/task_id/
+                code/direction/order_type/status/volume/limit_price/frozen_money/
+                frozen_volume/transaction_price/transaction_volume/remain/fee/
+                timestamp/business_timestamp）
+
+        Returns:
+            ServiceResult: 创建结果
+        """
+        try:
+            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
+            order_record_crud = OrderRecordCRUD()
+
+            order_record_crud.create(**kwargs)
+
+            GLOG.INFO(f"订单记录创建成功: code={kwargs.get('code')} task_id={kwargs.get('task_id')}")
+            return ServiceResult.success({"message": "Order record created"})
+
+        except Exception as e:
+            GLOG.ERROR(f"创建订单记录失败: {e}")
+            return ServiceResult.error(f"创建订单记录失败: {e}")
 
     def get_order_summary(self, portfolio_id: str) -> ServiceResult:
         """

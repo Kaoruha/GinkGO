@@ -251,6 +251,157 @@ class TestDeleteOrdersByPortfolio:
         assert result.is_success()
         mock_crud.delete_by_portfolio.assert_called_once_with("portfolio-123")
 
+
+class TestUpsertOrderStatusOverride:
+    """ADR-029 Task 8：upsert_order ``status_override``（回测 4 态接线）。
+
+    回测事件链中 order.status 是事件前状态（NEW/SUBMITTED），MOrder 须写事件后状态。
+    - insert 分支：mapper 后 model.status 用 effective_status
+    - update 分支：updates['status'] 用 effective_status（不走 update_order 因硬读 order.status）
+    - None 回退 order.status（向后兼容 Task 7）
+    """
+
+    def _make_order(self, status=None, uuid=None):
+        from ginkgo.entities import Order
+        from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+
+        return Order(
+            portfolio_id="p1", engine_id="e1", task_id="t1",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.MARKETORDER,
+            status=status or ORDERSTATUS_TYPES.NEW,
+            volume=100, limit_price=10.0,
+            uuid=uuid or "",
+        )
+
+    def test_insert_with_status_override(self, order_svc, mock_crud):
+        """insert 分支：status_override 写入 model.status（非 order.status）。"""
+        from ginkgo.enums import ORDERSTATUS_TYPES
+
+        mock_crud.get_by_uuid.return_value = None
+        mock_crud.add.return_value = None
+
+        order = self._make_order(status=ORDERSTATUS_TYPES.NEW)
+
+        result = order_svc.upsert_order(
+            order, status_override=ORDERSTATUS_TYPES.FILLED
+        )
+
+        assert result.is_success()
+        assert result.data["action"] == "insert"
+        added = mock_crud.add.call_args[0][0]
+        # status_override 写入 model.status（非 order.status=NEW）
+        assert added.status == ORDERSTATUS_TYPES.FILLED
+
+    def test_update_with_status_override(self, order_svc, mock_crud):
+        """update 分支：updates['status'] = status_override（非 order.status）。"""
+        from ginkgo.enums import ORDERSTATUS_TYPES
+
+        existing = MagicMock()
+        existing.uuid = "existing-uuid"
+        mock_crud.get_by_uuid.return_value = existing
+        mock_crud.modify.return_value = None
+
+        order = self._make_order(
+            status=ORDERSTATUS_TYPES.NEW, uuid="existing-uuid"
+        )
+
+        result = order_svc.upsert_order(
+            order, status_override=ORDERSTATUS_TYPES.REJECTED
+        )
+
+        assert result.is_success()
+        assert result.data["action"] == "update"
+        updates = mock_crud.modify.call_args.kwargs["updates"]
+        # status_override 写入 updates（非 order.status=NEW）
+        assert updates["status"] == ORDERSTATUS_TYPES.REJECTED
+        mock_crud.add.assert_not_called()
+
+    def test_none_override_falls_back_to_order_status(self, order_svc, mock_crud):
+        """None override → 用 order.status（向后兼容 Task 7）。"""
+        from ginkgo.enums import ORDERSTATUS_TYPES
+
+        mock_crud.get_by_uuid.return_value = None
+        mock_crud.add.return_value = None
+
+        order = self._make_order(status=ORDERSTATUS_TYPES.NEW)
+
+        result = order_svc.upsert_order(order, status_override=None)
+
+        assert result.is_success()
+        added = mock_crud.add.call_args[0][0]
+        assert added.status == ORDERSTATUS_TYPES.NEW
+
+
+class TestCreateOrderRecord:
+    """ADR-029 Task 8：MOrderRecord 写入收敛到 OrderService。
+
+    原 result_service.create_order_record:648 写逻辑迁此。
+    """
+
+    def test_calls_order_record_crud_create(self, order_svc, monkeypatch):
+        """create(**kwargs) 透传给 OrderRecordCRUD.create。"""
+        from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+
+        # 模拟 OrderRecordCRUD 懒 import
+        mock_crud_module = MagicMock()
+        mock_record_crud = MagicMock()
+        mock_crud_module.OrderRecordCRUD.return_value = mock_record_crud
+        import sys
+        monkeypatch.setitem(
+            sys.modules, "ginkgo.data.crud.order_record_crud", mock_crud_module
+        )
+
+        kwargs = dict(
+            order_id="order-uuid-1",
+            portfolio_id="p1",
+            engine_id="e1",
+            task_id="t1",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.MARKETORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=100,
+            limit_price=10.0,
+            frozen_money=1000.0,
+            frozen_volume=0,
+            transaction_price=0,
+            transaction_volume=0,
+            remain=100,
+            fee=0,
+            timestamp="2024-01-01",
+            business_timestamp="2024-01-01",
+        )
+
+        result = order_svc.create_order_record(**kwargs)
+
+        assert result.is_success()
+        mock_crud_module.OrderRecordCRUD.assert_called_once()
+        mock_record_crud.create.assert_called_once_with(**kwargs)
+
+    def test_returns_error_on_exception(self, order_svc, monkeypatch):
+        """OrderRecordCRUD.create 抛错 → ServiceResult.error（响亮失败非静默）。"""
+        from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+
+        mock_crud_module = MagicMock()
+        mock_record_crud = MagicMock()
+        mock_record_crud.create.side_effect = RuntimeError("DB connection failed")
+        mock_crud_module.OrderRecordCRUD.return_value = mock_record_crud
+        import sys
+        monkeypatch.setitem(
+            sys.modules, "ginkgo.data.crud.order_record_crud", mock_crud_module
+        )
+
+        result = order_svc.create_order_record(
+            order_id="o1", portfolio_id="p1", code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG, order_type=ORDER_TYPES.MARKETORDER,
+            status=ORDERSTATUS_TYPES.NEW, volume=100, limit_price=10.0,
+        )
+
+        assert result.is_failure()
+        assert "DB connection failed" in result.message
+
     def test_rejects_empty_portfolio_id(self, order_svc):
         result = order_svc.delete_orders_by_portfolio("")
 

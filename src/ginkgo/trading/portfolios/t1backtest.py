@@ -506,12 +506,20 @@ class PortfolioT1Backtest(PortfolioBase):
 
     # ===== 订单记录保存辅助方法 =====
     def _save_order_record(self, order, status, transaction_price=0, transaction_volume=0, fee=0):
-        """
-        保存订单记录到数据库
+        """ADR-029 Task 8：双写 MOrderRecord（审计层）+ MOrder（当前态）。
+
+        - MOrderRecord：经 ``result_service.create_order_record`` → thin delegate →
+          ``OrderService.create_order_record`` → ``OrderRecordCRUD.create``。
+          每事件一行审计快照（4 态：NEW/FILLED/REJECTED/CANCELED 各一行）。
+        - MOrder：经 ``order_service.upsert_order(order, status_override=status)``
+          （Task 7 seam + Task 8 status_override）。by uuid 天然分支：
+          NEW→new uuid→insert；FILLED/REJECTED/CANCELED→同 uuid→update 状态。
+          ``status_override`` 必传——事件链中 ``order.status`` 是事件前状态
+          （NEW/SUBMITTED），MOrder 须写事件后状态。
 
         Args:
             order: 订单对象
-            status: 订单状态
+            status: 订单状态（事件后目标状态）
             transaction_price: 成交价格
             transaction_volume: 成交数量
             fee: 手续费
@@ -539,6 +547,17 @@ class PortfolioT1Backtest(PortfolioBase):
                 timestamp=order.timestamp,
                 business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
             )
+
+            # Task 8 双写：MOrder（当前态）via upsert_order seam
+            upsert_result = container.order_service().upsert_order(
+                order, status_override=status
+            )
+            if not upsert_result.is_success():
+                GLOG.WARN(
+                    f"[PERSISTENCE] MOrder upsert failed (MOrderRecord still written): "
+                    f"{upsert_result.message}"
+                )
+
             GLOG.INFO(f"[PERSISTENCE] Order record saved: code={order.code} status={status.name} price={transaction_price} vol={transaction_volume}")
             return result.success
         except Exception as e:

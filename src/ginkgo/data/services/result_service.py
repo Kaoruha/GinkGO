@@ -644,43 +644,22 @@ class ResultService(BaseService):
             filters["task_id"] = task_id
         return filters
 
-    @retry(max_try=3)
     def create_order_record(self, **kwargs) -> ServiceResult:
-        """
-        创建订单记录
+        """ADR-029 Task 8：thin delegate 到 ``OrderService.create_order_record``。
+
+        写逻辑（MOrderRecord 经 OrderRecordCRUD）已迁入 ``OrderService``，
+        本方法仅委托——签名 ``**kwargs`` 不变以保调用方透明
+        （``trade_gateway:338`` / ``t1backtest:522``）。``retry`` 已下沉到
+        ``OrderService.create_order_record``，此处不再叠 @retry（否则 3×3=9 次重试）。
 
         Args:
-            order_id: 订单ID
-            portfolio_id: 投资组合ID
-            engine_id: 引擎ID
-            task_id: 运行会话ID
-            code: 股票代码
-            direction: 交易方向
-            order_type: 订单类型
-            status: 订单状态
-            volume: 委托数量
-            limit_price: 限价
-            transaction_price: 成交价格
-            transaction_volume: 成交数量
-            timestamp: 时间戳
-            business_timestamp: 业务时间戳
-            **kwargs: 其他参数
+            **kwargs: MOrderRecord 字段（透传 OrderService.create_order_record）
 
         Returns:
-            ServiceResult: 创建结果
+            ServiceResult: 创建结果（来自 OrderService）
         """
-        try:
-            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-            order_record_crud = OrderRecordCRUD()
-
-            order_record_crud.create(**kwargs)
-
-            GLOG.INFO(f"订单记录创建成功: code={kwargs.get('code')} task_id={kwargs.get('task_id')}")
-            return ServiceResult.success({"message": "Order record created"})
-
-        except Exception as e:
-            GLOG.ERROR(f"创建订单记录失败: {e}")
-            return ServiceResult.error(f"创建订单记录失败: {e}")
+        from ginkgo.data.containers import container
+        return container.order_service().create_order_record(**kwargs)
 
     @retry(max_try=3)
     def create_position_record(self, **kwargs) -> ServiceResult:
