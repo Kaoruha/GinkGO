@@ -1,5 +1,5 @@
 # Upstream: EngineCRUD, PortfolioCRUD, 引擎装配层
-# Downstream: BaseCRUD, MEnginePortfolioMapping模型, ModelConversion, ModelCRUDMapping
+# Downstream: BaseCRUD, MEnginePortfolioMapping模型, ModelCRUDMapping
 # Role: 引擎-投资组合映射CRUD，管理引擎与Portfolio的绑定关系
 
 
@@ -17,12 +17,11 @@ from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MEnginePortfolioMapping
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import GLOG, cache_with_expiration
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
 
 
 @restrict_crud_access
-class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping], ModelConversion):
+class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping]):
     """
     EnginePortfolioMapping CRUD operations.
     """

@@ -28,6 +28,7 @@ from decimal import Decimal
 from ginkgo.libs import GLOG, datetime_normalize, to_decimal, retry, cache_with_expiration
 from ginkgo.enums import ENTITY_TYPES, SOURCE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
+from ginkgo.data.mappers import models_to_dataframe
 
 
 class FactorService(BaseService):
@@ -260,7 +261,7 @@ class FactorService(BaseService):
                 if factors_result.success:
                     factors_data = factors_result.data["factors"] if factors_result.data else None
                     if factors_data is not None and len(factors_data) > 0:
-                        factors_df = factors_data.to_dataframe()
+                        factors_df = models_to_dataframe(factors_data)
                         factors_df["entity_factor"] = factors_df["entity_id"] + "_" + factors_df["factor_name"]
                         all_factor_data.append(factors_df)
 
@@ -347,7 +348,7 @@ class FactorService(BaseService):
                 result.error = f"No data found for factor {factor_name}"
                 return result
 
-            factors_df = factors_result.to_dataframe()
+            factors_df = models_to_dataframe(factors_result)
 
             # 计算分布统计
             factor_values = factors_df["factor_value"].astype(float)

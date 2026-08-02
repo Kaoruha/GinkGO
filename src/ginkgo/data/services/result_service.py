@@ -19,6 +19,7 @@ import pandas as pd
 
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD
 from ginkgo.data.models import MAnalyzerRecord
+from ginkgo.data.mappers import models_to_dataframe
 from ginkgo.libs import GLOG, retry, datetime_normalize
 from ginkgo.data.services.base_service import ServiceResult, BaseService
 
@@ -107,7 +108,7 @@ class ResultService(BaseService):
             analyzer_name: 分析器名称（可选）
 
         Returns:
-            ServiceResult[ModelList]: 可调用 to_dataframe() 转换为 DataFrame
+            ServiceResult[list]: 可调用 models_to_dataframe() 转换为 DataFrame
         """
         try:
             if not task_id:
@@ -136,9 +137,9 @@ class ResultService(BaseService):
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
-        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
-        不再绕 ``result.data.to_dataframe()``。内部 get_by_task_id 返 ModelList 后调
-        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM list、
+        不再绕 ``result.data.to_dataframe()``。内部 get_by_task_id 返 list 后调
+        ``models_to_dataframe``；空结果返空 ``pd.DataFrame()``。
 
         filter 域与 get_analyzer_values() 一致（task_id / portfolio_id / analyzer_name）。
         """
@@ -152,7 +153,7 @@ class ResultService(BaseService):
                 analyzer_name=analyzer_name,
                 page_size=10000
             )
-            df = result.to_dataframe() if result else pd.DataFrame()
+            df = models_to_dataframe(result) if result else pd.DataFrame()
 
             GLOG.INFO(f"获取 task_id={task_id} 的 analyzer 值(df)成功")
             return ServiceResult.success(df)
@@ -176,7 +177,7 @@ class ResultService(BaseService):
             analyzer_names: 分析器名称列表
 
         Returns:
-            ServiceResult[Dict[str, ModelList]]: analyzer_name -> ModelList 的映射
+            ServiceResult[Dict[str, list]]: analyzer_name -> list 的映射
         """
         try:
             if not task_id or not portfolio_id:
@@ -604,7 +605,7 @@ class ResultService(BaseService):
                 order_by="timestamp",
                 desc_order=True,
             )
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            df = models_to_dataframe(model_list) if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Retrieved {len(df)} position records (DataFrame)",

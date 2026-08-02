@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Upstream: FactorService (因子数据同步)、Analysis Modules (因子分析)
-# Downstream: MClickBase (继承提供ClickHouse ORM能力)、ModelConversion (提供实体转换能力)、ENTITY_TYPES (枚举类型验证)
+# Downstream: MClickBase (继承提供ClickHouse ORM能力)、ENTITY_TYPES (枚举类型验证)
 # Role: MFactor因子数据ClickHouse模型支持多实体类型因子存储和分析
 
 
@@ -18,12 +18,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clickhouse_sqlalchemy import types, engines
 
 from ginkgo.data.models.model_clickbase import MClickBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.libs import base_repr, to_decimal
 from ginkgo.enums import ENTITY_TYPES, SOURCE_TYPES
 
 
-class MFactor(MClickBase, ModelConversion):
+class MFactor(MClickBase):
     """
     因子数据模型 - 支持多种实体类型的因子存储
 

@@ -942,11 +942,11 @@ class TestHistoricalDataAccess:
 @pytest.mark.unit
 @pytest.mark.backtest
 class TestHistoricalDataDFExportContract:
-    """#6624: get_historical_data 走 DF 出口 get_bars_df(FORE)，不再接触 ORM ModelList。
+    """#6624: get_historical_data 走 DF 出口 get_bars_df(FORE)，不再接触 ORM list。
 
     ADR-010 例外：feeder 回测热路径依赖前复权（FORE）。get() 默认 FORE，DF 出口默认
     NONE，故 feeder 须显式传 FORE 保行为 parity。本契约防回归把 get_bars_df 改回 get() +
-    .to_dataframe()（ModelList 重新泄漏过 Service 边界）。Mock-based，无 DB 依赖。
+    .to_dataframe()（list 重新泄漏过 Service 边界）。Mock-based，无 DB 依赖。
     """
 
     def test_get_historical_data_uses_df_export_with_fore_adjustment(self):
@@ -978,7 +978,7 @@ class TestHistoricalDataDFExportContract:
         mock_service.get_bars_df.assert_called_once()
         _, kwargs = mock_service.get_bars_df.call_args
         assert kwargs.get("adjustment_type") == ADJUSTMENT_TYPES.FORE
-        # 不再接触 ModelList 出口 get()
+        # 不再接触 list 出口 get()
         mock_service.get.assert_not_called()
         # 直接返回 ServiceResult.data（DF），不再 .to_dataframe()
         pd.testing.assert_frame_equal(result, expected_df)

@@ -40,7 +40,7 @@ def get_tick_model(code: str) -> type:
     table_name = f"{code.replace('.', '_')}_Tick"
 
     if table_name not in tick_model_registry:
-        # Dynamically create new model class (不继承ModelConversion)
+        # Dynamically create new model class (普通 ORM 类，无转换 mixin)
         newclass = type(
             table_name,
             (MTick,),  # 只继承MTick，转换功能由TickCRUD处理
@@ -65,12 +65,12 @@ class TickCRUD:
     - 基于分区表设计，每个股票代码对应独立表
     - 实现所有标准CRUD方法，内部适配动态Model
     - 保持与其他CRUD类相同的API一致性
-    - 所有查询方法返回ModelList，支持链式调用
+    - 所有查询方法返回 list（ADR-029 §Decision 9）
 
     特点：
     - 适配器模式：标准CRUD接口 + 动态Model适配
     - 唯一入口：一个实例处理所有股票代码
-    - 链式调用：results.to_dataframe()
+    - DF 转换走 ``ginkgo.data.mappers.models_to_dataframe``
 
     Usage:
     # 创建唯一入口
@@ -80,13 +80,13 @@ class TickCRUD:
     tick = tick_crud.create(code="000001.SZ", price=10.5, volume=1000)
     tick_crud.add_batch([tick1, tick2, tick3])
 
-    # 查询操作 - 返回ModelList，支持链式调用
+    # 查询操作 - 返回 list
     results = tick_crud.find({"code": "000001.SZ", "price__gt": 10.0})
-    df = results.to_dataframe()
+    df = models_to_dataframe(results)
 
     # 业务辅助方法 - 一致的API
     results = tick_crud.find_by_time_range("000001.SZ", "2024-01-01", "2024-01-02")
-    df = results.to_dataframe()  # ✅ 链式调用
+    df = models_to_dataframe(results)
     """
 
     def __init__(self):
@@ -628,7 +628,7 @@ class TickCRUD:
             session: Optional SQLAlchemy session to use for the operation.
 
         Returns:
-            ModelList - supports to_dataframe()
+            list - DF 转换走 models_to_dataframe
 
         Raises:
             ValueError: If filters don't include "code" field
@@ -659,12 +659,11 @@ class TickCRUD:
             # 使用动态模型类进行查询
             model_class = get_tick_model(stock_code)
 
-            # 检查表是否存在，如果不存在直接返回空ModelList
+            # 检查表是否存在，如果不存在直接返回空list
             from ginkgo.data.drivers import is_table_exists
             if not is_table_exists(model_class):
-                GLOG.DEBUG(f"Table {model_class.__tablename__} does not exist, returning empty ModelList")
-                from ginkgo.data.crud.model_conversion import ModelList
-                return ModelList([], self)
+                GLOG.DEBUG(f"Table {model_class.__tablename__} does not exist, returning empty list")
+                return []
 
             # 创建临时BaseCRUD实例进行查询
             temp_crud = BaseCRUD(model_class)
@@ -675,13 +674,11 @@ class TickCRUD:
                 desc_order=desc_order, distinct_field=distinct_field, session=session
             )
 
-            # 返回ModelList以保持API一致性
-            from ginkgo.data.crud.model_conversion import ModelList
-            return ModelList(results, self)  # 传入self作为CRUD实例
+            # 返回 list（ADR-029 §Decision 9：CRUD 直接返 list）
+            return list(results)
         except Exception as e:
             GLOG.ERROR(f"Failed to find tick data: {e}")
-            from ginkgo.data.crud.model_conversion import ModelList
-            return ModelList([], self)
+            return []
 
     def find_by_time_range(
         self,
@@ -696,7 +693,7 @@ class TickCRUD:
         """
         Business helper: Find ticks by time range and conditions.
         Calls BaseCRUD.find() template method to get all decorators.
-        Returns ModelList for consistent API: results.to_dataframe()
+        Returns list for consistent API: results → models_to_dataframe()
 
         Args:
             code: Stock code (required for dynamic Model generation)
@@ -708,14 +705,14 @@ class TickCRUD:
             page_size: Page size for pagination
 
         Returns:
-            ModelList - supports to_dataframe()
+            list - DF 转换走 models_to_dataframe
 
         Raises:
             ValueError: If code is not provided or invalid
 
         Example:
             results = tick_crud.find_by_time_range("000001.SZ", "2024-01-01", "2024-01-02")
-            df = results.to_dataframe()
+            df = models_to_dataframe(results)
         """
         # 严格校验股票代码
         if not code or not isinstance(code, str):
@@ -755,7 +752,7 @@ class TickCRUD:
         """
         Business helper: Find ticks by price range.
         Calls BaseCRUD.find() template method to get all decorators.
-        Returns ModelList for consistent API: results.to_dataframe()
+        Returns list for consistent API: results → models_to_dataframe()
 
         Args:
             code: Stock code (required for dynamic Model generation)
@@ -765,14 +762,14 @@ class TickCRUD:
             end_time: Optional end time filter
 
         Returns:
-            ModelList - supports to_dataframe()
+            list - DF 转换走 models_to_dataframe
 
         Raises:
             ValueError: If code is not provided or invalid
 
         Example:
             results = tick_crud.find_by_price_range("000001.SZ", min_price=10.0, max_price=20.0)
-            df = results.to_dataframe()
+            df = models_to_dataframe(results)
         """
         # 严格校验股票代码
         if not code or not isinstance(code, str):
@@ -810,7 +807,7 @@ class TickCRUD:
         """
         Business helper: Find large volume ticks.
         Calls BaseCRUD.find() template method to get all decorators.
-        Returns ModelList for consistent API: results.to_dataframe()
+        Returns list for consistent API: results → models_to_dataframe()
 
         Args:
             code: Stock code (required for dynamic Model generation)
@@ -820,14 +817,14 @@ class TickCRUD:
             limit: Optional limit on number of results
 
         Returns:
-            ModelList - supports to_dataframe()
+            list - DF 转换走 models_to_dataframe
 
         Raises:
             ValueError: If code is not provided or invalid
 
         Example:
             results = tick_crud.find_large_volume_ticks("000001.SZ", min_volume=10000)
-            df = results.to_dataframe()
+            df = models_to_dataframe(results)
         """
         # 严格校验股票代码
         if not code or not isinstance(code, str):
@@ -855,21 +852,21 @@ class TickCRUD:
         """
         Business helper: Get latest ticks for the stock.
         Calls BaseCRUD.find() template method to get all decorators.
-        Returns ModelList for consistent API: results.to_dataframe()
+        Returns list for consistent API: results → models_to_dataframe()
 
         Args:
             code: Stock code (required for dynamic Model generation)
             limit: Optional limit on number of results
 
         Returns:
-            ModelList - supports to_dataframe()
+            list - DF 转换走 models_to_dataframe
 
         Raises:
             ValueError: If code is not provided or invalid
 
         Example:
             results = tick_crud.get_latest_ticks("000001.SZ", limit=100)
-            df = results.to_dataframe()
+            df = models_to_dataframe(results)
         """
         # 严格校验股票代码
         if not code or not isinstance(code, str):

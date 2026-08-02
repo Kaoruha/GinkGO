@@ -23,7 +23,7 @@ from ginkgo.data.services.result_service import ResultService
 
 
 def _model_list():
-    """CRUD.find 返回的 ModelList mock（带 to_dataframe，空 df 即可）。"""
+    """CRUD.find 返回的 list mock（带 to_dataframe，空 df 即可）。"""
     ml = MagicMock()
     ml.to_dataframe.return_value = pd.DataFrame()
     return ml

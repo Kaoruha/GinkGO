@@ -12,7 +12,6 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MEngine
 from ginkgo.enums import SOURCE_TYPES, ENGINESTATUS_TYPES, ATTITUDE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
@@ -192,7 +191,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         query: str,
         fields: Optional[List[str]] = None,
         limit: Optional[int] = None,
-    ) -> ModelList[MEngine]:
+    ) -> list:
         """
         Fuzzy search engines across multiple fields with OR logic.
 
@@ -210,10 +209,10 @@ class EngineCRUD(BaseCRUD[MEngine]):
             fields: Fields to search in. Default: ['uuid', 'name', 'is_live', 'status']
 
         Returns:
-            ModelList of matching engines
+            list of matching engines
         """
         if not query or not query.strip():
-            return ModelList([], self)
+            return []
 
         from ginkgo.libs import GLOG
 
@@ -318,6 +317,6 @@ class EngineCRUD(BaseCRUD[MEngine]):
         if limit is not None:
             all_results = all_results[:limit]
 
-        # Return ModelList for consistency with other CRUD methods
-        return ModelList(all_results, self)
+        # Return list (ADR-029 §Decision 9)
+        return all_results
 

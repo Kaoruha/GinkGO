@@ -28,12 +28,24 @@ class TestBarAdjustmentSmoke:
         assert len(result) == 1
 
     def test_convert_modellist_to_dataframe_with_modellist(self):
-        """传入带 to_dataframe 方法的对象时调用该方法"""
-        mock_data = MagicMock()
-        expected_df = pd.DataFrame({"code": ["000001.SZ"]})
-        mock_data.to_dataframe.return_value = expected_df
-        result = bar_adjustment.convert_modellist_to_dataframe(mock_data)
-        mock_data.to_dataframe.assert_called_once()
+        """传入 list[MBar] 时手动反射字段构造 DataFrame
+
+        ADR-029 §Decision 9：``convert_modellist_to_dataframe`` 不再走
+        ``bars_data.to_dataframe()``（list 无此方法），改为直接反射 bar 字段。
+        """
+        mock_bar = MagicMock()
+        mock_bar.code = "000001.SZ"
+        mock_bar.timestamp = "2025-01-01"
+        mock_bar.open = 10.0
+        mock_bar.high = 11.0
+        mock_bar.low = 9.0
+        mock_bar.close = 10.5
+        mock_bar.volume = 1000
+        mock_bar.amount = 10500.0
+        result = bar_adjustment.convert_modellist_to_dataframe([mock_bar])
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 1
+        assert result.iloc[0]["code"] == "000001.SZ"
 
     def test_calculate_adjusted_prices_callable(self):
         """calculate_adjusted_prices 在无复权因子时原样返回"""

@@ -18,7 +18,6 @@ else:
 
 from ginkgo.data.services.stockinfo_service import StockinfoService
 from ginkgo.data.services.base_service import ServiceResult
-from ginkgo.data.crud.model_conversion import ModelList
 
 
 @pytest.fixture

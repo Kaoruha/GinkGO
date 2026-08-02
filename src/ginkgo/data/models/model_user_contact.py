@@ -1,5 +1,5 @@
 # Upstream: UserService (用户管理业务逻辑)、UserCRUD (用户数据CRUD操作)
-# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)、CONTACT_TYPES (联系方式类型枚举)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、CONTACT_TYPES (联系方式类型枚举)
 # Role: MUserContact用户联系方式模型继承MMysqlBase定义联系方式核心字段(user_id/contact_type/address/is_primary)支持用户联系方式管理功能
 
 
@@ -12,12 +12,11 @@ from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES, CONTACT_TYPES
 from ginkgo.libs import datetime_normalize
 
 
-class MUserContact(MMysqlBase, ModelConversion):
+class MUserContact(MMysqlBase):
     """
     用户联系方式模型
 

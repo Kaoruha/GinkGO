@@ -221,9 +221,10 @@ class TestBarCRUDContract:
             self.mock.add_batch(test_data)
 
             # 查询DataFrame - 区分处理真实CRUD和Mock CRUD
-            # 真实CRUD: 返回ModelList，需要to_dataframe()转换
+            # ADR-029 §Decision 9：真实CRUD 直接返 list，DF 转换走 models_to_dataframe
+            from ginkgo.data.mappers import models_to_dataframe
             real_models = self.real.find(filters={"code": "CTR.SZ"})
-            real_df = real_models.to_dataframe()
+            real_df = models_to_dataframe(real_models)
 
             # Mock CRUD: as_dataframe=True直接返回DataFrame
             mock_df = self.mock.find(filters={"code": "CTR.SZ"}, as_dataframe=True)

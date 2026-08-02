@@ -306,7 +306,7 @@ class TestConcreteSubclassCompatibility:
 
 
 class TestCRUDResultRemoved:
-    """AC #6628 ①: CRUDResult 不再作为与 ModelList 并行的结果协议存在。"""
+    """AC #6628 ①: CRUDResult 不再作为与 list 并行的结果协议存在。"""
 
     @pytest.mark.tdd
     @pytest.mark.refactor
@@ -315,5 +315,5 @@ class TestCRUDResultRemoved:
 
         assert not hasattr(base_crud_module, "CRUDResult"), (
             "CRUDResult 应已从 base_crud 下线（#6628），"
-            "数据层只保留 ModelList 单一结果协议"
+            "数据层只保留 list 单一结果协议"
         )

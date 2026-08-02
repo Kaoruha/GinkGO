@@ -28,7 +28,6 @@ class BaseMongoCRUD(Generic[T], ABC):
     - 泛型类型支持
     - MongoDB 特定操作 (insert_one, insert_many, find_one, find, update_one, delete_one)
     - 软删除支持 (is_del 字段)
-    - ModelConversion 兼容性
 
     Subclass Requirements:
     - Must override _model_class with the appropriate MMongoBase subclass

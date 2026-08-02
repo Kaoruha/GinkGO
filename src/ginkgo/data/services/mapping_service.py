@@ -24,6 +24,7 @@ from typing import List, Dict, Any, Optional
 from ginkgo.libs import GLOG, retry
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.models import MEnginePortfolioMapping
+from ginkgo.data.mappers import models_to_dataframe
 from ginkgo.data.models import MPortfolioFileMapping
 from ginkgo.data.models import MEngineHandlerMapping
 from ginkgo.data.models import MParam
@@ -303,7 +304,7 @@ class MappingService(BaseService):
 
             try:
                 result = self._engine_portfolio_mapping_crud.add_batch([mapping])
-                # ModelList没有success属性，只要没有异常就认为成功
+                # list 没有 success 属性，只要没有异常就认为成功
                 if result and len(result) > 0:
                     GLOG.INFO(f"创建Engine-Portfolio映射: {engine_uuid} -> {portfolio_uuid}")
                     return ServiceResult.success(result[0], "映射创建成功")
@@ -340,7 +341,7 @@ class MappingService(BaseService):
             if engine_uuid:
                 filters["engine_id"] = engine_uuid
             model_list = self._engine_portfolio_mapping_crud.find(filters=filters)
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            df = models_to_dataframe(model_list) if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Retrieved {len(df)} engine-portfolio mappings (DataFrame)",
@@ -359,7 +360,7 @@ class MappingService(BaseService):
             if portfolio_uuid:
                 filters["portfolio_id"] = portfolio_uuid
             model_list = self._portfolio_file_mapping_crud.find(filters=filters)
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            df = models_to_dataframe(model_list) if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Retrieved {len(df)} portfolio-file mappings (DataFrame)",
@@ -410,7 +411,7 @@ class MappingService(BaseService):
 
             try:
                 result = self._portfolio_file_mapping_crud.add_batch([mapping])
-                # ModelList没有success属性，只要没有异常就认为成功
+                # list 没有 success 属性，只要没有异常就认为成功
                 if result and len(result) > 0:
                     GLOG.INFO(f"创建Portfolio-File绑定: {file_name} ({file_type.name}) -> Portfolio {portfolio_uuid}")
                     return ServiceResult.success(result[0], "绑定创建成功")
@@ -572,7 +573,7 @@ class MappingService(BaseService):
             # 使用add_batch批量创建
             try:
                 result = self._param_crud.add_batch(param_list)
-                # ModelList没有success属性，只要没有异常就认为成功
+                # list 没有 success 属性，只要没有异常就认为成功
                 if result and len(result) > 0:
                     GLOG.INFO(f"成功为组件创建 {len(param_list)} 个参数")
                     return ServiceResult.success({

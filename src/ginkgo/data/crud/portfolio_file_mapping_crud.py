@@ -1,5 +1,5 @@
 # Upstream: FileCRUD, PortfolioCRUD, 文件管理服务
-# Downstream: BaseCRUD, MPortfolioFileMapping模型, ModelList, FILE_TYPES枚举
+# Downstream: BaseCRUD, MPortfolioFileMapping模型, FILE_TYPES枚举
 # Role: 投资组合-文件映射CRUD，管理Portfolio与文件(策略脚本等)的绑定关系
 
 
@@ -14,7 +14,6 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MPortfolioFileMapping
 from ginkgo.enums import SOURCE_TYPES, FILE_TYPES
 from ginkgo.libs import GLOG, cache_with_expiration
@@ -75,7 +74,7 @@ class PortfolioFileMappingCRUD(BaseCRUD[MPortfolioFileMapping]):
         return None
 
     # Business Helper Methods
-    def find_by_portfolio(self, portfolio_id: str) -> ModelList[MPortfolioFileMapping]:
+    def find_by_portfolio(self, portfolio_id: str) -> list:
         """
         Business helper: Find file mappings by portfolio ID.
         """
@@ -83,7 +82,7 @@ class PortfolioFileMappingCRUD(BaseCRUD[MPortfolioFileMapping]):
         
         return self.find(filters=filters, order_by="uuid")
 
-    def find_by_file(self, file_id: str) -> ModelList[MPortfolioFileMapping]:
+    def find_by_file(self, file_id: str) -> list:
         """
         Business helper: Find portfolio mappings by file ID.
         """

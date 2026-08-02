@@ -7,6 +7,7 @@ from rich.progress import Progress
 
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
 from ginkgo.data.containers import container
+from ginkgo.data.mappers import models_to_dataframe
 from ginkgo.libs import GLOG
 
 # 热度统计窗口上限（日历日）。与 MomentumSelector.MAX_WINDOW 对齐：业务 ≤1 年，
@@ -78,7 +79,7 @@ class PopularitySelector(BaseSelector):
                     )
                     if not bars or len(bars) == 0:
                         continue
-                    df = bars.to_dataframe()
+                    df = models_to_dataframe(bars)
                     if df is None or df.empty:
                         continue
                     total_volume = float(df["volume"].sum())

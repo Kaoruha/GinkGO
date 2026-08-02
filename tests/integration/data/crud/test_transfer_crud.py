@@ -36,6 +36,7 @@ from ginkgo.data.crud.transfer_crud import TransferCRUD
 from ginkgo.data.mappers import TransferMapper
 from ginkgo.data.models.model_transfer import MTransfer
 from ginkgo.enums import (
+from ginkgo.data.mappers import models_to_dataframe
     SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES,
     TRANSFERDIRECTION_TYPES
 )
@@ -932,7 +933,7 @@ class TestTransferCRUDDataTypes:
             if len(model_results) == 0:
                 pytest.skip("没有找到数据，跳过业务对象转换测试")
 
-            # 使用ModelList的to_entities方法转换为业务对象
+            # 使用list的to_entities方法转换为业务对象
             business_objects = TransferMapper.models_to_entities(model_results)
             business_object = business_objects[0]
 
@@ -959,23 +960,21 @@ class TestTransferCRUDDataTypes:
             raise
 
     def test_modellist_conversion_features(self):
-        """测试ModelList转换功能"""
+        """测试list转换功能"""
         print("\n" + "="*60)
-        print("开始测试: ModelList转换功能")
+        print("开始测试: list转换功能")
         print("="*60)
 
         transfer_crud = TransferCRUD()
 
         try:
-            # 获取ModelList结果
+            # 获取list结果
             results = transfer_crud.find(filters={})
 
-            assert hasattr(results, 'to_dataframe')
-            assert hasattr(results, 'to_dataframe')  # to_entities 已删除（ADR-010），改验证 ModelList 形态
-            print("✓ ModelList具有转换方法")
+            print("✓ list具有转换方法")
 
             # 测试转换为DataFrame
-            df = results.to_dataframe()
+            df = models_to_dataframe(results)
             assert isinstance(df, pd.DataFrame)
             print(f"✓ 转换为DataFrame: {df.shape}")
 
@@ -997,7 +996,7 @@ class TestTransferCRUDDataTypes:
                     print(f"✓ 检测到模型对象，具有数据字段")
 
         except Exception as e:
-            print(f"✗ ModelList转换验证失败: {e}")
+            print(f"✗ list转换验证失败: {e}")
             raise
 
 

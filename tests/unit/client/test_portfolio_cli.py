@@ -38,16 +38,6 @@ def cli_runner():
     return CliRunner()
 
 
-class FakeModelList:
-    """模拟 ModelList，提供 to_dataframe() 方法（源码依赖此接口）"""
-
-    def __init__(self, df: pd.DataFrame):
-        self._df = df
-
-    def to_dataframe(self) -> pd.DataFrame:
-        return self._df
-
-
 @pytest.fixture
 def mock_portfolio_list_df():
     """标准 portfolio 测试 DataFrame"""

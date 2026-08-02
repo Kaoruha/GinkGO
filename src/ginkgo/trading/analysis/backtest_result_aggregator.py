@@ -183,7 +183,7 @@ class BacktestResultAggregator:
         """
         从 ServiceResult 中提取 DataFrame
 
-        处理 ModelList 或 DataFrame 类型的返回值
+        处理 list 或 DataFrame 类型的返回值（ADR-029 §Decision 9：CRUD 直接返 list）
 
         Args:
             result: ServiceResult 对象
@@ -192,6 +192,7 @@ class BacktestResultAggregator:
             DataFrame 或 None
         """
         import pandas as pd
+        from ginkgo.data.mappers import models_to_dataframe
 
         if not result.is_success() or result.data is None:
             return None
@@ -202,13 +203,9 @@ class BacktestResultAggregator:
         if isinstance(data, pd.DataFrame):
             return data
 
-        # 如果是 ModelList，使用其 to_dataframe() 方法
-        if hasattr(data, 'to_dataframe') and callable(data.to_dataframe):
-            return data.to_dataframe()
-
-        # 如果是空列表
-        if isinstance(data, list) and len(data) == 0:
-            return pd.DataFrame()
+        # 如果是 list（CRUD 直接返 list 后的形态）
+        if isinstance(data, list):
+            return models_to_dataframe(data) if data else pd.DataFrame()
 
         return None
 

@@ -16,7 +16,6 @@ from ginkgo.data.models import MStockInfo
 from ginkgo.enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
-from ginkgo.data.crud.model_conversion import ModelList
 
 
 @restrict_crud_access
@@ -150,7 +149,7 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
     # BaseCRUD._convert_input_batch 走 isinstance(model_class) 分支直接放行，无需 override。
 
     # Business Helper Methods
-    def find_by_market(self, market: str) -> ModelList[MStockInfo]:
+    def find_by_market(self, market: str) -> list:
         """
         Business helper: Find stocks by market.
         """
@@ -169,13 +168,13 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
 
         return self.find(filters={"market": market})
 
-    def find_by_industry(self, industry: str) -> ModelList[MStockInfo]:
+    def find_by_industry(self, industry: str) -> list:
         """
         Business helper: Find stocks by industry.
         """
         return self.find(filters={"industry": industry})
 
-    def search_by_name(self, name_pattern: str) -> ModelList[MStockInfo]:
+    def search_by_name(self, name_pattern: str) -> list:
         """
         Business helper: Search stocks by name pattern.
         """

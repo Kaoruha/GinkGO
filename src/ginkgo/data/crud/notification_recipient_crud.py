@@ -49,7 +49,7 @@ class NotificationRecipientCRUD(BaseCRUD[MNotificationRecipient]):
             results = self.find(
                 filters={"name": name, "is_del": False},
             )
-            return results.first()
+            return results[0] if results else None
 
         except Exception as e:
             GLOG.ERROR(f"Error getting recipient by name '{name}': {e}")

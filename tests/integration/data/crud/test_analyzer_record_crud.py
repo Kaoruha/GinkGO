@@ -121,11 +121,10 @@ class TestAnalyzerRecordCRUDInsert:
             result = analyzer_record_crud.add_batch(test_records)
 
             # 验证返回类型
-            from ginkgo.data.crud.model_conversion import ModelList
-            assert isinstance(result, ModelList), f"add_batch应返回ModelList对象，实际返回: {type(result)}"
-            # ModelList.count() mock 已删除（ADR-010），改用原生 len()
-            assert isinstance(len(result), int), f"len(ModelList)应返回int类型，实际: {type(len(result))}"
-            print(f"✓ 批量插入成功，返回ModelList(count={len(result)}, 包含{len(result)}个MAnalyzerRecord对象)")
+            assert isinstance(result, list), f"add_batch应返回list对象，实际返回: {type(result)}"
+            # list.count() mock 已删除（ADR-010），改用原生 len()
+            assert isinstance(len(result), int), f"len(list)应返回int类型，实际: {type(len(result))}"
+            print(f"✓ 批量插入成功，返回list(count={len(result)}, 包含{len(result)}个MAnalyzerRecord对象)")
 
             # 验证可以查询出插入的数据
             print("\n→ 验证插入的数据...")
@@ -218,11 +217,10 @@ class TestAnalyzerRecordCRUDQuery:
             portfolio_records = analyzer_record_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
 
             # 验证返回类型
-            from ginkgo.data.crud.model_conversion import ModelList
-            assert isinstance(portfolio_records, ModelList), f"find应返回ModelList对象，实际返回: {type(portfolio_records)}"
-            # ModelList.count() mock 已删除（ADR-010），改用原生 len()
-            assert isinstance(len(portfolio_records), int), f"len(ModelList)应返回int类型，实际: {type(len(portfolio_records))}"
-            print(f"✓ 查询到 {len(portfolio_records)} 条记录，返回ModelList(count={len(portfolio_records)})")
+            assert isinstance(portfolio_records, list), f"find应返回list对象，实际返回: {type(portfolio_records)}"
+            # list.count() mock 已删除（ADR-010），改用原生 len()
+            assert isinstance(len(portfolio_records), int), f"len(list)应返回int类型，实际: {type(len(portfolio_records))}"
+            print(f"✓ 查询到 {len(portfolio_records)} 条记录，返回list(count={len(portfolio_records)})")
 
             # 验证查询结果
             for record in portfolio_records:

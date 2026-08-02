@@ -18,6 +18,7 @@ from decimal import Decimal
 import pandas as pd
 
 from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.data.mappers import models_to_dataframe
 from ginkgo.client.cli_utils import build_list_result, format_result, announce_dry_run, reject_in_production
 
 # 导入辅助函数（从 engine_cli_helpers.py 提取）
@@ -89,7 +90,7 @@ def list_engines(
         if filter:
             # Convert filter to string if needed
             filter_str = str(filter) if not isinstance(filter, str) else filter
-            # fuzzy_search 无 df 出口（仍返 ModelList）；就地转 DataFrame 使 result.data
+            # fuzzy_search 无 df 出口（仍返 list）；就地转 DataFrame 使 result.data
             # 与 get_engines_df 出口语义对齐（data=DataFrame），下游统一不再 hasattr。
             # fuzzy_search CRUD 层只支持 limit（无 offset），故只下推 page_size；
             # 搜索结果通常较小，total 取当前匹配页行数（精确总数不可得）。
@@ -97,8 +98,8 @@ def list_engines(
                 filter_str, fields=["uuid", "name", "is_live", "status"], page_size=q_page_size
             )
             if fs_result.success:
-                # fuzzy_search 契约返 ModelList，直接转 DataFrame（参考 cli_utils.py:44 同款模式）
-                engines_df = fs_result.data.to_dataframe() if fs_result.data is not None else pd.DataFrame()
+                # fuzzy_search 契约返 list，直接转 DataFrame（参考 cli_utils.py:44 同款模式）
+                engines_df = models_to_dataframe(fs_result.data) if fs_result.data is not None else pd.DataFrame()
                 result = ServiceResult.success(data=engines_df, message=fs_result.message)
             else:
                 result = fs_result
@@ -343,9 +344,9 @@ def cat(
         if result.success:
             engines = result.data
 
-            # Handle both ModelList and single object
+            # Handle both list and single object
             if hasattr(engines, "__len__") and len(engines) > 0:
-                # ModelList - get the first engine
+                # list - get the first engine
                 engine = engines[0]
             elif hasattr(engines, "uuid"):
                 # Single engine object
@@ -444,9 +445,9 @@ def status(
         if result.success:
             engines = result.data
 
-            # Handle both ModelList and single object
+            # Handle both list and single object
             if hasattr(engines, "__len__") and len(engines) > 0:
-                # ModelList - get the first engine
+                # list - get the first engine
                 engine = engines[0]
             elif hasattr(engines, "uuid"):
                 # Single engine object
@@ -886,7 +887,7 @@ def bind_portfolio(
 
         if result.success:
             # ADR-010 R2a: get_portfolios_df 出口已保证 data 为 DataFrame（类型即契约）。
-            # 注意：DataFrame 真值歧义，改用 .empty 判空（原 ModelList 用 and result.data 判空）。
+            # 注意：DataFrame 真值歧义，改用 .empty 判空（原 list 用 and result.data 判空）。
             portfolios_df = result.data if isinstance(result.data, pd.DataFrame) else pd.DataFrame()
 
             if portfolios_df.empty:

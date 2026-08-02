@@ -1,5 +1,5 @@
 # Upstream: TradeDayService (交易日历同步)、Data Services (查询交易日历)
-# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)、MARKET_TYPES (枚举类型验证)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、MARKET_TYPES (枚举类型验证)
 # Role: MTradeDay交易日历ClickHouse模型继承MClickBase使用MergeTree按market排序
 
 
@@ -18,11 +18,10 @@ from functools import singledispatchmethod
 
 from ginkgo.libs import base_repr, datetime_normalize
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
 
 
-class MTradeDay(MMysqlBase, ModelConversion):
+class MTradeDay(MMysqlBase):
     __abstract__ = False
     __tablename__ = "trade_day"
 

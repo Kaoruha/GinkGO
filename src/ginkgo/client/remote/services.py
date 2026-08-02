@@ -34,21 +34,13 @@ def _to_ns(obj: Any) -> Any:
     return obj
 
 
-class _ModelList(list):
-    """模拟本地 ModelList：可索引 / ``len`` / ``to_dataframe``，元素为 SimpleNamespace。
+class _NamespaceList(list):
+    """远端代理出口 list：可索引 / ``len``，元素为 SimpleNamespace。
 
-    本地 ``PortfolioService.get`` 出口 data 是 ``ModelList[MPortfolio]``，CLI 用
-    ``result.data[0]``、``portfolio.uuid``；远端无 ORM Model，用 namespace 兜形。
+    本地 ``PortfolioService.get`` 出口 data 在 ADR-029 §Decision 9 后直接返 list；
+    CLI 消费方仅用 ``result.data[0]``、``portfolio.uuid``，远端无 ORM Model，
+    用 namespace 兜形。直接 ``list`` 即可，本类仅保留可读命名（不再有 to_dataframe）。
     """
-
-    def to_dataframe(self) -> pd.DataFrame:
-        rows = []
-        for item in self:
-            if isinstance(item, SimpleNamespace):
-                rows.append(vars(item))
-            elif isinstance(item, dict):
-                rows.append(item)
-        return pd.DataFrame(rows)
 
 
 def _map_detail_to_namespace(data: Any) -> Optional[SimpleNamespace]:
@@ -160,13 +152,13 @@ class RemotePortfolioService(RemoteService):
         state: Any = None,
         **kwargs,
     ) -> ServiceResult:
-        """按 uuid 取详情；按 name 走 list keyword 取首条。出口为 ``_ModelList``。"""
+        """按 uuid 取详情；按 name 走 list keyword 取首条。出口为 ``list``（元素 SimpleNamespace）。"""
         try:
             if portfolio_id:
                 data = self._client.get(f"{self.resource}/{portfolio_id}")
                 ns = _map_detail_to_namespace(data)
                 return self._ok(
-                    _ModelList([ns]) if ns is not None else None,
+                    _NamespaceList([ns]) if ns is not None else None,
                     "Portfolio retrieved (remote)",
                 )
             if name:
@@ -174,7 +166,7 @@ class RemotePortfolioService(RemoteService):
                     "GET", self.resource, params={"keyword": name, "page_size": 100}
                 )
                 ns_list = [_map_detail_to_namespace(i) for i in (items or [])]
-                return self._ok(_ModelList(ns_list), "Portfolio retrieved (remote)")
+                return self._ok(_NamespaceList(ns_list), "Portfolio retrieved (remote)")
             return ServiceResult.failure(message="portfolio_id 或 name 必须提供其一")
         except Exception as e:
             return self._fail(e)
@@ -246,16 +238,16 @@ class RemotePortfolioService(RemoteService):
         REST ``GET /portfolio?keyword=`` 当前是 **精确 name 匹配**（``filters["name"]=keyword``），
         非 LIKE 片段；故本代理仅覆盖「精确名称命中」，UUID 片段 / 名称部分模糊需 server 端
         keyword 改 LIKE（后续工作）。补此方法让命令体（如 ``resolve_portfolio_uuid``）在
-        client 模式不再 ``AttributeError``，名称解析可用。出口为 ``_ModelList``（元素含 ``uuid``）。
+        client 模式不再 ``AttributeError``，名称解析可用。出口为 ``list``（元素含 ``uuid``）。
         """
         try:
             if not query or not str(query).strip():
-                return self._ok(_ModelList([]), "Empty query (remote)")
+                return self._ok(_NamespaceList([]), "Empty query (remote)")
             items, _ = self._client.request_with_meta(
                 "GET", self.resource, params={"keyword": str(query), "page_size": 100}
             )
             ns_list = [_map_detail_to_namespace(i) for i in (items or [])]
-            return self._ok(_ModelList(ns_list), f"{len(ns_list)} match(es) (remote)")
+            return self._ok(_NamespaceList(ns_list), f"{len(ns_list)} match(es) (remote)")
         except Exception as e:
             return self._fail(e)
 

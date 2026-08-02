@@ -13,7 +13,6 @@ from typing import List, Optional, Any, Dict
 import pandas as pd
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MParam
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import GLOG, cache_with_expiration
@@ -71,13 +70,13 @@ class ParamCRUD(BaseCRUD[MParam]):
         return None
 
     # Business Helper Methods
-    def find_by_mapping_id(self, mapping_id: str) -> ModelList[MParam]:
+    def find_by_mapping_id(self, mapping_id: str) -> list:
         """
         Business helper: Find parameter by mapping ID.
         """
         return self.find(filters={"mapping_id": mapping_id}, order_by="index")
 
-    def find_by_index_range(self, mapping_id: str, min_index: int, max_index: int) -> ModelList[MParam]:
+    def find_by_index_range(self, mapping_id: str, min_index: int, max_index: int) -> list:
         """
         Business helper: Find parameters by index range.
         """
@@ -88,7 +87,7 @@ class ParamCRUD(BaseCRUD[MParam]):
         }
         return self.find(filters=filters, order_by="index")
 
-    def find_by_value_pattern(self, value_pattern: str) -> ModelList[MParam]:
+    def find_by_value_pattern(self, value_pattern: str) -> list:
         """
         Business helper: Find parameters by value pattern.
         """

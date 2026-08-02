@@ -14,7 +14,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MSignalTracker
 from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
@@ -186,7 +185,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         portfolio_id: str,
         account_type: Optional[ACCOUNT_TYPE] = None,
         execution_mode: Optional[EXECUTION_MODE] = None
-    ) -> ModelList[MSignalTracker]:
+    ) -> list:
         """
         根据投资组合查找追踪记录
 
@@ -196,7 +195,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             execution_mode: 执行模式筛选
 
         Returns:
-            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()方法
+            list[MSignalTracker]: 追踪记录列表
         """
         filters = {"portfolio_id": portfolio_id}
 
@@ -212,7 +211,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         engine_id: str,
         task_id: Optional[str] = None,
         account_type: Optional[ACCOUNT_TYPE] = None
-    ) -> ModelList[MSignalTracker]:
+    ) -> list:
         """
         根据引擎查找追踪记录
 
@@ -222,7 +221,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             account_type: 账户类型筛选
 
         Returns:
-            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()方法
+            list[MSignalTracker]: 追踪记录列表
         """
         filters = {"engine_id": engine_id}
 
@@ -237,7 +236,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         self,
         tracking_status: TRACKINGSTATUS_TYPES,
         account_type: Optional[ACCOUNT_TYPE] = None
-    ) -> ModelList[MSignalTracker]:
+    ) -> list:
         """
         根据追踪状态查找记录
 
@@ -246,7 +245,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             account_type: 账户类型筛选
 
         Returns:
-            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()方法
+            list[MSignalTracker]: 追踪记录列表
         """
         filters = {"tracking_status": tracking_status}
 

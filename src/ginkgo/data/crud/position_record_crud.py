@@ -14,7 +14,6 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MPositionRecord
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
@@ -95,7 +94,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = True,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find position records by portfolio ID.
         """
@@ -122,7 +121,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find position records by stock code.
         """
@@ -145,7 +144,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         self,
         portfolio_id: str,
         min_volume: Optional[int] = None,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find current positions (latest for each code).
         """
@@ -166,7 +165,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         min_volume: int = 1,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find position records with volume greater than threshold.
         """
@@ -187,7 +186,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         self,
         portfolio_id: str,
         min_frozen_volume: int = 1,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find positions with frozen volume.
         """
@@ -201,7 +200,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
 
     def get_latest_position(
         self, portfolio_id: str, code: str
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Get latest position record for a specific code.
         """
@@ -373,7 +372,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         end_business_time: Optional[Any] = None,
         code: Optional[str] = None,
         min_volume: Optional[int] = None,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find position records by business time range.
 

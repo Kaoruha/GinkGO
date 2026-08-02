@@ -9,7 +9,6 @@ from sqlalchemy import or_
 import re
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MUserGroup
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import GLOG
@@ -85,7 +84,7 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
         self,
         query: str,
         limit: Optional[int] = None,
-    ) -> ModelList[MUserGroup]:
+    ) -> list:
         """
         模糊搜索用户组 - 在 uuid 和 name 字段中搜索
 
@@ -98,12 +97,12 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
             limit: 最大返回条数，None 表示全量（SQL LIMIT 下推，避免全量拉回）
 
         Returns:
-            ModelList[MUserGroup]: 用户组模型列表，支持 .to_dataframe() 转换
+            list[MUserGroup]: 用户组模型列表（DF 转换走 ``models_to_dataframe``）
 
         Examples:
             groups = group_crud.fuzzy_search("traders")
-            df = groups.to_dataframe()  # 转换为DataFrame
-            first_10 = groups.head(10)  # 获取前10条
+            df = models_to_dataframe(groups)
+            first_10 = groups[:10]  # 获取前10条
         """
         # 检测是否为完整UUID格式（32位16进制字符）
         uuid_pattern = re.compile(r'^[a-f0-9]{32}$', re.IGNORECASE)
@@ -135,4 +134,4 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
             for obj in results:
                 s.expunge(obj)
 
-        return ModelList(results, self)
+        return list(results)

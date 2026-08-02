@@ -127,52 +127,55 @@ class TestUserServiceFuzzySearchLimitPushDown:
     """#6572: service.fuzzy_search 透传 limit 给 CRUD，删 head() Python 截断"""
 
     def test_passes_limit_to_crud(self):
-        from ginkgo.data.crud.model_conversion import ModelList
         svc = _mock_user_service()
         svc.user_crud = MagicMock()
-        svc.user_crud.fuzzy_search.return_value = ModelList([], MagicMock())
+        svc.user_crud.fuzzy_search.return_value = []
 
         svc.fuzzy_search("Alice", limit=5)
 
         svc.user_crud.fuzzy_search.assert_called_once_with("Alice", limit=5)
 
     def test_does_not_head_truncate_when_limit_given(self):
-        """limit 下推 CRUD 后，service 不再用 ModelList.head() 截断（DB 层已 limit）"""
-        from ginkgo.data.crud.model_conversion import ModelList
+        """limit 下推 CRUD 后，service 不再 Python 截断（CRUD 返多少就返多少）。
+
+        ADR-029 §Decision 9：CRUD 直接返 list（无 head 方法），service 物理上
+        无法调 head()。守卫改为功能性断言：CRUD 返 3 条则 service 返 3 条
+        （不做 Python 层 head(n) 截断）。
+        """
         svc = _mock_user_service()
         svc.user_crud = MagicMock()
-        # 3 条结果 + limit=1：当前实现会 head(1)，改后不调 head
-        svc.user_crud.fuzzy_search.return_value = ModelList([
+        svc.user_crud.fuzzy_search.return_value = [
             MagicMock(user_type=0), MagicMock(user_type=0), MagicMock(user_type=0),
-        ], MagicMock())
+        ]
 
-        with patch.object(ModelList, "head") as head_spy, \
-             patch("ginkgo.user.services.user_service.USER_TYPES"):
-            svc.fuzzy_search("Alice", limit=1)
+        with patch("ginkgo.user.services.user_service.USER_TYPES"):
+            result = svc.fuzzy_search("Alice", limit=1)
 
-        head_spy.assert_not_called()
+        # CRUD 返 3 条（limit=1 已下推到 DB），service 全透传不截断
+        assert result.data["count"] == 3
+        assert len(result.data["users"]) == 3
 
 
 class TestUserGroupServiceFuzzySearchLimitPushDown:
     """#6572: user_group_service.fuzzy_search 透传 limit，删 head() 截断"""
 
     def test_passes_limit_to_crud(self):
-        from ginkgo.data.crud.model_conversion import ModelList
         svc = _mock_user_group_service()
-        svc.user_group_crud.fuzzy_search.return_value = ModelList([], MagicMock())
+        svc.user_group_crud.fuzzy_search.return_value = []
 
         svc.fuzzy_search("traders", limit=5)
 
         svc.user_group_crud.fuzzy_search.assert_called_once_with("traders", limit=5)
 
     def test_does_not_head_truncate_when_limit_given(self):
-        from ginkgo.data.crud.model_conversion import ModelList
+        """ADR-029 §Decision 9：CRUD 直接返 list（无 head 方法），service 不截断。"""
         svc = _mock_user_group_service()
-        svc.user_group_crud.fuzzy_search.return_value = ModelList([
+        svc.user_group_crud.fuzzy_search.return_value = [
             MagicMock(), MagicMock(), MagicMock(),
-        ], MagicMock())
+        ]
 
-        with patch.object(ModelList, "head") as head_spy:
-            svc.fuzzy_search("traders", limit=1)
+        result = svc.fuzzy_search("traders", limit=1)
 
-        head_spy.assert_not_called()
+        # CRUD 返 3 条（limit=1 已下推），service 全透传不截断
+        assert result.data["count"] == 3
+        assert len(result.data["groups"]) == 3

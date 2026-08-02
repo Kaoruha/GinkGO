@@ -27,7 +27,7 @@ from datetime import datetime
 from ginkgo.libs import cache_with_expiration, retry, GLOG
 from ginkgo.enums import FILE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
-from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.mappers import models_to_dataframe
 
 
 class PortfolioService(BaseService):
@@ -282,7 +282,7 @@ class PortfolioService(BaseService):
                 existing_portfolios = self.get_portfolios(name=name)
                 if len(existing_portfolios) > 0:
                     # Check if the existing portfolio is not the one we're updating
-                    df = existing_portfolios.to_dataframe()
+                    df = models_to_dataframe(existing_portfolios)
                     existing_uuids = df["uuid"].tolist()
                     if portfolio_id not in existing_uuids:
                         return ServiceResult.error(f"Portfolio with name '{name}' already exists")
@@ -1113,9 +1113,9 @@ class PortfolioService(BaseService):
                           page: int = None, page_size: int = None) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
-        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
-        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
-        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM list、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 list 后调
+        ``models_to_dataframe``；空结果返空 ``pd.DataFrame()``。
 
         ADR-021 L139（#5009 契约）：``page``/``page_size`` 透传 ``find(page=,
         page_size=)``，DB 层 offset 分页；``order_by="create_at",
@@ -1136,7 +1136,7 @@ class PortfolioService(BaseService):
                 filters=filters, page=page, page_size=page_size,
                 order_by="create_at", desc_order=True,
             )
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            df = models_to_dataframe(model_list) if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Retrieved {len(df)} portfolio records (DataFrame)",

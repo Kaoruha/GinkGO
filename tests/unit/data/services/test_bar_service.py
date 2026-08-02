@@ -138,12 +138,13 @@ class TestBarServiceGetBars:
             assert hasattr(bars_result, 'data'), "缺少data属性"
             assert bars_result.data is not None, "data不能为空"
 
-            # 步骤4: 验证ModelList结构
+            # 步骤4: 验证list结构
             model_list = bars_result.data
             assert len(model_list) > 0, "应该返回至少一条数据"
 
-            # 步骤5: 验证DataFrame转换
-            df = model_list.to_dataframe()
+            # 步骤5: 验证DataFrame转换 (ADR-029 §Decision 9：CRUD 直接返 list)
+            from ginkgo.data.mappers import models_to_dataframe
+            df = models_to_dataframe(model_list)
             assert isinstance(df, pd.DataFrame), "应该能转换为DataFrame"
             assert len(df) > 0, "DataFrame不应该为空"
 
@@ -203,8 +204,9 @@ class TestBarServiceGetBars:
             model_list = bars_result.data
             assert len(model_list) > 0, "日期范围查询应该返回数据"
 
-            # 转换为DataFrame进行日期验证
-            df = model_list.to_dataframe()
+            # 转换为DataFrame进行日期验证 (ADR-029 §Decision 9：CRUD 直接返 list)
+            from ginkgo.data.mappers import models_to_dataframe
+            df = models_to_dataframe(model_list)
             assert isinstance(df, pd.DataFrame), "应该能转换为DataFrame"
 
             # 验证日期范围过滤正确性
@@ -233,7 +235,9 @@ class TestBarServiceGetBars:
                 adjustment_type=ADJUSTMENT_TYPES.NONE  # 测试不复权
             )
             assert edge_result.success, "边界日期查询失败"
-            edge_df = edge_result.data.to_dataframe()
+            # ADR-029 §Decision 9：service.get() 返 list，DF 转换走 models_to_dataframe
+            from ginkgo.data.mappers import models_to_dataframe
+            edge_df = models_to_dataframe(edge_result.data)
             assert len(edge_df) > 0, "边界日期应该有数据"
 
             # 验证不复权消息
@@ -297,8 +301,9 @@ class TestBarServiceGetBars:
             model_list = bars_result.data
             assert len(model_list) == 0, "不存在的股票应该返回空列表"
 
-            # 验证DataFrame也为空
-            df = model_list.to_dataframe()
+            # 验证DataFrame也为空 (ADR-029 §Decision 9：CRUD 直接返 list)
+            from ginkgo.data.mappers import models_to_dataframe
+            df = models_to_dataframe(model_list)
             assert len(df) == 0, "DataFrame应该为空"
 
             # 测试查询存在的股票但无数据的日期范围

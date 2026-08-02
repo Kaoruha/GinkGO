@@ -10,7 +10,7 @@ ADR-010 Phase 4 Task R1c：TickService / AdjustfactorService / ResultService 多
 - analyzer：flat_cli.py:768 调 get_analyzer_values 再 to_dataframe
   → 新出口 get_analyzer_values_df（对应 result_service.get_analyzer_values()）
 
-设计：Mock crud_repo.find / get_by_task_id 返真实 ModelList（带 mock crud 支持
+设计：Mock crud_repo.find / get_by_task_id 返真实 list（带 mock crud 支持
 to_dataframe），断言 data 运行时类型契约（isinstance），参照 test_signal_order_position_multiexit.py。
 """
 
@@ -26,7 +26,6 @@ _path = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.tick_service import TickService
 from ginkgo.data.services.adjustfactor_service import AdjustfactorService
 from ginkgo.data.services.result_service import ResultService
@@ -35,13 +34,13 @@ from ginkgo.data.services.result_service import ResultService
 # ===== 桩工厂 =====
 
 
-def _make_empty_modellist() -> ModelList:
+def _make_empty_modellist() -> list:
     crud_stub = MagicMock()
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
-    return ModelList([], crud_stub)
+    return []
 
 
-def _make_tick_modellist() -> ModelList:
+def _make_tick_modellist() -> list:
     from ginkgo.data.models import MTick
 
     model = MTick()
@@ -49,10 +48,10 @@ def _make_tick_modellist() -> ModelList:
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
         [{"code": "000001.SZ", "price": 10.0, "volume": 100}]
     )
-    return ModelList([model], crud_stub)
+    return [model]
 
 
-def _make_adjustfactor_modellist() -> ModelList:
+def _make_adjustfactor_modellist() -> list:
     from ginkgo.data.models import MAdjustfactor
 
     model = MAdjustfactor()
@@ -60,10 +59,10 @@ def _make_adjustfactor_modellist() -> ModelList:
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
         [{"code": "000001.SZ", "adjust_factor": 1.0}]
     )
-    return ModelList([model], crud_stub)
+    return [model]
 
 
-def _make_analyzer_modellist() -> ModelList:
+def _make_analyzer_modellist() -> list:
     from ginkgo.data.models import MAnalyzerRecord
 
     model = MAnalyzerRecord()
@@ -71,7 +70,7 @@ def _make_analyzer_modellist() -> ModelList:
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
         [{"name": "net_value", "value": 1.05}]
     )
-    return ModelList([model], crud_stub)
+    return [model]
 
 
 def _make_tick_service(find_return) -> TickService:
@@ -127,24 +126,22 @@ def test_get_ticks_df_method_exists():
 
 @pytest.mark.unit
 def test_get_ticks_df_returns_dataframe():
-    """出口①：data 是 pd.DataFrame，非 ModelList。"""
+    """出口①：data 是 pd.DataFrame，非 list。"""
     svc = _make_tick_service(_make_tick_modellist())
     result = svc.get_ticks_df(code="000001.SZ", start_date="2026-01-01", end_date="2026-01-02")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     assert len(result.data) == 1
 
 
 @pytest.mark.unit
 def test_get_ticks_df_empty_returns_empty_dataframe():
-    """空结果 data 仍是 pd.DataFrame（非 None / 非 ModelList）。"""
+    """空结果 data 仍是 pd.DataFrame（非 None / 非 list）。"""
     svc = _make_tick_service(_make_empty_modellist())
     result = svc.get_ticks_df(code="000001.SZ")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert len(result.data) == 0
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit
@@ -196,12 +193,11 @@ def test_get_adjustfactors_df_method_exists():
 
 @pytest.mark.unit
 def test_get_adjustfactors_df_returns_dataframe():
-    """出口①：data 是 pd.DataFrame，非 ModelList。"""
+    """出口①：data 是 pd.DataFrame，非 list。"""
     svc = _make_adjustfactor_service(_make_adjustfactor_modellist())
     result = svc.get_adjustfactors_df(code="000001.SZ")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     assert len(result.data) == 1
 
 
@@ -213,7 +209,6 @@ def test_get_adjustfactors_df_empty_returns_empty_dataframe():
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert len(result.data) == 0
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit
@@ -256,12 +251,11 @@ def test_get_analyzer_values_df_method_exists():
 
 @pytest.mark.unit
 def test_get_analyzer_values_df_returns_dataframe():
-    """出口①：data 是 pd.DataFrame，非 ModelList。"""
+    """出口①：data 是 pd.DataFrame，非 list。"""
     svc = _make_result_service(_make_analyzer_modellist())
     result = svc.get_analyzer_values_df(task_id="task1")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     assert len(result.data) == 1
 
 
@@ -273,7 +267,6 @@ def test_get_analyzer_values_df_empty_returns_empty_dataframe():
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert len(result.data) == 0
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit

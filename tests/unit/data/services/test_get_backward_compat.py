@@ -20,7 +20,6 @@ if _path not in sys.path:
     sys.path.insert(0, _path)
 
 from ginkgo.data.services.stockinfo_service import StockinfoService
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.entities import StockInfo
 
 # get() 已加 DeprecationWarning（ADR-010 Phase 4.2 Task 4.2）。
@@ -50,7 +49,7 @@ class TestGetBackwardCompat:
 
     @pytest.mark.unit
     def test_get_returns_list_of_stockinfo(self, service):
-        """get() data 是 list 且元素是 StockInfo（不是 ModelList/DataFrame）。"""
+        """get() data 是 list 且元素是 StockInfo（不是 list/DataFrame）。"""
         entities = _make_entities(3)
         service._crud_repo.find.return_value = MagicMock()  # truthy 触发 from_models
         with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.models_to_entities",
@@ -61,8 +60,7 @@ class TestGetBackwardCompat:
         # 契约：List[StockInfo]
         assert isinstance(result.data, list)
         assert all(isinstance(x, StockInfo) for x in result.data)
-        # 关键：既不是 ModelList 也不是 DataFrame（P0 回归点）
-        assert not isinstance(result.data, ModelList)
+        # 关键：既不是 list 也不是 DataFrame（P0 回归点）
         assert not isinstance(result.data, pd.DataFrame)
 
     @pytest.mark.unit
@@ -103,15 +101,15 @@ class TestGetBackwardCompat:
 
     @pytest.mark.unit
     def test_get_does_not_transmit_modellist(self, service):
-        """get() 不透传裸 ModelList（V11 重灾区，ADR-010 核心目标）。
+        """get() 不透传裸 list（V11 重灾区，ADR-010 核心目标）。
 
-        即使 crud_repo.find 返回真实 ModelList 实例，get() 也应经 mapper 转 List[StockInfo]，
-        data 绝不是 ModelList。
+        即使 crud_repo.find 返回真实 list 实例，get() 也应经 mapper 转 List[StockInfo]，
+        data 绝不是 list。
         """
-        # 构造真实 ModelList（需 crud_instance 形参）
+        # 构造真实 list（需 crud_instance 形参）
         from ginkgo.data.models import MStockInfo
         crud_stub = MagicMock()
-        ml = ModelList([], crud_stub)
+        ml = []
         service._crud_repo.find.return_value = ml
         with patch("ginkgo.data.services.stockinfo_service.StockInfoMapper.models_to_entities",
                    return_value=_make_entities(1)):
@@ -119,21 +117,27 @@ class TestGetBackwardCompat:
 
         assert result.success is True
         assert isinstance(result.data, list)
-        assert not isinstance(result.data, ModelList)
 
 
 class TestTickServiceDfExit:
-    """tick_service 已迁 get_stockinfos_df()，data 是 DataFrame（取 iloc[0]['list_date']）。"""
+    """tick_service 已迁 get_stockinfos_df()，data 是 DataFrame（取 iloc[0]['list_date']）。
+
+    ADR-029 §Decision 9：service 调 ``models_to_dataframe``（独立函数）转 DF，
+    不再依赖 model_list 上的 ``.to_dataframe()`` 方法。测试改为 patch 此函数。
+    """
 
     @pytest.mark.unit
     def test_get_stockinfos_df_returns_dataframe(self, service):
         """get_stockinfos_df().data 是 pandas.DataFrame，支持 .empty / iloc。"""
         mock_df = pd.DataFrame([{"code": "000001.SZ", "list_date": "19910403"}])
-        mock_model_list = MagicMock()
-        mock_model_list.to_dataframe.return_value = mock_df
+        mock_model_list = [MagicMock()]  # truthy 触发 models_to_dataframe 路径
         service._crud_repo.find.return_value = mock_model_list
 
-        result = service.get_stockinfos_df(code="000001.SZ")
+        with patch(
+            "ginkgo.data.services.stockinfo_service.models_to_dataframe",
+            return_value=mock_df,
+        ):
+            result = service.get_stockinfos_df(code="000001.SZ")
 
         assert result.success is True
         assert isinstance(result.data, pd.DataFrame)
@@ -145,9 +149,8 @@ class TestTickServiceDfExit:
     @pytest.mark.unit
     def test_get_stockinfos_df_empty_returns_empty_dataframe(self, service):
         """空查询返空 DataFrame（.empty 为 True），tick_service 走 WARN 兜底分支。"""
-        mock_model_list = MagicMock()
-        mock_model_list.to_dataframe.return_value = pd.DataFrame()
-        service._crud_repo.find.return_value = mock_model_list
+        # crud_repo.find 返空 list -> service 短路返 pd.DataFrame() 不调 mapper
+        service._crud_repo.find.return_value = []
 
         result = service.get_stockinfos_df(code="NONEXISTENT.SZ")
 

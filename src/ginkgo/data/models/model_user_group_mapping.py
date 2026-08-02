@@ -1,5 +1,5 @@
 # Upstream: UserGroupService (用户组管理业务逻辑)、UserGroupMappingCRUD (用户组映射数据CRUD操作)
-# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)
 # Role: MUserGroupMapping用户组映射模型继承MMysqlBase定义用户与组的多对多关系字段(user_uuid/group_uuid)支持用户组成员管理功能
 
 
@@ -11,11 +11,10 @@ from sqlalchemy import String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES
 
 
-class MUserGroupMapping(MMysqlBase, ModelConversion):
+class MUserGroupMapping(MMysqlBase):
     """
     用户组映射模型 - 用户与组的多对多关系
 

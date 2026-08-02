@@ -13,7 +13,6 @@ from typing import List, Optional, Any, Dict
 from sqlalchemy.orm import Session
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MOrder
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, to_decimal
@@ -172,7 +171,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = True,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find orders by portfolio ID.
         """
@@ -200,7 +199,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         status: Optional[ORDERSTATUS_TYPES] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find orders by stock code.
         """
@@ -225,7 +224,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         self,
         portfolio_id: Optional[str] = None,
         code: Optional[str] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find pending orders.
         """
@@ -247,7 +246,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find filled orders.
         """
@@ -273,7 +272,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         status: Optional[ORDERSTATUS_TYPES] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find orders by direction (LONG/SHORT).
         """
@@ -301,7 +300,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
         limit: Optional[int] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find large volume orders.
         """
@@ -398,7 +397,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         """
         orders = self.find({"portfolio_id": portfolio_id}) or []
 
-        # find() 返回原始 MOrder（CRUD↔ModelList 契约,见本 PR）；
+        # find() 返回原始 MOrder 列表（CRUD↔list 契约,见本 PR）；
         # status 为 TINYINT 原始 int（Mapped[int]，非枚举实例）。
         # 下方 status==ORDERSTATUS_TYPES.* 系 pre-existing int-vs-Enum 比较（本 PR 不改，
         # EnumBase 非 IntEnum，实测恒 False → 真实订单分桶恒 0；单测 mock 枚举形态掩盖）。

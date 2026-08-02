@@ -20,7 +20,6 @@ from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES, RECIPIENT_TYPES
 from ginkgo.libs import datetime_normalize
 
@@ -30,7 +29,7 @@ if TYPE_CHECKING:
     from ginkgo.data.models.model_user_group import MUserGroup
 
 
-class MNotificationRecipient(MMysqlBase, ModelConversion):
+class MNotificationRecipient(MMysqlBase):
     """
     全局通知接收人模型
 

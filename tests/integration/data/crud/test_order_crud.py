@@ -1,3 +1,4 @@
+from ginkgo.data.mappers import models_to_dataframe
 """
 OrderCRUD数据库操作TDD测试 - 交易订单管理
 
@@ -160,9 +161,8 @@ class TestOrderCRUDInsert:
             query_result = order_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(query_result)} 条记录")
 
-            # 验证返回值类型 - find方法应返回ModelList
-            from ginkgo.data.crud.model_conversion import ModelList
-            assert isinstance(query_result, ModelList), f"find()应返回ModelList，实际{type(query_result)}"
+            # 验证返回值类型 - find方法应返回list
+            assert isinstance(query_result, list), f"find()应返回list，实际{type(query_result)}"
             assert len(query_result) >= 2
 
             # 验证数据内容
@@ -230,9 +230,8 @@ class TestOrderCRUDInsert:
             print(f"✓ 查询到 {len(query_result)} 条记录")
             assert len(query_result) >= 1
 
-            # 验证返回值类型 - find方法应返回ModelList
-            from ginkgo.data.crud.model_conversion import ModelList
-            assert isinstance(query_result, ModelList), f"find()应返回ModelList，实际{type(query_result)}"
+            # 验证返回值类型 - find方法应返回list
+            assert isinstance(query_result, list), f"find()应返回list，实际{type(query_result)}"
 
             inserted_order = query_result[0]
             print(f"✓ 插入的订单验证: {inserted_order.code}, 数量={inserted_order.volume}")
@@ -1040,11 +1039,11 @@ class TestOrderCRUDBusinessLogic:
             raise
 
     def test_model_list_conversions(self):
-        """测试ModelList的to_dataframe和to_entities转换功能"""
+        """测试list的to_dataframe和to_entities转换功能"""
         from decimal import Decimal
         import pandas as pd
         print("\n" + "="*60)
-        print("开始测试: ModelList转换功能")
+        print("开始测试: list转换功能")
         print("="*60)
 
         order_crud = OrderCRUD()
@@ -1098,20 +1097,20 @@ class TestOrderCRUDBusinessLogic:
             print(f"✓ 操作后数据库记录数: {after_count}")
             assert after_count - before_count == len(test_orders), f"应增加{len(test_orders)}条数据，实际增加{after_count - before_count}条"
 
-            # 获取ModelList进行转换测试
-            print("\n→ 获取ModelList...")
+            # 获取list进行转换测试
+            print("\n→ 获取list...")
             model_list = order_crud.find(filters={"portfolio_id": "convert_test_portfolio"})
-            print(f"✓ ModelList类型: {type(model_list).__name__}")
-            print(f"✓ ModelList长度: {len(model_list)}")
+            print(f"✓ list类型: {type(model_list).__name__}")
+            print(f"✓ list长度: {len(model_list)}")
             assert len(model_list) >= 2
 
             # 测试1: to_dataframe转换
             print("\n→ 测试to_dataframe转换...")
-            df = model_list.to_dataframe()
+            df = models_to_dataframe(model_list)
             print(f"✓ DataFrame类型: {type(df).__name__}")
             print(f"✓ DataFrame形状: {df.shape}")
             assert isinstance(df, pd.DataFrame), "应返回DataFrame"
-            assert len(df) == len(model_list), f"DataFrame行数应等于ModelList长度，{len(df)} != {len(model_list)}"
+            assert len(df) == len(model_list), f"DataFrame行数应等于list长度，{len(df)} != {len(model_list)}"
 
             # 验证DataFrame列和内容
             required_columns = ['portfolio_id', 'code', 'direction', 'order_type', 'status', 'volume', 'limit_price']
@@ -1129,7 +1128,7 @@ class TestOrderCRUDBusinessLogic:
             entities = OrderMapper.models_to_entities(model_list)
             print(f"✓ 实体列表类型: {type(entities).__name__}")
             print(f"✓ 实体列表长度: {len(entities)}")
-            assert len(entities) == len(model_list), f"实体列表长度应等于ModelList长度，{len(entities)} != {len(model_list)}"
+            assert len(entities) == len(model_list), f"实体列表长度应等于list长度，{len(entities)} != {len(model_list)}"
 
             # 验证实体类型和内容
             first_entity = entities[0]
@@ -1157,26 +1156,26 @@ class TestOrderCRUDBusinessLogic:
 
             # 测试4: 验证缓存机制
             print("\n→ 测试转换缓存机制...")
-            df2 = model_list.to_dataframe()
+            df2 = models_to_dataframe(model_list)
             entities2 = OrderMapper.models_to_entities(model_list)
             # 验证结果一致性
             assert df.equals(df2), "DataFrame缓存结果应一致"
             assert len(entities) == len(entities2), "实体列表缓存结果应一致"
             print("✓ 缓存机制验证正确")
 
-            # 测试5: 验证空ModelList的转换
-            print("\n→ 测试空ModelList的转换...")
+            # 测试5: 验证空list的转换
+            print("\n→ 测试空list的转换...")
             empty_model_list = order_crud.find(filters={"portfolio_id": "NONEXISTENT_PORTFOLIO"})
-            assert len(empty_model_list) == 0, "空ModelList长度应为0"
-            empty_df = empty_model_list.to_dataframe()
+            assert len(empty_model_list) == 0, "空list长度应为0"
+            empty_df = models_to_dataframe(empty_model_list)
             empty_entities = OrderMapper.models_to_entities(empty_model_list)
             assert isinstance(empty_df, pd.DataFrame), "空转换应返回DataFrame"
             assert empty_df.shape[0] == 0, "空DataFrame行数应为0"
             assert isinstance(empty_entities, list), "空转换应返回列表"
             assert len(empty_entities) == 0, "空实体列表长度应为0"
-            print("✓ 空ModelList转换验证正确")
+            print("✓ 空list转换验证正确")
 
-            print("\n✓ 所有ModelList转换功能测试通过！")
+            print("\n✓ 所有list转换功能测试通过！")
 
         except Exception as e:
             print(f"✗ 测试失败: {e}")
@@ -1475,11 +1474,11 @@ class TestOrderCRUDEnumValidation:
 
             print(f"  ✓ 订单 {order.code}: {order.direction.name}/{order.order_type.name}/{order.status.name}")
 
-        # 验证ModelList转换功能
-        print("\n→ 验证ModelList转换功能...")
+        # 验证list转换功能
+        print("\n→ 验证list转换功能...")
         model_list = order_crud.find(filters={"engine_id": f"test_engine_comp_{run_tag}", "source": SOURCE_TYPES.TEST.value})
 
-        assert len(model_list) >= len(enum_combinations), "ModelList应该包含所有测试订单"
+        assert len(model_list) >= len(enum_combinations), "list应该包含所有测试订单"
 
         # 验证to_entities()方法中的枚举转换
         entities = OrderMapper.models_to_entities(model_list)
@@ -1489,7 +1488,7 @@ class TestOrderCRUDEnumValidation:
             assert isinstance(entity.status, ORDERSTATUS_TYPES), "业务对象status应该是枚举类型"
             assert isinstance(entity.source, SOURCE_TYPES), "业务对象source应该是枚举类型"
 
-        print("  ✓ ModelList转换中的枚举验证正确")
+        print("  ✓ list转换中的枚举验证正确")
 
         
         print("✓ 综合枚举验证测试通过")

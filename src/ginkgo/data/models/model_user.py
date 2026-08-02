@@ -1,5 +1,5 @@
 # Upstream: UserService (用户管理业务逻辑)、UserCRUD (用户数据CRUD操作)
-# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)、USER_TYPES (用户类型枚举)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、USER_TYPES (用户类型枚举)
 # Role: MUser用户模型继承MMysqlBase定义用户核心字段(username/display_name/user_type/is_active)支持用户管理功能
 
 
@@ -12,12 +12,11 @@ from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES, USER_TYPES
 from ginkgo.libs import datetime_normalize
 
 
-class MUser(MMysqlBase, ModelConversion):
+class MUser(MMysqlBase):
     """
     用户模型 - 支持个人、渠道、组织用户管理
 

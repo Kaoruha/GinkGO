@@ -115,7 +115,7 @@ class _Conversion:
         Hook method: Override to transform output items (default: no-op).
 
         find() 末尾调 ``self._convert_output_items(results)``(不传 output_type);
-        CRUD↔ModelList 契约下 find 恒返原始 ModelList,本 hook 默认 no-op。
+        CRUD↔list 契约下 find 恒返原始 list,本 hook 默认 no-op。
 
         Args:
             items: List of model instances

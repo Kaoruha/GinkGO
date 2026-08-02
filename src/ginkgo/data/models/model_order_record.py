@@ -1,5 +1,5 @@
 # Upstream: AnalyzerService, order_record_crud, 分析器(回测指标统计)
-# Downstream: MClickBase, MBacktestRecordBase, ModelConversion, 订单相关枚举
+# Downstream: MClickBase, MBacktestRecordBase, 订单相关枚举
 # Role: 订单记录ClickHouse模型，存储回测/模拟盘产生的订单快照(价格/数量/状态/费用)
 
 
@@ -19,12 +19,11 @@ from clickhouse_sqlalchemy import types
 
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 
 
-class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
+class MOrderRecord(MClickBase, MBacktestRecordBase):
     __abstract__ = False
     __tablename__ = "order_record"
 

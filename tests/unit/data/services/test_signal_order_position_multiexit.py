@@ -9,7 +9,7 @@ ADR-010 Phase 4 Task R1b：SignalService / OrderService / PositionService 多出
 - order 消费 get_orders(portfolio_id, page_size) → 新出口 get_orders_df
 - position 消费 get_all_positions(portfolio_id, page_size) → 新出口 get_positions_df
 
-设计：Mock crud_repo.find 返真实 ModelList（带 mock crud 支持 to_dataframe），
+设计：Mock crud_repo.find 返真实 list（带 mock crud 支持 to_dataframe），
 断言 data 运行时类型契约（isinstance），参照 test_engine_portfolio_multiexit.py 桩写法。
 """
 
@@ -25,7 +25,6 @@ _path = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.signal_service import SignalService
 from ginkgo.data.services.order_service import OrderService
 from ginkgo.data.services.position_service import PositionService
@@ -34,37 +33,37 @@ from ginkgo.data.services.position_service import PositionService
 # ===== 桩工厂 =====
 
 
-def _make_empty_modellist() -> ModelList:
+def _make_empty_modellist() -> list:
     crud_stub = MagicMock()
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
-    return ModelList([], crud_stub)
+    return []
 
 
-def _make_signal_modellist() -> ModelList:
+def _make_signal_modellist() -> list:
     from ginkgo.data.models import MSignal
 
     model = MSignal()
     crud_stub = MagicMock()
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"code": "000001.SZ", "direction": 1}])
-    return ModelList([model], crud_stub)
+    return [model]
 
 
-def _make_order_modellist() -> ModelList:
+def _make_order_modellist() -> list:
     from ginkgo.data.models import MOrder
 
     model = MOrder()
     crud_stub = MagicMock()
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"code": "000001.SZ", "status": 3}])
-    return ModelList([model], crud_stub)
+    return [model]
 
 
-def _make_position_modellist() -> ModelList:
+def _make_position_modellist() -> list:
     from ginkgo.data.models import MPosition
 
     model = MPosition()
     crud_stub = MagicMock()
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"code": "000001.SZ", "volume": 100}])
-    return ModelList([model], crud_stub)
+    return [model]
 
 
 def _make_signal_service(find_return) -> SignalService:
@@ -106,24 +105,22 @@ def test_get_signals_df_method_exists():
 
 @pytest.mark.unit
 def test_get_signals_df_returns_dataframe():
-    """出口①：data 是 pd.DataFrame，非 ModelList。"""
+    """出口①：data 是 pd.DataFrame，非 list。"""
     svc = _make_signal_service(_make_signal_modellist())
     result = svc.get_signals_df(engine_id="eng1", portfolio_id="pf1")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     assert len(result.data) == 1
 
 
 @pytest.mark.unit
 def test_get_signals_df_empty_returns_empty_dataframe():
-    """空结果 data 仍是 pd.DataFrame（非 None / 非 ModelList）。"""
+    """空结果 data 仍是 pd.DataFrame（非 None / 非 list）。"""
     svc = _make_signal_service(_make_empty_modellist())
     result = svc.get_signals_df()
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert len(result.data) == 0
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit
@@ -149,12 +146,11 @@ def test_get_orders_df_method_exists():
 
 @pytest.mark.unit
 def test_get_orders_df_returns_dataframe():
-    """出口①：data 是 pd.DataFrame，非 ModelList。"""
+    """出口①：data 是 pd.DataFrame，非 list。"""
     svc = _make_order_service(_make_order_modellist())
     result = svc.get_orders_df(portfolio_id="pf1")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     assert len(result.data) == 1
 
 
@@ -179,7 +175,6 @@ def test_get_orders_df_empty_returns_empty_dataframe():
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert len(result.data) == 0
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit
@@ -205,12 +200,11 @@ def test_get_positions_df_method_exists():
 
 @pytest.mark.unit
 def test_get_positions_df_returns_dataframe():
-    """出口①：data 是 pd.DataFrame，非 ModelList。"""
+    """出口①：data 是 pd.DataFrame，非 list。"""
     svc = _make_position_service(_make_position_modellist())
     result = svc.get_positions_df(portfolio_id="pf1")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     assert len(result.data) == 1
 
 
@@ -222,7 +216,6 @@ def test_get_positions_df_empty_returns_empty_dataframe():
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert len(result.data) == 0
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit

@@ -46,9 +46,9 @@ def resolve_engine_id(engine_identifier: str) -> Optional[str]:
         # 1. 首先尝试按UUID精确查找
         result = engine_service.get(engine_id=engine_identifier)
         if result.success and result.data:
-            # Handle both ModelList and single object
+            # Handle both list and single object
             if hasattr(result.data, '__len__') and len(result.data) > 0:
-                # ModelList - get the first engine
+                # list - get the first engine
                 return result.data[0].uuid
             elif hasattr(result.data, 'uuid'):
                 # Single engine object

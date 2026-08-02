@@ -57,7 +57,7 @@ class TestBacktestFeederEmitsViaPublishPriceUpdate:
 
         # mock bar_service（DI seam）让取数路径产出当日 X.SZ bar：
         #   get_available_codes 返 ["X.SZ"]（_compute_feedable_codes 交集非空）
-        #   get(code="X.SZ", ...) 返 ModelList（_fetch_day_bars_batch 逐股取当日 bar）
+        #   get(code="X.SZ", ...) 返 list（_fetch_day_bars_batch 逐股取当日 bar）
         bar_x = _make_bar("X.SZ")
         mock_bs = Mock()
         mock_bs.get_available_codes.return_value = ServiceResult(

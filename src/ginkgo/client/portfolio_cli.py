@@ -340,7 +340,7 @@ def get(
             result = portfolio_service.get(name=portfolio_id)
 
         if result.success and result.data:
-            # 获取第一个 portfolio 实体（ModelList 支持）
+            # 获取第一个 portfolio 实体（list 支持）
             if hasattr(result.data, "__len__") and len(result.data) > 0:
                 portfolio = result.data[0]
             elif hasattr(result.data, "uuid"):
@@ -443,7 +443,7 @@ def status(
             result = portfolio_service.get(name=portfolio_id)
 
         if result.success and result.data:
-            # 获取第一个 portfolio 实体（ModelList 支持）
+            # 获取第一个 portfolio 实体（list 支持）
             if hasattr(result.data, "__len__") and len(result.data) > 0:
                 portfolio = result.data[0]
             elif hasattr(result.data, "uuid"):
@@ -478,7 +478,7 @@ def _resolve_portfolio_identifier(portfolio_service, identifier: str):
     与同文件 ``get``/``status`` 的 UUID→name 回退模式对齐，新增部分 UUID fuzzy 兜底。
 
     注：本模块存在 ``def list(...)`` 命令函数遮蔽 builtin ``list``，故此处避免 ``list()``，
-    改用 ``len()`` + 直接索引（data 为 list/ModelList，支持 ``__len__``/``__getitem__``）。
+    改用 ``len()`` + 直接索引（data 为 list，支持 ``__len__``/``__getitem__``）。
 
     Returns:
         (uuid, None) 命中唯一；(None, error_msg) 未命中或歧义。

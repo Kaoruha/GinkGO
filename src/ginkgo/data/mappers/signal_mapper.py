@@ -103,7 +103,7 @@ class SignalMapper:
 
         无副作用纯转换（不改 model）；输出与 CRUD ``_convert_models_to_dataframe``
         等价（对照实证 ``test_signal_order_df_mapper_parity``）。DF 出口下沉 mapper
-        的试点，落地后 ``ModelList.to_dataframe`` 可委托此处（见 ADR-031 Future Work）。
+        的试点（见 ADR-031 Future Work，ADR-029 §Decision 9 已在 _df.py 落地）。
         """
         if not models:
             return pd.DataFrame()

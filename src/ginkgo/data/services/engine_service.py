@@ -22,7 +22,7 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.libs import cache_with_expiration, retry, GLOG
-from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.mappers import models_to_dataframe
 from ginkgo.enums import ENGINESTATUS_TYPES, SOURCE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 
@@ -61,7 +61,7 @@ class EngineService(BaseService):
             page_size: 每页数量；仅当 page 非 None 时生效
 
         Returns:
-            ServiceResult: Query result with ModelList data。
+            ServiceResult: Query result with list data。
             分页模式（page 非 None）额外设 metadata.total = 总匹配数，
             供 API 层 paginated 响应消费；全量模式不设 total。
         """
@@ -80,7 +80,7 @@ class EngineService(BaseService):
             # Exclude deleted records by default
             filters['is_del'] = False
 
-            # #3955 Execute query - always return ModelList
+            # #3955 Execute query - always return list
             # #5694: page/page_size 透传 CRUD；None=全量（向后兼容调用方）
             result = self._crud_repo.find(filters=filters, page=page, page_size=page_size)
             sr = ServiceResult.success(result, f"Successfully retrieved engine data")
@@ -118,9 +118,9 @@ class EngineService(BaseService):
                        page: int = None, page_size: int = None) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
-        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
-        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
-        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM list、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 list 后调
+        ``models_to_dataframe``；空结果返空 ``pd.DataFrame()``。
 
         ADR-021 L139（#5009 契约）：``page``/``page_size`` 透传 ``find(page=,
         page_size=)``，DB 层 offset 分页；``order_by="create_at",
@@ -141,7 +141,7 @@ class EngineService(BaseService):
                 filters=filters, page=page, page_size=page_size,
                 order_by="create_at", desc_order=True,
             )
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            df = models_to_dataframe(model_list) if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Retrieved {len(df)} engine records (DataFrame)",
@@ -1077,7 +1077,7 @@ class EngineService(BaseService):
         """
         try:
             if not query or not query.strip():
-                return ServiceResult.success(ModelList([], self._crud_repo))
+                return ServiceResult.success([])
 
             # Delegate to CRUD layer for database-level fuzzy search
             results = self._crud_repo.fuzzy_search(query, fields, limit=page_size)

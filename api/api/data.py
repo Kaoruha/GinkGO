@@ -421,7 +421,7 @@ async def get_bars(
 
         # 处理返回的数据
         # bar_service.get() 返回裸 list[MBar]（无 to_entities）；
-        # ModelList 容器走 to_entities()，裸 list 本身即 entities 列表
+        # list 容器走 to_entities()，裸 list 本身即 entities 列表
         bars_data = result.data
         bars_list = bars_data.to_entities() if hasattr(bars_data, "to_entities") else bars_data
 

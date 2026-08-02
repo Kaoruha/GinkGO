@@ -19,14 +19,13 @@ _path = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.mapping_service import MappingService
 
 
 # ===== 桩工厂（参照 test_signal_order_position_multiexit）=====
 
 
-def _make_engine_portfolio_modellist() -> ModelList:
+def _make_engine_portfolio_modellist() -> list:
     from ginkgo.data.models import MEnginePortfolioMapping
 
     model = MEnginePortfolioMapping()
@@ -35,10 +34,10 @@ def _make_engine_portfolio_modellist() -> ModelList:
         [{"engine_id": "eng-1", "portfolio_id": "pf-1",
           "engine_name": "E1", "portfolio_name": "P1"}]
     )
-    return ModelList([model], crud_stub)
+    return [model]
 
 
-def _make_portfolio_file_modellist() -> ModelList:
+def _make_portfolio_file_modellist() -> list:
     from ginkgo.data.models import MPortfolioFileMapping
 
     model = MPortfolioFileMapping()
@@ -46,7 +45,7 @@ def _make_portfolio_file_modellist() -> ModelList:
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
         [{"portfolio_id": "pf-1", "file_id": "f-1", "name": "strat", "type": 6}]
     )
-    return ModelList([model], crud_stub)
+    return [model]
 
 
 def _make_mapping_service(ep_find=None, pf_find=None) -> MappingService:

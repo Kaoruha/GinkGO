@@ -1,5 +1,5 @@
 # Upstream: CapitalService (资金调整同步)、Portfolio Manager (资金变动记录)
-# Downstream: MClickBase (继承提供ClickHouse ORM能力)、ModelConversion (提供实体转换能力)
+# Downstream: MClickBase (继承提供ClickHouse ORM能力)
 # Role: MCapitalAdjustment资金调整模型继承MClickBase定义资金调整数据结构
 
 
@@ -18,12 +18,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clickhouse_sqlalchemy import engines, types
 
 from ginkgo.data.models.model_clickbase import MClickBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.libs import datetime_normalize, base_repr, Number, to_decimal
 from ginkgo.enums import SOURCE_TYPES
 
 
-class MCapitalAdjustment(MClickBase, ModelConversion):
+class MCapitalAdjustment(MClickBase):
     __abstract__ = False
     __tablename__ = "capital_adjustment"
 

@@ -13,7 +13,6 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MBacktestTask
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
@@ -110,7 +109,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
 
         return model
 
-    def get_tasks_by_engine(self, engine_id: str, page: int = 0, page_size: int = 20) -> ModelList:
+    def get_tasks_by_engine(self, engine_id: str, page: int = 0, page_size: int = 20) -> list:
         """
         获取指定引擎的所有回测任务
 
@@ -120,7 +119,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             page_size: 每页数量
 
         Returns:
-            ModelList: 任务列表
+            list: 任务列表
         """
         return self.find(
             filters={"engine_id": engine_id, "is_del": False},
@@ -129,7 +128,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             page_size=page_size
         )
 
-    def get_tasks_by_portfolio(self, portfolio_id: str, page: int = 0, page_size: int = 20) -> ModelList:
+    def get_tasks_by_portfolio(self, portfolio_id: str, page: int = 0, page_size: int = 20) -> list:
         """
         获取指定投资组合的所有回测任务
 
@@ -139,7 +138,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             page_size: 每页数量
 
         Returns:
-            ModelList: 任务列表
+            list: 任务列表
         """
         return self.find(
             filters={"portfolio_id": portfolio_id, "is_del": False},
@@ -148,19 +147,19 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             page_size=page_size
         )
 
-    def get_running_tasks(self) -> ModelList:
+    def get_running_tasks(self) -> list:
         """
         获取所有运行中的任务
 
         Returns:
-            ModelList: 运行中的任务列表
+            list: 运行中的任务列表
         """
         return self.find(
             filters={"status": "running", "is_del": False},
             order_by="create_at", desc_order=True
         )
 
-    def get_completed_tasks(self, page: int = 0, page_size: int = 20) -> ModelList:
+    def get_completed_tasks(self, page: int = 0, page_size: int = 20) -> list:
         """
         获取已完成的任务列表
 
@@ -169,7 +168,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             page_size: 每页数量
 
         Returns:
-            ModelList: 已完成任务列表
+            list: 已完成任务列表
         """
         return self.find(
             filters={"status": "completed", "is_del": False},
@@ -225,7 +224,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         query: str,
         fields: Optional[List[str]] = None,
         limit: Optional[int] = None,
-    ) -> ModelList[MBacktestTask]:
+    ) -> list:
         """
         模糊搜索回测任务，支持 UUID、名称、task_id 的部分匹配。
 
@@ -234,10 +233,10 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             fields: 搜索字段列表。默认: ['uuid', 'name', 'task_id']
 
         Returns:
-            ModelList of matching tasks
+            list of matching tasks
         """
         if not query or not query.strip():
-            return ModelList([], self)
+            return []
 
         query_lower = query.lower().strip()
 
@@ -281,7 +280,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         if limit is not None:
             all_results = all_results[:limit]
 
-        return ModelList(all_results, self)
+        return all_results
 
     def update_task_status(
         self,
@@ -326,7 +325,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         end_date: datetime = None,
         page: int = 0,
         page_size: int = 20
-    ) -> ModelList:
+    ) -> list:
         """
         分页获取筛选后的任务列表
 
@@ -340,7 +339,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             page_size: 每页数量
 
         Returns:
-            ModelList: 任务列表
+            list: 任务列表
         """
         filters = {"is_del": False}
 

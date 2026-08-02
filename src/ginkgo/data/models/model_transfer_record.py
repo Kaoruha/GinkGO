@@ -1,5 +1,5 @@
 # Upstream: AnalyzerService, transfer_record_crud, 分析器(资金曲线统计)
-# Downstream: MClickBase, MBacktestRecordBase, ModelConversion, 划转相关枚举(MARKET_TYPES/TRANSFERSTATUS_TYPES)
+# Downstream: MClickBase, MBacktestRecordBase, 划转相关枚举(MARKET_TYPES/TRANSFERSTATUS_TYPES)
 # Role: 划转记录ClickHouse模型，存储资金划转事件(方向/市场/金额/状态)
 
 
@@ -20,11 +20,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
 
 
-class MTransferRecord(MClickBase, MBacktestRecordBase, ModelConversion):
+class MTransferRecord(MClickBase, MBacktestRecordBase):
     __abstract__ = False
     __tablename__ = "transfer_record"
 

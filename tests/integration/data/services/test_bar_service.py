@@ -24,6 +24,7 @@ from ginkgo.data.services.bar_service import BarService
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.containers import container
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
+from ginkgo.data.mappers import models_to_dataframe
 
 
 @pytest.mark.unit
@@ -140,12 +141,12 @@ class TestBarServiceGetBars:
             assert hasattr(bars_result, 'data'), "缺少data属性"
             assert bars_result.data is not None, "data不能为空"
 
-            # 步骤4: 验证ModelList结构
+            # 步骤4: 验证list结构
             model_list = bars_result.data
             assert len(model_list) > 0, "应该返回至少一条数据"
 
             # 步骤5: 验证DataFrame转换
-            df = model_list.to_dataframe()
+            df = models_to_dataframe(model_list)
             assert isinstance(df, pd.DataFrame), "应该能转换为DataFrame"
             assert len(df) > 0, "DataFrame不应该为空"
 
@@ -206,7 +207,7 @@ class TestBarServiceGetBars:
             assert len(model_list) > 0, "日期范围查询应该返回数据"
 
             # 转换为DataFrame进行日期验证
-            df = model_list.to_dataframe()
+            df = models_to_dataframe(model_list)
             assert isinstance(df, pd.DataFrame), "应该能转换为DataFrame"
 
             # 验证日期范围过滤正确性
@@ -300,7 +301,7 @@ class TestBarServiceGetBars:
             assert len(model_list) == 0, "不存在的股票应该返回空列表"
 
             # 验证DataFrame也为空
-            df = model_list.to_dataframe()
+            df = models_to_dataframe(model_list)
             assert len(df) == 0, "DataFrame应该为空"
 
             # 测试查询存在的股票但无数据的日期范围

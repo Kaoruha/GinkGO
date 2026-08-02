@@ -276,7 +276,7 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
             for symbol in symbols:
                 if data_type == "bar":
                     # #6624: 走 DF 出口 get_bars_df，传 FORE 保回测热路径前复权语义
-                    # （与原 get() 默认一致，ADR-010 例外），不再接触 ORM ModelList
+                    # （与原 get() 默认一致，ADR-010 例外），不再接触 ORM list
                     result = self.bar_service.get_bars_df(symbol,
                                     start_date=start_time.date(),
                                     end_date=end_time.date(),
@@ -330,7 +330,7 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
                 GLOG.WARN(f"BacktestFeeder: No bar data for {code} at {target_time.date()}")
                 return events
 
-            # 转换ModelList → 业务对象列表（ADR-010: 走 Mapper 层，不再经 to_entities 懒转换）
+            # 转换 list → 业务对象列表（ADR-010: 走 Mapper 层，不再经 to_entities 懒转换）
             bar_entities = BarMapper.models_to_entities(result.data)
 
             # 转换第一个Bar实体

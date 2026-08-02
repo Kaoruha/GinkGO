@@ -1,5 +1,5 @@
 # Upstream: StockinfoService (同步股票基础信息)、Data Services (查询股票元数据)
-# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)、CURRENCY_TYPES/MARKET_TYPES (枚举类型验证)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、CURRENCY_TYPES/MARKET_TYPES (枚举类型验证)
 # Role: MStockInfo股票信息MySQL模型继承MMysqlBase定义核心字段
 
 
@@ -17,12 +17,11 @@ from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES, CURRENCY_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, base_repr
 
 
-class MStockInfo(MMysqlBase, ModelConversion):
+class MStockInfo(MMysqlBase):
     __abstract__ = False
     __tablename__ = "stock_info"
 

@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from ginkgo.data.mappers import SignalMapper
+from ginkgo.data.mappers import SignalMapper, models_to_dataframe
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
@@ -110,7 +110,7 @@ class SignalService(BaseService):
             page_size: 返回数量限制，0 表示全部
 
         Returns:
-            ServiceResult.data: ModelList
+            ServiceResult.data: list
         """
         try:
             filters = {"is_del": False}
@@ -190,9 +190,9 @@ class SignalService(BaseService):
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
-        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
-        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
-        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM list、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 list 后调
+        ``models_to_dataframe``；空结果返空 ``pd.DataFrame()``。
 
         #5009：page（0-based）/page_size 分页；MSignal 为 ClickHouse（MClickBase），
         order_by=timestamp desc 保证分页确定性（CH MergeTree 无隐式顺序保证，
@@ -213,7 +213,7 @@ class SignalService(BaseService):
                 order_by="timestamp",
                 desc_order=True,
             )
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            df = models_to_dataframe(model_list) if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Retrieved {len(df)} signal records (DataFrame)",

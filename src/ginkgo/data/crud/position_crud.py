@@ -14,7 +14,6 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MPosition
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, to_decimal
@@ -130,7 +129,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
         )
 
     # Business Helper Methods
-    def find_by_portfolio(self, portfolio_id: str, min_volume: int = 0) -> ModelList[MPosition]:
+    def find_by_portfolio(self, portfolio_id: str, min_volume: int = 0) -> list:
         """
         Business helper: Find positions by portfolio ID.
         """
@@ -140,7 +139,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
             
         return self.find(filters=filters, order_by="cost", desc_order=True)
 
-    def find_by_code(self, code: str, portfolio_id: Optional[str] = None) -> ModelList[MPosition]:
+    def find_by_code(self, code: str, portfolio_id: Optional[str] = None) -> list:
         """
         Business helper: Find positions by stock code.
         """
@@ -157,7 +156,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
         result = self.find(filters={"portfolio_id": portfolio_id, "code": code}, page_size=1)
         return result[0] if result else None
 
-    def get_active_positions(self, portfolio_id: str, min_volume: int = 1) -> ModelList[MPosition]:
+    def get_active_positions(self, portfolio_id: str, min_volume: int = 1) -> list:
         """
         Business helper: Get active positions (volume > 0).
         """

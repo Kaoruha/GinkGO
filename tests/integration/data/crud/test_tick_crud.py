@@ -35,7 +35,7 @@ Tick是实时交易的基础数据，包含高频的价格和成交量信息。�
    - 动态表分区 (dynamic_partitioning): 动态表机制
 
 6. 转换功能测试 (Conversion Tests)
-   - ModelList转换 (model_list_versions): to_dataframe和to_entities
+   - list转换 (model_list_versions): to_dataframe和to_entities
 
 TODO: 添加replace方法测试用例
 - 测试replace方法的原子操作 (备份→删除→插入→失败时恢复)
@@ -65,6 +65,7 @@ from ginkgo.data.crud.tick_crud import TickCRUD, get_tick_model
 from ginkgo.data.mappers import TickMapper
 from ginkgo.data.models.model_tick import MTick
 from ginkgo.enums import TICKDIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.data.mappers import models_to_dataframe
 
 # 测试用统一股票代码常量
 TEST_TICK_CODE = "TESTTICK_Tick"
@@ -136,9 +137,8 @@ class TestTickCRUDInsert:
             query_result = self.crud.find(filters={"code": self.test_code, "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(query_result)} 条记录")
 
-            # 验证返回值类型 - find方法应返回ModelList
-            from ginkgo.data.crud.model_conversion import ModelList
-            assert isinstance(query_result, ModelList), f"find()应返回ModelList，实际{type(query_result)}"
+            # 验证返回值类型 - find方法应返回list
+            assert isinstance(query_result, list), f"find()应返回list，实际{type(query_result)}"
             assert len(query_result) >= 2
 
             # 验证数据内容
@@ -582,9 +582,9 @@ class TestTickCRUDConversion:
         self.test_code = TEST_TICK_CODE
 
     def test_model_list_conversions(self):
-        """测试ModelList的to_dataframe和to_entities转换功能"""
+        """测试list的to_dataframe和to_entities转换功能"""
         print("\n" + "="*60)
-        print("开始测试: Tick ModelList转换功能")
+        print("开始测试: Tick list转换功能")
         print("="*60)
 
         try:
@@ -609,16 +609,16 @@ class TestTickCRUDConversion:
             # 插入测试数据
             self.crud.add_batch(test_ticks)
 
-            # 获取ModelList进行转换测试
-            print("\n→ 获取ModelList...")
+            # 获取list进行转换测试
+            print("\n→ 获取list...")
             model_list = self.crud.find(filters={"code": self.test_code})
             assert len(model_list) >= 2, "应至少有2条测试数据"
 
             # 测试1: to_dataframe转换
             print("\n→ 测试to_dataframe转换...")
-            df = model_list.to_dataframe()
+            df = models_to_dataframe(model_list)
             assert isinstance(df, pd.DataFrame), "应返回DataFrame"
-            assert len(df) == len(model_list), "DataFrame行数应等于ModelList长度"
+            assert len(df) == len(model_list), "DataFrame行数应等于list长度"
 
             # 验证DataFrame列
             required_columns = ['code', 'price', 'volume', 'direction', 'timestamp']
@@ -629,7 +629,7 @@ class TestTickCRUDConversion:
             # 测试2: to_entities转换
             print("\n→ 测试to_entities转换...")
             entities = TickMapper.models_to_entities(model_list)
-            assert len(entities) == len(model_list), "实体列表长度应等于ModelList长度"
+            assert len(entities) == len(model_list), "实体列表长度应等于list长度"
 
             # 验证实体类型
             from ginkgo.trading import Tick
@@ -637,10 +637,10 @@ class TestTickCRUDConversion:
             assert isinstance(first_entity, Tick), "应转换为Tick实体"
             print("✓ to_entities转换验证通过")
 
-            print("\n✓ 所有Tick ModelList转换功能测试通过！")
+            print("\n✓ 所有Tick list转换功能测试通过！")
 
         except Exception as e:
-            print(f"✗ ModelList转换测试失败: {e}")
+            print(f"✗ list转换测试失败: {e}")
             raise
 
 

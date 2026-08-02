@@ -4,7 +4,7 @@ ADR-010 Phase 4 Task R1a：EngineService / PortfolioService 多出口方法契�
 补 get_engines_df() / get_portfolios_df()：data 是 pandas.DataFrame（类型即契约），
 消除未来消费者「result.data.to_dataframe()」绕多出口的反模式。
 
-设计：Mock crud_repo.find 返真实 ModelList（带 mock crud 支持 to_dataframe），
+设计：Mock crud_repo.find 返真实 list（带 mock crud 支持 to_dataframe），
 断言 data 运行时类型契约（isinstance），**不**用 inspect.getsource 字符串 grep。
 参照 test_bar_multiexit.py 的桩写法。
 """
@@ -21,7 +21,6 @@ _path = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.engine_service import EngineService
 from ginkgo.data.services.portfolio_service import PortfolioService
 
@@ -29,28 +28,28 @@ from ginkgo.data.services.portfolio_service import PortfolioService
 # ===== 桩工厂 =====
 
 
-def _make_empty_modellist() -> ModelList:
+def _make_empty_modellist() -> list:
     crud_stub = MagicMock()
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
-    return ModelList([], crud_stub)
+    return []
 
 
-def _make_engine_modellist() -> ModelList:
+def _make_engine_modellist() -> list:
     from ginkgo.data.models import MEngine
 
     model = MEngine(name="test-engine", is_live=False)
     crud_stub = MagicMock()
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"name": "test-engine", "is_live": False}])
-    return ModelList([model], crud_stub)
+    return [model]
 
 
-def _make_portfolio_modellist() -> ModelList:
+def _make_portfolio_modellist() -> list:
     from ginkgo.data.models import MPortfolio
 
     model = MPortfolio(name="test-portfolio")
     crud_stub = MagicMock()
     crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"name": "test-portfolio"}])
-    return ModelList([model], crud_stub)
+    return [model]
 
 
 def _make_engine_service(find_return) -> EngineService:
@@ -95,12 +94,11 @@ def test_get_engines_df_method_exists():
 
 @pytest.mark.unit
 def test_get_engines_df_returns_dataframe():
-    """出口①：data 是 pd.DataFrame，非 ModelList。"""
+    """出口①：data 是 pd.DataFrame，非 list。"""
     svc = _make_engine_service(_make_engine_modellist())
     result = svc.get_engines_df(name="test-engine")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     assert len(result.data) == 1
 
 
@@ -128,13 +126,12 @@ def test_get_engines_df_page_size_zero_disables_pagination():
 
 @pytest.mark.unit
 def test_get_engines_df_empty_returns_empty_dataframe():
-    """空结果 data 仍是 pd.DataFrame（非 None / 非 ModelList）。"""
+    """空结果 data 仍是 pd.DataFrame（非 None / 非 list）。"""
     svc = _make_engine_service(_make_empty_modellist())
     result = svc.get_engines_df()
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert len(result.data) == 0
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit
@@ -181,12 +178,11 @@ def test_get_portfolios_df_method_exists():
 
 @pytest.mark.unit
 def test_get_portfolios_df_returns_dataframe():
-    """出口①：data 是 pd.DataFrame，非 ModelList。"""
+    """出口①：data 是 pd.DataFrame，非 list。"""
     svc = _make_portfolio_service(_make_portfolio_modellist())
     result = svc.get_portfolios_df(name="test-portfolio")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     assert len(result.data) == 1
 
 
@@ -220,7 +216,6 @@ def test_get_portfolios_df_empty_returns_empty_dataframe():
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert len(result.data) == 0
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit
