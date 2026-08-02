@@ -46,12 +46,6 @@ class MarketSubscriptionCRUD(BaseCRUD[MMarketSubscription]):
         """从参数创建MMarketSubscription实例"""
         return MMarketSubscription(**kwargs)
 
-    def _convert_input_item(self, item: Any) -> Optional[MMarketSubscription]:
-        """转换对象为MMarketSubscription"""
-        if isinstance(item, MMarketSubscription):
-            return item
-        return None
-
     # ==================== 订阅专用CRUD操作 ====================
 
     def add_subscription(

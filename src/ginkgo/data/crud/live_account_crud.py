@@ -90,12 +90,6 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
         """从参数创建MLiveAccount实例"""
         return MLiveAccount(**kwargs)
 
-    def _convert_input_item(self, item: Any) -> Optional[MLiveAccount]:
-        """转换对象为MLiveAccount"""
-        if isinstance(item, MLiveAccount):
-            return item
-        return None
-
     def _process_dataframe_output(self, df: pd.DataFrame) -> pd.DataFrame:
         """处理DataFrame输出，隐藏敏感信息"""
         # 隐藏API凭证列

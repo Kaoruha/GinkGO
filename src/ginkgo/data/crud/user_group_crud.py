@@ -67,12 +67,6 @@ class UserGroupCRUD(BaseCRUD[MUserGroup]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.OTHER)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MUserGroup]:
-        """
-        Hook method: Convert objects to MUserGroup.
-        """
-        return None
-
     # ==================== 业务辅助方法 ====================
 
     def find_by_name_pattern(self, name_pattern: str) -> List[MUserGroup]:

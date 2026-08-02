@@ -74,13 +74,6 @@ class UserCRUD(BaseCRUD[MUser]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.OTHER)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MUser]:
-        """
-        Hook method: Convert objects to MUser.
-        """
-        # 目前没有业务对象，返回None
-        return None
-
     # ==================== 级联软删除实现 ====================
 
     def delete(

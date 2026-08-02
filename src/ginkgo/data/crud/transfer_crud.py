@@ -17,7 +17,6 @@ from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MTransfer
 from ginkgo.enums import SOURCE_TYPES, TRANSFERDIRECTION_TYPES, TRANSFERSTATUS_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ginkgo.entities import Transfer
 
 
 @restrict_crud_access
@@ -105,23 +104,6 @@ class TransferCRUD(BaseCRUD[MTransfer]):
             timestamp=datetime_normalize(kwargs.get("timestamp", datetime.now())),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
-
-    def _convert_input_item(self, item: Any) -> Optional[MTransfer]:
-        """
-        Hook method: Convert Transfer objects to MTransfer.
-        """
-        if isinstance(item, Transfer):
-            return MTransfer(
-                portfolio_id=getattr(item, 'portfolio_id', ''),
-                engine_id=getattr(item, 'engine_id', ''),
-                direction=TRANSFERDIRECTION_TYPES.validate_input(getattr(item, 'direction', TRANSFERDIRECTION_TYPES.IN)),
-                market=MARKET_TYPES.validate_input(getattr(item, 'market', MARKET_TYPES.CHINA)),
-                money=to_decimal(getattr(item, 'money', 0)),
-                status=TRANSFERSTATUS_TYPES.validate_input(getattr(item, 'status', TRANSFERSTATUS_TYPES.PENDING)),
-                timestamp=datetime_normalize(getattr(item, 'timestamp', datetime.now())),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-            )
-        return None
 
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str, direction: Optional[TRANSFERDIRECTION_TYPES] = None,

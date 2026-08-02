@@ -54,19 +54,6 @@ class HandlerCRUD(BaseCRUD[MHandler]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MHandler]:
-        """
-        Hook method: Convert handler objects to MHandler.
-        """
-        if hasattr(item, 'name'):
-            return MHandler(
-                name=getattr(item, 'name', 'test_handler'),
-                lib_path=getattr(item, 'lib_path', ''),
-                func_name=getattr(item, 'func_name', ''),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-            )
-        return None
-
     # Business Helper Methods
     def find_by_uuid(self, uuid: str) -> List[MHandler]:
         """

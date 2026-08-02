@@ -85,41 +85,6 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MPositionRecord]:
-        """
-        Hook method: Convert position record objects to MPositionRecord.
-        """
-        # Assuming 'item' could be a dictionary or an object with attributes
-        if isinstance(item, dict):
-            return MPositionRecord(
-                portfolio_id=item.get('portfolio_id'),
-                engine_id=item.get('engine_id', ''),
-                timestamp=datetime_normalize(item.get('timestamp', datetime.now())),
-                code=item.get('code', ''),
-                cost=to_decimal(item.get('cost', 0)),
-                volume=item.get('volume', 0),
-                frozen_volume=item.get('frozen_volume', 0),
-                frozen_money=to_decimal(item.get('frozen_money', 0)),
-                price=to_decimal(item.get('price', 0)),
-                fee=to_decimal(item.get('fee', 0)),
-                business_timestamp=datetime_normalize(item.get('business_timestamp', None)),
-            )
-        elif hasattr(item, 'portfolio_id') and hasattr(item, 'code') and hasattr(item, 'volume'):
-            return MPositionRecord(
-                portfolio_id=getattr(item, 'portfolio_id', ''),
-                engine_id=getattr(item, 'engine_id', ''),
-                timestamp=datetime_normalize(getattr(item, 'timestamp', datetime.now())),
-                code=getattr(item, 'code', ''),
-                cost=to_decimal(getattr(item, 'cost', 0)),
-                volume=getattr(item, 'volume', 0),
-                frozen_volume=getattr(item, 'frozen_volume', 0),
-                frozen_money=to_decimal(getattr(item, 'frozen_money', 0)),
-                price=to_decimal(getattr(item, 'price', 0)),
-                fee=to_decimal(getattr(item, 'fee', 0)),
-                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
-            )
-        return None
-
     # Business Helper Methods
     def find_by_portfolio(
         self,

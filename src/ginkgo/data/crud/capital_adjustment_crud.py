@@ -72,32 +72,6 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MCapitalAdjustment]:
-        """
-        Hook method: Convert capital adjustment objects to MCapitalAdjustment.
-        """
-        # 处理字典类型输入
-        if isinstance(item, dict):
-            if "portfolio_id" in item and "amount" in item:
-                return MCapitalAdjustment(
-                    portfolio_id=item.get("portfolio_id"),
-                    timestamp=datetime_normalize(item.get("timestamp", datetime.now())),
-                    amount=to_decimal(item.get("amount", 0)),
-                    reason=item.get("reason", ""),
-                    source=SOURCE_TYPES.validate_input(item.get("source", SOURCE_TYPES.SIM)),
-                    business_timestamp=datetime_normalize(item.get("business_timestamp", None)),
-                )
-        # 处理对象类型输入
-        elif hasattr(item, "portfolio_id") and hasattr(item, "amount"):
-            return MCapitalAdjustment(
-                portfolio_id=getattr(item, "portfolio_id"),
-                timestamp=datetime_normalize(getattr(item, "timestamp", datetime.now())),
-                amount=to_decimal(getattr(item, "amount", 0)),
-                reason=getattr(item, "reason", ""),
-                source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
-                business_timestamp=datetime_normalize(getattr(item, "business_timestamp", None)),
-            )
-        return None
 
     # Business Helper Methods
     def find_by_portfolio(
