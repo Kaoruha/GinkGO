@@ -9,16 +9,15 @@
 
 from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any, Dict
+from typing import List, Optional, Any
 import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MPosition
-from ginkgo.entities import Position
 from ginkgo.enums import SOURCE_TYPES
-from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.libs import datetime_normalize, GLOG, to_decimal
 
 
 @restrict_crud_access
@@ -129,27 +128,6 @@ class PositionCRUD(BaseCRUD[MPosition]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
             business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
-
-    def _convert_input_item(self, item: Any) -> Optional[MPosition]:
-        """
-        Hook method: Convert position objects to MPosition.
-        """
-        if hasattr(item, 'portfolio_id') and hasattr(item, 'code'):
-            return MPosition(
-                portfolio_id=getattr(item, 'portfolio_id'),
-                engine_id=getattr(item, 'engine_id', ''),
-                task_id=getattr(item, 'task_id', ""),  # 添加 task_id 字段
-                code=getattr(item, 'code'),
-                cost=to_decimal(getattr(item, 'cost', 0)),
-                volume=getattr(item, 'volume', 0),
-                frozen_volume=getattr(item, 'frozen_volume', 0),
-                frozen_money=to_decimal(getattr(item, 'frozen_money', 0)),
-                price=to_decimal(getattr(item, 'price', 0)),
-                fee=to_decimal(getattr(item, 'fee', 0)),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
-            )
-        return None
 
     # Business Helper Methods
     def find_by_portfolio(self, portfolio_id: str, min_volume: int = 0) -> ModelList[MPosition]:

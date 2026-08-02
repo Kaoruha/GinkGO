@@ -7,6 +7,7 @@ from typing import List, Optional, Any
 
 import pandas as pd
 
+from ginkgo.data.mappers import PositionMapper
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.libs import GLOG, to_decimal
 
@@ -34,7 +35,9 @@ class PositionService(BaseService):
         """
         try:
             for pos in positions:
-                self._crud_repo.add(pos)
+                # ADR-029 Task 5:走 mapper.entity_to_model 收敛转换 + 顺修 add(entity) bug
+                # (base_crud.add → _do_add 不触发 _convert_input_item,直传 Entity 入 SA session)
+                self._crud_repo.add(PositionMapper.entity_to_model(pos))
             GLOG.DEBUG(f"Saved {len(positions)} positions")
             return ServiceResult.success(data={"count": len(positions)})
         except Exception as e:
@@ -173,7 +176,8 @@ class PositionService(BaseService):
                 )
                 GLOG.DEBUG(f"Updated position: {position.code}")
             else:
-                self._crud_repo.add(position)
+                # ADR-029 Task 5:走 mapper.entity_to_model 收敛转换 + 顺修 add(entity) bug
+                self._crud_repo.add(PositionMapper.entity_to_model(position))
                 GLOG.DEBUG(f"Created position: {position.code}")
 
             return ServiceResult.success(

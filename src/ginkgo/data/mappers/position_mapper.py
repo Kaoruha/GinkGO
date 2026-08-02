@@ -18,6 +18,7 @@ from typing import List
 
 from ginkgo.data.models import MPosition
 from ginkgo.entities import Position
+from ginkgo.enums import SOURCE_TYPES
 
 
 class PositionMapper:
@@ -28,7 +29,13 @@ class PositionMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def entity_to_model(entity: Position) -> MPosition:
-        """Entity → ORM。3 位置参数 + model.uuid 赋值 + settlement_queue JSON 序列化。"""
+        """Entity → ORM。3 位置参数 + model.uuid 赋值 + settlement_queue JSON 序列化。
+
+        ADR-029 Task 5:补 source + business_timestamp(原 position_crud._convert_input_item
+        override 写、mapper 漏写,导致 roundtrip 丢字段)。source 经 set_source→validate_input
+        存 int(`result if result is not None else -1`,不吞 0);business_timestamp 经
+        datetime_normalize。
+        """
         # 序列化结算队列为JSON（原码 default=str 兜底 datetime 等不可 JSON 序列化对象）
         # Position 无 settlement_queue property，直读私有属性（忠实原码）
         settlement_queue_json = json.dumps(entity._settlement_queue, default=str)
@@ -48,6 +55,8 @@ class PositionMapper:
             frozen_money=entity.frozen_money,
             price=entity.price,
             fee=entity.fee,
+            source=entity.source,                              # 补:经 set_source 存 int
+            business_timestamp=entity.business_timestamp,      # 补:经 datetime_normalize
         )
         # 设置UUID（原码行为：给 ORM 赋 entity 的 uuid）
         model.uuid = entity.uuid
@@ -56,6 +65,9 @@ class PositionMapper:
     @staticmethod
     def model_to_entity(model: MPosition) -> Position:
         """ORM → Entity。还原 uuid（原码已如此，无丢失 bug）。
+
+        ADR-029 Task 5:补 source + business_timestamp 还原(原 mapper 仅写不还,roundtrip 丢字段)。
+        source int → SOURCE_TYPES 枚举经 from_int;business_timestamp 经 TimeMixin kwarg 还原。
 
         settlement_queue 反序列化失败时 fallback []（保留原码 try/except）。
         timestamp 硬编码 '2023-01-01 10:00:00' 为原码行为（Position 时间键
@@ -88,8 +100,18 @@ class PositionMapper:
             position_kwargs['frozen_money'] = model.frozen_money
         if model.fee is not None:
             position_kwargs['fee'] = model.fee
+        # business_timestamp 还原(经 TimeMixin kwarg 消费)
+        if model.business_timestamp is not None:
+            position_kwargs['business_timestamp'] = model.business_timestamp
 
         position = Position(**position_kwargs)
+
+        # source 还原:int → SOURCE_TYPES 枚举(Base source setter 校验类型,必须传枚举不能传 int)
+        # Position 构造器 source kwarg 被 Base 静默吞(实测),只能 setter 注入
+        if model.source is not None:
+            source_enum = SOURCE_TYPES.from_int(model.source)
+            if source_enum is not None:
+                position.source = source_enum
 
         # 反序列化结算队列JSON（失败 fallback []）
         # Position 无 settlement_queue property，直写私有属性（忠实原码）
