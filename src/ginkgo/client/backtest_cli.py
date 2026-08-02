@@ -134,6 +134,10 @@ def create_task(
     commission: float = typer.Option(0.0003, "--commission", help="Commission rate"),
     slippage: float = typer.Option(0.0001, "--slippage", help="Slippage rate"),
     frequency: str = typer.Option("DAY", "--frequency", help="Frequency (DAY/HOUR/MINUTE)"),
+    fill_price_policy: str = typer.Option(
+        "attitude", "--fill-price-policy",
+        help="成交价策略: attitude(态度采样,默认零回归) / slippage(确定性滑点,激活 --slippage)",
+    ),
     name: Optional[str] = typer.Option(None, "--name", help="Task name"),
 ):
     """:plus: Create a backtest task."""
@@ -190,6 +194,7 @@ def create_task(
         "commission_rate": commission,
         "slippage_rate": slippage,
         "frequency": frequency,
+        "fill_price_policy": fill_price_policy,
         "portfolio_uuids": [portfolio],
         "analyzers": [],
         "broker_type": "backtest",
@@ -508,6 +513,7 @@ def edit_task(
     cash: Optional[float] = typer.Option(None, "--cash", help="New initial capital"),
     commission: Optional[float] = typer.Option(None, "--commission", help="New commission rate"),
     slippage: Optional[float] = typer.Option(None, "--slippage", help="New slippage rate"),
+    fill_price_policy: Optional[str] = typer.Option(None, "--fill-price-policy", help="New 成交价策略 attitude/slippage"),
     name: Optional[str] = typer.Option(None, "--name", help="New task name"),
 ):
     """:pencil2: Edit an uncompleted backtest task."""
@@ -540,6 +546,8 @@ def edit_task(
         config_snapshot["commission_rate"] = commission
     if slippage is not None:
         config_snapshot["slippage_rate"] = slippage
+    if fill_price_policy is not None:
+        config_snapshot["fill_price_policy"] = fill_price_policy
 
     updates = {"config_snapshot": json.dumps(config_snapshot)}
     if name:

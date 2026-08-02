@@ -1,4 +1,4 @@
-# Upstream: EngineAssemblyService, TaskEngineBuilder
+# Upstream: EngineAssemblyService
 # Downstream: BacktestFeeder, OKXDataFeeder, SimBroker, OKXBroker, EXECUTION_MODE, EVENT_TYPES
 # Role: 基础设施工厂（无状态），提供DataFeeder/Broker/引擎基础设施的静态创建方法
 
@@ -207,6 +207,16 @@ class InfrastructureFactory:
         # 合并用户配置（如果有）
         default_cfg.update(cfg)
         cfg = default_cfg
+
+        # ADR-037 D2 + 方案B: fill_price_policy 显式选择成交价模型
+        # build_engine_data 灌入 fill_price_policy (默认 attitude=零回归) + slippage_rate;
+        # 向后兼容: 旧 engine_data 无 fill_price_policy key → 默认 attitude (零回归)
+        # 回测+模拟共用 build_fill_price_model (ADR-037 D2 统一断点)
+        from ginkgo.trading.brokers.fill_price_model import build_fill_price_model
+        cfg["fill_price_model"] = build_fill_price_model(
+            engine_data.get("fill_price_policy", "attitude"),
+            engine_data.get("slippage_rate"),
+        )
 
         # Map mode to broker implementation
         if mode in ("backtest", "simulation", "sim", "paper"):

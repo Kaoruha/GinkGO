@@ -1,6 +1,6 @@
 # Upstream: API Server, CLI commands, Worker nodes
-# Downstream: BaseEngine, BacktestEngine, PortfolioT1Backtest, ComponentLoader, InfrastructureFactory, TaskEngineBuilder, DataPreparer
-# Role: 引擎装配服务门面类，委托ComponentLoader/InfrastructureFactory/TaskEngineBuilder/DataPreparer完成具体装配
+# Downstream: BaseEngine, BacktestEngine, PortfolioT1Backtest, ComponentLoader, InfrastructureFactory, DataPreparer
+# Role: 引擎装配服务门面类，委托ComponentLoader/InfrastructureFactory/DataPreparer完成具体装配
 
 
 """
@@ -37,7 +37,6 @@ from ginkgo.data.services.base_service import BaseService, ServiceResult
 # 导入子模块
 from ginkgo.trading.services._assembly.component_loader import ComponentLoader
 from ginkgo.trading.services._assembly.infrastructure_factory import InfrastructureFactory
-from ginkgo.trading.services._assembly.task_engine_builder import TaskEngineBuilder
 from ginkgo.trading.services._assembly.data_preparer import DataPreparer, EngineConfigurationError
 from ginkgo.trading.services._assembly.requirements import (
     find_missing_required_from_bucketed,
@@ -117,7 +116,6 @@ class EngineAssemblyService(BaseService):
     - DataPreparer: 数据准备和 YAML 配置
     - InfrastructureFactory: 引擎基础设施创建
     - ComponentLoader: 组件实例化和绑定
-    - TaskEngineBuilder: 从 BacktestTask 构建引擎
     """
 
     def __init__(
@@ -157,12 +155,6 @@ class EngineAssemblyService(BaseService):
 
         # 初始化子模块
         self._component_loader = ComponentLoader(file_service=file_service, param_service=param_service, logger=self._logger)
-        self._task_engine_builder = TaskEngineBuilder(
-            file_service=file_service,
-            portfolio_service=portfolio_service,
-            engine_service=engine_service,
-            logger=self._logger,
-        )
         self._data_preparer = DataPreparer(
             engine_service=engine_service,
             portfolio_service=portfolio_service,
@@ -433,10 +425,6 @@ class EngineAssemblyService(BaseService):
     def create_engine_from_config(self, config: Dict[str, Any]) -> ServiceResult:
         """从配置字典创建交易引擎，委托到 DataPreparer"""
         return self._data_preparer.create_engine_from_config(config)
-
-    def build_engine_from_task(self, task) -> "TimeControlledEventEngine":
-        """从 BacktestTask 构建回测引擎，委托到 TaskEngineBuilder"""
-        return self._task_engine_builder.build_engine_from_task(task)
 
     def get_engine_by_id(self, engine_id: str) -> ServiceResult:
         """Get engine configuration by ID."""

@@ -164,6 +164,8 @@ class EngineConfig(BaseModel):
     # #5386: frequency 是 Engine 级数据频率（与 CLI backtest_cli.py 一致），
     # 此前误置于 ComponentConfig 致客户端 engine_config.frequency 被 Pydantic 静默丢弃。
     frequency: Optional[str] = Field("DAY", description="数据频率 (DAY/MIN 等)")
+    # ADR-037 D2 + 方案B: 成交价策略 (attitude=态度采样零回归 / slippage=确定性滑点)
+    fill_price_policy: str = Field("attitude", description="成交价策略 (attitude/slippage)")
 
 
 class ComponentConfig(BaseModel):

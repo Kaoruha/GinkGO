@@ -2,7 +2,7 @@
 ADR-018 第③步：消费端 from_payload + match 判别联合 + assignment_to_backtest_config 映射
 
 覆盖：
-- 映射函数 StartAssignment→BacktestConfig（11 字段 + analyzers 转换 + 缺字段拒）
+- 映射函数 StartAssignment→BacktestConfig（12 字段 + analyzers 转换 + 缺字段拒）
 - _handle_task_assignment 分派：start→_start_task / stop→WARN no-op(A1) / cancel→_cancel_task
 - 畸形 payload：report_failed + 提交 offset（at-least-once，不重投）
 
@@ -41,7 +41,7 @@ def _make_start_cmd(**config_overrides) -> StartAssignment:
 
 class TestAssignmentToBacktestConfig:
     @pytest.mark.unit
-    def test_maps_eleven_fields(self):
+    def test_maps_twelve_fields(self):
         cmd = _make_start_cmd(initial_cash=500000.0, frequency="WEEK")
         cfg = assignment_to_backtest_config(cmd)
         assert isinstance(cfg, BacktestConfig)
@@ -50,6 +50,7 @@ class TestAssignmentToBacktestConfig:
         assert cfg.initial_cash == 500000.0
         assert cfg.frequency == "WEEK"
         assert cfg.commission_rate == 0.0003  # DTO 唯一默认表补齐
+        assert cfg.fill_price_policy == "attitude"  # 方案B 默认 attitude (零回归)
 
     @pytest.mark.unit
     def test_maps_analyzers(self):

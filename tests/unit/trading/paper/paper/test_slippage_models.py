@@ -106,6 +106,31 @@ class TestPercentageSlippage:
         result = model.apply(Decimal("1000.00"), DIRECTION_TYPES.LONG)
         assert result == Decimal("1010.00")
 
+    def test_percentage_above_one_raises(self):
+        """#5497/ADR-037: 百分比 >1 (>100%) 拒绝——防 --slippage 1 当 1% 实为 100% 致卖出负价。"""
+        from ginkgo.trading.paper.slippage_models import PercentageSlippage
+
+        with pytest.raises(ValueError, match="上界"):
+            PercentageSlippage(percentage=Decimal("1.5"))
+
+    def test_percentage_boundary_one_allowed(self):
+        """百分比 =1 (100%) 边界允许：apply 卖出由 clamp 兜底防负价。"""
+        from ginkgo.trading.paper.slippage_models import PercentageSlippage
+        from ginkgo.enums import DIRECTION_TYPES
+
+        model = PercentageSlippage(percentage=Decimal("1.0"))  # 不 raise
+        result = model.apply(Decimal("10.00"), DIRECTION_TYPES.SHORT)
+        assert result == Decimal("0.01")  # 10 - 10*1.0 = 0 → clamp 0.01
+
+    def test_sell_low_price_clamps_to_minimum(self):
+        """#5497/ADR-037: 低价股大百分比卖出 clamp 到 0.01 防负价（与 FixedSlippage.apply 对称）。"""
+        from ginkgo.trading.paper.slippage_models import PercentageSlippage
+        from ginkgo.enums import DIRECTION_TYPES
+
+        model = PercentageSlippage(percentage=Decimal("0.5"))  # 50%
+        result = model.apply(Decimal("0.01"), DIRECTION_TYPES.SHORT)  # 0.01 - 0.005 = 0.005 < 0.01
+        assert result == Decimal("0.01"), f"低价股卖出应 clamp 到 0.01，实际 {result}"
+
 
 @pytest.mark.financial
 class TestNoSlippage:

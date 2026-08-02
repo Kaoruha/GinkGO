@@ -139,7 +139,7 @@ class PercentageSlippage(SlippageModel):
             percentage: 滑点百分比 (如 0.001 表示 0.1%)
 
         Raises:
-            ValueError: 如果百分比为负数
+            ValueError: 如果百分比为负数或超过 1 (100%)
         """
         if isinstance(percentage, (float, int)):
             percentage = Decimal(str(percentage))
@@ -148,6 +148,11 @@ class PercentageSlippage(SlippageModel):
 
         if percentage < 0:
             raise ValueError(f"滑点百分比不能为负数: {percentage}")
+        if percentage > 1:
+            raise ValueError(
+                f"滑点百分比超过上界 1 (100%): {percentage}；"
+                f"--slippage 传百分比小数 (0.001=0.1%)，>1 致卖出成交价为负"
+            )
 
         self.percentage = percentage
 
@@ -167,7 +172,16 @@ class PercentageSlippage(SlippageModel):
             return price + slippage
         else:
             # 卖出：价格下降
-            return price - slippage
+            # #5497/ADR-037：与 FixedSlippage.apply 对称——大百分比/低价股裸 price-slippage
+            # 会产生负成交价，污染 cash 余额。clamp 到最小 0.01 并告警。
+            fill_price = price - slippage
+            if fill_price < Decimal("0.01"):
+                GLOG.WARNING(
+                    f"PercentageSlippage 卖出滑点({self.percentage})致成交价 {fill_price} < 0.01 "
+                    f"(price={price})，clamp 到 0.01 防止负价"
+                )
+                return Decimal("0.01")
+            return fill_price
 
     def __repr__(self) -> str:
         return f"PercentageSlippage(percentage={self.percentage})"

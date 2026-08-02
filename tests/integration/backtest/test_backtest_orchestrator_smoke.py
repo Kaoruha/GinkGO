@@ -166,6 +166,7 @@ class TestOrchestratorSmoke:
             stop_loss_ratio=0.05,
             take_profit_ratio=0.15,
             frequency="DAY",
+            fill_price_policy="attitude",
             analyzers=[],
         )
 

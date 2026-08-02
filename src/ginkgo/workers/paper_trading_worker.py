@@ -66,6 +66,43 @@ class PaperTradingWorker:
         self._deviation_detectors: Dict[str, object] = {}  # portfolio_id → LiveDeviationDetector
         self._deviation_checker = None
 
+    @staticmethod
+    def _resolve_slippage_rate():
+        """读 GCONF 共享 broker 的 slippage (ADR-037 Amendment 2 模拟侧).
+
+        paper worker 是 1 worker 1 共享 SimBroker (挂多 PAPER portfolio), slippage 是
+        broker 级 = worker 级参数, 存 GCONF.PAPER_SLIPPAGE_RATE (存=用=1). 不再读
+        per-portfolio MPortfolio.slippage (已回退: 共享 broker 存 N 用 1 + schema 漂移).
+
+        Returns:
+            slippage 百分比小数; None/脏 → 调用方回退 AttitudePricing
+        """
+        from ginkgo.libs import GCONF
+        value = GCONF.PAPER_SLIPPAGE_RATE
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            # 脏数据/非数值 → 回退默认 (不阻塞 worker 启动)
+            return None
+
+    @staticmethod
+    def _build_fill_price_model(slippage_rate):
+        """paper 侧成交价模型注入 (ADR-037 D2 + 方案B).
+
+        slippage_rate=None/脏 → attitude (态度采样, 零回归回退);
+        否则 slippage (确定性滑点, 接通 SlippageModel). paper 侧无零回归约束,
+        保留 A1 语义 (slippage_rate 推导 policy); 回测侧方案B 用 policy 显式
+        (config_snapshot.fill_price_policy), 见 ADR-037.
+
+        Returns: FillPriceModel (AttitudePricing | DeterministicSlippage)
+        """
+        from ginkgo.trading.brokers.fill_price_model import build_fill_price_model
+        if slippage_rate is None:
+            return build_fill_price_model("attitude")
+        return build_fill_price_model("slippage", slippage_rate)
+
     @property
     def deviation_checker(self):
         """Lazy-init DeviationChecker to avoid triggering evaluation module imports at load time."""
@@ -129,7 +166,16 @@ class PaperTradingWorker:
 
         # 3. 创建共享组件
         feeder = BacktestFeeder()
-        broker = SimBroker()
+        # ADR-037 Amendment 2: 从 GCONF 读 slippage → 成交价模型注入共享 broker.
+        # paper worker 是 1 worker 1 共享 SimBroker (挂多 PAPER portfolio), slippage 是
+        # broker 级 = worker 级参数, 故存 GCONF.PAPER_SLIPPAGE_RATE (存=用=1) 而非
+        # per-portfolio (共享 broker 存 N 用 1 + MPortfolio.slippage 列致 schema 漂移, 已回退).
+        # None/脏数据 → attitude 态度采样回退; 有值 → DeterministicSlippage 确定性滑点.
+        # paper 侧无零回归约束, 保留 A1 语义 (slippage_rate 推导 policy);
+        # 回测侧方案B 用 policy 显式 (config_snapshot.fill_price_policy), 见 ADR-037.
+        slippage_rate = self._resolve_slippage_rate()
+        fill_price_model = self._build_fill_price_model(slippage_rate)
+        broker = SimBroker(fill_price_model=fill_price_model)
         gateway = TradeGateway(brokers=[broker])
         # #6103: param_service 必须注入，否则组件参数静默丢失（None 现装配期 raise）
         loader = ComponentLoader(

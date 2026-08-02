@@ -102,8 +102,8 @@ class TestStartPayload:
             assert dead not in config, f"死字段 {dead} 不应进 wire payload"
 
     @pytest.mark.unit
-    def test_config_has_eleven_fields(self, service):
-        """config 唯一默认表归 DTO：snapshot 未给的 optional 由 DTO 构造期填默认，11 字段齐全。"""
+    def test_config_has_twelve_fields(self, service):
+        """config 唯一默认表归 DTO：snapshot 未给的 optional 由 DTO 构造期填默认，12 字段齐全。"""
         task = _make_task()  # snapshot 只给 start/end/initial_cash
         _setup_task(service, task)
         with _mock_kafka() as mp:
@@ -112,7 +112,8 @@ class TestStartPayload:
         config = _sent_payload(mp)["config"]
         expected = {"start_date", "end_date", "initial_cash", "commission_rate",
                     "slippage_rate", "benchmark_return", "max_position_ratio",
-                    "stop_loss_ratio", "take_profit_ratio", "frequency", "analyzers"}
+                    "stop_loss_ratio", "take_profit_ratio", "frequency",
+                    "fill_price_policy", "analyzers"}
         assert set(config.keys()) == expected
 
 

@@ -414,6 +414,19 @@ class GinkgoConfig(object):
         return float(self._get_config("epsilon"))
 
     @property
+    def PAPER_SLIPPAGE_RATE(self) -> any:
+        """模拟盘共享 SimBroker 滑点率 (ADR-037 Amendment 2).
+
+        paper worker 是 1 worker 1 共享 SimBroker (挂多 PAPER portfolio), slippage 是
+        broker 级 = worker 级参数, 故存 GCONF (存=用=1) 而非 per-portfolio (存 N 用 1).
+        None/缺省 (默认) → AttitudePricing 态度采样 (零滑点);
+        有值 (如 0.001) → DeterministicSlippage(PercentageSlippage).
+        改后须重启 worker (SimBroker INIT 建一次, 不热更).
+        回测侧 slippage 走 config_snapshot (per-task, ADR-018), 实盘真 Broker 无 slippage, 均不读此配置.
+        """
+        return self._get_config("paper_slippage_rate")
+
+    @property
     def LOGGING_PATH(self) -> str:
         # 优先级：环境变量 > config.yml > 默认值
         env_path = os.environ.get("GINKGO_LOG_PATH")

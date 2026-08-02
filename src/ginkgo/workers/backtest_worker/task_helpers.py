@@ -32,6 +32,7 @@ def build_engine_data(config, task_id: str = None) -> Dict[str, Any]:
         "initial_capital": config.initial_cash,
         "commission_rate": config.commission_rate,
         "slippage_rate": config.slippage_rate,
+        "fill_price_policy": config.fill_price_policy,
         "broker": "backtest",
         "frequency": config.frequency,
     }

@@ -1,4 +1,4 @@
-# Upstream: EngineAssemblyService, TaskEngineBuilder
+# Upstream: EngineAssemblyService
 # Downstream: PortfolioT1Backtest, GLOG, file_service
 # Role: 组件加载器，从数据库源码文件实例化策略/选股器/分析器等组件并绑定到Portfolio
 
