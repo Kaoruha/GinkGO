@@ -8,8 +8,10 @@ StockInfoCRUD 单元测试 - Mock 数据库连接
 - _create_from_params 参数创建模型
 - 构造函数验证
 - 必要 Hook 方法存在性检查
-- 业务辅助方法测试（find_by_market, find_by_industry, search_by_name, get_all_codes,
-  _convert_input_item）
+- 业务辅助方法测试（find_by_market, find_by_industry, search_by_name, get_all_codes）
+
+注：_convert_input_item override 已删（ADR-029 Task 3 收敛到 StockInfoMapper），
+Entity→Model 转换契约见 tests/unit/data/mappers/test_stockinfo_mapper_contract.py。
 """
 
 import pytest
@@ -237,9 +239,6 @@ class TestStockInfoBusinessMethods:
         assert call_kwargs.kwargs.get('distinct_field') == "code"
         assert codes == ["000001.SZ", "600000.SH"]
 
-    @pytest.mark.unit
-    def test_convert_input_item_returns_none_for_unsupported_type(self, crud_instance):
-        """_convert_input_item 对不支持的类型应返回 None（需要 mock _logger）"""
-        crud_instance._logger = MagicMock()
-        result = crud_instance._convert_input_item("not_a_stock_info")
-        assert result is None
+    # ADR-029 Task 3：_convert_input_item override 已删（收敛到 StockInfoMapper）。
+    # 原 test_convert_input_item_returns_none_for_unsupported_type 测的 override 行为
+    # 已迁移到 test_stockinfo_mapper_contract.py（market/source/uuid 契约）。

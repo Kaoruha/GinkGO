@@ -222,7 +222,10 @@ class StockinfoService(BaseService):
             if new_items:
                 task_new = progress.add_task("[green]Adding New Stock Info", total=len(new_items))
                 try:
-                    self._crud_repo.add_batch(new_items)
+                    # ADR-029 Task 3：入站前置 mapper（Entity→Model），CRUD 不再做转换。
+                    # 原 _convert_input_item override 已删，service 显式走 StockInfoMapper。
+                    new_models = [StockInfoMapper.entity_to_model(item) for item in new_items]
+                    self._crud_repo.add_batch(new_models)
                     success_count += len(new_items)
                     self._logger.INFO(f"Successfully batch inserted {len(new_items)} new stock records")
                     progress.update(task_new, completed=len(new_items))
@@ -262,7 +265,9 @@ class StockinfoService(BaseService):
 
                 # Step 2: Batch add all update items
                 try:
-                    self._crud_repo.add_batch(update_items)
+                    # ADR-029 Task 3：入站前置 mapper（Entity→Model），CRUD 不再做转换。
+                    update_models = [StockInfoMapper.entity_to_model(item) for item in update_items]
+                    self._crud_repo.add_batch(update_models)
                     success_count += len(update_items)
                     progress.update(task_update, completed=len(update_items))
                     self._logger.DEBUG(f"Successfully updated {len(update_items)} stock records")
@@ -271,7 +276,7 @@ class StockinfoService(BaseService):
                     self._logger.WARN(f"Batch update failed, falling back to individual updates: {e}")
                     for item in update_items:
                         try:
-                            self._crud_repo.add_batch([item])
+                            self._crud_repo.add_batch([StockInfoMapper.entity_to_model(item)])
                             success_count += 1
                             progress.update(task_update, advance=1)
                         except Exception as individual_e:
