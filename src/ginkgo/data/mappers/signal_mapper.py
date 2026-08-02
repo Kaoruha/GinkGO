@@ -1,4 +1,4 @@
-"""SignalMapper — Signal Entity ↔ MSignal ORM 转换（ADR-010）。
+"""SignalMapper — Signal Entity ↔ MSignal ORM 转换（ADR-010 / ADR-029 Task 6）。
 
 承接原 Signal.to_model / Signal.from_model 内嵌逻辑
 （entities/signal.py:371-431）。无 SignalDTO（项目未定义），故只提供
@@ -6,9 +6,13 @@ to_model / from_model / from_models 三方法。
 
 to_model 忠实原码：update() 3 位置参数（portfolio_id/engine_id/task_id），
 update 后 model.uuid = entity.uuid（给 ORM 赋 entity uuid，原码行为保留）。
-from_model 还原 direction/source（int→enum），**未传 uuid**（原码即如此——
-与 Order 的丢失 bug 同形，但 plan 要求忠实搬运，不加修正；修复留 Task 1.6
-删内嵌方法时一并评估）。
+
+ADR-029 Task 6 收敛补全（对标原 signal_crud._convert_input_item override 写、
+mapper 漏写的字段缺口）：
+- ``business_timestamp`` 写入（经 datetime_normalize，原 mapper 漏）
+- ``uuid`` 还原（原 mapper 自承丢失 bug，与 Order 同形，本 task 修正）
+- ``source``/``direction`` 经 MSignal.update→validate_input→int 双向保真
+  （MSignal.update 的 ``or -1`` falsy 吞 0 bug 同步修，见 model_signal.py）
 
 铁律：不 import CRUD。``to_dataframe`` 为 DF 下沉试点（ADR-025；enum 映射经
 ``__table__`` 反射 ADR-031 c1），输出与 CRUD ``_convert_models_to_dataframe``
@@ -30,7 +34,13 @@ class SignalMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def entity_to_model(entity: Signal) -> MSignal:
-        """Entity → ORM。3 位置参数 + model.uuid 赋值（原码行为保留）。"""
+        """Entity → ORM。3 位置参数 + model.uuid 赋值 + business_timestamp 写入。
+
+        ADR-029 Task 6:补 business_timestamp(原 signal_crud._convert_input_item
+        override 写、mapper 漏写,导致 roundtrip 丢字段)。business_timestamp 经
+        MSignal.update→datetime_normalize 存 datetime;source/direction 经
+        MSignal.update→validate_input 存 int(0 是合法值,MSignal.update 已修 or-1 bug)。
+        """
         model = MSignal()
         model.update(
             entity.portfolio_id,
@@ -45,21 +55,22 @@ class SignalMapper:
             weight=entity.weight,
             strength=entity.strength,
             confidence=entity.confidence,
+            business_timestamp=entity.business_timestamp,  # 补:经 datetime_normalize
         )
         model.uuid = entity.uuid
         return model
 
     @staticmethod
     def model_to_entity(model: MSignal) -> Signal:
-        """ORM → Entity。direction/source int→enum。
+        """ORM → Entity。direction/source int→enum + uuid 还原 + business_timestamp 还原。
 
-        忠实搬运：原码未传 uuid（与 Order 丢失 bug 同形，此处不加修正，
-        留 Task 1.6 抹内嵌方法时统一评估）。
+        ADR-029 Task 6:补 uuid 还原(原 mapper 自承丢失 bug,与 Order 同形) +
+        business_timestamp 还原(经 TimeMixin kwarg 消费)。
         """
         if not isinstance(model, MSignal):
             raise TypeError(f"Expected MSignal instance, got {type(model).__name__}")
 
-        return Signal(
+        entity_kwargs = dict(
             portfolio_id=model.portfolio_id,
             engine_id=model.engine_id,
             task_id=model.task_id,
@@ -72,7 +83,12 @@ class SignalMapper:
             weight=model.weight,
             strength=model.strength,
             confidence=model.confidence,
+            uuid=model.uuid,  # 补:原 mapper 自承丢失,与 Order 同形 bug 修正
         )
+        # business_timestamp 还原(经 TimeMixin kwarg 消费,None 不传走默认)
+        if model.business_timestamp is not None:
+            entity_kwargs["business_timestamp"] = model.business_timestamp
+        return Signal(**entity_kwargs)
 
     @staticmethod
     def models_to_entities(models) -> List[Signal]:

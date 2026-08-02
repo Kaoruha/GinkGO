@@ -127,24 +127,9 @@ class SignalCRUD(BaseCRUD[MSignal]):
             business_timestamp=datetime_normalize(business_timestamp),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MSignal]:
-        """
-        Hook method: Convert Signal objects to MSignal.
-        """
-        if isinstance(item, Signal):
-            return MSignal(
-                portfolio_id=item.portfolio_id,
-                engine_id=item.engine_id,
-                task_id=item.task_id,
-                timestamp=item.timestamp,
-                code=item.code,
-                direction=DIRECTION_TYPES.validate_input(item.direction),
-                reason=item.reason,
-                source=SOURCE_TYPES.validate_input(item.source if hasattr(item, 'source') else SOURCE_TYPES.SIM),
-                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
-            )
-        return None
-
+    # ADR-029 Task 6：_convert_input_item override 已删。
+    # Signal Entity → MSignal 转换由 SignalMapper.entity_to_model 承担
+    # （经 signal_service.add 显式调用）；signal_crud 不再接受 Entity 入参。
     # c1(ADR):enum 映射下沉 model 字段 ``info={'enum': ...}``，
     # 默认反射生效（见 _conversion._get_enum_mappings）；direction/source
     # 声明见 model_signal.direction 与 MClickBase.source。

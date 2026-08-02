@@ -471,10 +471,10 @@ class PortfolioT1Backtest(PortfolioBase):
         GLOG.INFO(f"    Signal Reason: {signal.reason}")
         GLOG.INFO(f"    From: {origin_name or 'Unknown'}")
 
-        # 将信号保存到数据库
+        # 将信号保存到数据库（ADR-029 Task 6：经 signal_service.add → SignalMapper 收敛，
+        # 替代直调 signal_crud.create(**kwargs) 的隐式 _create_from_params 路径）
         try:
-            signal_crud = container.cruds.signal()
-            signal_crud.create(
+            container.signal_service().add(
                 portfolio_id=signal.portfolio_id,
                 engine_id=signal.engine_id,
                 task_id=signal.task_id,
