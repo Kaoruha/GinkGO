@@ -78,33 +78,6 @@ class BarCRUD(BaseCRUD[MBar]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TUSHARE)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MBar]:
-        """
-        Hook method: Convert Bar business objects to MBar data models.
-        只处理Bar业务对象，符合架构设计原则。
-        """
-        if isinstance(item, Bar):
-            # 获取source信息，如果业务对象有设置的话
-            source = getattr(item, '_source', SOURCE_TYPES.TUSHARE)
-
-            return MBar(
-                code=item.code,
-                open=item.open,
-                high=item.high,
-                low=item.low,
-                close=item.close,
-                volume=item.volume,
-                amount=item.amount,
-                frequency=item.frequency,
-                timestamp=item.timestamp,
-                source=source,
-                uuid=item.uuid if item.uuid else None
-            )
-
-        # 不再支持字典格式，强制使用业务对象
-        self._logger.WARN(f"Unsupported type for Bar conversion: {type(item)}. Please use Bar business object.")
-        return None
-
     # Business Helper Methods
     def find_by_code_and_date_range(
         self,

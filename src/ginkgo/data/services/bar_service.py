@@ -194,7 +194,9 @@ class BarService(BaseService):
 
             # Use remove + add_batch for better business object handling
             self._crud_repo.remove(filters=filters)
-            inserted_entities = self._crud_repo.add_batch(final_entities)
+            # ADR-029 Task 1：入站前置 mapper.entity_to_model，不再依赖 CRUD hook 隐式转
+            bar_models = [mappers.BarMapper.entity_to_model(e) for e in final_entities]
+            inserted_entities = self._crud_repo.add_batch(bar_models)
             records_added = len(inserted_entities)
             removed_count = len(final_entities)  # All existing records were removed
             self._logger.INFO(f"Successfully removed {removed_count} and inserted {records_added} bar records for {code}")
