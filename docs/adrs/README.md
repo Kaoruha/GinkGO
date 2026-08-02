@@ -41,6 +41,7 @@
 | ADR-026 | [CLI Client 模式（混合架构：数据面直连 DB + 控制面 API + JWT）](ADR-026-cli-client-mode.md) | Accepted | 2026-07-22 |
 | ADR-027 | [启动期集群一致性护栏（防 debug/host 漂移静默连错库）](ADR-027-env-cluster-consistency-guard.md) | Accepted（D1 ⟵ ADR-028） | 2026-07-25 |
 | ADR-028 | [GINKGO_ENV 与 DEBUGMODE 彻底解耦（集群选择单一旋钮）](ADR-028-env-cluster-decouple-debugmode.md) | Accepted | 2026-07-25 |
+| ADR-029 | [BaseCRUD 转换钩子族退役,Entity↔ORM 收敛到 Mapper](ADR-029-basecrud-hook-retirement.md) | Accepted | 2026-07-26 |
 | ADR-030 | [全链路 trace_id 传播契约（contextvars + DTO 字段 + Kafka header）](ADR-030-observability-trace-id-propagation.md) | Accepted | 2026-07-26 |
 | ADR-031 | [enum 映射真值下沉 model 字段 info（字段→Enum 映射单源归位）](ADR-031-enum-mapping-field-info-sink.md) | Accepted | 2026-07-28 |
 | ADR-032 | [持久化模型基类分流（CH 时序审计 vs MySQL 活状态）](ADR-032-persistence-model-basesplit.md) | Accepted（含现状偏离） | 2026-07-28 |
@@ -51,10 +52,6 @@
 | ADR-037 | [滑点成交价统一（FillPriceModel + 回测/模拟盘装配归一 engine_data.slippage）](ADR-037-slippage-fillprice-unification.md) | Accepted | 2026-07-29 |
 | ADR-038 | [日志表 TTL 自动清理（ginkgo_logs_* 三表 TTL 接线 + 存量 drop/reseed）](ADR-038-log-table-ttl-cleanup.md) | Accepted | 2026-07-29 |
 | ADR-039 | [实盘走 ExecutionNode 分布式，移除 LiveEngine 迁移孤儿](ADR-039-liveengine-removal-distributed-live.md) | Accepted | 2026-07-29 |
-
-### 缺号说明
-
-- **ADR-029**：跳过（无对应决策记录，正文无任何悬空引用）。
 
 ## 如何新增 / 修订
 
