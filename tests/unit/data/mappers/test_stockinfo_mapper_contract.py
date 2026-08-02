@@ -142,6 +142,23 @@ def test_entity_to_model_market_default_china():
     assert model.market == MARKET_TYPES.CHINA.value
 
 
+def test_init_preserves_source_other():
+    """MStockInfo.__init__(source=OTHER) 不被 `or TUSHARE.value` 吞成 TUSHARE。
+
+    ADR-029 Task 3 fix round 1：原 model_stock_info.py:68
+    `SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.TUSHARE.value` 同款
+    falsy 吞 0 bug（OTHER=0 → 0 or 7 = 7 静默改写为 TUSHARE）。`__init__` 是
+    entity_to_model 必经路径，契约必经处。修复写法与 currency/market 一致：
+    `validated if validated is not None else TUSHARE.value`。锁此路径防回归。
+    """
+    model = MStockInfo(source=SOURCE_TYPES.OTHER)
+    assert model.source == SOURCE_TYPES.OTHER.value  # == 0
+    # 反向对照：AKSHARE(=5) 不受 falsy 影响一直是 5
+    assert MStockInfo(source=SOURCE_TYPES.AKSHARE).source == SOURCE_TYPES.AKSHARE.value
+    # 默认值仍为 TUSHARE（source=None 走 else 分支）
+    assert MStockInfo().source == SOURCE_TYPES.TUSHARE.value
+
+
 # ----------------------------------------------------------------------
 # 还原契约（model_to_entity）
 # ----------------------------------------------------------------------
