@@ -60,7 +60,7 @@ DTO 三亚型按介质分：**BusDTO**（Kafka）、**WebResponse**（HTTP）、
   - **删 Entity 转换**：`ModelList.to_entities()`、`ModelConversion.to_entity()`（16 处调用点改 `Mapper.from_models(model_list)`——`ModelList` 是 list 子类可直传）。
   - **留 DF 出口（仅 Service 内部）**：`ModelList.to_dataframe()`、`ModelConversion.to_dataframe()`、`ModelCRUDMapping`（DF 路径 `get_crud_instance` 仍需要）。**DF 出口只供 Service 内部用**——Service 转 DF 后对外返，client/trading 不接触 ModelList。
   - **DataFrame 模拟方法**（`first/count/filter/empty/shape/head/tail`）：grep 证实调用方几乎未用（dead code），瘦身时一并删，缩小 ModelList 表面积。
-  - ~~**不删 CRUD mixin `_convert_to_business_objects`**（Entity 钩子）：触 Base 边界，留作 dead code（不盲目删）。~~ **【ADR-029 修订】** 该钩子族授权退役,Entity↔ORM 转换收敛到 Mapper(调用方 Service 层),详见 [ADR-029](ADR-029-basecrud-hook-retirement.md)。
+  - ~~**不删 CRUD mixin `_convert_to_business_objects`**（Entity 钩子）：触 Base 边界，留作 dead code（不盲目删）。~~ **【ADR-029 修订】** 该钩子族授权退役,Entity↔ORM 转换**全链路**收敛到 Mapper(**不留 dead code**,调用方 Service 层),详见 [ADR-029](ADR-029-basecrud-hook-retirement.md)。
 - Entity/DTO 类内抹掉一切转换方法（含 `Bar.to_model`、`BarDTO.from_bar`）。
 - 套 C（`data/mappers.py` 外部数据源入站）保留，并入 `data/mappers/`。
 - **热路径**：回测 Bar 读走 `ModelList.to_dataframe()`（批量、不经 Entity），不碰 Mapper。
