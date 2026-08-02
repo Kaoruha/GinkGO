@@ -1,6 +1,6 @@
 # ADR-010: 数据对象三层角色分离（Entity / ORM / DTO）与独立 Mapper 流转
 
-**Status:** Accepted
+**Status:** Accepted（§4 钩子处理条款修订⟵ADR-029）
 **Date:** 2026-06-13
 **关联:** #6106（架构评审总览）· #6112（entities 不变量）· #6117（转换层深化）· #3865（反向依赖）；细化 ADR-002，区分于 ADR-001（组件边界）/ ADR-009（BaseCRUD/BaseService）。术语定义见仓库根 `CONTEXT.md`。
 
@@ -56,11 +56,11 @@ DTO 三亚型按介质分：**BusDTO**（Kafka）、**WebResponse**（HTTP）、
 ### 4. 转换收敛到独立 Mapper；ModelList 瘦身（不全删）
 
 - 新建 `data/mappers/XxxMapper`（每 entity 一个），**Entity 转换矩阵**：`from_model`/`to_model`/`from_dto`/`to_dto`/`model_to_dto`（ORM→DTO 直转，路径①）。**不依赖 CRUD**。**不含 `to_dataframe`**——DF 出口留在 CRUD。
-- **ModelList 瘦身而非全删**（`ModelList` 由 `BaseCRUD` 构造返回，全删必触改 BaseCRUD，违反铁律）：
+- ~~**ModelList 瘦身而非全删**~~ **【ADR-029 D9 修订】ModelList 退役**：CRUD 返 `list[Model]`，DF 走独立函数 `models_to_dataframe`（`data/mappers/_df.py`，enum 经 `__table__` 反射），删 `model_conversion.py` 整文件（ModelConversion+ModelList）。原「全删必触 BaseCRUD 违铁律」前提已被 ADR-029 §Decision 5（动 BaseCRUD 的 ADR 背书例外）消除。**以下瘦身细则（删 Entity 转换/留 DF 出口/删模拟方法）整体作废，被退役取代**。详见 [ADR-029](ADR-029-basecrud-hook-retirement.md) §Decision 9。原瘦身方案：
   - **删 Entity 转换**：`ModelList.to_entities()`、`ModelConversion.to_entity()`（16 处调用点改 `Mapper.from_models(model_list)`——`ModelList` 是 list 子类可直传）。
   - **留 DF 出口（仅 Service 内部）**：`ModelList.to_dataframe()`、`ModelConversion.to_dataframe()`、`ModelCRUDMapping`（DF 路径 `get_crud_instance` 仍需要）。**DF 出口只供 Service 内部用**——Service 转 DF 后对外返，client/trading 不接触 ModelList。
   - **DataFrame 模拟方法**（`first/count/filter/empty/shape/head/tail`）：grep 证实调用方几乎未用（dead code），瘦身时一并删，缩小 ModelList 表面积。
-  - **不删 CRUD mixin `_convert_to_business_objects`**（Entity 钩子）：触 Base 边界，留作 dead code（不盲目删）。
+  - ~~**不删 CRUD mixin `_convert_to_business_objects`**（Entity 钩子）：触 Base 边界，留作 dead code（不盲目删）。~~ **【ADR-029 修订】** 该钩子族授权退役,Entity↔ORM 转换**全链路**收敛到 Mapper(**不留 dead code**,调用方 Service 层),详见 [ADR-029](ADR-029-basecrud-hook-retirement.md)。
 - Entity/DTO 类内抹掉一切转换方法（含 `Bar.to_model`、`BarDTO.from_bar`）。
 - 套 C（`data/mappers.py` 外部数据源入站）保留，并入 `data/mappers/`。
 - **热路径**：回测 Bar 读走 `ModelList.to_dataframe()`（批量、不经 Entity），不碰 Mapper。
