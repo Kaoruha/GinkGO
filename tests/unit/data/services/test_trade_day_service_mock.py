@@ -20,6 +20,7 @@ if _path not in sys.path:
 
 from ginkgo.data.services.trade_day_service import TradeDayService
 from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.data.models import MTradeDay
 from ginkgo.entities import TradeDay
 from ginkgo.enums import MARKET_TYPES
 
@@ -78,16 +79,17 @@ class TestSync:
 
         assert result.success is True
         mock_deps["data_source"].fetch_cn_stock_trade_day.assert_called_once()
-        # 批量落库被调用，传入的是 TradeDay 列表
+        # ADR-029 Task 4：service 入站前置 mapper.entity_to_model，
+        # add_batch 收到的是 MTradeDay 列表（不再是 TradeDay entity）
         mock_deps["crud_repo"].add_batch.assert_called_once()
         persisted = mock_deps["crud_repo"].add_batch.call_args[0][0]
         assert len(persisted) == 2
-        assert all(isinstance(td, TradeDay) for td in persisted)
+        assert all(isinstance(td, MTradeDay) for td in persisted)
         # is_open int 0/1 正确转 bool（TradeDay entity 严格要求 bool）
         assert persisted[0].is_open is False
         assert persisted[1].is_open is True
-        # market 归一为 CHINA
-        assert all(td.market == MARKET_TYPES.CHINA for td in persisted)
+        # market 归一为 CHINA（model 层存 int）
+        assert all(td.market == MARKET_TYPES.CHINA.value for td in persisted)
 
     @pytest.mark.unit
     def test_sync_empty_source(self, service, mock_deps):

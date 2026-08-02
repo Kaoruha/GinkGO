@@ -82,19 +82,6 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TUSHARE)) or SOURCE_TYPES.TUSHARE.value,
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MTradeDay]:
-        """
-        Hook method: Convert trade day objects to MTradeDay.
-        """
-        if hasattr(item, 'timestamp'):
-            return MTradeDay(
-                timestamp=datetime_normalize(getattr(item, 'timestamp')),
-                market=MARKET_TYPES.validate_input(getattr(item, 'market', MARKET_TYPES.CHINA)) or MARKET_TYPES.CHINA.value,
-                is_open=getattr(item, 'is_open', True),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TUSHARE)) or SOURCE_TYPES.TUSHARE.value,
-            )
-        return None
-
     # Business Helper Methods
     def find_trading_days(self, start_date: Any, end_date: Any) -> ModelList[MTradeDay]:
         """
