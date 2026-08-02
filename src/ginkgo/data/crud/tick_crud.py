@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MTick
-from ginkgo.entities import Tick
 from ginkgo.enums import TICKDIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal
 from ginkgo.data.drivers import drop_table, get_db_connection
@@ -466,38 +465,6 @@ class TickCRUD:
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TDX)) or -1,
         )
 
-    def _convert_input_item(self, item: Any):
-        """
-        Hook method: Convert various objects to the correct dynamic MTick subclass.
-        Now handles both Tick business objects and dynamic MTick instances.
-        Called by BaseCRUD.add_batch() template method.
-        Automatically gets @time_logger + @retry effects.
-        """
-        if isinstance(item, self.model_class):
-            # Item is already the correct dynamic model class, no conversion needed
-            return item
-        elif hasattr(item, '__class__') and issubclass(item.__class__, MTick):
-            # Item is a different MTick subclass, create instance of our specific model
-            return self.model_class(
-                code=item.code,
-                price=item.price,
-                volume=item.volume,
-                direction=TICKDIRECTION_TYPES.validate_input(getattr(item, 'direction', TICKDIRECTION_TYPES.VOID)) or -1,
-                timestamp=item.timestamp,
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TDX)) or -1,
-            )
-        elif isinstance(item, Tick):
-            # Convert business Tick objects to database MTick objects
-            return self.model_class(
-                code=item.code,
-                price=item.price,
-                volume=item.volume,
-                direction=TICKDIRECTION_TYPES.validate_input(item.direction) or -1,
-                timestamp=item.timestamp,
-                source=SOURCE_TYPES.validate_input(item.source if hasattr(item, "source") else SOURCE_TYPES.TDX) or -1,
-            )
-        return None
-
     def _get_enum_mappings(self) -> Dict[str, Any]:
         """
         🎯 Define field-to-enum mappings for Tick.
@@ -536,22 +503,17 @@ class TickCRUD:
         return code
 
     def _convert_to_model(self, item, model_class):
-        """将item转换为指定的Model类 - 优先处理Tick业务对象"""
-        # 优先处理Tick业务对象
-        from ginkgo.entities import Tick
-        if isinstance(item, Tick):
-            # 获取source信息，如果业务对象有设置的话
-            source = getattr(item, '_source', SOURCE_TYPES.TDX)
+        """将item转换为指定的Model类 - Tick 业务对象走 TickMapper（ADR-029 Task 2）。
 
-            return model_class(
-                timestamp=datetime_normalize(item.timestamp),
-                code=item.code,
-                price=item.price,
-                volume=item.volume,
-                direction=TICKDIRECTION_TYPES.validate_input(item.direction),
-                source=SOURCE_TYPES.validate_input(source),
-                uuid=item.uuid if item.uuid else None
-            )
+        动态表分发契约保留：model_class 形参是 get_tick_model(code) 返回的 per-code
+        子类，TickMapper.entity_to_model(item, model_class=model_class) 据此构造实例。
+        dict/duck-type 分支保留以兼容历史入站类型（集成测试覆盖）。
+        """
+        # 优先处理Tick业务对象 —— 走 Mapper（ADR-029 收敛）
+        from ginkgo.entities import Tick
+        from ginkgo.data.mappers import TickMapper
+        if isinstance(item, Tick):
+            return TickMapper.entity_to_model(item, model_class=model_class)
 
         # 处理字典类型的数据
         elif isinstance(item, dict) and 'timestamp' in item and 'code' in item:
