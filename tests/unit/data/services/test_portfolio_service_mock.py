@@ -542,41 +542,30 @@ class TestPersistState:
     """persist_state 应通过 position_crud.add_batch 替代手动 MPosition 构造"""
 
     def _make_state(self):
+        # G：snapshot 的 positions 携带 Position 实体（trading 层原生类型），
+        # service 在 DB 边界用 entity_to_model 转 MPosition——不再用 dict key 契约。
+        from decimal import Decimal
+        from ginkgo.entities import Position
+
+        def _pos(code, cost, volume, price, fee, task_id="task-001"):
+            return Position(
+                portfolio_id="port-001",
+                engine_id="eng-001",
+                task_id=task_id,
+                code=code,
+                cost=Decimal(cost),
+                volume=volume,
+                price=Decimal(price),
+                fee=Decimal(fee),
+            )
+
         return {
             "cash": "500000",
             "frozen": "0",
             "fee": "100",
             "positions": [
-                {
-                    "portfolio_id": "port-001",
-                    "engine_id": "eng-001",
-                    "task_id": "task-001",
-                    "code": "000001.SZ",
-                    "cost": "10.50",
-                    "volume": 100,
-                    "frozen_volume": 0,
-                    "settlement_frozen_volume": 0,
-                    "settlement_days": 0,
-                    "settlement_queue_json": "[]",
-                    "frozen_money": "0",
-                    "price": "11.00",
-                    "fee": "5.25",
-                },
-                {
-                    "portfolio_id": "port-001",
-                    "engine_id": "eng-001",
-                    "task_id": "",
-                    "code": "600000.SH",
-                    "cost": "20.00",
-                    "volume": 50,
-                    "frozen_volume": 0,
-                    "settlement_frozen_volume": 0,
-                    "settlement_days": 0,
-                    "settlement_queue_json": "[]",
-                    "frozen_money": "0",
-                    "price": "21.00",
-                    "fee": "10.50",
-                },
+                _pos("000001.SZ", "10.50", 100, "11.00", "5.25"),
+                _pos("600000.SH", "20.00", 50, "21.00", "10.50"),
             ],
         }
 
@@ -686,6 +675,44 @@ class TestPersistState:
 
         assert result.is_success()
         assert result.data.get("engine_current_time") is None
+
+    @pytest.mark.unit
+    def test_load_returns_position_entities(self, service, mock_deps):
+        """load 须在 DB 边界把 MPosition 还原为 Position 实体（G：snapshot 携带 Position）。
+
+        restore_state 期望 positions 为 Position 实体（直接装回 self._positions，
+        取 pos.code 作 key），故 load 端须用 PositionMapper.model_to_entity 还原；
+        返 dict 则 restore_state 取 pos.code 崩。回归 #6890 持仓持久化丢失。
+        """
+        from decimal import Decimal
+        from ginkgo.entities import Position
+        mock_portfolio = MagicMock()
+        mock_portfolio.cash = "500000"
+        mock_portfolio.frozen = "0"
+        mock_portfolio.total_fee = "100"
+        mock_portfolio.engine_current_time = None
+        mock_deps["crud_repo"].find.return_value = [mock_portfolio]
+
+        from ginkgo.data.models import MPosition
+        m_pos = MPosition()
+        m_pos.update(
+            "port-001", "eng-001", "task-001",
+            code="000001.SZ", cost=Decimal("10.50"), volume=100,
+            price=Decimal("11.00"), fee=Decimal("5"),
+        )
+        m_pos.uuid = "u1"
+        mock_position_crud = MagicMock()
+        mock_position_crud.find.return_value = [m_pos]
+
+        with patch.object(service, "_get_position_crud", return_value=mock_position_crud):
+            result = service.load_persisted_state("port-001")
+
+        assert result.is_success()
+        positions = result.data["positions"]
+        assert len(positions) == 1
+        assert isinstance(positions[0], Position), "load 须还原 Position 实体供 restore_state"
+        assert positions[0].code == "000001.SZ"
+        assert positions[0].volume == 100
 
 
 # ============================================================
