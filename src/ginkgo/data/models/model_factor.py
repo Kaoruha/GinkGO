@@ -115,7 +115,9 @@ class MFactor(MClickBase):
         if timestamp is not None:
             self.timestamp = timestamp
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
 
     def __repr__(self) -> str:
         return base_repr(self, "DBFactor", 12, 60)

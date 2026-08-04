@@ -49,11 +49,14 @@ class MEngineHandlerMapping(MMysqlBase):
         if handler_id is not None:
             self.handler_id = handler_id
         if type is not None:
-            self.type = EVENT_TYPES.validate_input(type) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = EVENT_TYPES.validate_input(type)
+            self.type = validated if validated is not None else -1
         if name is not None:
             self.name = name
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
@@ -61,9 +64,11 @@ class MEngineHandlerMapping(MMysqlBase):
         self.engine_id = df["engine_id"]
         self.handler_id = df["handler_id"]
         self.name = df["name"]
-        self.type = EVENT_TYPES.validate_input(df["type"]) or -1
+        validated = EVENT_TYPES.validate_input(df["type"])
+        self.type = validated if validated is not None else -1
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     def __init__(self, **kwargs):

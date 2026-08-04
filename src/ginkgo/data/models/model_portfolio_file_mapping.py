@@ -49,23 +49,29 @@ class MPortfolioFileMapping(MMysqlBase):
         if name is not None:
             self.name = str(name)
         if type is not None:
-            self.type = FILE_TYPES.validate_input(type) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = FILE_TYPES.validate_input(type)
+            self.type = validated if validated is not None else -1
         if file_id is not None:
             self.file_id = str(file_id)
         if type is not None:
-            self.type = FILE_TYPES.validate_input(type) or -1
+            validated = FILE_TYPES.validate_input(type)
+            self.type = validated if validated is not None else -1
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.DataFrame, *args, **kwargs) -> None:
         self.portfolio_id = df["portfolio_id"]
         self.file_id = df["file_id"]
-        self.type = FILE_TYPES.validate_input(df["type"]) or -1
+        validated = FILE_TYPES.validate_input(df["type"])
+        self.type = validated if validated is not None else -1
         self.name = df["name"]
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     def __init__(self, **kwargs):

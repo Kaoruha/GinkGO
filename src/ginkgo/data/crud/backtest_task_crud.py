@@ -66,7 +66,9 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         if isinstance(source_value, SOURCE_TYPES):
             source_value = source_value.value
         else:
-            source_value = SOURCE_TYPES.validate_input(source_value) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = SOURCE_TYPES.validate_input(source_value)
+            source_value = validated if validated is not None else -1
 
         # 生成 task_id（如果未提供），使用与 uuid 相同的规则
         task_id = kwargs.get("task_id") or IdentityUtils.generate_task_id()

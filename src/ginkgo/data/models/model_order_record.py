@@ -77,11 +77,15 @@ class MOrderRecord(MClickBase, MBacktestRecordBase):
         if code is not None:
             self.code = code
         if direction is not None:
-            self.direction = DIRECTION_TYPES.validate_input(direction) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = DIRECTION_TYPES.validate_input(direction)
+            self.direction = validated if validated is not None else -1
         if order_type is not None:
-            self.order_type = ORDER_TYPES.validate_input(order_type) or -1
+            validated = ORDER_TYPES.validate_input(order_type)
+            self.order_type = validated if validated is not None else -1
         if status is not None:
-            self.status = ORDERSTATUS_TYPES.validate_input(status) or -1
+            validated = ORDERSTATUS_TYPES.validate_input(status)
+            self.status = validated if validated is not None else -1
         if volume is not None:
             self.volume = volume
         if limit_price is not None:
@@ -111,9 +115,12 @@ class MOrderRecord(MClickBase, MBacktestRecordBase):
         self.portfolio_id = df["portfolio_id"]
         self.engine_id = df["engine_id"]
         self.code = df["code"]
-        self.direction = DIRECTION_TYPES.validate_input(df["direction"]) or -1
-        self.order_type = ORDER_TYPES.validate_input(df["order_type"]) or -1
-        self.status = ORDERSTATUS_TYPES.validate_input(df["status"]) or -1
+        validated = DIRECTION_TYPES.validate_input(df["direction"])
+        self.direction = validated if validated is not None else -1
+        validated = ORDER_TYPES.validate_input(df["order_type"])
+        self.order_type = validated if validated is not None else -1
+        validated = ORDERSTATUS_TYPES.validate_input(df["status"])
+        self.status = validated if validated is not None else -1
         self.volume = df["volume"]
         self.limit_price = to_decimal(df["limit_price"])
         self.frozen_money = to_decimal(df["frozen_money"] if "frozen_money" in df else df.get("frozen", 0))
@@ -135,13 +142,16 @@ class MOrderRecord(MClickBase, MBacktestRecordBase):
         super().__init__()
         # 处理枚举字段转换
         if 'direction' in kwargs:
-            self.direction = DIRECTION_TYPES.validate_input(kwargs['direction']) or -1
+            validated = DIRECTION_TYPES.validate_input(kwargs['direction'])
+            self.direction = validated if validated is not None else -1
             del kwargs['direction']
         if 'order_type' in kwargs:
-            self.order_type = ORDER_TYPES.validate_input(kwargs['order_type']) or -1
+            validated = ORDER_TYPES.validate_input(kwargs['order_type'])
+            self.order_type = validated if validated is not None else -1
             del kwargs['order_type']
         if 'status' in kwargs:
-            self.status = ORDERSTATUS_TYPES.validate_input(kwargs['status']) or -1
+            validated = ORDERSTATUS_TYPES.validate_input(kwargs['status'])
+            self.status = validated if validated is not None else -1
             del kwargs['status']
         if 'source' in kwargs:
             self.set_source(kwargs['source'])

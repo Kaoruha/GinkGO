@@ -83,20 +83,25 @@ class MEngine(MMysqlBase):
         if broker_attitude is not None:
             self.broker_attitude = ATTITUDE_TYPES.validate_input(broker_attitude) or 2  # 默认OPTIMISTIC
         if status is not None:
-            self.status = ENGINESTATUS_TYPES.validate_input(status) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = ENGINESTATUS_TYPES.validate_input(status)
+            self.status = validated if validated is not None else -1
         if is_live is not None:
             self.is_live = is_live
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.name = df["name"]
-        self.status = ENGINESTATUS_TYPES.validate_input(df["status"]) or -1
+        validated = ENGINESTATUS_TYPES.validate_input(df["status"])
+        self.status = validated if validated is not None else -1
         self.is_live = df["is_live"]
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     def __init__(self, **kwargs):
@@ -104,10 +109,12 @@ class MEngine(MMysqlBase):
         super().__init__()
         # 处理枚举字段转换
         if 'status' in kwargs:
-            self.status = ENGINESTATUS_TYPES.validate_input(kwargs['status']) or -1
+            validated = ENGINESTATUS_TYPES.validate_input(kwargs['status'])
+            self.status = validated if validated is not None else -1
             del kwargs['status']
         if 'source' in kwargs:
-            self.source = SOURCE_TYPES.validate_input(kwargs['source']) or -1
+            validated = SOURCE_TYPES.validate_input(kwargs['source'])
+            self.source = validated if validated is not None else -1
             del kwargs['source']
         if 'broker_attitude' in kwargs:
             self.broker_attitude = ATTITUDE_TYPES.validate_input(kwargs['broker_attitude']) or 2
