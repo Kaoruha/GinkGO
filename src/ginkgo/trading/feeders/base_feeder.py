@@ -81,7 +81,7 @@ class BaseFeeder(EngineBindableMixin, TimeMixin, NamedMixin, Base):
     def _load_daybar(self, code: str, dt, *args, **kwargs) -> pd.DataFrame:
         """默认的数据加载实现（可被子类覆盖）。
 
-        #6624: 走 BarService DF 出口 get_bars_df，不再接触 ORM ModelList。
+        #6624: 走 BarService DF 出口 get_bars_df，不再接触 ORM list。
         传 adjustment_type=FORE 保回测热路径前复权语义（与原 get() 默认一致，
         ADR-010 例外：feeder 依赖前复权防除权除息日跳空）。
         """

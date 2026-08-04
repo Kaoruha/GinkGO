@@ -7,7 +7,7 @@ ADR-010 Phase 4 Task R2b：AnalyzerService.get_records_df() 多出口契约测�
 消费点（record_cli.py）：
 - analyzer 消费 get_records(portfolio_id, engine_id, page_size) → 新出口 get_records_df
 
-设计：Mock crud_repo.find 返真实 ModelList（带 mock crud 支持 to_dataframe），
+设计：Mock crud_repo.find 返真实 list（带 mock crud 支持 to_dataframe），
 断言 data 运行时类型契约（isinstance），参照 test_signal_order_position_multiexit.py 桩写法。
 """
 
@@ -23,26 +23,21 @@ _path = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.analyzer_service import AnalyzerService
 
 
 # ===== 桩工厂 =====
 
 
-def _make_empty_modellist() -> ModelList:
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
-    return ModelList([], crud_stub)
+def _make_empty_modellist() -> list:
+    return []
 
 
-def _make_analyzer_modellist() -> ModelList:
+def _make_analyzer_modellist() -> list:
     from ginkgo.data.models import MAnalyzerRecord
 
     model = MAnalyzerRecord()
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame([{"name": "SharpeRatio", "value": 1.5}])
-    return ModelList([model], crud_stub)
+    return [model]
 
 
 def _make_analyzer_service(find_return) -> AnalyzerService:
@@ -68,12 +63,11 @@ def test_get_records_df_method_exists():
 
 @pytest.mark.unit
 def test_get_records_df_returns_dataframe():
-    """出口①：data 是 pd.DataFrame，非 ModelList。"""
+    """出口①：data 是 pd.DataFrame，非 list。"""
     svc = _make_analyzer_service(_make_analyzer_modellist())
     result = svc.get_records_df(portfolio_id="pf1", engine_id="eng1")
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     assert len(result.data) == 1
 
 
@@ -91,13 +85,12 @@ def test_get_records_df_passes_page_and_page_size():
 
 @pytest.mark.unit
 def test_get_records_df_empty_returns_empty_dataframe():
-    """空结果 data 仍是 pd.DataFrame（非 None / 非 ModelList）。"""
+    """空结果 data 仍是 pd.DataFrame（非 None / 非 list）。"""
     svc = _make_analyzer_service(_make_empty_modellist())
     result = svc.get_records_df()
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert len(result.data) == 0
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit

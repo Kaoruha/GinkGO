@@ -2,12 +2,15 @@
 性能: 222MB RSS, 2.05s, 19 tests [PASS]
 OrderCRUD 单元测试 - Mock 数据库连接
 
+ADR-029 Task 7：_create_from_params / _convert_input_item override 已删，
+入站转换由 OrderMapper.entity_to_model 承担（见 test_order_mapper.py 契约）。
+本文件保留：字段配置/枚举映射/构造函数/业务辅助方法/get_by_uuid 测试。
+
 测试覆盖范围:
 - 字段配置结构验证
 - 枚举映射验证
-- _create_from_params 参数创建模型
 - 构造函数验证
-- 必要 Hook 方法存在性检查
+- get_by_uuid 存在判断（upsert_order 支撑）
 - 业务辅助方法测试（find_by_portfolio, find_by_code, find_pending_orders,
   delete_by_portfolio, cancel_pending_orders, modify, get_order_summary）
 """
@@ -108,100 +111,6 @@ class TestOrderEnumMappings:
 
 
 # ============================================================================
-# _create_from_params 测试
-# ============================================================================
-
-
-class TestOrderCreateFromParams:
-    """_create_from_params 参数创建模型测试"""
-
-    @pytest.mark.unit
-    def test_create_from_params_basic(self, crud_instance):
-        """使用必填字段创建 MOrder 模型"""
-        model = crud_instance._create_from_params(
-            portfolio_id="portfolio-001",
-            engine_id="engine-001",
-            code="000001.SZ",
-            direction=DIRECTION_TYPES.LONG,
-            order_type=ORDER_TYPES.LIMITORDER,
-            status=ORDERSTATUS_TYPES.NEW,
-            volume=1000,
-            limit_price=Decimal("10.50"),
-        )
-
-        assert isinstance(model, MOrder)
-        assert model.portfolio_id == "portfolio-001"
-        assert model.engine_id == "engine-001"
-        assert model.code == "000001.SZ"
-        assert model.volume == 1000
-
-    @pytest.mark.unit
-    def test_create_from_params_defaults(self, crud_instance):
-        """缺失可选字段时使用默认值"""
-        model = crud_instance._create_from_params(
-            portfolio_id="portfolio-001",
-            engine_id="engine-001",
-            code="000001.SZ",
-            direction=DIRECTION_TYPES.LONG,
-            order_type=ORDER_TYPES.LIMITORDER,
-            volume=100,
-        )
-
-        assert model.status == ORDERSTATUS_TYPES.NEW.value
-        assert model.limit_price == Decimal("0")
-        assert model.frozen_money == 0
-        assert model.transaction_price == Decimal("0")
-        assert model.fee == 0.0
-
-    @pytest.mark.unit
-    def test_create_from_params_with_all_fields(self, crud_instance):
-        """传入所有字段创建完整模型"""
-        model = crud_instance._create_from_params(
-            portfolio_id="portfolio-001",
-            engine_id="engine-001",
-            task_id="run-001",
-            code="600000.SH",
-            direction=DIRECTION_TYPES.SHORT,
-            order_type=ORDER_TYPES.MARKETORDER,
-            status=ORDERSTATUS_TYPES.FILLED,
-            volume=5000,
-            limit_price=Decimal("20.00"),
-            frozen_money=Decimal("100000"),
-            frozen_volume=0,
-            transaction_price=Decimal("19.80"),
-            transaction_volume=5000,
-            remain=Decimal("0"),
-            fee=Decimal("29.70"),
-            timestamp="2024-01-15 10:30:00",
-            source=SOURCE_TYPES.TUSHARE,
-        )
-
-        assert isinstance(model, MOrder)
-        assert model.task_id == "run-001"
-        assert model.direction == DIRECTION_TYPES.SHORT.value
-        assert model.status == ORDERSTATUS_TYPES.FILLED.value
-        assert model.source == SOURCE_TYPES.TUSHARE.value
-
-    @pytest.mark.unit
-    def test_create_from_params_enum_to_value(self, crud_instance):
-        """枚举值应被转换为整数值存储"""
-        model = crud_instance._create_from_params(
-            portfolio_id="p1",
-            engine_id="e1",
-            code="000001.SZ",
-            direction=DIRECTION_TYPES.LONG,
-            order_type=ORDER_TYPES.LIMITORDER,
-            status=ORDERSTATUS_TYPES.NEW,
-            volume=100,
-        )
-
-        # 枚举应被转为 .value（整数）
-        assert model.direction == DIRECTION_TYPES.LONG.value
-        assert model.order_type == ORDER_TYPES.LIMITORDER.value
-        assert model.status == ORDERSTATUS_TYPES.NEW.value
-
-
-# ============================================================================
 # 构造函数与 Hook 方法测试
 # ============================================================================
 
@@ -220,6 +129,43 @@ class TestOrderConstruction:
         """验证 OrderCRUD 使用 MySQL 存储"""
         assert crud_instance._is_mysql is True
         assert crud_instance._is_clickhouse is False
+
+
+# ============================================================================
+# ADR-029 Task 7：get_by_uuid 存在判断（upsert_order 支撑）
+# ============================================================================
+
+
+class TestOrderGetByUuid:
+    """get_by_uuid：upsert_order 存在判断的支撑方法。"""
+
+    @pytest.mark.unit
+    def test_get_by_uuid_returns_match(self, crud_instance):
+        """uuid 命中时返回首条 MOrder。"""
+        from ginkgo.data.models import MOrder as _M
+
+        match = _M(code="000001.SZ", uuid="abc123")
+        crud_instance.find = MagicMock(return_value=[match])
+
+        result = crud_instance.get_by_uuid("abc123")
+        assert result is match
+        # 过滤应含 uuid + is_del=False
+        call_kwargs = crud_instance.find.call_args
+        filters = call_kwargs.kwargs.get("filters", call_kwargs[1].get("filters"))
+        assert filters == {"uuid": "abc123", "is_del": False}
+
+    @pytest.mark.unit
+    def test_get_by_uuid_returns_none_when_missing(self, crud_instance):
+        """uuid 未命中时返回 None。"""
+        crud_instance.find = MagicMock(return_value=[])
+        assert crud_instance.get_by_uuid("missing-uuid") is None
+
+    @pytest.mark.unit
+    def test_get_by_uuid_rejects_empty_uuid(self, crud_instance):
+        """空 uuid 直接返 None，不查库（守卫）。"""
+        crud_instance.find = MagicMock()
+        assert crud_instance.get_by_uuid("") is None
+        crud_instance.find.assert_not_called()
 
 
 # ============================================================================
@@ -370,7 +316,7 @@ class TestOrderBusinessMethods:
 
     @pytest.mark.unit
     def test_get_order_summary_non_empty_buckets(self, crud_instance):
-        """get_order_summary 非空时应按状态正确分桶（status 为枚举实例，模拟 find 经 _convert_output_items 转换后的真实形态）。关联 #6092"""
+        """get_order_summary 非空时应按状态正确分桶（status 为枚举实例，模拟 find 出站形态）。关联 #6092"""
         def mk(status, volume, tv=0, tp=0, fee=0):
             o = MagicMock()
             o.status = status
@@ -412,63 +358,48 @@ class TestOrderBusinessMethods:
 @pytest.mark.tdd
 @pytest.mark.bug
 class TestOrderCRUDFrozenVolumeIntConversion:
-    """#6079: frozen_volume 应强制 int() 转换，防止 float 写入 Integer 列"""
+    """#6079: frozen_volume 应强制 int() 转换，防止 float 写入 Integer 列。
 
-    @pytest.mark.unit
-    def test_frozen_volume_float_to_int(self, crud_instance):
-        """传入 float frozen_volume 应被转为 int"""
-        model = crud_instance._create_from_params(
-            portfolio_id="p1",
-            engine_id="e1",
-            code="000001.SZ",
-            direction=DIRECTION_TYPES.LONG,
-            order_type=ORDER_TYPES.LIMITORDER,
-            status=ORDERSTATUS_TYPES.NEW,
-            volume=100,
-            frozen_volume=484.03,
-        )
-        assert isinstance(model.frozen_volume, int)
-        assert model.frozen_volume == 484
-
-    @pytest.mark.unit
-    def test_frozen_volume_default_zero_is_int(self, crud_instance):
-        """默认值 0 应为 int 类型"""
-        model = crud_instance._create_from_params(
-            portfolio_id="p1",
-            engine_id="e1",
-            code="000001.SZ",
-            direction=DIRECTION_TYPES.LONG,
-            order_type=ORDER_TYPES.LIMITORDER,
-            status=ORDERSTATUS_TYPES.NEW,
-            volume=100,
-        )
-        assert isinstance(model.frozen_volume, int)
-        assert model.frozen_volume == 0
-
-
-@pytest.mark.tdd
-@pytest.mark.bug
-class TestOrderCRUDConvertInputItemFrozenVolumeInt:
-    """#6087: _convert_input_item 路径 frozen_volume 应 int() 转换（延续 #6080）。
-
-    _convert_input_item 用 getattr(item, ...) 鸭子类型读取外部输入，
-    SimpleNamespace 是该接口契约的合法替身（非掩盖：接口设计即鸭子类型）。
+    ADR-029 Task 7：原测 _create_from_params 路径；hook 已删，转换收敛到
+    MOrder.__init__（int() 强制）。回归口径改为直测 MOrder 构造。
     """
 
     @pytest.mark.unit
-    def test_convert_input_item_float_frozen_volume(self, crud_instance):
-        """_convert_input_item 传入 float frozen_volume 的鸭子输入应转 int"""
-        from types import SimpleNamespace
-        item = SimpleNamespace(
-            portfolio_id="p1", engine_id="e1", task_id="t1",
-            code="000001.SZ", direction=DIRECTION_TYPES.LONG,
-            order_type=ORDER_TYPES.LIMITORDER, status=ORDERSTATUS_TYPES.NEW,
-            volume=100, limit_price=10.0, frozen_money=1000.0,
+    def test_frozen_volume_float_to_int(self, crud_instance):
+        """MOrder 构造时传 float frozen_volume 应被转为 int。"""
+        model = MOrder(
+            portfolio_id="p1",
+            engine_id="e1",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.LIMITORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=100,
             frozen_volume=484.03,
-            transaction_price=0, transaction_volume=0, remain=0, fee=0,
-            timestamp=None,
         )
-        model = crud_instance._convert_input_item(item)
-        assert model is not None
         assert isinstance(model.frozen_volume, int)
         assert model.frozen_volume == 484
+
+    @pytest.mark.unit
+    def test_frozen_volume_default_none_before_flush(self, crud_instance):
+        """默认值（未传 frozen_volume）在 flush 前为 None（SA mapped_column default=0 仅 flush 时落库）。
+
+        原 _create_from_params 总传 ``int(kwargs.get("frozen_volume", 0))``，
+        hook 删除后 MOrder.__init__ 走 ``if frozen_volume is not None`` 守卫，
+        未传时属性为 None（与 test_order_model_frozen_split 同口径）。
+        """
+        model = MOrder(
+            portfolio_id="p1",
+            engine_id="e1",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.LIMITORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=100,
+        )
+        assert model.frozen_volume is None
+
+
+# ADR-029 Task 7：TestOrderCRUDConvertInputItemFrozenVolumeInt 已删
+# （_convert_input_item hook 删除，鸭子类型路径退役；int() 转换回归口径见
+# TestOrderCRUDFrozenVolumeIntConversion 与 test_order_mapper.py）。

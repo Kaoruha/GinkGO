@@ -12,7 +12,6 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MEngine
 from ginkgo.enums import SOURCE_TYPES, ENGINESTATUS_TYPES, ATTITUDE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
@@ -102,23 +101,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
             engine_kwargs["desc"] = kwargs["desc"]
         return MEngine(**engine_kwargs)
 
-    def _convert_input_item(self, item: Any) -> Optional[MEngine]:
-        """
-        Hook method: Convert engine objects to MEngine.
-        """
-        if hasattr(item, "name"):
-            return MEngine(
-                name=getattr(item, "name", "test_engine"),
-                status=ENGINESTATUS_TYPES.validate_input(getattr(item, "status", ENGINESTATUS_TYPES.IDLE)),
-                is_live=getattr(item, "is_live", False),
-                source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
-                config_hash=getattr(item, "config_hash", ""),
-                current_task_id=getattr(item, "current_task_id", ""),
-                run_count=getattr(item, "run_count", 0),
-                config_snapshot=getattr(item, "config_snapshot", "{}"),
-                broker_attitude=ATTITUDE_TYPES.validate_input(getattr(item, "broker_attitude", ATTITUDE_TYPES.OPTIMISTIC)),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役（生产无 .add/.add_batch 调用）。
 
     # Business Helper Methods
     def find_by_uuid(self, uuid: str) -> List[MEngine]:
@@ -192,7 +175,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         query: str,
         fields: Optional[List[str]] = None,
         limit: Optional[int] = None,
-    ) -> ModelList[MEngine]:
+    ) -> list:
         """
         Fuzzy search engines across multiple fields with OR logic.
 
@@ -210,10 +193,10 @@ class EngineCRUD(BaseCRUD[MEngine]):
             fields: Fields to search in. Default: ['uuid', 'name', 'is_live', 'status']
 
         Returns:
-            ModelList of matching engines
+            list of matching engines
         """
         if not query or not query.strip():
-            return ModelList([], self)
+            return []
 
         from ginkgo.libs import GLOG
 
@@ -318,6 +301,6 @@ class EngineCRUD(BaseCRUD[MEngine]):
         if limit is not None:
             all_results = all_results[:limit]
 
-        # Return ModelList for consistency with other CRUD methods
-        return ModelList(all_results, self)
+        # Return list (ADR-029 §Decision 9)
+        return all_results
 

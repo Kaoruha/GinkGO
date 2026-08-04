@@ -4,6 +4,9 @@ Unit tests for PositionService.
 Verifies that PositionService orchestrates position persistence
 through PositionCRUD, providing the `save_positions` interface
 that PortfolioLive depends on.
+
+ADR-029 Task 5:service 走 mapper.entity_to_model 收敛转换 + 顺修 add(entity) bug。
+测试改用真实 Position entity,验证 add 收到 MPosition 而非 raw entity。
 """
 import pandas as pd
 import pytest
@@ -11,6 +14,8 @@ from unittest.mock import MagicMock, call
 
 from ginkgo.data.services.position_service import PositionService
 from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.data.models import MPosition
+from ginkgo.entities import Position
 
 
 @pytest.fixture
@@ -25,20 +30,24 @@ def service(mock_crud):
 
 @pytest.fixture
 def mock_position():
-    """A duck-typed position object matching what PortfolioLive passes."""
-    pos = MagicMock()
-    pos.portfolio_id = "p-001"
-    pos.engine_id = "e-001"
-    pos.task_id = "t-001"
-    pos.code = "000001.SZ"
-    pos.direction = "LONG"
-    pos.volume = 100
-    pos.frozen = 0
-    pos.cost = 10.5
-    pos.price = 11.0
-    pos.fee = 0.5
-    pos.timestamp = None
-    return pos
+    """Real Position entity(替代旧 MagicMock duck-type)。
+
+    ADR-029 后 service 内部走 PositionMapper.entity_to_model 转换,真实 entity
+    才能验证转换链路。MagicMock 在 mapper 内 decimal 转换炸,且无法验证
+    「add 收到 MPosition 而非 raw entity」契约。
+    """
+    return Position(
+        portfolio_id="p-001",
+        engine_id="e-001",
+        task_id="t-001",
+        code="000001.SZ",
+        cost=10.5,
+        volume=100,
+        frozen_volume=0,
+        frozen_money=0,
+        price=11.0,
+        fee=0.5,
+    )
 
 
 class TestSavePositions:
@@ -54,27 +63,35 @@ class TestSavePositions:
         result = service.save_positions([mock_position])
 
         assert result.is_success()
-        # 应使用 add 而非 create（model 实例应走 add 路径）
-        mock_crud.add.assert_called_once_with(mock_position)
+        # ADR-029 Task 5:add 收 MPosition(经 mapper.entity_to_model 转换),非 raw entity
+        mock_crud.add.assert_called_once()
+        added = mock_crud.add.call_args[0][0]
+        assert isinstance(added, MPosition)
+        assert added.code == "000001.SZ"
+        assert int(added.volume) == 100
+        # 不走 create(model 实例应走 add 路径)
         mock_crud.create.assert_not_called()
 
     def test_multiple_positions(self, service, mock_crud, mock_position):
-        pos2 = MagicMock()
-        pos2.portfolio_id = "p-001"
-        pos2.engine_id = "e-001"
-        pos2.task_id = "t-001"
-        pos2.code = "600000.SH"
-        pos2.direction = "LONG"
-        pos2.volume = 200
-        pos2.frozen = 0
-        pos2.cost = 20.0
-        pos2.price = 21.0
-        pos2.fee = 1.0
-        pos2.timestamp = None
+        pos2 = Position(
+            portfolio_id="p-001",
+            engine_id="e-001",
+            task_id="t-001",
+            code="600000.SH",
+            cost=20.0,
+            volume=200,
+            frozen_volume=0,
+            frozen_money=0,
+            price=21.0,
+            fee=1.0,
+        )
 
         result = service.save_positions([mock_position, pos2])
         assert result.is_success()
         assert mock_crud.add.call_count == 2
+        # 两次 add 都收 MPosition(转换链路完整)
+        for call_args in mock_crud.add.call_args_list:
+            assert isinstance(call_args[0][0], MPosition)
 
     def test_crud_failure_returns_error(self, service, mock_crud, mock_position):
         mock_crud.add.side_effect = Exception("DB write failed")

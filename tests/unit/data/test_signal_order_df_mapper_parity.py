@@ -1,36 +1,23 @@
 # Upstream: ADR-025（DF 出口下沉 mapper）/ ADR-031 c1（enum 映射经 __table__ 反射）
-# Downstream: SignalMapper.to_dataframe / OrderMapper.to_dataframe vs _Conversion._convert_models_to_dataframe
-# Role: 对照实证 mapper DF 出口与 CRUD DF 出口同构（signal=CH / order=MySQL 各一组）
+# Downstream: SignalMapper.models_to_dataframe / OrderMapper.models_to_dataframe
+# Role: mapper DF 出口行为单测（enum 还原 / 空 DF / 无副作用）——signal(CH)/order(MySQL)各一组
 
+"""Mapper DF 出口行为单测（ADR-025 / ADR-031 c1）。
 
-"""DF 下沉 mapper 对照实证（ADR-025 / ADR-031 Future Work）。
-
-验证 ``Mapper.to_dataframe(models)`` 与 CRUD ``_convert_models_to_dataframe``
-输出等价——signal(ClickHouse)与 order(MySQL)各一组。enum 映射两路同源（均经
-``__table__.columns[].info['enum']`` 反射，ADR-031 c1），故 DataFrame 同构。
-
-行为差异（非输出差异）：CRUD 版有副作用（setattr 改 model 的 enum 字段），
-mapper 版纯转换（改 dict 副本，不动 model）。测试用 deepcopy 隔离两路输入，
-确保对照公平；并显式断言 mapper 无副作用。
+历史版本对照 ``Mapper.to_dataframe`` 与 CRUD ``_convert_models_to_dataframe``
+输出等价；ADR-029 §Decision 1 退役 CRUD 转换钩子族后，CRUD DF 出口已下沉为
+``Mapper.models_to_dataframe``（service 层调用），对照失去一方。本文件保留
+mapper 自身行为验证：enum 列还原为 enum 实例、空列表返空 DF、调用无副作用。
 
 模型构造用「空模型 + setattr 原始 int」模拟 DB 读出的原始行（enum 列存 int），
 避开 ``__init__`` 的 validate_input，保证 ``__dict__`` 内是干净的 int——这是
-``to_dataframe`` 的真实输入态。enum 字段须全部显式 set：CRUD 路 ``hasattr``
-经 SA 描述符对 enum 列恒 True（default -1），mapper 路 ``d.get`` 只看 ``__dict__``，
-未显式 set 的 enum 列会让两路 DataFrame 列集分歧。
-
-Stub 继承 ``_Conversion`` 提供 ``model_class``，避免实例化 CRUD 连库（与 c1
-反射测试 ``test_signal_enum_reflection_c1`` 同模式）；signal/order CRUD 均
-未 override ``_convert_models_to_dataframe``，故 Stub 的混入实现即真实路径。
+``models_to_dataframe`` 的真实输入态。
 
 Run: pytest tests/unit/data/test_signal_order_df_mapper_parity.py -v -o addopts=""
 """
 
-import copy
-
 import pandas as pd
 import pytest
-from pandas.testing import assert_frame_equal
 
 from ginkgo.data.models import MSignal, MOrder
 from ginkgo.enums import (
@@ -39,7 +26,6 @@ from ginkgo.enums import (
     ORDERSTATUS_TYPES,
     SOURCE_TYPES,
 )
-from ginkgo.data.crud.mixins._conversion import _Conversion
 from ginkgo.data.mappers.signal_mapper import SignalMapper
 from ginkgo.data.mappers.order_mapper import OrderMapper
 
@@ -102,38 +88,9 @@ def _make_orders():
     return rows
 
 
-class _SignalConv(_Conversion):
-    """Stub：提供 model_class 即可走 _convert_models_to_dataframe 真实路径。"""
-
-    model_class = MSignal
-
-
-class _OrderConv(_Conversion):
-    model_class = MOrder
-
-
 @pytest.mark.unit
-class TestSignalOrderDfMapperParity:
-    """Mapper.to_dataframe 与 CRUD _convert_models_to_dataframe 输出同构。"""
-
-    def test_signal_df_mapper_equals_crud(self):
-        """signal：mapper DF == CRUD DF（同源模型 deepcopy 给两路，check_like 忽略列序）。
-
-        构造一次再 deepcopy：base model ``__init__`` 自动生成 uuid/create_at
-        （随机/now），两次 ``_make_signals()`` 会产出不同自动字段——必须同源。
-        deepcopy 必要：CRUD 版 setattr 有副作用，不隔离会污染 mapper 输入。
-        """
-        base = _make_signals()
-        crud_df = _SignalConv()._convert_models_to_dataframe(copy.deepcopy(base))
-        mapper_df = SignalMapper.models_to_dataframe(copy.deepcopy(base))
-        assert_frame_equal(mapper_df, crud_df, check_like=True)
-
-    def test_order_df_mapper_equals_crud(self):
-        """order：mapper DF == CRUD DF（同源 deepcopy，理由同 signal）。"""
-        base = _make_orders()
-        crud_df = _OrderConv()._convert_models_to_dataframe(copy.deepcopy(base))
-        mapper_df = OrderMapper.models_to_dataframe(copy.deepcopy(base))
-        assert_frame_equal(mapper_df, crud_df, check_like=True)
+class TestSignalOrderDfMapperBehavior:
+    """Mapper.models_to_dataframe 输出行为（enum 还原 / 空 DF / 无副作用）。"""
 
     def test_signal_df_enum_columns_are_enum_instances(self):
         """signal DF 的 enum 列经 mapper 还原为 enum 实例（非裸 int）。"""
@@ -149,16 +106,12 @@ class TestSignalOrderDfMapperParity:
         assert all(isinstance(v, ORDERSTATUS_TYPES) for v in df["status"])
 
     def test_empty_models_returns_empty_df(self):
-        """空列表两路都返空 DataFrame（边界一致）。"""
+        """空列表 mapper 返空 DataFrame（边界一致）。"""
         assert SignalMapper.models_to_dataframe([]).empty
         assert OrderMapper.models_to_dataframe([]).empty
-        assert _SignalConv()._convert_models_to_dataframe([]).empty
 
     def test_mapper_no_side_effect_on_model(self):
-        """mapper 纯转换：调用后 model 的 enum 字段仍是原始 int（未被 setattr 改）。
-
-        对照 CRUD 版的副作用——这是 mapper 优于 CRUD 的点（无突变）。
-        """
+        """mapper 纯转换：调用后 model 的 enum 字段仍是原始 int（未被 setattr 改）。"""
         signals = _make_signals()
         SignalMapper.models_to_dataframe(signals)
         assert isinstance(signals[0].direction, int)

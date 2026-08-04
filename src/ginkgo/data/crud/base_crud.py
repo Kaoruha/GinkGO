@@ -18,7 +18,6 @@ from ginkgo.data.models import MClickBase, MMysqlBase, MMongoBase
 from ginkgo.libs import GLOG, time_logger, retry, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
 from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.crud.mixins import _Conversion, _Validation, _Streaming
 
 T = TypeVar("T", bound=Union[MClickBase, MMysqlBase, MMongoBase])
@@ -174,7 +173,7 @@ class _CoreCRUD(Generic[T], ABC):
 
     @time_logger
     @retry(max_try=3)
-    def add_batch(self, items: List[Any], session: Optional[Session] = None) -> ModelList:
+    def add_batch(self, items: List[Any], session: Optional[Session] = None) -> list:
         """
         Template method: Add multiple items to database in batch.
         支持自动类型转换，不进行数据验证，依赖数据库约束确保数据完整性。
@@ -185,14 +184,16 @@ class _CoreCRUD(Generic[T], ABC):
             session: Optional SQLAlchemy session to use for the operation.
 
         Returns:
-            ModelList of added model instances with conversion capabilities
+            list of added model instances（ADR-029 §Decision 9：CRUD 直接返 list，
+            DF 转换走 ``ginkgo.data.mappers.models_to_dataframe``）
         """
         try:
-            # 只进行类型转换，不进行数据验证
-            converted_items = self._convert_input_batch(items)
-            result = self._do_add_batch(converted_items, session)
+            # ADR-029 §Decision 1：转换钩子族退役，items 须为 Model 实例列表。
+            # 非 Model 入 driver.add/add_all 会 raise（响亮失败铁律）。
+            # enum 字段在 _do_add_batch 内逐项 _validate_item_enum_fields 校正。
+            result = self._do_add_batch(items, session)
             # 返回实际插入的对象（已解绑session），而不是原始转换的对象
-            return ModelList(converted_items, self)
+            return list(items)
         except Exception as e:
             GLOG.ERROR(f"Failed to add {self.model_class.__name__} items in batch: {e}")
             raise
@@ -231,7 +232,7 @@ class _CoreCRUD(Generic[T], ABC):
         desc_order: bool = False,
         distinct_field: Optional[str] = None,
         session: Optional[Session] = None,
-    ) -> ModelList[T]:
+    ) -> list:
         """
         Template method: Find items with enhanced filters and pagination.
         Supports operator filters via _parse_filters:
@@ -266,7 +267,8 @@ class _CoreCRUD(Generic[T], ABC):
             session: Optional SQLAlchemy session to use for the operation.
 
         Returns:
-            ModelList[T] - 支持to_dataframe()方法
+            list[T] - DF 转换走 ``ginkgo.data.mappers.models_to_dataframe``
+            (ADR-029 §Decision 9：CRUD 直接返 list)
         """
         try:
             # Execute query using existing _do_find method
@@ -280,12 +282,12 @@ class _CoreCRUD(Generic[T], ABC):
             else:
                 models = [raw_results] if raw_results else []
 
-            # Return ModelList with conversion capabilities
-            return ModelList(models, self)
+            # Return plain list (ADR-029 §Decision 9)
+            return list(models)
 
         except Exception as e:
             GLOG.ERROR(f"Failed to find {self.model_class.__name__} items: {e}")
-            return ModelList([], self)
+            return []
 
     def remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> None:
         """
@@ -331,7 +333,7 @@ class _CoreCRUD(Generic[T], ABC):
             GLOG.ERROR(f"Failed to modify {self.model_class.__name__} items: {e}")
             raise
 
-    def replace(self, filters: Dict[str, Any], new_items: List[T], session: Optional[Session] = None) -> ModelList:
+    def replace(self, filters: Dict[str, Any], new_items: List[T], session: Optional[Session] = None) -> list:
         """
         Template method: Atomically replace items with new ones.
 
@@ -349,8 +351,8 @@ class _CoreCRUD(Generic[T], ABC):
             session: Optional SQLAlchemy session to use for the operation.
 
         Returns:
-            ModelList of inserted items with their database identifiers
-            Returns empty ModelList if no existing items match filters
+            list of inserted items with their database identifiers
+            Returns empty list if no existing items match filters
 
         Raises:
             Exception: If the operation fails and restoration fails
@@ -360,7 +362,7 @@ class _CoreCRUD(Generic[T], ABC):
 
         if not new_items:
             GLOG.WARN(f"No new items provided for {self.model_class.__name__} replace operation")
-            return ModelList([], self)
+            return []
 
         # Type validation: ensure all new_items are correct model type
         for item in new_items:
@@ -383,7 +385,7 @@ class _CoreCRUD(Generic[T], ABC):
                         f"No replacement performed."
                     )
                     # Return empty result without performing any insertion
-                    return ModelList([], self)
+                    return []
 
                 GLOG.DEBUG(f"Found {len(backup_items)} existing {self.model_class.__name__} items to replace")
 
@@ -501,12 +503,14 @@ class _CoreCRUD(Generic[T], ABC):
         """
         Hook method: Override to customize batch addition logic.
         """
-        converted_items = self._convert_input_batch(items)
+        # ADR-029 §Decision 1：转换收敛到 Mapper（调用方在 service 层经
+        # ``entity_to_model`` 转 Model 实例后传入）；本 hook 仅做 enum 校正。
+        validated_items = [self._validate_item_enum_fields(item) for item in items]
 
         with self._session_scope(session) as s:
-            result = add_all(converted_items, session=s)
+            result = add_all(validated_items, session=s)
 
-        GLOG.DEBUG(f"Added {len(converted_items)} {self.model_class.__name__} items in batch")
+        GLOG.DEBUG(f"Added {len(validated_items)} {self.model_class.__name__} items in batch")
         return result
 
     def _do_find(
@@ -595,7 +599,9 @@ class _CoreCRUD(Generic[T], ABC):
                 for obj in results:
                     s.expunge(obj)
 
-            return self._convert_output_items(results)
+            # ADR-029 §Decision 1：_convert_output_items hook 退役，find 恒返原始 list。
+            # 出站转换（Entity/DF）由 service 层走 Mapper / models_to_dataframe。
+            return results
 
     def _do_remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> None:
         """

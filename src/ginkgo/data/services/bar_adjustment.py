@@ -1,5 +1,5 @@
 # Upstream: BarService (调用复权计算逻辑)
-# Downstream: AdjustfactorService (复权因子数据来源)、ModelList/MBar (数据格式)
+# Downstream: AdjustfactorService (复权因子数据来源)、list[MBar] (数据格式)
 # Role: BarAdjustment K线价格复权计算模块，提供前复权/后复权/多股票批量复权功能
 
 
@@ -7,10 +7,10 @@
 Bar 价格复权计算模块
 
 从 BarService 中提取的复权相关逻辑，包含：
-- 单股票复权（DataFrame和ModelList两种格式）
+- 单股票复权（DataFrame 和 list 两种格式）
 - 高性能矩阵化复权计算
 - 多股票批量复权
-- DataFrame/ModelList 互转工具
+- DataFrame/list 互转工具（ADR-029 §Decision 9：CRUD 直接返 list）
 """
 
 from typing import List, Any
@@ -21,15 +21,15 @@ from ginkgo.enums import ADJUSTMENT_TYPES
 from ginkgo.libs import GLOG, to_decimal
 
 
-# ==================== DataFrame/ModelList 转换工具 ====================
+# ==================== DataFrame/list 转换工具 ====================
 
 
 def convert_modellist_to_dataframe(bars_data) -> pd.DataFrame:
     """
-    将ModelList转换为DataFrame
+    将 bar 列表（CRUD 直接返 list，ADR-029 §Decision 9）转换为 DataFrame
 
     Args:
-        bars_data: ModelList数据
+        bars_data: list 数据（或 DataFrame，直通）
 
     Returns:
         DataFrame格式数据
@@ -37,10 +37,10 @@ def convert_modellist_to_dataframe(bars_data) -> pd.DataFrame:
     if isinstance(bars_data, pd.DataFrame):
         return bars_data.copy()
 
-    if hasattr(bars_data, 'to_dataframe'):
-        return bars_data.to_dataframe()
+    if not bars_data:
+        return pd.DataFrame()
 
-    # 手动转换
+    # 手动转换（保字段顺序与类型，与历史 MBar 字段对齐）
     return pd.DataFrame([{
         'code': bar.code,
         'timestamp': bar.timestamp,
@@ -55,25 +55,23 @@ def convert_modellist_to_dataframe(bars_data) -> pd.DataFrame:
     } for bar in bars_data])
 
 
-def convert_dataframe_to_modellist(df: pd.DataFrame, crud_repo) -> 'ModelList':
+def convert_dataframe_to_modellist(df: pd.DataFrame, crud_repo=None) -> list:
     """
-    将DataFrame转换为ModelList
+    将 DataFrame 转换为 MBar 列表（ADR-029 §Decision 9：CRUD 直接返 list）
 
     Args:
         df: DataFrame数据
-        crud_repo: CRUD仓库实例，用于创建ModelList
+        crud_repo: 保留参数以兼容旧调用签名（不再使用，CRUD 直接返 list 无需 CRUD 实例）
 
     Returns:
-        ModelList格式数据
+        list[MBar] 格式数据
     """
     if df.empty:
-        from ginkgo.data.crud.model_conversion import ModelList
-        return ModelList([], crud_repo)
+        return []
 
     try:
         from ginkgo.data.models import MBar
         from ginkgo.libs.data.number import to_decimal
-        from ginkgo.data.crud.model_conversion import ModelList
 
         bars = []
         for _, row in df.iterrows():
@@ -95,13 +93,11 @@ def convert_dataframe_to_modellist(df: pd.DataFrame, crud_repo) -> 'ModelList':
 
             bars.append(bar)
 
-        return ModelList(bars, crud_repo)
+        return bars
 
     except Exception as e:
-        GLOG.ERROR(f"Failed to convert DataFrame to ModelList: {e}")
-        # 返回空ModelList
-        from ginkgo.data.crud.model_conversion import ModelList
-        return ModelList([], crud_repo)
+        GLOG.ERROR(f"Failed to convert DataFrame to bar list: {e}")
+        return []
 
 
 # ==================== 复权因子获取 ====================
@@ -293,7 +289,7 @@ def apply_matrix_adjustment(
 
 
 def _bars_to_df(bars_data) -> pd.DataFrame:
-    """将 bars_data（DataFrame 或 ModelList）转为计算用 DataFrame。"""
+    """将 bars_data（DataFrame 或 list）转为计算用 DataFrame。"""
     if isinstance(bars_data, pd.DataFrame):
         return bars_data.copy()
     return pd.DataFrame(
@@ -355,10 +351,10 @@ def apply_price_adjustment(
     adjustfactor_service,
 ) -> Any:
     """
-    对K线数据应用价格复权（支持DataFrame和ModelList输入）
+    对K线数据应用价格复权（支持DataFrame和list输入）
 
     Args:
-        bars_data: 原始K线数据（DataFrame或ModelList）
+        bars_data: 原始K线数据（DataFrame或list）
         code: 股票代码
         adjustment_type: 复权类型
         adjustfactor_service: 复权因子服务实例
@@ -420,19 +416,19 @@ def apply_price_adjustment_to_modellist(
     crud_repo,
 ) -> Any:
     """
-    对ModelList应用复权计算，返回ModelList格式
+    对 list 应用复权计算，返回 list 格式
 
-    内部使用DataFrame进行高性能矩阵化计算，但最终转换为ModelList保持接口一致性
+    内部使用DataFrame进行高性能矩阵化计算，但最终转换为 list 保持接口一致性
 
     Args:
-        bars_data: 原始K线数据ModelList
+        bars_data: 原始K线数据 list
         code: 股票代码
         adjustment_type: 复权类型
         adjustfactor_service: 复权因子服务实例
-        crud_repo: CRUD仓库实例，用于创建ModelList
+        crud_repo: 保留兼容参数（list 无需 CRUD 实例）
 
     Returns:
-        复权后的K线数据ModelList
+        复权后的K线数据 list
     """
     if not code:
         GLOG.ERROR("Stock code required for price adjustment")
@@ -464,7 +460,7 @@ def apply_price_adjustment_to_modellist(
         # Step 3: 矩阵化复权计算
         adjusted_df = apply_matrix_adjustment(df_bars, factors_df, adjustment_type)
 
-        # Step 4: 转换回ModelList格式
+        # Step 4: 转换回 list 格式
         adjusted_modellist = convert_dataframe_to_modellist(adjusted_df, crud_repo)
 
         return adjusted_modellist
@@ -522,10 +518,10 @@ def apply_price_adjustment_multi_stock(
     循环内按 code 切分复用，消除逐股 N+1 查询。
 
     Args:
-        bars_data: 多股票K线数据（DataFrame或ModelList）
+        bars_data: 多股票K线数据（DataFrame或list）
         adjustment_type: 复权类型
         adjustfactor_service: 复权因子服务实例
-        crud_repo: CRUD仓库实例（ModelList格式时需要）
+        crud_repo: 保留兼容参数（list 无需 CRUD 实例）
 
     Returns:
         复权后的K线数据（与输入格式一致）
@@ -569,7 +565,7 @@ def apply_price_adjustment_multi_stock(
             return result_df
 
         else:
-            # ModelList处理 - 按股票代码分组
+            # list 处理 - 按股票代码分组
             if not hasattr(bars_data[0], "code"):
                 GLOG.ERROR("Cannot apply multi-stock adjustment: models missing 'code' attribute")
                 return bars_data

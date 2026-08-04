@@ -1,6 +1,8 @@
 # Upstream: tests/unit/data/mappers/（ADR-010 Mapper TDD）
 # Downstream: ginkgo.data.mappers.StockInfoMapper
 # Role: StockInfoMapper roundtrip + TypeError 守卫 + market/currency int→enum 测试
+# 注：market 全枚举/默认值/source side-channel 等核心契约见
+#     test_stockinfo_mapper_contract.py（ADR-029 Task 3）。本文件保留基本 smoke。
 
 import pytest
 
@@ -11,7 +13,7 @@ from ginkgo.enums import MARKET_TYPES, CURRENCY_TYPES
 
 
 def _make_stockinfo(**overrides) -> StockInfo:
-    """按 StockInfo.__init__ 真实参数构造。"""
+    """按 StockInfo.__init__ 真实参数构造。默认带显式 uuid 便于 roundtrip 比对。"""
     defaults = dict(
         code="SH600000",
         code_name="浦发银行",
@@ -20,6 +22,7 @@ def _make_stockinfo(**overrides) -> StockInfo:
         currency=CURRENCY_TYPES.CNY,
         list_date="1999-11-10",
         delist_date="2099-12-31",
+        uuid="fixed-uuid-abc123",
     )
     defaults.update(overrides)
     return StockInfo(**defaults)
@@ -32,31 +35,22 @@ class TestStockInfoMapperRoundtrip:
         assert isinstance(model, MStockInfo)
 
     def test_to_model_preserves_code_currency_uuid(self):
+        """全字段直传（含 market 修复 + uuid 显式值保真）。
+
+        ADR-029 Task 3：原 mapper 漏 market 已修；空 uuid→None 让 ORM default
+        生成（对齐 stock_info_crud._convert_input_item override）。本测试用显式
+        uuid 验证非空 roundtrip 保真；空 uuid 行为由契约测试覆盖。
+        """
         entity = _make_stockinfo()
         model = StockInfoMapper.entity_to_model(entity, MStockInfo)
         assert model.code == "SH600000"
         assert model.code_name == "浦发银行"
         assert model.industry == "银行"
         assert model.uuid == entity.uuid
+        assert model.market == MARKET_TYPES.CHINA.value  # 修复点：market 不丢
 
-    def test_to_model_does_not_pass_market(self):
-        """已知 bug：原码 to_model 未传 market（stockinfo.py:215-227）。
-
-        model.market 走 MStockInfo.__init__ 默认 CHINA.value，而非 entity.market。
-        忠实搬运保留，留 Task 1.6 统一评估。本测试断言此 bug 行为：
-        非 CHINA entity → model.market 仍 CHINA.value。
-        """
-        entity = _make_stockinfo(market=MARKET_TYPES.NASDAQ)
-        model = StockInfoMapper.entity_to_model(entity, MStockInfo)
-        # market 未传，走默认
-        assert model.market == MARKET_TYPES.CHINA.value
-
-    def test_roundtrip_preserves_core_fields_default_market(self):
-        """roundtrip 还原 code/code_name/industry/currency/list_date/delist_date/uuid。
-
-        market 走默认 CHINA（entity 即 CHINA 时不暴露 to_model 漏传 bug）。
-        from_model market/currency int→enum 转换正确。
-        """
+    def test_roundtrip_preserves_core_fields(self):
+        """roundtrip 还原 code/code_name/industry/market/currency/list_date/delist_date/uuid。"""
         entity = _make_stockinfo(market=MARKET_TYPES.CHINA)
         model = StockInfoMapper.entity_to_model(entity, MStockInfo)
         restored = StockInfoMapper.model_to_entity(model)

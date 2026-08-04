@@ -211,55 +211,5 @@ class TestAdjustfactorCRUDConstruction:
         assert adjustfactor_crud._is_mysql is False
 
 
-# ============================================================
-# _convert_input_item 测试
-# ============================================================
-
-
-class TestAdjustfactorCRUDConvertInputItem:
-    """_convert_input_item hook 测试(BaseCRUD.add_batch 入库路径)"""
-
-    @pytest.mark.unit
-    def test_convert_input_item_skips_empty_code(self, adjustfactor_crud):
-        """item.code 为空字符串时返回 None(跳过该行,防脏数据混入批量,#5431)"""
-        item = MagicMock()
-        item.timestamp = datetime(2024, 1, 1)
-        item.code = ""
-        item.foreadjustfactor = Decimal("1.0")
-        item.backadjustfactor = Decimal("1.0")
-        item.adjustfactor = Decimal("1.0")
-
-        result = adjustfactor_crud._convert_input_item(item)
-
-        assert result is None, "空 code 的 item 必须被跳过(返回 None),不得构造 MAdjustfactor"
-
-    @pytest.mark.unit
-    def test_convert_input_item_skips_none_code(self, adjustfactor_crud):
-        """item.code 为 None 时返回 None(同 #5431 防御)"""
-        item = MagicMock()
-        item.timestamp = datetime(2024, 1, 1)
-        item.code = None
-        item.foreadjustfactor = Decimal("1.0")
-        item.backadjustfactor = Decimal("1.0")
-        item.adjustfactor = Decimal("1.0")
-
-        result = adjustfactor_crud._convert_input_item(item)
-
-        assert result is None
-
-    @pytest.mark.unit
-    def test_convert_input_item_valid_code_returns_model(self, adjustfactor_crud):
-        """item.code 合法时正常转换(回归:防御不误伤合法路径)"""
-        item = MagicMock()
-        item.timestamp = datetime(2024, 1, 1)
-        item.code = "000001.SZ"
-        item.foreadjustfactor = Decimal("1.5")
-        item.backadjustfactor = Decimal("0.8")
-        item.adjustfactor = Decimal("1.2")
-
-        result = adjustfactor_crud._convert_input_item(item)
-
-        assert result is not None
-        assert result.code == "000001.SZ"
-        assert result.adjustfactor == Decimal("1.2")
-
+# ADR-029 §Decision 1：_convert_input_item hook 已退役（adjustfactor_service 经
+# Mapper.entity_to_model 转 MAdjustfactor 后传入），原 hook 测试类一并删除。

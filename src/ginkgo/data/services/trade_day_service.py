@@ -19,9 +19,10 @@ import time
 
 from ginkgo.libs import RichProgress, retry
 from ginkgo.libs.data.results import DataSyncResult
+from ginkgo.data import mappers
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.entities import TradeDay
-from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES
+from ginkgo.enums import MARKET_TYPES
 
 
 class TradeDayService(BaseService):
@@ -101,8 +102,9 @@ class TradeDayService(BaseService):
                     is_open=bool(int(row["is_open"])),
                     timestamp=row["cal_date"],
                 )
-                # Store source information as attribute for CRUD layer
-                td._source = SOURCE_TYPES.TUSHARE
+                # source 默认 TUSHARE 由 MTradeDay.__init__ 兜底（TradeDay entity 无
+                # source 字段；原 _convert_input_item override 已删， mapper 不写
+                # source → 走 model 默认 TUSHARE，与原语义等价）。
                 valid_items.append(td)
             except Exception as e:
                 failed_count += 1
@@ -157,8 +159,10 @@ class TradeDayService(BaseService):
             # 3a: new items 直插（无既有记录，不须 remove）
             if new_items:
                 task_new = progress.add_task("[green]Adding New Trade Calendar", total=len(new_items))
+                # ADR-029 Task 4：入站前置 mapper.entity_to_model，不再依赖 CRUD hook 隐式转
+                new_models = [mappers.TradeDayMapper.entity_to_model(e) for e in new_items]
                 try:
-                    self._crud_repo.add_batch(new_items)
+                    self._crud_repo.add_batch(new_models)
                     success_count += len(new_items)
                     self._logger.INFO(
                         f"Successfully batch inserted {len(new_items)} new trade calendar records"
@@ -168,7 +172,7 @@ class TradeDayService(BaseService):
                     self._logger.WARN(f"Batch insert failed, falling back to individual inserts: {e}")
                     for item in new_items:
                         try:
-                            self._crud_repo.add_batch([item])
+                            self._crud_repo.add_batch([mappers.TradeDayMapper.entity_to_model(item)])
                             success_count += 1
                         except Exception as individual_e:
                             failed_count += 1
@@ -203,7 +207,9 @@ class TradeDayService(BaseService):
                         except Exception as remove_e:
                             self._logger.WARN(f"Failed to remove {item.timestamp}: {remove_e}")
                 try:
-                    self._crud_repo.add_batch(update_items)
+                    # ADR-029 Task 4：入站前置 mapper.entity_to_model，不再依赖 CRUD hook 隐式转
+                    update_models = [mappers.TradeDayMapper.entity_to_model(e) for e in update_items]
+                    self._crud_repo.add_batch(update_models)
                     success_count += len(update_items)
                     progress.update(task_update, completed=len(update_items))
                     self._logger.DEBUG(
@@ -215,7 +221,7 @@ class TradeDayService(BaseService):
                     )
                     for item in update_items:
                         try:
-                            self._crud_repo.add_batch([item])
+                            self._crud_repo.add_batch([mappers.TradeDayMapper.entity_to_model(item)])
                             success_count += 1
                         except Exception as individual_e:
                             failed_count += 1

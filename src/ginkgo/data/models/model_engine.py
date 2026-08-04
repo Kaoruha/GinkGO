@@ -1,5 +1,5 @@
 # Upstream: EngineCRUD (引擎配置持久化)、EngineFactory (创建和查询引擎)
-# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)、ENGINESTATUS_TYPES/ATTITUDE_TYPES (枚举类型验证)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ENGINESTATUS_TYPES/ATTITUDE_TYPES (枚举类型验证)
 # Role: MEngine引擎配置MySQL模型继承MMysqlBase定义核心字段提供引擎配置管理
 
 
@@ -17,12 +17,11 @@ from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES, ENGINESTATUS_TYPES, ATTITUDE_TYPES
 from ginkgo.libs import base_repr
 
 
-class MEngine(MMysqlBase, ModelConversion):
+class MEngine(MMysqlBase):
     """
     Enhanced Engine Model with Configuration and Run Management
     

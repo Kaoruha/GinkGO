@@ -12,7 +12,6 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MDataSyncRecord
 from ginkgo.libs import GLOG
 from ginkgo.data.access_control import restrict_crud_access
@@ -143,7 +142,7 @@ class DataSyncRecordCRUD(BaseCRUD[MDataSyncRecord]):
         sync_type: Optional[str] = None,
         page: int = 0,
         page_size: int = 20,
-    ) -> ModelList:
+    ) -> list:
         """查询最近的同步记录，按开始时间倒序"""
         filters: Dict[str, Any] = {}
         if sync_type:

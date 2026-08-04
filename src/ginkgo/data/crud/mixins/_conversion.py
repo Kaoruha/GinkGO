@@ -1,7 +1,15 @@
-"""BaseCRUD 内部实现：类型转换和枚举处理。
+"""BaseCRUD 内部实现：枚举处理与 create/DF hook 残留。
 
 此模块是 BaseCRUD 的文件拆分部分，不是独立的 Mixin。
 仅通过 BaseCRUD 使用，不对外导出。
+
+ADR-029 §Decision 1：Entity↔ORM 转换钩子族（``_convert_input_batch`` /
+``_convert_input_item`` / ``_convert_output_items`` /
+``_convert_to_business_objects`` / ``_convert_models_to_business_objects`` /
+``_convert_models_to_dataframe``）已退役，转换收敛到 ``ginkgo.data.mappers``
+（``entity_to_model`` / ``models_to_dataframe``）。本模块仅保留 enum 处理
+（真值下沉到 model 字段 ``info``，``_get_enum_mappings`` 反射）与
+``_create_from_params``（``create()`` 模板方法 hook）。
 """
 
 from typing import Any, Dict, List, Optional
@@ -9,7 +17,7 @@ import pandas as pd
 
 
 class _Conversion:
-    """BaseCRUD 的类型转换和枚举处理实现。
+    """BaseCRUD 的枚举处理与 ``_create_from_params`` hook 实现。
 
     依赖 CoreCRUD.__init__ 设置的实例属性：
     - self.model_class
@@ -71,60 +79,6 @@ class _Conversion:
         """
         raise NotImplementedError("Subclasses must implement _create_from_params")
 
-    def _convert_input_batch(self, items: List[Any]) -> list:
-        """
-        Convert a batch of input items to model instances.
-        Attempts automatic conversion for each item.
-        🎯 Also validates enum fields for all items.
-
-        Args:
-            items: List of input items (may be mixed types)
-
-        Returns:
-            List of converted model instances with validated enum fields
-        """
-        converted = []
-        for item in items:
-            if isinstance(item, self.model_class):
-                # 🎯 Validate enum fields for existing model instances
-                validated_item = self._validate_item_enum_fields(item)
-                converted.append(validated_item)
-            else:
-                # Try to convert using subclass conversion method
-                converted_item = self._convert_input_item(item)
-                if converted_item is not None:
-                    # 🎯 Validate enum fields for converted items
-                    validated_item = self._validate_item_enum_fields(converted_item)
-                    converted.append(validated_item)
-        return converted
-
-    def _convert_input_item(self, item: Any):
-        """
-        Hook method: Override to support input type conversion.
-
-        Args:
-            item: Input item to convert
-
-        Returns:
-            Converted model instance or None if conversion not supported
-        """
-        return None  # Default: no conversion supported
-
-    def _convert_output_items(self, items: list) -> list:
-        """
-        Hook method: Override to transform output items (default: no-op).
-
-        find() 末尾调 ``self._convert_output_items(results)``(不传 output_type);
-        CRUD↔ModelList 契约下 find 恒返原始 ModelList,本 hook 默认 no-op。
-
-        Args:
-            items: List of model instances
-
-        Returns:
-            List of output objects (default: as-is)
-        """
-        return items
-
     def _get_enum_mappings(self) -> Dict[str, Any]:
         """字段→enum 映射(ADR c1):真值下沉到 model 字段定义。
 
@@ -168,76 +122,6 @@ class _Conversion:
                 )
 
         return df_converted
-
-    def _convert_to_business_objects(self, raw_results: list) -> list:
-        """
-        🎯 Hook method: Convert raw models to business objects.
-        First fixes enum fields, then calls business object conversion hook.
-
-        Args:
-            raw_results: List of raw model instances from database
-
-        Returns:
-            List of converted business objects
-        """
-        # First fix enum fields in raw models
-        enum_mappings = self._get_enum_mappings()
-        for model in raw_results:
-            for column, enum_class in enum_mappings.items():
-                if hasattr(model, column):
-                    current_value = getattr(model, column)
-                    converted_value = self._safe_enum_convert(current_value, enum_class)
-                    if converted_value is not None:
-                        setattr(model, column, converted_value)
-
-        # Then call business object conversion hook
-        return self._convert_models_to_business_objects(raw_results)
-
-    def _convert_models_to_business_objects(self, models: list) -> list:
-        """
-        🎯 Hook method: Convert enum-fixed models to business objects.
-        Subclasses should override this method to implement specific business logic.
-
-        Args:
-            models: List of models with enum fields already fixed
-
-        Returns:
-            List of business objects
-        """
-        return models  # Default: return models as-is
-
-    def _convert_models_to_dataframe(self, models: list) -> pd.DataFrame:
-        """
-        🎯 Convert models to pandas DataFrame with enum conversion.
-
-        Args:
-            models: List of model instances
-
-        Returns:
-            pandas DataFrame with enum fields converted to their proper representation
-        """
-        if not models:
-            return pd.DataFrame()
-
-        # First fix enum fields in models
-        enum_mappings = self._get_enum_mappings()
-        for model in models:
-            for column, enum_class in enum_mappings.items():
-                if hasattr(model, column):
-                    current_value = getattr(model, column)
-                    converted_value = self._safe_enum_convert(current_value, enum_class)
-                    if converted_value is not None:
-                        setattr(model, column, converted_value)
-
-        # Convert to DataFrame
-        data = []
-        for model in models:
-            model_dict = model.__dict__.copy()
-            # Remove SQLAlchemy internal state
-            model_dict.pop('_sa_instance_state', None)
-            data.append(model_dict)
-
-        return pd.DataFrame(data)
 
     def _safe_enum_convert(self, value, enum_class):
         """

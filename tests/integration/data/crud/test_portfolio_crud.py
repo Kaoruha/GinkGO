@@ -1,3 +1,4 @@
+from ginkgo.data.mappers import models_to_dataframe
 """
 PortfolioCRUD数据库操作TDD测试 - 投资组合管理
 
@@ -450,11 +451,11 @@ class TestPortfolioCRUDQuery:
             raise
 
     def test_model_list_conversions(self):
-        """测试ModelList的to_dataframe和identity转换功能"""
+        """测试list的to_dataframe和identity转换功能"""
         import pandas as pd
 
         print("\n" + "="*60)
-        print("开始测试: Portfolio ModelList转换功能")
+        print("开始测试: Portfolio list转换功能")
         print("="*60)
 
         portfolio_crud = PortfolioCRUD()
@@ -499,19 +500,19 @@ class TestPortfolioCRUDQuery:
             print(f"✓ 插入后数据量: {after_count}")
             assert after_count - before_count == len(test_portfolios), f"应增加{len(test_portfolios)}条数据，实际增加{after_count - before_count}条"
 
-            # 获取ModelList进行转换测试
-            print("\n→ 获取ModelList...")
+            # 获取list进行转换测试
+            print("\n→ 获取list...")
             model_list = portfolio_crud.find(filters={"name__like": "convert_test_portfolio_%", "source": SOURCE_TYPES.TEST.value})
-            print(f"✓ ModelList类型: {type(model_list).__name__}")
-            print(f"✓ ModelList长度: {len(model_list)}")
+            print(f"✓ list类型: {type(model_list).__name__}")
+            print(f"✓ list长度: {len(model_list)}")
 
             # 测试1: to_dataframe转换
             print("\n→ 测试to_dataframe转换...")
-            df = model_list.to_dataframe()
+            df = models_to_dataframe(model_list)
             print(f"✓ DataFrame类型: {type(df).__name__}")
             print(f"✓ DataFrame形状: {df.shape}")
             assert isinstance(df, pd.DataFrame), "应返回DataFrame"
-            assert len(df) == len(model_list), f"DataFrame行数应等于ModelList长度，{len(df)} != {len(model_list)}"
+            assert len(df) == len(model_list), f"DataFrame行数应等于list长度，{len(df)} != {len(model_list)}"
 
             # 验证DataFrame列和内容
             required_columns = ['uuid', 'name', 'mode', 'state', 'create_at', 'update_at']
@@ -530,7 +531,7 @@ class TestPortfolioCRUDQuery:
             entities = list(model_list)  # portfolio hook 为 identity（无业务 Entity），直接取 ORM
             print(f"✓ 实体列表类型: {type(entities).__name__}")
             print(f"✓ 实体列表长度: {len(entities)}")
-            assert len(entities) == len(model_list), f"实体列表长度应等于ModelList长度，{len(entities)} != {len(model_list)}"
+            assert len(entities) == len(model_list), f"实体列表长度应等于list长度，{len(entities)} != {len(model_list)}"
 
             # 验证实体类型和内容
             first_entity = entities[0]
@@ -551,7 +552,7 @@ class TestPortfolioCRUDQuery:
 
             # 测试4: 验证缓存机制
             print("\n→ 测试转换缓存机制...")
-            df2 = model_list.to_dataframe()
+            df2 = models_to_dataframe(model_list)
             entities2 = list(model_list)
 
             # 验证结果一致性
@@ -559,21 +560,21 @@ class TestPortfolioCRUDQuery:
             assert len(entities) == len(entities2), "缓存的实体数量应该相同"
             print("✓ 缓存机制验证正确")
 
-            # 测试5: 验证空ModelList的转换
-            print("\n→ 测试空ModelList的转换...")
+            # 测试5: 验证空list的转换
+            print("\n→ 测试空list的转换...")
             empty_model_list = portfolio_crud.find(filters={"name": "NONEXISTENT_PORTFOLIO"})
-            assert len(empty_model_list) == 0, "空ModelList长度应为0"
+            assert len(empty_model_list) == 0, "空list长度应为0"
 
-            empty_df = empty_model_list.to_dataframe()
+            empty_df = models_to_dataframe(empty_model_list)
             empty_entities = list(empty_model_list)
 
             assert isinstance(empty_df, pd.DataFrame), "空转换应返回DataFrame"
             assert len(empty_df) == 0, "空DataFrame长度应为0"
             assert isinstance(empty_entities, list), "空转换应返回列表"
             assert len(empty_entities) == 0, "空实体列表长度应为0"
-            print("✓ 空ModelList转换验证正确")
+            print("✓ 空list转换验证正确")
 
-            print("\n✓ 所有Portfolio ModelList转换功能测试通过！")
+            print("\n✓ 所有Portfolio list转换功能测试通过！")
 
         except Exception as e:
             print(f"✗ 测试失败: {e}")
@@ -1210,11 +1211,11 @@ class TestPortfolioCRUDEnumValidation:
         assert total_initial_capital > 0, "总初始资金应该大于0"
         print(f"  ✓ 我们创建的投资组合总初始资金: {total_initial_capital:,.0f}")
 
-        # 验证ModelList转换功能
-        print("\n→ 验证ModelList转换功能...")
+        # 验证list转换功能
+        print("\n→ 验证list转换功能...")
         model_list = portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"})
 
-        assert len(model_list) >= len(enum_combinations), f"ModelList应该包含至少{len(enum_combinations)}条测试投资组合"
+        assert len(model_list) >= len(enum_combinations), f"list应该包含至少{len(enum_combinations)}条测试投资组合"
 
         # 验证转换方法中的枚举转换
         entities = list(model_list)
@@ -1224,7 +1225,7 @@ class TestPortfolioCRUDEnumValidation:
             assert hasattr(entity, 'source'), "业务对象应该有source属性"
             print(f"  ✓ 业务对象 {entity.name}: 数据源枚举转换正确")
 
-        print("  ✓ ModelList转换中的枚举验证正确")
+        print("  ✓ list转换中的枚举验证正确")
 
     
         print("✓ 投资组合综合枚举验证测试通过")

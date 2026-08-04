@@ -129,7 +129,7 @@ class TestMultiStockBatchPrefetch:
         svc.get_adjustfactors_df.assert_not_called()
 
     def test_empty_modellist_returns_empty(self):
-        """空 ModelList 输入直接返回（不查 service）"""
+        """空 list 输入直接返回（不查 service）"""
         svc = MagicMock()
         out = bar_adjustment.apply_price_adjustment_multi_stock(
             [], ADJUSTMENT_TYPES.FORE, svc)
@@ -154,7 +154,7 @@ class TestMultiStockBatchPrefetch:
         assert out[out["code"] == "000001.SZ"]["close"].iloc[0] == 10.0
 
     def test_modellist_input_prefetch_path(self):
-        """ModelList 输入也走预取路径（get_adjustfactors_df 恰好 1 次，code=None）"""
+        """list 输入也走预取路径（get_adjustfactors_df 恰好 1 次，code=None）"""
         from ginkgo.data.models import MBar
 
         bars = []

@@ -53,21 +53,27 @@ class MTick(MClickBase):
         if volume is not None:
             self.volume = volume
         if direction is not None:
-            self.direction = TICKDIRECTION_TYPES.validate_input(direction) or -1
+            # 或-1 仅在 validate_input 返 None 时兜底；0 是合法值（NEUTRAL），不可被 or 吞掉（ADR-029 Task 2 契约暴露）
+            validated = TICKDIRECTION_TYPES.validate_input(direction)
+            self.direction = validated if validated is not None else -1
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            # 同上：0 是合法值（OTHER），or-1 会误判为缺失
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df["code"]
         self.price = to_decimal(df["price"])
         self.volume = df["volume"]
-        self.direction = TICKDIRECTION_TYPES.validate_input(df["direction"]) or -1
+        validated = TICKDIRECTION_TYPES.validate_input(df["direction"])
+        self.direction = validated if validated is not None else -1
         self.timestamp = datetime_normalize(df["timestamp"])
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     def __init__(self, **kwargs):

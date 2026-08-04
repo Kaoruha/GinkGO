@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 import re
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MUser, MUserContact, MUserGroupMapping, MUserCredential
 from ginkgo.enums import SOURCE_TYPES, USER_TYPES
 from ginkgo.libs import GLOG
@@ -73,13 +72,6 @@ class UserCRUD(BaseCRUD[MUser]):
             is_active=kwargs.get("is_active", True),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.OTHER)),
         )
-
-    def _convert_input_item(self, item: Any) -> Optional[MUser]:
-        """
-        Hook method: Convert objects to MUser.
-        """
-        # 目前没有业务对象，返回None
-        return None
 
     # ==================== 级联软删除实现 ====================
 
@@ -274,7 +266,7 @@ class UserCRUD(BaseCRUD[MUser]):
         self,
         query: str,
         limit: Optional[int] = None,
-    ) -> ModelList[MUser]:
+    ) -> list:
         """
         模糊搜索用户 - 在 uuid、username 和 display_name 字段中搜索
 
@@ -287,12 +279,12 @@ class UserCRUD(BaseCRUD[MUser]):
             limit: 最大返回条数，None 表示全量（SQL LIMIT 下推，避免全量拉回）
 
         Returns:
-            ModelList[MUser]: 用户模型列表，支持 .to_dataframe() 转换
+            list[MUser]: 用户模型列表（DF 转换走 ``models_to_dataframe``）
 
         Examples:
             users = user_crud.fuzzy_search("Alice")
-            df = users.to_dataframe()  # 转换为DataFrame
-            first_10 = users.head(10)  # 获取前10条
+            df = models_to_dataframe(users)
+            first_10 = users[:10]  # 获取前10条
         """
         # 检测是否为完整UUID格式（32位16进制字符）
         uuid_pattern = re.compile(r'^[a-f0-9]{32}$', re.IGNORECASE)
@@ -325,4 +317,4 @@ class UserCRUD(BaseCRUD[MUser]):
             for obj in results:
                 s.expunge(obj)
 
-        return ModelList(results, self)
+        return list(results)

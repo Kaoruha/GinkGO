@@ -25,7 +25,7 @@ from datetime import datetime
 from ginkgo.libs import RichProgress, cache_with_expiration, retry
 from ginkgo.libs.data.results import DataSyncResult, DataValidationResult, DataIntegrityCheckResult
 from ginkgo.data.services.base_service import BaseService, ServiceResult
-from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.mappers import models_to_dataframe
 from ginkgo.data.mappers.stockinfo_mapper import StockInfoMapper
 from ginkgo.entities import StockInfo
 from ginkgo.enums import MARKET_TYPES, CURRENCY_TYPES, SOURCE_TYPES
@@ -222,7 +222,10 @@ class StockinfoService(BaseService):
             if new_items:
                 task_new = progress.add_task("[green]Adding New Stock Info", total=len(new_items))
                 try:
-                    self._crud_repo.add_batch(new_items)
+                    # ADR-029 Task 3：入站前置 mapper（Entity→Model），CRUD 不再做转换。
+                    # 原 _convert_input_item override 已删，service 显式走 StockInfoMapper。
+                    new_models = [StockInfoMapper.entity_to_model(item) for item in new_items]
+                    self._crud_repo.add_batch(new_models)
                     success_count += len(new_items)
                     self._logger.INFO(f"Successfully batch inserted {len(new_items)} new stock records")
                     progress.update(task_new, completed=len(new_items))
@@ -262,7 +265,9 @@ class StockinfoService(BaseService):
 
                 # Step 2: Batch add all update items
                 try:
-                    self._crud_repo.add_batch(update_items)
+                    # ADR-029 Task 3：入站前置 mapper（Entity→Model），CRUD 不再做转换。
+                    update_models = [StockInfoMapper.entity_to_model(item) for item in update_items]
+                    self._crud_repo.add_batch(update_models)
                     success_count += len(update_items)
                     progress.update(task_update, completed=len(update_items))
                     self._logger.DEBUG(f"Successfully updated {len(update_items)} stock records")
@@ -271,7 +276,7 @@ class StockinfoService(BaseService):
                     self._logger.WARN(f"Batch update failed, falling back to individual updates: {e}")
                     for item in update_items:
                         try:
-                            self._crud_repo.add_batch([item])
+                            self._crud_repo.add_batch([StockInfoMapper.entity_to_model(item)])
                             success_count += 1
                             progress.update(task_update, advance=1)
                         except Exception as individual_e:
@@ -341,7 +346,7 @@ class StockinfoService(BaseService):
             order_by: Sort field
 
         Returns:
-            ServiceResult with data={"data": ModelList, "total": int}
+            ServiceResult with data={"data": list, "total": int}
         """
         try:
             crud = self._crud_repo
@@ -413,8 +418,8 @@ class StockinfoService(BaseService):
             query_params['desc_order'] = desc_order
         return query_params
 
-    def _find_modellist(self, **filter_and_query) -> ModelList:
-        """统一的 CRUD find 调用：拆 filters / 分页参数。返回 ModelList（可能空）。"""
+    def _find_modellist(self, **filter_and_query) -> list:
+        """统一的 CRUD find 调用：拆 filters / 分页参数。返回 list（可能空）。"""
         code = filter_and_query.pop('code', None)
         name = filter_and_query.pop('name', None)
         exchange = filter_and_query.pop('exchange', None)
@@ -458,8 +463,8 @@ class StockinfoService(BaseService):
                           desc_order: bool = False) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
-        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList。
-        内部 find 返回 ModelList 后调 to_dataframe()；空结果返空 pd.DataFrame()。
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM list。
+        内部 find 返回 list 后调 models_to_dataframe；空结果返空 pd.DataFrame()。
         """
         try:
             model_list = self._find_modellist(
@@ -467,7 +472,7 @@ class StockinfoService(BaseService):
                 market=market, status=status, limit=limit, offset=offset,
                 order_by=order_by, desc_order=desc_order,
             )
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            df = models_to_dataframe(model_list) if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Successfully retrieved {len(df)} stock records (DataFrame)",
@@ -510,15 +515,15 @@ class StockinfoService(BaseService):
             desc_order: bool = False) -> ServiceResult:
         """[Deprecated] 查询股票基础信息。
 
-        ADR-010 Phase 4.2：原 get() 透传裸 ModelList（V11 重灾区）。现已改为
+        ADR-010 Phase 4.2：原 get() 透传裸 list（V11 重灾区）。现已改为
         委托到 Entity 出口 get_stockinfos()——返 ``List[StockInfo]``，与原
-        ModelList 的「迭代 / ``.code`` / ``len()``」消费语义天然兼容（MStockInfo 与
-        StockInfo 都有 ``.code``）。**不再返回 ModelList，也不再返回 DataFrame**：
+        list 的「迭代 / ``.code`` / ``len()``」消费语义天然兼容（MStockInfo 与
+        StockInfo 都有 ``.code``）。**不再返回 list，也不再返回 DataFrame**：
         需要 DataFrame 的调用方应直接用 get_stockinfos_df()，需要 Entity 列表用
         get_stockinfos()。
 
         Returns:
-            ServiceResult: data 为 List[StockInfo]（原 ModelList 迭代/.code/len 语义兼容）
+            ServiceResult: data 为 List[StockInfo]（原 list 迭代/.code/len 语义兼容）
         """
         warnings.warn(
             "StockinfoService.get() 已废弃：DataFrame 消费用 get_stockinfos_df()，Entity 列表用 get_stockinfos()",
@@ -606,7 +611,7 @@ class StockinfoService(BaseService):
             valid_count = 0
             total_count = len(model_list)
 
-            df = model_list.to_dataframe()
+            df = models_to_dataframe(model_list)
 
             # Check required fields
             if 'code' in df.columns:
@@ -677,7 +682,7 @@ class StockinfoService(BaseService):
                 )
 
             # Perform integrity checks
-            df = model_list.to_dataframe()
+            df = models_to_dataframe(model_list)
             total_records = len(df)
 
             # Check for duplicate codes

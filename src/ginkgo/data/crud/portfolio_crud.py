@@ -94,29 +94,8 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
             winning_trades=kwargs.get("winning_trades", 0)
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MPortfolio]:
-        """Hook method: Convert portfolio objects to MPortfolio."""
-        if hasattr(item, 'name'):
-            return MPortfolio(
-                name=getattr(item, 'name', 'test_portfolio'),
-                desc=getattr(item, 'desc', None),
-                mode=PORTFOLIO_MODE_TYPES.validate_input(getattr(item, 'mode', PORTFOLIO_MODE_TYPES.BACKTEST)) or PORTFOLIO_MODE_TYPES.BACKTEST.value,
-                state=PORTFOLIO_RUNSTATE_TYPES.validate_input(getattr(item, 'state', PORTFOLIO_RUNSTATE_TYPES.INITIALIZED)) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-                initial_capital=getattr(item, 'initial_capital', 100000.0),
-                current_capital=getattr(item, 'current_capital', 100000.0),
-                cash=getattr(item, 'cash', 100000.0),
-                frozen=getattr(item, 'frozen', 0.0),
-                total_fee=getattr(item, 'total_fee', 0.0),
-                total_profit=getattr(item, 'total_profit', 0.0),
-                risk_level=getattr(item, 'risk_level', 0.1),
-                max_drawdown=getattr(item, 'max_drawdown', 0.0),
-                sharpe_ratio=getattr(item, 'sharpe_ratio', 0.0),
-                win_rate=getattr(item, 'win_rate', 0.0),
-                total_trades=getattr(item, 'total_trades', 0),
-                winning_trades=getattr(item, 'winning_trades', 0)
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役（生产无 .add/.add_batch 调用，
+    # portfolio_service 走 .create → _create_from_params，或仅查询/聚合）。
 
     # Business Helper Methods
     def fuzzy_search(

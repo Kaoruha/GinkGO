@@ -26,7 +26,7 @@ from ginkgo.libs.data.results import DataValidationResult, DataIntegrityCheckRes
 from ginkgo.data import mappers
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
-from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.mappers import models_to_dataframe
 
 
 class BarService(BaseService):
@@ -194,7 +194,9 @@ class BarService(BaseService):
 
             # Use remove + add_batch for better business object handling
             self._crud_repo.remove(filters=filters)
-            inserted_entities = self._crud_repo.add_batch(final_entities)
+            # ADR-029 Task 1：入站前置 mapper.entity_to_model，不再依赖 CRUD hook 隐式转
+            bar_models = [mappers.BarMapper.entity_to_model(e) for e in final_entities]
+            inserted_entities = self._crud_repo.add_batch(bar_models)
             records_added = len(inserted_entities)
             removed_count = len(final_entities)  # All existing records were removed
             self._logger.INFO(f"Successfully removed {removed_count} and inserted {records_added} bar records for {code}")
@@ -662,10 +664,10 @@ class BarService(BaseService):
             desc_order (bool): 是否降序排列
 
         Returns:
-            ServiceResult: 查询结果，data中包含ModelList，支持转换为dataframe
+            ServiceResult: 查询结果，data中包含list，支持转换为dataframe
 
         Note:
-            - to_dataframe: 可通过result.data.to_dataframe()转换为pandas DataFrame
+            - to_dataframe: 可通过 models_to_dataframe(result.data) 转换为pandas DataFrame
         """
         start_time = time.time()
         self._log_operation_start("get_bars", code=code, start_date=start_date,
@@ -684,7 +686,7 @@ class BarService(BaseService):
                 code=code, start_date=start_date, end_date=end_date, frequency=frequency,
             )
 
-            # Get original bar data - 返回ModelList
+            # Get original bar data - 返回 list
             model_list = self._crud_repo.find(
                 filters=filters,
                 page=page,
@@ -749,14 +751,14 @@ class BarService(BaseService):
                     order_by: str = "timestamp", desc_order: bool = False) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
-        ADR-010：回测热路径及 DataFrame 消费方走此出口，不接触 ORM ModelList。
+        ADR-010：回测热路径及 DataFrame 消费方走此出口，不接触 ORM list。
         **默认不复权**——DF 出口提供原始数据，消费方按需自行处理。空结果返空 pd.DataFrame()。
 
         #6624 复权路径：feeder/sizer 等回测热路径消费方 historically 走 get(FORE) +
-        手动 .to_dataframe()（ADR-010 例外，依赖前复权语义防除权除息日跳空）。本出口
+        手动 models_to_dataframe()（ADR-010 例外，依赖前复权语义防除权除息日跳空）。本出口
         支持 ``adjustment_type`` 参数（默认 NONE 不破现有契约）；传 FORE/BACK 时走与
         get() 完全一致的复权分支（_apply_price_adjustment_*），DF 出口内化复权，
-        消除 ModelList 向 feeder 泄漏的同时保行为 parity（避免回测静默错算）。
+        消除 list 向 feeder 泄漏的同时保行为 parity（避免回测静默错算）。
         """
         try:
             if not code and not start_date and not end_date:
@@ -774,14 +776,14 @@ class BarService(BaseService):
             if not model_list:
                 df = pd.DataFrame()
             elif adjustment_type == ADJUSTMENT_TYPES.NONE:
-                df = model_list.to_dataframe()
+                df = models_to_dataframe(model_list)
             else:
-                # 复权路径：复用 get() 的复权入口，DF 在 Service 内转换（ModelList 不出边界）
+                # 复权路径：复用 get() 的复权入口，DF 在 Service 内转换（list 不出边界）
                 if code is None:
                     adjusted = self._apply_price_adjustment_multi_stock(model_list, adjustment_type)
                 else:
                     adjusted = self._apply_price_adjustment_to_modellist(model_list, code, adjustment_type)
-                df = adjusted.to_dataframe() if adjusted else pd.DataFrame()
+                df = models_to_dataframe(adjusted) if adjusted else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Retrieved {len(df)} bar records (DataFrame, adjustment={adjustment_type.value})",
@@ -824,21 +826,21 @@ class BarService(BaseService):
 
     def _apply_price_adjustment(
         self,
-        bars_data: ModelList,
+        bars_data: list,
         code: str,
         adjustment_type: ADJUSTMENT_TYPES,
-    ) -> ModelList:
+    ) -> list:
         """对K线数据应用价格复权，委托给 bar_adjustment 模块"""
         from ginkgo.data.services.bar_adjustment import apply_price_adjustment
         return apply_price_adjustment(bars_data, code, adjustment_type, self._adjustfactor_service)
 
     def _apply_price_adjustment_to_modellist(
         self,
-        bars_data: ModelList,
+        bars_data: list,
         code: str,
         adjustment_type: ADJUSTMENT_TYPES,
-    ) -> ModelList:
-        """对ModelList应用复权计算，委托给 bar_adjustment 模块"""
+    ) -> list:
+        """对 list 应用复权计算，委托给 bar_adjustment 模块"""
         from ginkgo.data.services.bar_adjustment import apply_price_adjustment_to_modellist
         return apply_price_adjustment_to_modellist(
             bars_data, code, adjustment_type, self._adjustfactor_service, self._crud_repo
@@ -846,9 +848,9 @@ class BarService(BaseService):
 
     def _apply_price_adjustment_multi_stock(
         self,
-        bars_data: ModelList,
+        bars_data: list,
         adjustment_type: ADJUSTMENT_TYPES,
-    ) -> ModelList:
+    ) -> list:
         """对多股票K线数据批量复权，委托给 bar_adjustment 模块"""
         from ginkgo.data.services.bar_adjustment import apply_price_adjustment_multi_stock
         return apply_price_adjustment_multi_stock(

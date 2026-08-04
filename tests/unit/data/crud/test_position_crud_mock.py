@@ -6,10 +6,12 @@ PositionCRUD 单元测试（Mock 数据库连接）
 - _get_field_config: 字段配置结构与验证规则
 - _get_enum_mappings: 枚举映射
 - _create_from_params: 参数转 MPosition 模型
-- _convert_input_item: Position 业务对象转换
 - Business Helper: find_by_portfolio, find_by_code, get_position, get_active_positions,
   get_portfolio_value, update_position, close_position, find_by_business_time
 - 构造与类型检查
+
+ADR-029 Task 5:PositionCRUD._convert_input_item override 已删(转换收敛到 PositionMapper,
+service 走 mapper.entity_to_model)。本测试无对应测试用例,仅删文档头引用。
 """
 
 import pytest

@@ -4,14 +4,17 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.factor_service import FactorService
 
 
 def _model_list(rows, dataframe=None):
-    crud = MagicMock()
-    crud._convert_models_to_dataframe.return_value = dataframe if dataframe is not None else pd.DataFrame(rows)
-    return ModelList(rows, crud)
+    """构造 list 形态 CRUD 结果。
+
+    ADR-029 §Decision 9：CRUD 直接返 list，service 调 ``models_to_dataframe`` 走
+    ``__table__`` 反射。原 CRUD DF 钩子桩已失效（hook 已退役）——若需控制 DF
+    输出，调用方应直接 ``patch models_to_dataframe``。
+    """
+    return list(rows)
 
 
 @pytest.fixture
@@ -60,15 +63,21 @@ class TestFactorServiceDfContract:
             ]
         )
         factor_crud.get_factors_by_entity.side_effect = [
-            _model_list([MagicMock(), MagicMock()], df_a),
-            _model_list([MagicMock(), MagicMock()], df_b),
+            _model_list([MagicMock(), MagicMock()]),
+            _model_list([MagicMock(), MagicMock()]),
         ]
 
-        result = service.calculate_factor_correlation(
-            entity_type=1,
-            entity_ids=["A", "B"],
-            factor_names=["momentum"],
-        )
+        # ADR-029 §Decision 9：service 直接调 ``models_to_dataframe`` 走反射；
+        # 测试需控制 DF 输出时直接 patch 此函数（不再能经 crud_stub 桩）。
+        with patch(
+            "ginkgo.data.services.factor_service.models_to_dataframe",
+            side_effect=[df_a, df_b],
+        ):
+            result = service.calculate_factor_correlation(
+                entity_type=1,
+                entity_ids=["A", "B"],
+                factor_names=["momentum"],
+            )
 
         assert result.success is True
         matrix = result.data["correlation_matrix"]

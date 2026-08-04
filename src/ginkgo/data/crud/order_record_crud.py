@@ -19,7 +19,6 @@ from ginkgo.data.crud.validation import ValidationError
 from ginkgo.data.models import MOrderRecord
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ginkgo.entities import Order
 
 
 @restrict_crud_access
@@ -165,31 +164,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             timestamp=datetime_normalize(kwargs.get("timestamp")),
             business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
-
-    def _convert_input_item(self, item: Any) -> Optional[MOrderRecord]:
-        """
-        Hook method: Convert Order objects to MOrderRecord.
-        """
-        if isinstance(item, Order):
-            return MOrderRecord(
-                order_id=item.uuid if hasattr(item, 'uuid') else str(item.order_id),
-                portfolio_id=item.portfolio_id if hasattr(item, 'portfolio_id') else "",
-                engine_id=item.engine_id if hasattr(item, 'engine_id') else "",
-                code=item.code,
-                direction=item.direction,
-                order_type=item.order_type,
-                status=item.status,
-                volume=item.volume,
-                limit_price=item.limit_price,
-                frozen_money=item.frozen_money if hasattr(item, 'frozen_money') else 0,
-                frozen_volume=int(item.frozen_volume) if hasattr(item, 'frozen_volume') else 0,  # #6087: 显式 int 防御（与 #6080 L160 对称）
-                transaction_price=item.transaction_price if hasattr(item, 'transaction_price') else 0,
-                remain=item.remain if hasattr(item, 'remain') else 0,
-                fee=item.fee if hasattr(item, 'fee') else 0,
-                timestamp=item.timestamp,
-                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
-            )
-        return None
 
     # Business Helper Methods
     def find_by_portfolio(

@@ -7,7 +7,7 @@
 
 
 
-from typing import List, Optional, Union, Any, Dict
+from typing import List, Optional, Union, Dict
 import pandas as pd
 from datetime import datetime
 
@@ -16,8 +16,6 @@ from ginkgo.data.models import MStockInfo
 from ginkgo.enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
-from ginkgo.entities import StockInfo
-from ginkgo.data.crud.model_conversion import ModelList
 
 
 @restrict_crud_access
@@ -122,8 +120,8 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
                 "OTHER": MARKET_TYPES.OTHER,
             }
             market = market_mapping.get(market.upper(), MARKET_TYPES.OTHER)
-        
-        # Convert string currency values to enum if needed  
+
+        # Convert string currency values to enum if needed
         currency = kwargs.get("currency", CURRENCY_TYPES.CNY)
         if isinstance(currency, str):
             currency_mapping = {
@@ -132,7 +130,7 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
                 "OTHER": CURRENCY_TYPES.OTHER,
             }
             currency = currency_mapping.get(currency.upper(), CURRENCY_TYPES.OTHER)
-        
+
         return MStockInfo(
             code=kwargs.get("code"),
             code_name=kwargs.get("code_name", ""),
@@ -144,36 +142,14 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TUSHARE)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MStockInfo]:
-        """
-        Hook method: Convert StockInfo business objects to MStockInfo data models.
-        只处理StockInfo业务对象，符合架构设计原则。
-        """
-        from ginkgo.entities import StockInfo
-
-        # 只处理StockInfo业务对象
-        if isinstance(item, StockInfo):
-            # 获取source信息，如果业务对象有设置的话
-            source = getattr(item, '_source', SOURCE_TYPES.TUSHARE)
-
-            return MStockInfo(
-                code=item.code,
-                code_name=item.code_name,
-                industry=item.industry,
-                market=item.market,
-                list_date=item.list_date,
-                delist_date=item.delist_date,
-                currency=item.currency,
-                source=source,
-                uuid=item.uuid if item.uuid else None
-            )
-
-        # 不再支持字典格式，强制使用业务对象
-        self._logger.WARN(f"Unsupported type for StockInfo conversion: {type(item)}. Please use StockInfo business object.")
-        return None
+    # ADR-029 Task 3：_convert_input_item override 已删。
+    # 原 override 把 StockInfo Entity→MStockInfo（含 market/source/_source side-channel/uuid None-coalesce）
+    # 收敛到 StockInfoMapper.entity_to_model。入站调用方（stockinfo_service:225,265,274）
+    # 已显式走 mapper，CRUD add_batch 收到的就是 MStockInfo 实例，
+    # BaseCRUD._convert_input_batch 走 isinstance(model_class) 分支直接放行，无需 override。
 
     # Business Helper Methods
-    def find_by_market(self, market: str) -> ModelList[MStockInfo]:
+    def find_by_market(self, market: str) -> list:
         """
         Business helper: Find stocks by market.
         """
@@ -192,13 +168,13 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
 
         return self.find(filters={"market": market})
 
-    def find_by_industry(self, industry: str) -> ModelList[MStockInfo]:
+    def find_by_industry(self, industry: str) -> list:
         """
         Business helper: Find stocks by industry.
         """
         return self.find(filters={"industry": industry})
 
-    def search_by_name(self, name_pattern: str) -> ModelList[MStockInfo]:
+    def search_by_name(self, name_pattern: str) -> list:
         """
         Business helper: Search stocks by name pattern.
         """

@@ -9,7 +9,7 @@ from typing import List
 
 from ginkgo.data.models import MBar
 from ginkgo.entities import Bar
-from ginkgo.enums import FREQUENCY_TYPES
+from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 from ginkgo.interfaces.dtos.bar_dto import BarDTO
 
 
@@ -21,7 +21,12 @@ class BarMapper:
     # ------------------------------------------------------------------
     @staticmethod
     def entity_to_model(entity: Bar) -> MBar:
-        """Entity → ORM。code 作为 singledispatch update 的第一个位置参数。"""
+        """Entity → ORM。code 作为 singledispatch update 的第一个位置参数。
+
+        source/uuid 直传：source 经 update(source=...) 走 SOURCE_TYPES.validate_input
+        归一为 int；uuid 不在 update 形参表（MBar.update 只接 OHLCV+code+freq+ts+source），
+        直接赋属性。对齐 bar_crud._convert_input_item:81-106 override 字段集（ADR-029 Task 1）。
+        """
         model = MBar()
         model.update(
             entity.code,
@@ -33,22 +38,31 @@ class BarMapper:
             amount=entity.amount,
             frequency=entity.frequency,
             timestamp=entity.timestamp,
+            source=entity.source,
         )
+        model.uuid = entity.uuid
         return model
 
     @staticmethod
     def model_to_entity(model: MBar) -> Bar:
-        """ORM → Entity。frequency int→enum。
+        """ORM → Entity。frequency/source int→enum；uuid 还原。
 
         frequency 三态：正常值往返；-1（validate_input 未设频哨兵）经 from_int→VOID
         （语义=未知，不伪造为 DAY）；None（DB NULL）兜底 DAY 防 None.frequency 下游
-        崩溃。uuid 未还原：Bar 业务键为 code+timestamp+frequency，BarDTO 不携带 uuid
-        （与 OrderMapper 修 uuid 保真不同——Bar 无 uuid 丢失 bug，uuid 装饰性）。
+        崩溃。
+
+        source 三态：正常值往返；None/异常→VOID（与 Base 默认一致，from_int(None)→None
+        时兜底 VOID 防 None.source 下游崩溃）。
+
+        uuid 还原（ADR-029 Task 1 修复）：旧版以"Bar 业务键为 code+timestamp+frequency，
+        uuid 装饰性"为由不还原，但 entity_to_model 已写入；roundtrip 应双向保真，
+        与 OrderMapper 同款处理。
         """
         if not isinstance(model, MBar):
             raise TypeError(f"Expected MBar, got {type(model).__name__}")
         frequency = FREQUENCY_TYPES.from_int(model.frequency) or FREQUENCY_TYPES.DAY
-        return Bar(
+        source = SOURCE_TYPES.from_int(model.source) or SOURCE_TYPES.VOID
+        bar = Bar(
             code=model.code,
             open=model.open,
             high=model.high,
@@ -58,7 +72,10 @@ class BarMapper:
             amount=model.amount,
             frequency=frequency,
             timestamp=model.timestamp,
+            uuid=model.uuid,
         )
+        bar.set_source(source)
+        return bar
 
     @staticmethod
     def models_to_entities(models) -> List[Bar]:

@@ -1,13 +1,17 @@
-# Upstream: PortfolioService (删除组合时清理信号)、BacktestTaskService (重跑前清理旧信号)
-# Downstream: SignalCRUD (信号数据访问)、GLOG (日志)
-# Role: 信号业务服务，提供查询、delete_signals_by_portfolio 等接口
+# Upstream: PortfolioService (删除组合时清理信号)、BacktestTaskService (重跑前清理旧信号)、
+#           T1Backtest._emit_signal (回测信号持久化 seam)
+# Downstream: SignalCRUD (信号数据访问)、SignalMapper (Entity↔ORM 收敛)、GLOG (日志)
+# Role: 信号业务服务，提供查询、delete_signals_by_portfolio、add 等接口
 
 
 from typing import Any, Optional
 
 import pandas as pd
 
+from ginkgo.data.mappers import SignalMapper, models_to_dataframe
 from ginkgo.data.services.base_service import BaseService, ServiceResult
+from ginkgo.entities import Signal
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import GLOG, datetime_normalize
 
 
@@ -20,6 +24,76 @@ class SignalService(BaseService):
 
     def __init__(self, crud_repo=None, **kwargs):
         super().__init__(crud_repo=crud_repo, **kwargs)
+
+    def add(
+        self,
+        portfolio_id: str,
+        engine_id: str,
+        task_id: str,
+        code: str,
+        direction: DIRECTION_TYPES,
+        reason: str,
+        source: SOURCE_TYPES = SOURCE_TYPES.OTHER,
+        timestamp: Any = None,
+        business_timestamp: Any = None,
+        volume: int = 0,
+        weight: float = 0.0,
+        strength: float = 0.5,
+        confidence: float = 0.5,
+        uuid: str = "",
+        **kwargs,
+    ) -> ServiceResult:
+        """持久化一条 Signal 记录（ADR-029 Task 6）。
+
+        链路:kwargs → Signal entity → SignalMapper.entity_to_model → crud.add(model)。
+        替代 t1backtest 直调 signal_crud.create(**kwargs) 的隐式 _create_from_params 路径,
+        显式经 Signal entity → SignalMapper 收敛转换(退役 _convert_input_item hook)。
+
+        Args:
+            portfolio_id/engine_id/task_id: 上下文 UUID 三元组
+            code: 标的代码
+            direction: DIRECTION_TYPES 枚举(LONG/SHORT/OTHER/VOID)
+            reason: 信号原因(非空)
+            source: SOURCE_TYPES 枚举(默认 OTHER;回测由调用方传 STRATEGY/RISK)
+            timestamp: 现实时间戳(默认 None→TimeMixin 用 datetime.now)
+            business_timestamp: 业务时间戳(回测价格事件时间)
+            volume/weight/strength/confidence: 信号扩展字段
+            uuid: 显式 UUID(空则 Signal 构造自动生成)
+
+        Returns:
+            ServiceResult.data: {"uuid": 写入 model.uuid}
+        """
+        try:
+            # kwargs → Signal entity
+            entity = Signal(
+                portfolio_id=portfolio_id,
+                engine_id=engine_id,
+                task_id=task_id,
+                code=code,
+                direction=direction,
+                reason=reason,
+                source=source,
+                volume=volume,
+                weight=weight,
+                strength=strength,
+                confidence=confidence,
+                uuid=uuid,
+                business_timestamp=business_timestamp,
+            )
+            # 显式设 timestamp(TimeMixin 默认 datetime.now,回测传业务时间覆盖)
+            if timestamp is not None:
+                entity.timestamp = timestamp
+
+            # Signal entity → mapper → crud.add(model)
+            model = SignalMapper.entity_to_model(entity)
+            self._crud_repo.add(model)
+            return ServiceResult.success(
+                data={"uuid": model.uuid},
+                message=f"Signal added: {code} {getattr(direction, 'name', direction)}",
+            )
+        except Exception as e:
+            GLOG.ERROR(f"signal_service.add failed: {e}")
+            return ServiceResult.error(str(e))
 
     def get_signals(
         self,
@@ -36,7 +110,7 @@ class SignalService(BaseService):
             page_size: 返回数量限制，0 表示全部
 
         Returns:
-            ServiceResult.data: ModelList
+            ServiceResult.data: list
         """
         try:
             filters = {"is_del": False}
@@ -116,9 +190,9 @@ class SignalService(BaseService):
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
-        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
-        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
-        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM list、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 list 后调
+        ``models_to_dataframe``；空结果返空 ``pd.DataFrame()``。
 
         #5009：page（0-based）/page_size 分页；MSignal 为 ClickHouse（MClickBase），
         order_by=timestamp desc 保证分页确定性（CH MergeTree 无隐式顺序保证，
@@ -139,7 +213,7 @@ class SignalService(BaseService):
                 order_by="timestamp",
                 desc_order=True,
             )
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            df = models_to_dataframe(model_list) if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Retrieved {len(df)} signal records (DataFrame)",

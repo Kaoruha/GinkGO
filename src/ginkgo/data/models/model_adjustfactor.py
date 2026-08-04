@@ -1,5 +1,5 @@
 # Upstream: AdjustfactorService (同步复权因子数据)、BarService (K线复权计算)
-# Downstream: MClickBase (继承提供ClickHouse ORM能力)、ModelConversion (提供实体转换能力)
+# Downstream: MClickBase (继承提供ClickHouse ORM能力)
 # Role: MAdjustfactor复权因子ClickHouse模型继承MClickBase定义代码/时间/前复权/后复权等字段
 
 
@@ -18,12 +18,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clickhouse_sqlalchemy import engines
 
 from ginkgo.data.models.model_clickbase import MClickBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 
 
-class MAdjustfactor(MClickBase, ModelConversion):
+class MAdjustfactor(MClickBase):
     __abstract__ = False
     __tablename__ = "adjustfactor"
     

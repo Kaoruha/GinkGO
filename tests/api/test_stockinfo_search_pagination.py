@@ -89,7 +89,7 @@ class TestStockinfoSearchPagination:
         assert result["meta"]["total"] == 42
 
     def test_search_handles_orm_objects_from_crud(self):
-        """service 返回 ModelList（ORM 对象）时，API 应通过属性访问"""
+        """service 返回 list（ORM 对象）时，API 应通过属性访问"""
 
         mock_service = MagicMock()
         stock = MagicMock()

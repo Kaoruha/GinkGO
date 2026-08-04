@@ -12,7 +12,6 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MTaskTimerExecution
 from ginkgo.libs import GLOG
 from ginkgo.data.access_control import restrict_crud_access
@@ -112,7 +111,7 @@ class TaskTimerExecutionCRUD(BaseCRUD[MTaskTimerExecution]):
 
     def find_by_job_name(
         self, job_name: str, page: int = 0, page_size: int = 20
-    ) -> ModelList:
+    ) -> list:
         """按任务名查询执行历史"""
         return self.find(
             filters={"job_name": job_name},
@@ -128,7 +127,7 @@ class TaskTimerExecutionCRUD(BaseCRUD[MTaskTimerExecution]):
         end: Optional[datetime] = None,
         page: int = 0,
         page_size: int = 20,
-    ) -> ModelList:
+    ) -> list:
         """按时间范围查询"""
         filters: Dict[str, Any] = {}
         if start:

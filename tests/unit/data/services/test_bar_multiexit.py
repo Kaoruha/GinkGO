@@ -3,7 +3,7 @@ ADR-010 Phase 4 Task 4.2：BarService 多出口方法契约测试（类型即契
 
 回测热路径走 DF，故 BarService 重点在 _df 出口。出口② Entity 同步补齐。
 
-设计：Mock crud_repo.find 返真实 ModelList（带 mock crud_instance 支持
+设计：Mock crud_repo.find 返真实 list（带 mock crud_instance 支持
 to_dataframe），断言 data 运行时类型。不复权（adjustment_type=NONE）以
 隔离复权逻辑，专注多出口契约本身。
 """
@@ -21,28 +21,21 @@ _path = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 if _path not in sys.path:
     sys.path.insert(0, _path)
 
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.bar_service import BarService
 from ginkgo.entities import Bar
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
 
 
-def _make_empty_modellist() -> ModelList:
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame()
-    return ModelList([], crud_stub)
+def _make_empty_modellist() -> list:
+    return []
 
 
-def _make_bar_modellist() -> ModelList:
+def _make_bar_modellist() -> list:
     from ginkgo.data.models import MBar
 
     model = MBar(code="000001", open=10.0, high=11.0, low=9.5, close=10.5,
                  volume=1000, amount=10500.0, frequency=1)
-    crud_stub = MagicMock()
-    crud_stub._convert_models_to_dataframe.return_value = pd.DataFrame(
-        [{"code": "000001", "open": 10.0}]
-    )
-    return ModelList([model], crud_stub)
+    return [model]
 
 
 def _make_service(find_return) -> BarService:
@@ -71,7 +64,6 @@ def test_get_bars_df_returns_dataframe_empty():
     )
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit
@@ -95,7 +87,6 @@ def test_get_bars_returns_empty_list():
     assert result.success is True
     assert result.data == []
     assert isinstance(result.data, list)
-    assert not isinstance(result.data, ModelList)
 
 
 @pytest.mark.unit
@@ -148,7 +139,7 @@ def test_get_bars_db_failure_returns_error():
     assert "Database operation failed" in result.error
 
 
-# ===== 出口① get_bars_df 复权路径（#6624：DF 出口内化复权，消除 feeder ModelList 泄漏） =====
+# ===== 出口① get_bars_df 复权路径（#6624：DF 出口内化复权，消除 feeder list 泄漏） =====
 #
 # ADR-010 例外：feeder/sizer 回测热路径依赖 get(FORE) 前复权（除权除息日 K 线不跳空、
 # ATR/仓位拆股后不错算）。盲迁不复权的 get_bars_df() 会静默错算（编译过、测试可能过、
@@ -161,7 +152,7 @@ def test_get_bars_df_fore_applies_single_stock_adjustment():
     """出口① 复权路径：get_bars_df(code, adjustment_type=FORE) 走单股复权分支。
 
     断言 _apply_price_adjustment_to_modellist 被调用（与 get(FORE) 同一复权入口），
-    且返回 data 是 DataFrame（ModelList 不出 Service 边界）。
+    且返回 data 是 DataFrame（list 不出 Service 边界）。
     """
     svc = _make_service(_make_bar_modellist())
     svc._apply_price_adjustment_to_modellist = MagicMock(
@@ -173,7 +164,6 @@ def test_get_bars_df_fore_applies_single_stock_adjustment():
     )
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
-    assert not isinstance(result.data, ModelList)
     svc._apply_price_adjustment_to_modellist.assert_called_once()
 
 
@@ -211,11 +201,12 @@ def test_get_bars_df_fore_parity_with_get_fore_to_dataframe():
         end_date=datetime(2024, 1, 2), adjustment_type=ADJUSTMENT_TYPES.FORE,
     ).data
 
-    # 旧热路径：get(FORE) 返 ModelList 后手动 .to_dataframe()
-    df_old = svc.get(
+    # 旧热路径：get(FORE) 返 list 后手动 models_to_dataframe()（ADR-029 §Decision 9）
+    from ginkgo.data.mappers import models_to_dataframe
+    df_old = models_to_dataframe(svc.get(
         code="000001", start_date=datetime(2024, 1, 1),
         end_date=datetime(2024, 1, 2),
-    ).data.to_dataframe()
+    ).data)
 
     pd.testing.assert_frame_equal(df_new, df_old)
 
@@ -252,5 +243,5 @@ def test_get_bars_df_fore_empty_returns_empty_dataframe():
     assert result.success is True
     assert isinstance(result.data, pd.DataFrame)
     assert result.data.empty
-    # 空 ModelList 不进入复权分支（短路返空 DF）
+    # 空 list 不进入复权分支（短路返空 DF）
     svc._apply_price_adjustment_to_modellist.assert_not_called()

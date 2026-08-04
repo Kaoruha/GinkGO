@@ -102,22 +102,6 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MTransferRecord]:
-        """
-        Hook method: Convert Transfer objects to MTransferRecord.
-        """
-        if isinstance(item, Transfer):
-            return MTransferRecord(
-                portfolio_id=item.portfolio_id,
-                direction=item.direction,
-                market=item.market,
-                money=item.money,
-                status=item.status,
-                timestamp=item.timestamp,
-                source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
-            )
-        return None
-
     def find_by_portfolio(
         self,
         portfolio_id: str,

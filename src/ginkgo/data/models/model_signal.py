@@ -72,11 +72,16 @@ class MSignal(MClickBase, MBacktestRecordBase):
         if code is not None:
             self.code = code
         if direction is not None:
-            self.direction = DIRECTION_TYPES.validate_input(direction) or -1
+            # 或-1 仅在 validate_input 返 None 时兜底；0 是合法值（OTHER），不可被 or 吞掉
+            # （ADR-029 Task 6 契约暴露，同 Task 2/3 I-2 系统性先例）
+            validated = DIRECTION_TYPES.validate_input(direction)
+            self.direction = validated if validated is not None else -1
         if reason is not None:
             self.reason = reason
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            # 同上：0 是合法值（SOURCE_TYPES.OTHER），or-1 会误判为缺失
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
         if volume is not None:
             self.volume = int(volume)
         if weight is not None:
@@ -92,11 +97,13 @@ class MSignal(MClickBase, MBacktestRecordBase):
         self.engine_id = df["engine_id"]
         self.timestamp = datetime_normalize(df["timestamp"])
         self.code = df["code"]
-        self.direction = DIRECTION_TYPES.validate_input(df["direction"]) or -1
+        validated = DIRECTION_TYPES.validate_input(df["direction"])
+        self.direction = validated if validated is not None else -1
         self.reason = df["reason"]
 
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     def __init__(self, **kwargs):

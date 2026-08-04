@@ -32,7 +32,7 @@ def _make_mock_service(df: pd.DataFrame) -> MagicMock:
     """构造 adjustfactor_service mock：get_adjustfactors_df 走 DF 出口契约。
 
     ADR-010 出口①：``data`` 已是 ``pandas.DataFrame``，不再绕 ``.to_dataframe()``。
-    用真实 ``ServiceResult`` 避免 MagicMock 链耦合 ModelList 实现细节。
+    用真实 ``ServiceResult`` 避免 MagicMock 链耦合 list 实现细节。
     """
     mock_svc = MagicMock()
     mock_svc.get_adjustfactors_df.return_value = ServiceResult(

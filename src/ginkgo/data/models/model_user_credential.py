@@ -1,5 +1,5 @@
 # Upstream: UserService (用户管理业务逻辑)、UserCredentialCRUD (凭据数据CRUD操作)
-# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)
 # Role: MUserCredential用户凭据模型继承MMysqlBase定义凭据核心字段(user_id/password_hash/is_active/is_admin)支持用户认证功能
 
 
@@ -12,11 +12,10 @@ from sqlalchemy import String, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.enums import SOURCE_TYPES
 
 
-class MUserCredential(MMysqlBase, ModelConversion):
+class MUserCredential(MMysqlBase):
     """
     用户凭据模型
 

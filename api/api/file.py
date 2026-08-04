@@ -76,7 +76,7 @@ async def list_files(
                 detail=result.message or "Failed to list files",
             )
         result_data = result.data or {}
-        # ORM MFile → dict（service 返 ModelList，直接塞 paginated 会序列化崩）
+        # ORM MFile → dict（service 返 list，直接塞 paginated 会序列化崩）
         items = [_file_to_dict(f) for f in result_data.get("data", [])]
         total = result_data.get("total", 0)
         return paginated(items=items, total=total, page=page, page_size=size)

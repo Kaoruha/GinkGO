@@ -488,7 +488,7 @@ class PortfolioSagaFactory:
             # 备份基本信息
             result = portfolio_service.get(portfolio_id=portfolio_uuid)
             if result.is_success() and result.data:
-                # result.data 可能是 ModelList 或单个对象
+                # result.data 可能是 list 或单个对象
                 portfolio = result.data
                 if isinstance(portfolio, list):
                     portfolio = portfolio[0] if portfolio else None

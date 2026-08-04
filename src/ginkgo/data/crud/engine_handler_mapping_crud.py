@@ -1,5 +1,5 @@
 # Upstream: EngineCRUD, 引擎装配层
-# Downstream: BaseCRUD, MEngineHandlerMapping模型, ModelConversion, ModelCRUDMapping
+# Downstream: BaseCRUD, MEngineHandlerMapping模型, ModelCRUDMapping
 # Role: 引擎-处理器映射CRUD，管理引擎与Handler的绑定关系，支持增删改查
 
 
@@ -17,7 +17,6 @@ from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MEngineHandlerMapping
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import GLOG, cache_with_expiration
-from ginkgo.data.crud.model_conversion import ModelConversion
 from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
 
 
@@ -58,17 +57,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MEngineHandlerMapping]:
-        """
-        Hook method: Convert mapping objects to MEngineHandlerMapping.
-        """
-        if hasattr(item, 'engine_id') and hasattr(item, 'handler_id'):
-            return MEngineHandlerMapping(
-                engine_id=getattr(item, 'engine_id'),
-                handler_id=getattr(item, 'handler_id'),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-            )
-        return None
+    # ADR-029 §Decision 1：转换钩子 override 已退役（生产无 .add/.add_batch 调用）。
 
     # Business Helper Methods
     def find_by_engine(self, engine_id: str) -> List[MEngineHandlerMapping]:

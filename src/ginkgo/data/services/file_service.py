@@ -576,7 +576,7 @@ class FileService(FileSearchMixin, BaseService):
             desc_order: 是否倒序
 
         Returns:
-            ServiceResult with data={"data": ModelList, "total": int}
+            ServiceResult with data={"data": list, "total": int}
         """
         try:
             crud = self._crud_repo

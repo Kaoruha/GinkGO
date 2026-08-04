@@ -84,12 +84,6 @@ class UserContactCRUD(BaseCRUD[MUserContact]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.OTHER)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MUserContact]:
-        """
-        Hook method: Convert objects to MUserContact.
-        """
-        return None
-
     # ==================== 业务辅助方法 ====================
 
     def get_by_user(

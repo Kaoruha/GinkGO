@@ -28,7 +28,7 @@ from ginkgo.data.decorators import ensure_tick_table
 from ginkgo.data import mappers
 from ginkgo.enums import TICKDIRECTION_TYPES, ADJUSTMENT_TYPES, SOURCE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
-from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.mappers import models_to_dataframe
 from ginkgo.libs.data.results import DataSyncResult, DataValidationResult, DataIntegrityCheckResult
 
 
@@ -485,9 +485,9 @@ class TickService(BaseService):
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
-        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
-        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
-        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM list、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 list 后调
+        ``models_to_dataframe``；空结果返空 ``pd.DataFrame()``。
 
         filter 域与 get() 一致（code / start_date / end_date）。
         """
@@ -504,7 +504,7 @@ class TickService(BaseService):
                 return ServiceResult.error("CRUD repository not available")
 
             model_list = self._crud_repo.find(filters=filters)
-            df = model_list.to_dataframe() if model_list else pd.DataFrame()
+            df = models_to_dataframe(model_list) if model_list else pd.DataFrame()
             return ServiceResult.success(
                 data=df,
                 message=f"Retrieved {len(df)} tick records (DataFrame)",
@@ -607,7 +607,7 @@ class TickService(BaseService):
                 error=f"Database query failed: {str(e)}"
             )
 
-    def validate(self, tick_data: Union[List[Any], pd.DataFrame, ModelList]) -> ServiceResult:
+    def validate(self, tick_data: Union[List[Any], pd.DataFrame]) -> ServiceResult:
         """
         Validate tick data integrity and quality.
 
@@ -638,9 +638,9 @@ class TickService(BaseService):
                     'volume': t.volume,
                     'direction': t.direction
                 } for t in tick_data])
-            elif hasattr(tick_data, 'to_dataframe'):
-                df = tick_data.to_dataframe()
             else:
+                # ADR-029 §Decision 9：ModelList 退役后无 to_dataframe 路径，
+                # 非列表输入假定已是 DataFrame。
                 df = tick_data
 
             # Basic validations

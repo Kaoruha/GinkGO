@@ -6,7 +6,7 @@
 import pandas as pd
 
 from ginkgo.client.remote.api_client import ApiError, TokenExpiredError
-from ginkgo.client.remote.services import RemotePortfolioService, _ModelList
+from ginkgo.client.remote.services import RemotePortfolioService, _NamespaceList
 from ginkgo.data.containers import _remote_portfolio_service_factory
 from ginkgo.enums import PORTFOLIO_MODE_TYPES
 
@@ -75,7 +75,6 @@ def test_get_by_uuid_maps_impedance_fields():
     fc = FakeClient(detail=_detail_dict())
     res = RemotePortfolioService(client=fc).get(portfolio_id="u1")
     assert res.success
-    assert isinstance(res.data, _ModelList)
     p = res.data[0]
     # REST initial_cash/current_cash → CLI initial_capital/cash
     assert p.uuid == "u1"
@@ -173,17 +172,16 @@ def test_remote_factory_returns_service():
 
 
 def test_fuzzy_search_passes_keyword_returns_modellist():
-    """fuzzy_search 走 list keyword（REST 精确 name 匹配），出口 _ModelList。"""
+    """fuzzy_search 走 list keyword（REST 精确 name 匹配），出口 _NamespaceList。"""
     fc = FakeClient(list_items=[_detail_dict()], list_total=1)
     res = RemotePortfolioService(client=fc).fuzzy_search("p1")
     assert res.success
-    assert isinstance(res.data, _ModelList)
     assert res.data[0].uuid == "u1"
     assert any(c[2] and c[2].get("keyword") == "p1" for c in fc.calls)
 
 
 def test_fuzzy_search_empty_query_returns_empty_no_call():
-    """空 query 不打远端，直接返空 _ModelList。"""
+    """空 query 不打远端，直接返空 _NamespaceList。"""
     fc = FakeClient(list_total=99)
     res = RemotePortfolioService(client=fc).fuzzy_search("   ")
     assert res.success

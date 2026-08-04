@@ -471,10 +471,10 @@ class PortfolioT1Backtest(PortfolioBase):
         GLOG.INFO(f"    Signal Reason: {signal.reason}")
         GLOG.INFO(f"    From: {origin_name or 'Unknown'}")
 
-        # 将信号保存到数据库
+        # 将信号保存到数据库（ADR-029 Task 6：经 signal_service.add → SignalMapper 收敛，
+        # 替代直调 signal_crud.create(**kwargs) 的隐式 _create_from_params 路径）
         try:
-            signal_crud = container.cruds.signal()
-            signal_crud.create(
+            container.signal_service().add(
                 portfolio_id=signal.portfolio_id,
                 engine_id=signal.engine_id,
                 task_id=signal.task_id,
@@ -506,15 +506,33 @@ class PortfolioT1Backtest(PortfolioBase):
 
     # ===== 订单记录保存辅助方法 =====
     def _save_order_record(self, order, status, transaction_price=0, transaction_volume=0, fee=0):
-        """
-        保存订单记录到数据库
+        """ADR-029 Task 8：双写 MOrderRecord（审计层）+ MOrder（当前态）。
+
+        - MOrderRecord：经 ``result_service.create_order_record`` → thin delegate →
+          ``OrderService.create_order_record`` → ``OrderRecordCRUD.create``。
+          每事件一行审计快照（4 态：NEW/FILLED/REJECTED/CANCELED 各一行）。
+        - MOrder：经 ``order_service.upsert_order(order, status_override=status)``
+          （Task 7 seam + Task 8 status_override）。by uuid 天然分支：
+          NEW→new uuid→insert；FILLED/REJECTED/CANCELED→同 uuid→update 状态。
+          ``status_override`` 必传——事件链中 ``order.status`` 是事件前状态
+          （NEW/SUBMITTED），MOrder 须写事件后状态。
+
+        双写解耦设计（fix1 Important #1）：双写独立，**任一失败不 raise、不中断
+        回测**——MOrderRecord 是审计层（必成功），MOrder 是当前态（best-effort）。
+        但**返回值诚实反映双写结果**（响亮失败铁律）：双写均成→True，MOrder
+        upsert 失败→False（同时 WARN 含 upsert_result.message，非静默）。4 调用方
+        （on_signal/on_order_partially_filled/on_order_rejected/on_order_cancel_ack）
+        均不消费返回值，故改返回值语义不影响调用方。
 
         Args:
             order: 订单对象
-            status: 订单状态
+            status: 订单状态（事件后目标状态）
             transaction_price: 成交价格
             transaction_volume: 成交数量
             fee: 手续费
+
+        Returns:
+            bool: 双写均成功 True；MOrderRecord 失败或 MOrder upsert 失败 False
         """
         try:
             from ginkgo.data.containers import container
@@ -539,8 +557,20 @@ class PortfolioT1Backtest(PortfolioBase):
                 timestamp=order.timestamp,
                 business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
             )
+
+            # Task 8 双写：MOrder（当前态）via upsert_order seam
+            upsert_result = container.order_service().upsert_order(
+                order, status_override=status
+            )
+            if not upsert_result.is_success():
+                GLOG.WARN(
+                    f"[PERSISTENCE] MOrder upsert failed (MOrderRecord still written): "
+                    f"{upsert_result.message}"
+                )
+
             GLOG.INFO(f"[PERSISTENCE] Order record saved: code={order.code} status={status.name} price={transaction_price} vol={transaction_volume}")
-            return result.success
+            # fix1 Important #1：诚实返回双写结果（响亮失败铁律），双写解耦意图不变（不 raise）
+            return bool(result.success) and upsert_result.is_success()
         except Exception as e:
             GLOG.ERROR(f"[PERSISTENCE ERROR] Failed to save order record: {e}")
             self.blog.log_engine_error_event(error_code="ORDER_SAVE_FAILED", error_message=str(e))

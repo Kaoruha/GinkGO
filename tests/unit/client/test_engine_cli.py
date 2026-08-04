@@ -150,11 +150,11 @@ class TestListEngines:
     def test_list_filter_pushes_page_size_to_fuzzy_search(self, cli_runner):
         """#5009：filter 模式 --page-size 下推 fuzzy_search page_size。"""
         df = _make_engine_df()
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = df
-        svc = _mock_engine_service(fuzzy_search=ServiceResult.success(data=model_list))
+        # ADR-029 §Decision 9：cli 调独立 models_to_dataframe（不走 model_list.to_dataframe）
+        svc = _mock_engine_service(fuzzy_search=ServiceResult.success(data=[MagicMock()]))
 
-        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)), \
+             patch("ginkgo.client.engine_cli.models_to_dataframe", return_value=df):
             result = cli_runner.invoke(engine_cli.app, ["list", "--filter", "test", "--page-size", "5"])
 
         assert result.exit_code == 0
@@ -180,13 +180,13 @@ class TestListEngines:
     @pytest.mark.cli
     def test_list_with_filter(self, cli_runner):
         df = _make_engine_df()
-        model_list = MagicMock()
-        model_list.to_dataframe.return_value = df
+        # ADR-029 §Decision 9：cli 调独立 models_to_dataframe（不走 model_list.to_dataframe）
         svc = _mock_engine_service(
-            fuzzy_search=ServiceResult.success(data=model_list),
+            fuzzy_search=ServiceResult.success(data=[MagicMock()]),
         )
 
-        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)):
+        with patch("ginkgo.data.containers.container", _mock_container(engine_service=svc)), \
+             patch("ginkgo.client.engine_cli.models_to_dataframe", return_value=df):
             result = cli_runner.invoke(engine_cli.app, ["list", "--filter", "test"])
         assert result.exit_code == 0
         assert "test" in result.output

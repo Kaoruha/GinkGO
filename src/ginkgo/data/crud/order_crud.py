@@ -1,5 +1,5 @@
 # Upstream: OrderService (订单业务服务)、Portfolio Manager (订单记录查询)
-# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MOrder (MySQL订单模型)、Order (业务订单实体)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MOrder (MySQL订单模型)
 # Role: OrderCRUD订单CRUD操作继承BaseCRUD提供订单管理和业务查询功能支持组合查询
 
 
@@ -9,17 +9,13 @@
 
 from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any, Dict
+from typing import List, Optional, Any, Dict
 from sqlalchemy.orm import Session
-import pandas as pd
-from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MOrder
-from ginkgo.entities import Order
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
-from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.libs import datetime_normalize, GLOG, to_decimal
 
 
 @restrict_crud_access
@@ -141,86 +137,29 @@ class OrderCRUD(BaseCRUD[MOrder]):
             }
         }
 
-    def _create_from_params(self, **kwargs) -> MOrder:
-        """
-        Hook method: Create MOrder from parameters.
-        """
-        # 处理枚举字段，确保插入数据库的是数值
-        direction_value = kwargs.get("direction")
-        if isinstance(direction_value, DIRECTION_TYPES):
-            direction_value = direction_value.value
-        else:
-            direction_value = DIRECTION_TYPES.validate_input(direction_value)
-
-        order_type_value = kwargs.get("order_type")
-        if isinstance(order_type_value, ORDER_TYPES):
-            order_type_value = order_type_value.value
-        else:
-            order_type_value = ORDER_TYPES.validate_input(order_type_value)
-
-        status_value = kwargs.get("status", ORDERSTATUS_TYPES.NEW)
-        if isinstance(status_value, ORDERSTATUS_TYPES):
-            status_value = status_value.value
-        else:
-            status_value = ORDERSTATUS_TYPES.validate_input(status_value)
-
-        source_value = kwargs.get("source", SOURCE_TYPES.SIM)
-        if isinstance(source_value, SOURCE_TYPES):
-            source_value = source_value.value
-        else:
-            source_value = SOURCE_TYPES.validate_input(source_value)
-
-        return MOrder(
-            portfolio_id=kwargs.get("portfolio_id"),
-            engine_id=kwargs.get("engine_id"),
-            task_id=kwargs.get("task_id", ""),  # 添加 task_id
-            code=kwargs.get("code"),
-            direction=direction_value,
-            order_type=order_type_value,
-            status=status_value,
-            volume=kwargs.get("volume"),
-            limit_price=to_decimal(kwargs.get("limit_price", 0)),
-            frozen_money=to_decimal(kwargs.get("frozen_money", 0)),
-            frozen_volume=int(kwargs.get("frozen_volume", 0)),
-            transaction_price=to_decimal(kwargs.get("transaction_price", 0)),
-            transaction_volume=kwargs.get("transaction_volume", 0),
-            remain=kwargs.get("remain", 0.0),
-            fee=kwargs.get("fee", 0.0),
-            timestamp=datetime_normalize(kwargs.get("timestamp")),
-            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
-            source=source_value,
-        )
-
-    def _convert_input_item(self, item: Any) -> Optional[MOrder]:
-        """
-        Hook method: Convert Order objects to MOrder.
-        """
-        if isinstance(item, Order) or hasattr(item, 'portfolio_id'):
-            return MOrder(
-                portfolio_id=getattr(item, 'portfolio_id', ""),
-                engine_id=getattr(item, 'engine_id', ""),
-                task_id=getattr(item, 'task_id', ""),  # 添加 task_id
-                code=getattr(item, 'code', ""),
-                direction=DIRECTION_TYPES.validate_input(getattr(item, 'direction', DIRECTION_TYPES.LONG)),
-                order_type=ORDER_TYPES.validate_input(getattr(item, 'order_type', ORDER_TYPES.OTHER)),
-                status=ORDERSTATUS_TYPES.validate_input(getattr(item, 'status', ORDERSTATUS_TYPES.NEW)),
-                volume=getattr(item, 'volume', 0),
-                limit_price=to_decimal(getattr(item, 'limit_price', 0)),
-                frozen_money=to_decimal(getattr(item, 'frozen_money', 0)),
-                frozen_volume=int(getattr(item, 'frozen_volume', 0)),  # #6087: 显式 int 防御（与 #6080 L184 对称）
-                transaction_price=to_decimal(getattr(item, 'transaction_price', 0)),
-                transaction_volume=getattr(item, 'transaction_volume', 0),
-                remain=to_decimal(getattr(item, 'remain', 0)),
-                fee=to_decimal(getattr(item, 'fee', 0)),
-                timestamp=datetime_normalize(getattr(item, 'timestamp')),
-                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
-            )
-        return None
-
+    # ADR-029 Task 7：_create_from_params / _convert_input_item override 已删。
+    # 入站（Order Entity → MOrder）转换由 OrderMapper.entity_to_model 承担
+    # （经 order_service.upsert_order / update_order 显式调用）；
+    # order_crud.add/create 不再接受 Entity 入参或 kwargs→Model 转换。
     # c1(ADR):enum 映射下沉 model 字段 ``info={'enum': ...}``，
     # 默认反射生效（见 _conversion._get_enum_mappings）；direction/order_type/status
     # 声明见 model_order；source 继承自 MMysqlBase.source（MySQL 公共基类）。
+
+    def get_by_uuid(self, uuid: str) -> Optional[MOrder]:
+        """通过 UUID 获取订单（ADR-029 Task 7：upsert_order 存在判断支撑）。
+
+        Args:
+            uuid: 订单 UUID（32-char hex，无横线）
+
+        Returns:
+            MOrder or None（不存在 / uuid 为空时返 None）
+        """
+        if not uuid:
+            return None
+        results = self.find(filters={"uuid": uuid, "is_del": False})
+        if results and len(results) > 0:
+            return results[0]
+        return None
 
     # Business Helper Methods
     def find_by_portfolio(
@@ -232,7 +171,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = True,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find orders by portfolio ID.
         """
@@ -260,7 +199,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         status: Optional[ORDERSTATUS_TYPES] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find orders by stock code.
         """
@@ -285,7 +224,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         self,
         portfolio_id: Optional[str] = None,
         code: Optional[str] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find pending orders.
         """
@@ -307,7 +246,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find filled orders.
         """
@@ -333,7 +272,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         status: Optional[ORDERSTATUS_TYPES] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find orders by direction (LONG/SHORT).
         """
@@ -361,7 +300,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
         limit: Optional[int] = None,
-    ) -> ModelList[MOrder]:
+    ) -> list:
         """
         Business helper: Find large volume orders.
         """
@@ -458,7 +397,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         """
         orders = self.find({"portfolio_id": portfolio_id}) or []
 
-        # find() 返回原始 MOrder（CRUD↔ModelList 契约,见本 PR）；
+        # find() 返回原始 MOrder 列表（CRUD↔list 契约,见本 PR）；
         # status 为 TINYINT 原始 int（Mapped[int]，非枚举实例）。
         # 下方 status==ORDERSTATUS_TYPES.* 系 pre-existing int-vs-Enum 比较（本 PR 不改，
         # EnumBase 非 IntEnum，实测恒 False → 真实订单分桶恒 0；单测 mock 枚举形态掩盖）。

@@ -83,20 +83,6 @@ class TickSummaryCRUD(BaseCRUD[MTickSummary]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.OTHER)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MTickSummary]:
-        """
-        Hook method: Convert tick summary objects to MTickSummary.
-        """
-        if hasattr(item, 'code') and hasattr(item, 'timestamp'):
-            return MTickSummary(
-                code=getattr(item, 'code', ''),
-                price=to_decimal(getattr(item, 'price', 0)),
-                volume=getattr(item, 'volume', 0),
-                timestamp=datetime_normalize(getattr(item, 'timestamp')),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.OTHER)),
-            )
-        return None
-
     # Business Helper Methods
     def find_by_code(self, code: str, start_date: Optional[Any] = None,
                     end_date: Optional[Any] = None) -> List[MTickSummary]:

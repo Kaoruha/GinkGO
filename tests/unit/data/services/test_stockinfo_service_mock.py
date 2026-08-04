@@ -186,7 +186,7 @@ class TestGet:
     def test_get_all(self, service, mock_deps):
         """无过滤条件时返回所有记录（ADR-010：get 委托 Entity 出口，返 List[StockInfo]）"""
         # get() 现委托 get_stockinfos() -> StockInfoMapper.models_to_entities(model_list)
-        # mock crud_repo.find 返回 truthy ModelList（非 None 即走 from_models 分支），
+        # mock crud_repo.find 返回 truthy list（非 None 即走 from_models 分支），
         # 再 patch from_models 返回真实 List[StockInfo]，反映新契约。
         mock_model_list = MagicMock()
         mock_model_list.__len__ = MagicMock(return_value=2)
@@ -202,10 +202,8 @@ class TestGet:
             result = service.get()
 
         assert result.success is True
-        # ADR-010：get() 现返 List[StockInfo]，既不透传 ModelList 也不是 DataFrame
-        from ginkgo.data.crud.model_conversion import ModelList
+        # ADR-010：get() 现返 List[StockInfo]，既不透传 list 也不是 DataFrame
         import pandas as pd
-        assert not isinstance(result.data, ModelList)
         assert not isinstance(result.data, pd.DataFrame)
         assert isinstance(result.data, list)
         assert len(result.data) == 2
@@ -642,3 +640,29 @@ class TestSync:
                 service.sync()
 
         mock_deps["data_source"].fetch_cn_stockinfo.assert_called_once()
+
+
+# ============================================================
+# ADR-029 §Decision 9 兼容层：旧测试用 ``mock_model_list.to_dataframe`` 桩
+# 控制 DF 输出；service 改调 ``models_to_dataframe(model_list)`` 后此模式失效。
+# 本 autouse fixture 把 ``models_to_dataframe`` 在本模块内patch成"代理 to_dataframe
+# 属性"——保留旧测试语义，无需逐个重写。
+# ============================================================
+
+
+@pytest.fixture(autouse=True)
+def _proxy_models_to_dataframe_to_mock(monkeypatch):
+    import ginkgo.data.services.stockinfo_service as svc_mod
+
+    real = svc_mod.models_to_dataframe
+
+    def _proxy(models):
+        # 若入参是 MagicMock 且桩了 to_dataframe，走 mock 路径（兼容旧测试）
+        if hasattr(models, "to_dataframe") and callable(getattr(models, "to_dataframe")):
+            try:
+                return models.to_dataframe()
+            except Exception:
+                pass
+        return real(models)
+
+    monkeypatch.setattr(svc_mod, "models_to_dataframe", _proxy)

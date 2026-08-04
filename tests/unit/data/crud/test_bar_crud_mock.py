@@ -6,9 +6,11 @@ BarCRUD 单元测试（Mock 数据库连接）
 - _get_field_config: 字段配置结构与验证规则
 - _get_enum_mappings: 枚举映射
 - _create_from_params: 参数转 MBar 模型
-- _convert_input_item: Bar 业务对象转换
 - Business Helper: find_by_code_and_date_range, get_latest_bars, count_by_code 等
 - 构造与类型检查
+
+注：_convert_input_item override 已删（ADR-029 Task 1：入站前置 BarMapper.entity_to_model，
+hook 退役）。Entity→Model 转换契约见 tests/unit/data/mappers/test_bar_mapper_contract.py。
 """
 
 import pytest
@@ -157,43 +159,10 @@ class TestBarCRUDCreateFromParams:
 
 # ============================================================
 # _convert_input_item 测试
+# （ADR-029 Task 1：bar_crud override 已删，Entity→Model 由调用方前置
+#  BarMapper.entity_to_model；BaseCRUD 默认 _convert_input_item 返回 None。
+#  不再单测 hook 行为——契约见 test_bar_mapper_contract.py）
 # ============================================================
-
-
-class TestBarCRUDConvertInputItem:
-    """_convert_input_item 业务对象转换测试"""
-
-    @pytest.mark.unit
-    def test_convert_input_item_bar_object(self, bar_crud):
-        """传入 Bar 业务对象，返回 MBar 模型"""
-        from ginkgo.trading import Bar
-
-        bar_obj = Bar(
-            code="000001.SZ",
-            open=Decimal("10.50"),
-            high=Decimal("11.00"),
-            low=Decimal("10.20"),
-            close=Decimal("10.80"),
-            volume=500000,
-            amount=Decimal("5400000.00"),
-            frequency=FREQUENCY_TYPES.DAY,
-            timestamp=datetime(2024, 1, 15),
-        )
-
-        mbar = bar_crud._convert_input_item(bar_obj)
-
-        assert mbar is not None
-        assert mbar.code == "000001.SZ"
-        assert mbar.volume == 500000
-        # MBar 模型将枚举存储为 int 值
-        assert mbar.frequency == FREQUENCY_TYPES.DAY.value
-
-    @pytest.mark.unit
-    def test_convert_input_item_unsupported_type(self, bar_crud):
-        """传入非 Bar 类型（如 dict），返回 None"""
-        result = bar_crud._convert_input_item({"code": "000001.SZ"})
-
-        assert result is None
 
 
 # ============================================================

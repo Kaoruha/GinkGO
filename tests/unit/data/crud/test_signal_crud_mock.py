@@ -5,12 +5,15 @@ SignalCRUD 单元测试（Mock 数据库连接）
 覆盖范围：
 - _get_field_config: 字段配置结构与验证规则
 - _get_enum_mappings: 枚举映射
-- _create_from_params: 参数转 MSignal 模型
-- _convert_input_item: Signal 业务对象转换
+- _create_from_params: 参数转 MSignal 模型（ADR-029 Task 6 后仍由本测试直测；
+  生产路径已迁 signal_service.add，_create_from_params 残留待 Task 11 收尾）
 - Business Helper: find_by_portfolio, find_by_engine, find_by_code_and_direction,
   get_latest_signals, delete_by_portfolio, delete_by_portfolio_and_date_range,
   count_by_portfolio, count_by_code_and_direction, find_by_business_time
 - 构造与类型检查
+
+注：ADR-029 Task 6 已删 _convert_input_item override（Signal Entity → MSignal
+转换收敛到 SignalMapper.entity_to_model，经 signal_service.add 显式调用）。
 """
 
 import pytest

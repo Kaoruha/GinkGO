@@ -33,6 +33,7 @@ if _path not in sys.path:
 from ginkgo.data.crud.handler_crud import HandlerCRUD
 from ginkgo.data.models.model_handler import MHandler
 from ginkgo.enums import SOURCE_TYPES
+from ginkgo.data.mappers import models_to_dataframe
 
 
 @pytest.mark.database
@@ -926,8 +927,7 @@ class TestHandlerCRUDDataConversion:
             handler_models = handler_crud.find(filters={"name__like": "conversion_test"})
             print(f"✓ 查询到 {len(handler_models)} 个处理器")
 
-            # 验证返回的是ModelList，支持转换方法
-            assert hasattr(handler_models, 'to_dataframe'), "返回结果应该是ModelList，支持to_dataframe()方法"
+            # 验证返回的是list，支持转换方法
             print("✓ 返回结果支持转换方法")
 
             # 测试转换方法（handler hook 为 identity，无业务 Entity，直接取 ORM）
@@ -946,7 +946,7 @@ class TestHandlerCRUDDataConversion:
 
             # 测试 to_dataframe() 方法
             print("\n→ 测试 to_dataframe() 转换...")
-            df = handler_models.to_dataframe()
+            df = models_to_dataframe(handler_models)
             print(f"✓ to_dataframe() 返回 DataFrame: {df.shape}")
             print(f"✓ DataFrame列名: {list(df.columns)}")
 

@@ -97,19 +97,16 @@ class TestConversionMethods:
 
     CONVERSION_METHODS = [
         "_create_from_params",
-        "_convert_input_item",
-        "_convert_input_batch",
-        "_convert_output_items",
         "_get_enum_mappings",
         "_process_dataframe_output",
-        "_convert_to_business_objects",
-        "_convert_models_to_business_objects",
-        "_convert_models_to_dataframe",
         "_safe_enum_convert",
         "_convert_enum_values",
         "_normalize_single_enum_value",
         "_validate_item_enum_fields",
     ]
+    # ADR-029 §Decision 1：转换钩子族（_convert_input_item / _convert_input_batch /
+    # _convert_output_items / _convert_to_business_objects /
+    # _convert_models_to_business_objects / _convert_models_to_dataframe）已退役。
 
     @pytest.mark.tdd
     @pytest.mark.refactor
@@ -275,8 +272,9 @@ class TestConcreteSubclassCompatibility:
     @pytest.mark.refactor
     def test_bar_crud_inherits_conversion_methods(self):
         BarCRUD = _import_or_skip("ginkgo.data.crud", "BarCRUD")
-        assert hasattr(BarCRUD, "_convert_output_items"), "BarCRUD missing _convert_output_items"
+        # ADR-029 §Decision 1：_convert_output_items 已退役，仅 _create_from_params 仍存。
         assert hasattr(BarCRUD, "_create_from_params"), "BarCRUD missing _create_from_params"
+        assert hasattr(BarCRUD, "_validate_item_enum_fields"), "BarCRUD missing _validate_item_enum_fields"
 
     @pytest.mark.tdd
     @pytest.mark.refactor
@@ -306,7 +304,7 @@ class TestConcreteSubclassCompatibility:
 
 
 class TestCRUDResultRemoved:
-    """AC #6628 ①: CRUDResult 不再作为与 ModelList 并行的结果协议存在。"""
+    """AC #6628 ①: CRUDResult 不再作为与 list 并行的结果协议存在。"""
 
     @pytest.mark.tdd
     @pytest.mark.refactor
@@ -315,5 +313,5 @@ class TestCRUDResultRemoved:
 
         assert not hasattr(base_crud_module, "CRUDResult"), (
             "CRUDResult 应已从 base_crud 下线（#6628），"
-            "数据层只保留 ModelList 单一结果协议"
+            "数据层只保留 list 单一结果协议"
         )

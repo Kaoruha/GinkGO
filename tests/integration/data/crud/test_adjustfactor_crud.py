@@ -35,6 +35,7 @@ if _path not in sys.path:
 from ginkgo.data.crud.adjustfactor_crud import AdjustfactorCRUD
 from ginkgo.data.models.model_adjustfactor import MAdjustfactor
 from ginkgo.enums import SOURCE_TYPES
+from ginkgo.data.mappers import models_to_dataframe
 
 
 @pytest.mark.database
@@ -909,13 +910,13 @@ class TestAdjustFactorCRUDDelete:
 @pytest.mark.tdd
 class TestAdjustFactorCRUDConversions:
     CRUD_TEST_CONFIG = {'crud_class': AdjustfactorCRUD}
-    """5. CRUD层转换方法测试 - AdjustFactor ModelList转换功能验证"""
+    """5. CRUD层转换方法测试 - AdjustFactor list转换功能验证"""
 
     def test_model_list_conversions(self):
-        """测试ModelList的to_dataframe和to_entities转换功能"""
+        """测试list的to_dataframe和to_entities转换功能"""
         import pandas as pd
         print("\n" + "="*60)
-        print("开始测试: AdjustFactor ModelList转换功能")
+        print("开始测试: AdjustFactor list转换功能")
         print("="*60)
 
         adjustfactor_crud = AdjustfactorCRUD()
@@ -962,20 +963,20 @@ class TestAdjustFactorCRUDConversions:
             print(f"✓ 操作后数据库记录数: {after_count}")
             assert after_count - before_count == len(test_factors), f"应增加{len(test_factors)}条数据，实际增加{after_count - before_count}条"
 
-            # 获取ModelList进行转换测试
-            print("\n→ 获取ModelList...")
+            # 获取list进行转换测试
+            print("\n→ 获取list...")
             model_list = adjustfactor_crud.find(filters={"code__like": "CONVERT_FACTOR%"})
-            print(f"✓ ModelList类型: {type(model_list).__name__}")
-            print(f"✓ ModelList长度: {len(model_list)}")
+            print(f"✓ list类型: {type(model_list).__name__}")
+            print(f"✓ list长度: {len(model_list)}")
             assert len(model_list) >= 3
 
             # 测试1: to_dataframe转换
             print("\n→ 测试to_dataframe转换...")
-            df = model_list.to_dataframe()
+            df = models_to_dataframe(model_list)
             print(f"✓ DataFrame类型: {type(df).__name__}")
             print(f"✓ DataFrame形状: {df.shape}")
             assert isinstance(df, pd.DataFrame), "应返回DataFrame"
-            assert len(df) == len(model_list), f"DataFrame行数应等于ModelList长度，{len(df)} != {len(model_list)}"
+            assert len(df) == len(model_list), f"DataFrame行数应等于list长度，{len(df)} != {len(model_list)}"
 
             # 验证DataFrame列和内容
             required_columns = ['code', 'timestamp', 'foreadjustfactor', 'backadjustfactor', 'adjustfactor', 'source']
@@ -1022,7 +1023,7 @@ class TestAdjustFactorCRUDConversions:
             entities = list(model_list)  # adjustfactor hook 为 identity（无业务 Entity），直接取 ORM
             print(f"✓ 实体列表类型: {type(entities).__name__}")
             print(f"✓ 实体列表长度: {len(entities)}")
-            assert len(entities) == len(model_list), f"实体列表长度应等于ModelList长度，{len(entities)} != {len(model_list)}"
+            assert len(entities) == len(model_list), f"实体列表长度应等于list长度，{len(entities)} != {len(model_list)}"
 
             # Adjustfactor没有专门的业务实体，应该返回Model对象
             first_entity = entities[0]
@@ -1059,24 +1060,24 @@ class TestAdjustFactorCRUDConversions:
 
             # 测试4: 验证缓存机制
             print("\n→ 测试转换缓存机制...")
-            df2 = model_list.to_dataframe()
+            df2 = models_to_dataframe(model_list)
             entities2 = list(model_list)
             # 验证结果一致性
             assert df.equals(df2), "DataFrame缓存结果应一致"
             assert len(entities) == len(entities2), "实体列表缓存结果应一致"
             print("✓ 缓存机制验证正确")
 
-            # 测试5: 验证空ModelList的转换
-            print("\n→ 测试空ModelList的转换...")
+            # 测试5: 验证空list的转换
+            print("\n→ 测试空list的转换...")
             empty_model_list = adjustfactor_crud.find(filters={"code": "NONEXISTENT_CONVERT_FACTOR"})
-            assert len(empty_model_list) == 0, "空ModelList长度应为0"
-            empty_df = empty_model_list.to_dataframe()
+            assert len(empty_model_list) == 0, "空list长度应为0"
+            empty_df = models_to_dataframe(empty_model_list)
             empty_entities = list(empty_model_list)
             assert isinstance(empty_df, pd.DataFrame), "空转换应返回DataFrame"
             assert empty_df.shape[0] == 0, "空DataFrame行数应为0"
             assert isinstance(empty_entities, list), "空转换应返回列表"
             assert len(empty_entities) == 0, "空实体列表长度应为0"
-            print("✓ 空ModelList转换验证正确")
+            print("✓ 空list转换验证正确")
 
             # 测试6: 单个Model的to_entity转换
             print("\n→ 测试单个Model的to_entity转换...")
@@ -1111,7 +1112,7 @@ class TestAdjustFactorCRUDConversions:
                 print(f"  - {entity.code}: 前={entity.foreadjustfactor} 后={entity.backadjustfactor} 调整={entity.adjustfactor} ✓")
             print("✓ 复权因子数值有效性验证通过")
 
-            print("\n✓ 所有AdjustFactor ModelList转换功能测试通过！")
+            print("\n✓ 所有AdjustFactor list转换功能测试通过！")
 
         finally:
             # 清理测试数据并验证删除效果

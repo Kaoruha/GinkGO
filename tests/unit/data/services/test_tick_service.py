@@ -301,7 +301,7 @@ class TestTickServiceQuery:
         assert result.success, f"复权类型{adjustment_type}查询失败"
 
     def test_get_model_list_functionality(self, tick_service, sample_tick_data):
-        """测试ModelList功能"""
+        """测试list功能"""
         if not sample_tick_data:
             pytest.skip("测试数据同步失败")
 
@@ -317,8 +317,9 @@ class TestTickServiceQuery:
         if len(model_list) == 0:
             pytest.skip("查询结果为空（可能数据源不可用）")
 
-        # 验证to_dataframe方法
-        df = model_list.to_dataframe()
+        # 验证to_dataframe方法 (ADR-029 §Decision 9：CRUD 直接返 list)
+        from ginkgo.data.mappers import models_to_dataframe
+        df = models_to_dataframe(model_list)
         assert isinstance(df, pd.DataFrame)
 
         # 验证to_entities方法

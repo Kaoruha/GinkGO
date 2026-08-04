@@ -51,9 +51,6 @@ class UserCredentialCRUD(BaseCRUD[MUserCredential]):
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.OTHER)),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MUserCredential]:
-        return None
-
     def get_by_user_id(self, user_id: str) -> Optional[MUserCredential]:
         results = self.find(filters={"user_id": user_id})
-        return results.first()
+        return results[0] if results else None

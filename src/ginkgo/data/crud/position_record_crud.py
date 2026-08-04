@@ -14,7 +14,6 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MPositionRecord
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
@@ -85,41 +84,6 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
 
-    def _convert_input_item(self, item: Any) -> Optional[MPositionRecord]:
-        """
-        Hook method: Convert position record objects to MPositionRecord.
-        """
-        # Assuming 'item' could be a dictionary or an object with attributes
-        if isinstance(item, dict):
-            return MPositionRecord(
-                portfolio_id=item.get('portfolio_id'),
-                engine_id=item.get('engine_id', ''),
-                timestamp=datetime_normalize(item.get('timestamp', datetime.now())),
-                code=item.get('code', ''),
-                cost=to_decimal(item.get('cost', 0)),
-                volume=item.get('volume', 0),
-                frozen_volume=item.get('frozen_volume', 0),
-                frozen_money=to_decimal(item.get('frozen_money', 0)),
-                price=to_decimal(item.get('price', 0)),
-                fee=to_decimal(item.get('fee', 0)),
-                business_timestamp=datetime_normalize(item.get('business_timestamp', None)),
-            )
-        elif hasattr(item, 'portfolio_id') and hasattr(item, 'code') and hasattr(item, 'volume'):
-            return MPositionRecord(
-                portfolio_id=getattr(item, 'portfolio_id', ''),
-                engine_id=getattr(item, 'engine_id', ''),
-                timestamp=datetime_normalize(getattr(item, 'timestamp', datetime.now())),
-                code=getattr(item, 'code', ''),
-                cost=to_decimal(getattr(item, 'cost', 0)),
-                volume=getattr(item, 'volume', 0),
-                frozen_volume=getattr(item, 'frozen_volume', 0),
-                frozen_money=to_decimal(getattr(item, 'frozen_money', 0)),
-                price=to_decimal(getattr(item, 'price', 0)),
-                fee=to_decimal(getattr(item, 'fee', 0)),
-                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
-            )
-        return None
-
     # Business Helper Methods
     def find_by_portfolio(
         self,
@@ -130,7 +94,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         page: Optional[int] = None,
         page_size: Optional[int] = None,
         desc_order: bool = True,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find position records by portfolio ID.
         """
@@ -157,7 +121,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         portfolio_id: Optional[str] = None,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find position records by stock code.
         """
@@ -180,7 +144,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         self,
         portfolio_id: str,
         min_volume: Optional[int] = None,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find current positions (latest for each code).
         """
@@ -201,7 +165,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         min_volume: int = 1,
         start_date: Optional[Any] = None,
         end_date: Optional[Any] = None,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find position records with volume greater than threshold.
         """
@@ -222,7 +186,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         self,
         portfolio_id: str,
         min_frozen_volume: int = 1,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find positions with frozen volume.
         """
@@ -236,7 +200,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
 
     def get_latest_position(
         self, portfolio_id: str, code: str
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Get latest position record for a specific code.
         """
@@ -408,7 +372,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         end_business_time: Optional[Any] = None,
         code: Optional[str] = None,
         min_volume: Optional[int] = None,
-    ) -> ModelList[MPositionRecord]:
+    ) -> list:
         """
         Business helper: Find position records by business time range.
 

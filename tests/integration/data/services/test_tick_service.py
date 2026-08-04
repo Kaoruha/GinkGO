@@ -29,6 +29,7 @@ from ginkgo.data.sources.ginkgo_tushare import GinkgoTushare
 from ginkgo.data.sources.ginkgo_tdx import GinkgoTDX
 from ginkgo.enums import ADJUSTMENT_TYPES, SOURCE_TYPES, MARKET_TYPES, CURRENCY_TYPES
 from ginkgo.libs import GCONF, datetime_normalize
+from ginkgo.data.mappers import models_to_dataframe
 
 
 # ============================================================================
@@ -298,7 +299,7 @@ class TestTickServiceQuery:
         assert result.success, f"复权类型{adjustment_type}查询失败"
 
     def test_get_model_list_functionality(self, tick_service, sample_tick_data):
-        """测试ModelList功能"""
+        """测试list功能"""
         if not sample_tick_data:
             pytest.skip("测试数据同步失败")
 
@@ -312,7 +313,7 @@ class TestTickServiceQuery:
         model_list = result.data
 
         # 验证to_dataframe方法
-        df = model_list.to_dataframe()
+        df = models_to_dataframe(model_list)
         assert isinstance(df, pd.DataFrame)
 
         # 验证to_entities方法

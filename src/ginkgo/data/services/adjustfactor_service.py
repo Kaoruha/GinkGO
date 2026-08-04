@@ -26,7 +26,7 @@ from ginkgo.libs import GCONF, datetime_normalize, cache_with_expiration, to_dec
 from ginkgo.libs.data.results import DataValidationResult, DataIntegrityCheckResult, DataSyncResult
 from ginkgo.data import mappers
 from ginkgo.data.services.base_service import BaseService, ServiceResult
-from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.mappers import models_to_dataframe
 
 
 class AdjustfactorService(BaseService):
@@ -326,9 +326,9 @@ class AdjustfactorService(BaseService):
     ) -> ServiceResult:
         """出口①：data 是 pandas.DataFrame（类型即契约）。
 
-        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM ModelList、
-        不再绕 ``result.data.to_dataframe()``。内部 find 返 ModelList 后调
-        ``to_dataframe()``；空结果返空 ``pd.DataFrame()``。
+        ADR-010：API/CLI 消费 DataFrame 语义时走此出口，不接触 ORM list、
+        不再绕 ``result.data.to_dataframe()``。内部 find 返 list 后调
+        ``models_to_dataframe``；空结果返空 ``pd.DataFrame()``。
 
         filter 域与 get() 一致（code / start_date / end_date / adjust_type）。
         """
@@ -338,7 +338,7 @@ class AdjustfactorService(BaseService):
             )
             if self._crud_repo:
                 adjustfactor_data = self._crud_repo.find(filters=filters)
-                df = adjustfactor_data.to_dataframe() if adjustfactor_data else pd.DataFrame()
+                df = models_to_dataframe(adjustfactor_data) if adjustfactor_data else pd.DataFrame()
                 return ServiceResult(success=True,
                                    message=f"Retrieved {len(df)} adjustfactor records (DataFrame)",
                                    data=df)
@@ -387,7 +387,7 @@ class AdjustfactorService(BaseService):
                                message=f"Failed to count adjustfactor data: {e}",
                                data=0)
 
-    def validate(self, adjustfactor_data: Union[List[Any], pd.DataFrame, ModelList]) -> ServiceResult:
+    def validate(self, adjustfactor_data: Union[List[Any], pd.DataFrame]) -> ServiceResult:
         """
         Validate adjustment factor data integrity and correctness, checking required fields and data quality.
 
@@ -420,9 +420,9 @@ class AdjustfactorService(BaseService):
                     'dividend': float(a.dividend),
                     'split_ratio': float(a.split_ratio)
                 } for a in adjustfactor_data])
-            elif hasattr(adjustfactor_data, 'to_dataframe'):
-                df = adjustfactor_data.to_dataframe()
             else:
+                # ADR-029 §Decision 9：ModelList 退役后无 to_dataframe 路径，
+                # 非列表输入假定已是 DataFrame。
                 df = adjustfactor_data
 
             # Basic validations
@@ -642,21 +642,19 @@ class AdjustfactorService(BaseService):
             self._logger.INFO(f"开始计算股票 {code} 的复权系数")
 
             # 转换为DataFrame进行高效计算
-            if hasattr(original_records, 'to_dataframe'):
-                df_records = original_records.to_dataframe()
-            else:
-                # 手动转换为DataFrame
-                df_records = pd.DataFrame([{
-                    'uuid': r.uuid,
-                    'code': r.code,
-                    'timestamp': r.timestamp,
-                    'adjustfactor': float(r.adjust_factor) if hasattr(r, 'adjust_factor') else float(r.adjustfactor),
-                    'before_price': float(r.before_price) if hasattr(r, 'before_price') else 0.0,
-                    'after_price': float(r.after_price) if hasattr(r, 'after_price') else 0.0,
-                    'dividend': float(r.dividend) if hasattr(r, 'dividend') else 0.0,
-                    'split_ratio': float(r.split_ratio) if hasattr(r, 'split_ratio') else 1.0,
-                    'adjust_type': getattr(r, 'adjust_type', 'fore')
-                } for r in original_records])
+            # ADR-029 §Decision 9：ModelList 退役后 original_records 恒为 list，
+            # 无 to_dataframe 路径。
+            df_records = pd.DataFrame([{
+                'uuid': r.uuid,
+                'code': r.code,
+                'timestamp': r.timestamp,
+                'adjustfactor': float(r.adjust_factor) if hasattr(r, 'adjust_factor') else float(r.adjustfactor),
+                'before_price': float(r.before_price) if hasattr(r, 'before_price') else 0.0,
+                'after_price': float(r.after_price) if hasattr(r, 'after_price') else 0.0,
+                'dividend': float(r.dividend) if hasattr(r, 'dividend') else 0.0,
+                'split_ratio': float(r.split_ratio) if hasattr(r, 'split_ratio') else 1.0,
+                'adjust_type': getattr(r, 'adjust_type', 'fore')
+            } for r in original_records])
 
             df_records = df_records.sort_values('timestamp').reset_index(drop=True)
 

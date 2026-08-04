@@ -118,7 +118,7 @@ class TestBarServiceQuery:
         # 结果必须是ServiceResult且查询成功
         assert isinstance(result, ServiceResult)
         assert result.success is True
-        # data可能是ModelList或空列表
+        # data可能是list或空列表
         assert result.data is not None
 
     def test_get_bars_with_date_range(self, bar_service):

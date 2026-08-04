@@ -19,7 +19,6 @@ import pandas as pd
 
 from ginkgo.libs import cache_with_expiration, retry, GLOG, datetime_normalize
 from ginkgo.libs.data.number import convert_to_float
-from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 
@@ -136,7 +135,7 @@ class BacktestTaskService(BaseService):
         """
         try:
             if not query or not query.strip():
-                return ServiceResult.success(ModelList([], self._crud_repo))
+                return ServiceResult.success([])
 
             results = self._crud_repo.fuzzy_search(query, fields)
             return ServiceResult.success(results)
