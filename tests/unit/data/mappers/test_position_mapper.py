@@ -112,6 +112,14 @@ class TestPositionMapperRoundtrip:
         back = PositionMapper.model_to_entity(model)
         assert back._settlement_queue == []
 
+    def test_from_model_restores_business_timestamp(self):
+        """model_to_entity：business_timestamp 非 None 时经 TimeMixin kwarg 还原（ADR-029 L105）。"""
+        entity = _make_position()
+        model = PositionMapper.entity_to_model(entity)
+        model.business_timestamp = datetime.datetime(2025, 1, 2, 9, 30)
+        back = PositionMapper.model_to_entity(model)
+        assert back.business_timestamp == datetime.datetime(2025, 1, 2, 9, 30)
+
 
 class TestPositionMapperFromModelGuard:
     def test_from_model_rejects_non_mposition(self):

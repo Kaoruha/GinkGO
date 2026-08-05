@@ -233,6 +233,21 @@ jobs:
           uv run python -m pytest \
             tests/unit/features/test_factor_service_smoke.py \
             -q -o "addopts=" --no-header --tb=short
+      - name: ADR-029 enum/service coverage smoke (#6890 覆盖债)
+        # ADR-029 Task 1-9 改动的 model enum 分支（validate_input or -1 吞 0 的
+        # if-not-None fix）+ _df 新模块（§Decision 9 DF 出口）+ order/signal service
+        # 写路径（upsert/add + get_df）被 containers import 链触达但 smoke 不调方法体
+        # → diff coverage gate 红。本 smoke 调起方法体补覆盖信号，并锁定 enum 0（OTHER/NEUTRAL）
+        # 不被 ``or`` 吞的核心契约。独立 step 使 push→master 时也跑（gate 仅 PR 触发），
+        # 同时纳入下方 gate 合集采集 coverage。
+        run: |
+          uv run python -m pytest \
+            tests/unit/data/mappers/test_df_mapper.py \
+            tests/unit/data/models/test_model_order_enum.py \
+            tests/unit/data/models/test_model_enum_branches.py \
+            tests/unit/data/services/test_order_service_adr029_smoke.py \
+            tests/unit/data/services/test_signal_service_adr029_smoke.py \
+            -q -o "addopts=" --no-header --tb=short
       - name: Diff coverage gate (#6135)
         if: github.event_name == 'pull_request'
         env:
@@ -274,6 +289,15 @@ jobs:
             tests/unit/trading/portfolios/test_t1backtest.py \
             tests/unit/features/test_factor_service_smoke.py \
             tests/unit/trading/feeders/test_backtest_feeder_fetch_smoke.py \
+            tests/unit/data/mappers/test_df_mapper.py \
+            tests/unit/data/models/test_model_order_enum.py \
+            tests/unit/data/models/test_model_enum_branches.py \
+            tests/unit/data/services/test_order_service_adr029_smoke.py \
+            tests/unit/data/services/test_signal_service_adr029_smoke.py \
+            tests/unit/data/mappers/test_signal_mapper_adr029_smoke.py \
+            tests/unit/data/services/test_position_service_adr029_smoke.py \
+            tests/unit/data/services/test_result_service_adr029_smoke.py \
+            tests/unit/trading/test_backtest_result_aggregator_get_df.py \
             tests/unit/interfaces/test_message_mapper.py \
             tests/unit/data/test_signal_order_df_mapper_parity.py \
             tests/unit/data/test_source_enum_reflection_c6.py \
