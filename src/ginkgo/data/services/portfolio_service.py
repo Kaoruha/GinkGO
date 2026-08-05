@@ -371,19 +371,19 @@ class PortfolioService(BaseService):
 
         Args:
             portfolio_id: 投资组合UUID
-            state: snapshot_state() 返回的状态字典
+            state: snapshot_state() 返回的状态字典（positions 为 Position 实体列表）
 
         Returns:
             ServiceResult
         """
         try:
             from decimal import Decimal
+            from ginkgo.data.mappers import PositionMapper
 
             # 1. 更新 portfolio 表的运行时字段
             positions = state.get("positions", [])
             position_value = sum(
-                Decimal(p.get("price", 0)) * int(p.get("volume", 0))
-                for p in positions
+                Decimal(p.price) * int(p.volume) for p in positions
             )
             current_capital = Decimal(state["cash"]) + Decimal(state["frozen"]) + position_value
 
@@ -397,11 +397,12 @@ class PortfolioService(BaseService):
             }
             self._crud_repo.modify(filters={"uuid": portfolio_id}, updates=portfolio_updates)
 
-            # 2. 全量替换 position 表（通过 CRUD 层 batch_create）
+            # 2. 全量替换 position 表：Position 实体 → MPosition（DB 边界转换，ADR-010）
             if positions:
+                m_positions = [PositionMapper.entity_to_model(p) for p in positions]
                 position_crud = self._get_position_crud()
                 position_crud.delete_by_portfolio(portfolio_id)
-                position_crud.batch_create(positions)
+                position_crud.batch_create(m_positions)
 
             GLOG.INFO(
                 f"Persisted state for portfolio {portfolio_id[:8]}: "
@@ -423,9 +424,11 @@ class PortfolioService(BaseService):
             portfolio_id: 投资组合UUID
 
         Returns:
-            ServiceResult: data 为 state dict（兼容 restore_state()）
+            ServiceResult: data 为 state dict（兼容 restore_state()，positions 为 Position 实体列表）
         """
         try:
+            from ginkgo.data.mappers import PositionMapper
+
             # 1. 读取 portfolio 表的运行时字段
             portfolios = self._crud_repo.find(filters={"uuid": portfolio_id})
             if not portfolios:
@@ -433,37 +436,19 @@ class PortfolioService(BaseService):
 
             p = portfolios[0]
 
-            # 2. 读取 position 表的持仓快照
+            # 2. 读取 position 表的持仓快照 → Position 实体（DB 边界转换，ADR-010）
             position_crud = self._get_position_crud()
             m_positions = position_crud.find(filters={"portfolio_id": portfolio_id})
+            positions = PositionMapper.models_to_entities(m_positions)
 
-            positions_data = []
-            for m_pos in m_positions:
-                positions_data.append({
-                    "portfolio_id": m_pos.portfolio_id,
-                    "engine_id": m_pos.engine_id,
-                    "task_id": m_pos.task_id,
-                    "code": m_pos.code,
-                    "cost": str(m_pos.cost),
-                    "volume": m_pos.volume,
-                    "frozen_volume": m_pos.frozen_volume,
-                    "settlement_frozen_volume": m_pos.settlement_frozen_volume,
-                    "settlement_days": m_pos.settlement_days,
-                    "settlement_queue_json": m_pos.settlement_queue_json,
-                    "frozen_money": str(m_pos.frozen_money),
-                    "price": str(m_pos.price),
-                    "fee": str(m_pos.fee),
-                    "uuid": m_pos.uuid,
-                })
-
-            has_state = float(p.cash) > 0 or len(positions_data) > 0
+            has_state = float(p.cash) > 0 or len(positions) > 0
 
             et = p.engine_current_time
             return ServiceResult.success({
                 "cash": str(p.cash),
                 "frozen": str(p.frozen),
                 "fee": str(p.total_fee),
-                "positions": positions_data,
+                "positions": positions,
                 "has_state": has_state,
                 # #6159: 返回引擎时间，worker 据此判定是否进入 REPLAY 快进历史
                 "engine_current_time": et.isoformat() if et else None,
@@ -478,15 +463,16 @@ class PortfolioService(BaseService):
         获取 Portfolio 的当前持仓快照（#5783 验收2）。
 
         数据层 PositionCRUD.find_by_portfolio / get_active_positions 早已存在，
-        本方法在 service 层接线并按 load_persisted_state 既有形状序列化，
-        供 GET /portfolios/{uuid}/positions 端点使用。
+        本方法在 service 层接线为 WebUI 序列化（GET /portfolios/{uuid}/positions）。
+        此处 dict 形状为本端点自有契约，与 persist/load 路径（DB 边界走 Position
+        实体，见 ADR-010）相互独立。
 
         Args:
             portfolio_id: 投资组合UUID
             active_only: True 仅返回 volume>0 的活跃持仓
 
         Returns:
-            ServiceResult: data 为持仓 dict 列表（字段对齐 load_persisted_state:425-440）
+            ServiceResult: data 为持仓 dict 列表（WebUI 端点 JSON 契约）
         """
         try:
             position_crud = self._get_position_crud()
