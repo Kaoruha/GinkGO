@@ -46,6 +46,7 @@ def test_upsert_insert_path():
     assert res.success
     assert res.data["action"] == "insert"
     assert len(crud.added) == 1
+    assert isinstance(crud.added[0], MOrder)  # 锁 mapper.entity_to_model 收敛(F3 同形,非裸 entity)
 
 
 def test_upsert_update_path():
