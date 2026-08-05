@@ -52,6 +52,7 @@
 | ADR-037 | [滑点成交价统一（FillPriceModel + 回测/模拟盘装配归一 engine_data.slippage）](ADR-037-slippage-fillprice-unification.md) | Accepted | 2026-07-29 |
 | ADR-038 | [日志表 TTL 自动清理（ginkgo_logs_* 三表 TTL 接线 + 存量 drop/reseed）](ADR-038-log-table-ttl-cleanup.md) | Accepted | 2026-07-29 |
 | ADR-039 | [实盘走 ExecutionNode 分布式，移除 LiveEngine 迁移孤儿](ADR-039-liveengine-removal-distributed-live.md) | Accepted | 2026-07-29 |
+| ADR-040 | [BaseCRUD interface 诚实收口（授权 Base 类变更）](ADR-040-basecrud-interface-honest-cleanup.md) | Accepted | 2026-08-05 |
 
 ## 如何新增 / 修订
 
