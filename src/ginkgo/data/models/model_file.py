@@ -47,7 +47,9 @@ class MFile(MMysqlBase):
     ) -> None:
         self.name = name
         if type is not None:
-            self.type = FILE_TYPES.validate_input(type) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = FILE_TYPES.validate_input(type)
+            self.type = validated if validated is not None else -1
         if data is not None:
             self.data = data
         if source is not None:

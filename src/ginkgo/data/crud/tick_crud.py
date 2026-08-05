@@ -456,13 +456,15 @@ class TickCRUD:
                 "Example: tick_crud.create(code='000001.SZ', price=10.5, volume=1000)"
             )
 
+        direction_v = TICKDIRECTION_TYPES.validate_input(kwargs.get("direction", TICKDIRECTION_TYPES.OTHER))
+        source_v = SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TDX))
         return self.model_class(
             code=kwargs.get("code"),
             price=to_decimal(kwargs.get("price", 0)),
             volume=kwargs.get("volume", 0),
-            direction=TICKDIRECTION_TYPES.validate_input(kwargs.get("direction", TICKDIRECTION_TYPES.OTHER)) or -1,
+            direction=direction_v if direction_v is not None else -1,
             timestamp=datetime_normalize(kwargs.get("timestamp")),
-            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TDX)) or -1,
+            source=source_v if source_v is not None else -1,
         )
 
     def _get_enum_mappings(self) -> Dict[str, Any]:
@@ -517,23 +519,27 @@ class TickCRUD:
 
         # 处理字典类型的数据
         elif isinstance(item, dict) and 'timestamp' in item and 'code' in item:
+            direction_v = TICKDIRECTION_TYPES.validate_input(item.get('direction', TICKDIRECTION_TYPES.VOID))
+            source_v = SOURCE_TYPES.validate_input(item.get('source', SOURCE_TYPES.TDX))
             return model_class(
                 timestamp=datetime_normalize(item.get('timestamp')),
                 code=item.get('code'),
                 price=item.get('price', 0),
                 volume=item.get('volume', 0),
-                direction=TICKDIRECTION_TYPES.validate_input(item.get('direction', TICKDIRECTION_TYPES.VOID)) or -1,
-                source=SOURCE_TYPES.validate_input(item.get('source', SOURCE_TYPES.TDX)) or -1,
+                direction=direction_v if direction_v is not None else -1,
+                source=source_v if source_v is not None else -1,
             )
         # 处理其他对象类型的数据
         elif hasattr(item, 'timestamp') and hasattr(item, 'code'):
+            direction_v = TICKDIRECTION_TYPES.validate_input(getattr(item, 'direction', TICKDIRECTION_TYPES.VOID))
+            source_v = SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TDX))
             return model_class(
                 timestamp=datetime_normalize(getattr(item, 'timestamp')),
                 code=getattr(item, 'code'),
                 price=getattr(item, 'price', 0),
                 volume=getattr(item, 'volume', 0),
-                direction=TICKDIRECTION_TYPES.validate_input(getattr(item, 'direction', TICKDIRECTION_TYPES.VOID)) or -1,
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TDX)) or -1,
+                direction=direction_v if direction_v is not None else -1,
+                source=source_v if source_v is not None else -1,
             )
         return None
 
@@ -690,7 +696,9 @@ class TickCRUD:
         if end_time:
             filters["timestamp__lte"] = datetime_normalize(end_time)
         if direction:
-            filters["direction"] = TICKDIRECTION_TYPES.validate_input(direction) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = TICKDIRECTION_TYPES.validate_input(direction)
+            filters["direction"] = validated if validated is not None else -1
         if min_volume:
             filters["volume__gte"] = min_volume
 

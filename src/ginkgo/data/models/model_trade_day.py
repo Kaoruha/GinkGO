@@ -65,21 +65,26 @@ class MTradeDay(MMysqlBase):
         *args,
         **kwargs,
     ) -> None:
-        self.market = MARKET_TYPES.validate_input(market) or -1
+        # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+        validated = MARKET_TYPES.validate_input(market)
+        self.market = validated if validated is not None else -1
         if is_open is not None:
             self.is_open = is_open
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.market = MARKET_TYPES.validate_input(df["market"]) or -1
+        validated = MARKET_TYPES.validate_input(df["market"])
+        self.market = validated if validated is not None else -1
         self.is_open = df["is_open"]
         self.timestamp = datetime_normalize(df["timestamp"])
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:

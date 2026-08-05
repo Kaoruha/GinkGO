@@ -47,9 +47,12 @@ class MBar(MClickBase):
     def __init__(self, **kwargs):
         # 处理枚举类型转换
         if 'frequency' in kwargs and kwargs['frequency'] is not None:
-            kwargs['frequency'] = FREQUENCY_TYPES.validate_input(kwargs['frequency']) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = FREQUENCY_TYPES.validate_input(kwargs['frequency'])
+            kwargs['frequency'] = validated if validated is not None else -1
         if 'source' in kwargs and kwargs['source'] is not None:
-            kwargs['source'] = SOURCE_TYPES.validate_input(kwargs['source']) or -1
+            validated = SOURCE_TYPES.validate_input(kwargs['source'])
+            kwargs['source'] = validated if validated is not None else -1
 
         # 调用父类构造函数
         super().__init__(**kwargs)
@@ -88,11 +91,13 @@ class MBar(MClickBase):
         if amount is not None:
             self.amount = to_decimal(amount)
         if frequency is not None:
-            self.frequency = FREQUENCY_TYPES.validate_input(frequency) or -1
+            validated = FREQUENCY_TYPES.validate_input(frequency)
+            self.frequency = validated if validated is not None else -1
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
@@ -104,10 +109,12 @@ class MBar(MClickBase):
         self.volume = df["volume"]
         self.amount = to_decimal(df["amount"])
         self.timestamp = datetime_normalize(df["timestamp"])
-        self.frequency = FREQUENCY_TYPES.validate_input(df["frequency"]) or -1
+        validated = FREQUENCY_TYPES.validate_input(df["frequency"])
+        self.frequency = validated if validated is not None else -1
 
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

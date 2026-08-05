@@ -181,7 +181,9 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         
         # 预期参数
         self.expected_code = expected_code
-        self.expected_direction = DIRECTION_TYPES.validate_input(expected_direction) or -1
+        # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+        validated = DIRECTION_TYPES.validate_input(expected_direction)
+        self.expected_direction = validated if validated is not None else -1
         self.expected_price = to_decimal(expected_price)
         self.expected_volume = expected_volume
         self.expected_timestamp = datetime_normalize(expected_timestamp)
@@ -219,7 +221,8 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         if business_timestamp is not None:
             self.business_timestamp = datetime_normalize(business_timestamp)
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
 
         self.update_at = datetime.datetime.now()
 
@@ -233,7 +236,8 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         
         # 预期参数
         self.expected_code = df["expected_code"]
-        self.expected_direction = DIRECTION_TYPES.validate_input(df["expected_direction"]) or -1
+        validated = DIRECTION_TYPES.validate_input(df["expected_direction"])
+        self.expected_direction = validated if validated is not None else -1
         self.expected_price = to_decimal(df["expected_price"])
         self.expected_volume = df["expected_volume"]
         self.expected_timestamp = datetime_normalize(df["expected_timestamp"])
@@ -273,7 +277,8 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         if "business_timestamp" in df.keys() and pd.notna(df["business_timestamp"]):
             self.business_timestamp = datetime_normalize(df["business_timestamp"])
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
 
         self.update_at = datetime.datetime.now()
 

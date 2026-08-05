@@ -163,7 +163,9 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
                 self.duration_seconds = int(delta.total_seconds())
 
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
 
         self.update_at = datetime.datetime.now()
 
@@ -220,7 +222,8 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
             self.business_timestamp = datetime_normalize(df["business_timestamp"])
 
         if "source" in df.index:
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
 
         self.update_at = datetime.datetime.now()
 

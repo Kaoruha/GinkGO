@@ -59,30 +59,39 @@ class MTransfer(MMysqlBase, MBacktestRecordBase):
         self.engine_id = engine_id
         self.task_id = task_id
         if direction is not None:
-            self.direction = TRANSFERDIRECTION_TYPES.validate_input(direction) or -1
+            # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
+            validated = TRANSFERDIRECTION_TYPES.validate_input(direction)
+            self.direction = validated if validated is not None else -1
         if market is not None:
-            self.market = MARKET_TYPES.validate_input(market) or -1
+            validated = MARKET_TYPES.validate_input(market)
+            self.market = validated if validated is not None else -1
         if money is not None:
             self.money = money if isinstance(money, Decimal) else Decimal(str(money))
         if status is not None:
-            self.status = TRANSFERSTATUS_TYPES.validate_input(status) or -1
+            validated = TRANSFERSTATUS_TYPES.validate_input(status)
+            self.status = validated if validated is not None else -1
         if timestamp is not None:
             self.timestamp = timestamp
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            validated = SOURCE_TYPES.validate_input(source)
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.portfolio_id = df["portfolio_id"]
         self.engine_id = df["engine_id"]
-        self.direction = TRANSFERDIRECTION_TYPES.validate_input(df["direction"]) or -1
-        self.market = MARKET_TYPES.validate_input(df["market"]) or -1
+        validated = TRANSFERDIRECTION_TYPES.validate_input(df["direction"])
+        self.direction = validated if validated is not None else -1
+        validated = MARKET_TYPES.validate_input(df["market"])
+        self.market = validated if validated is not None else -1
         self.money = to_decimal(df["money"])
-        self.status = TRANSFERSTATUS_TYPES.validate_input(df["status"]) or -1
+        validated = TRANSFERSTATUS_TYPES.validate_input(df["status"])
+        self.status = validated if validated is not None else -1
         self.timestamp = datetime_normalize(df["timestamp"])
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            validated = SOURCE_TYPES.validate_input(df["source"])
+            self.source = validated if validated is not None else -1
         self.update_at = datetime.datetime.now()
 
     def __init__(self, **kwargs):
