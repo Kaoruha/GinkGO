@@ -40,6 +40,7 @@ def test_save_positions_persists_via_mapper():
     res = svc.save_positions([_make_position()])
     assert res.success
     assert len(crud.added) == 1
+    assert isinstance(crud.added[0], MPosition)  # 锁 mapper.entity_to_model 收敛(顺修 add(entity) bug)
 
 
 def test_get_positions_df_returns_dataframe():
@@ -58,3 +59,4 @@ def test_upsert_position_create_branch():
     assert res.success
     assert res.data["created"] is True
     assert len(crud.added) == 1
+    assert isinstance(crud.added[0], MPosition)  # 锁创建分支走 mapper.entity_to_model(非裸 entity)

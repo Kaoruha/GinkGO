@@ -4,6 +4,8 @@
 hook）+ ``get_signals_df``（出口① DataFrame）被 containers import 链触达但 smoke
 不调方法体 → diff coverage gate 红。本 smoke mock crud 调起方法体补覆盖信号。
 """
+import datetime
+
 import pandas as pd
 
 from ginkgo.enums import DIRECTION_TYPES
@@ -36,6 +38,7 @@ def test_add_signal_persists_via_mapper():
     )
     assert res.success
     assert len(crud.added) == 1
+    assert isinstance(crud.added[0], MSignal)  # 锁 mapper.entity_to_model 收敛(非裸 entity)
 
 
 def test_get_signals_df_returns_dataframe():
@@ -60,6 +63,9 @@ def test_add_signal_with_explicit_timestamp():
         timestamp="2025-01-02",
     )
     assert res.success
+    # 锁 L84-85 覆盖分支:timestamp 经 datetime_normalize 存 datetime(2025,1,2)。
+    # 若删掉该 if,entity.timestamp 回退 TimeMixin 默认(now)→ 此断言失败。
+    assert crud.added[0].timestamp == datetime.datetime(2025, 1, 2)
 
 
 class _BoomCrud:
