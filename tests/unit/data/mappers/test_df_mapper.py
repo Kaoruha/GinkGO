@@ -58,6 +58,8 @@ def test_enum_reflection_converts_frequency():
     assert "frequency" in mappings
     df = models_to_dataframe([model])
     assert "frequency" in df.columns
+    # 锁 in-place 转 enum(L70-81):删转换块则 frequency 列存 int64(非 enum),断言 FAIL。
+    assert isinstance(df.iloc[0]["frequency"], FREQUENCY_TYPES)
 
 
 def test_get_enum_mappings_object_without_table():
