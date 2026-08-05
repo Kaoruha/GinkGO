@@ -87,9 +87,12 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
 
         # 执行模式 - 自动转换枚举
         if execution_mode is not None:
-            self.execution_mode = EXECUTION_MODE.validate_input(execution_mode) or EXECUTION_MODE.PAPER.value
+            # validate_input 对 BACKTEST(0) 返 0(合法值);`or PAPER.value` 会误吞为 PAPER(2) → 仅 None 兜底
+            validated = EXECUTION_MODE.validate_input(execution_mode)
+            self.execution_mode = validated if validated is not None else EXECUTION_MODE.PAPER.value
         if account_type is not None:
-            self.account_type = ACCOUNT_TYPE.validate_input(account_type) or ACCOUNT_TYPE.PAPER.value
+            validated = ACCOUNT_TYPE.validate_input(account_type)
+            self.account_type = validated if validated is not None else ACCOUNT_TYPE.PAPER.value
 
         # 预期执行参数
         if expected_code is not None:
@@ -177,7 +180,9 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         self.strategy_id = strategy_id
         self.portfolio_id = portfolio_id
         self.execution_mode = EXECUTION_MODE.validate_input(execution_mode) or 0
-        self.account_type = ACCOUNT_TYPE.validate_input(account_type) or 1
+        # account_type: validate_input 对 BACKTEST(0) 返 0(合法值);`or 1` 会误吞为 PAPER(1) → 仅 None 兜底
+        validated = ACCOUNT_TYPE.validate_input(account_type)
+        self.account_type = validated if validated is not None else 1
         
         # 预期参数
         self.expected_code = expected_code
@@ -232,7 +237,8 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         self.strategy_id = df["strategy_id"]
         self.portfolio_id = df["portfolio_id"]
         self.execution_mode = EXECUTION_MODE.validate_input(df["execution_mode"]) or 0
-        self.account_type = ACCOUNT_TYPE.validate_input(df["account_type"]) or 1
+        validated = ACCOUNT_TYPE.validate_input(df["account_type"])
+        self.account_type = validated if validated is not None else 1
         
         # 预期参数
         self.expected_code = df["expected_code"]

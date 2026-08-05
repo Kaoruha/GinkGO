@@ -7,6 +7,8 @@ ENGINESTATUS.IDLE=0)返回 0。旧代码 `validate_input(x) or -1` 因 `0 or -1 
 修复(`validated = validate_input(x); x = validated if validated is not None else -1`)
 保留 0、仅对 None(无效输入)兜底 -1。本测试锁住该语义,防再被简化回 `or -1`。
 """
+import datetime
+
 import pytest
 
 from ginkgo.enums import (
@@ -18,8 +20,11 @@ from ginkgo.enums import (
     ORDER_TYPES,
     ORDERSTATUS_TYPES,
     ENGINESTATUS_TYPES,
+    ATTITUDE_TYPES,
+    EXECUTION_MODE,
+    ACCOUNT_TYPE,
 )
-from ginkgo.data.models import MBar, MSignal
+from ginkgo.data.models import MBar, MSignal, MEngine, MSignalTracker
 
 # 受影响 enum 及其 value-0 成员名(均会被旧 `or -1` 误吞)
 VALUE_ZERO = [
@@ -31,6 +36,9 @@ VALUE_ZERO = [
     (ORDER_TYPES, "OTHER"),
     (ORDERSTATUS_TYPES, "OTHER"),
     (ENGINESTATUS_TYPES, "IDLE"),
+    (ATTITUDE_TYPES, "OTHER"),
+    (EXECUTION_MODE, "BACKTEST"),
+    (ACCOUNT_TYPE, "BACKTEST"),
 ]
 
 
@@ -72,3 +80,27 @@ def test_msignal_direction_other_roundtrips():
     """模型层:MSignal(direction=OTHER).direction == 0。"""
     s = MSignal(code="000001.SZ", direction=DIRECTION_TYPES.OTHER)
     assert s.direction == 0
+
+
+def test_mengine_broker_attitude_other_roundtrips():
+    """模型层:MEngine(broker_attitude=OTHER).broker_attitude == 0(非 2)。"""
+    e = MEngine(broker_attitude=ATTITUDE_TYPES.OTHER)
+    assert e.broker_attitude == 0
+
+
+def test_msignal_tracker_backtest_zero_roundtrips():
+    """模型层:execution_mode/account_type 传 BACKTEST(0) 必须存 0,不被 PAPER 吞。"""
+    s = MSignalTracker(
+        signal_id="s1",
+        strategy_id="st1",
+        portfolio_id="p1",
+        execution_mode=EXECUTION_MODE.BACKTEST,
+        account_type=ACCOUNT_TYPE.BACKTEST,
+        expected_code="000001.SZ",
+        expected_direction=DIRECTION_TYPES.LONG,
+        expected_price=10.0,
+        expected_volume=100,
+        expected_timestamp=datetime.datetime(2025, 1, 1),
+    )
+    assert s.execution_mode == 0
+    assert s.account_type == 0

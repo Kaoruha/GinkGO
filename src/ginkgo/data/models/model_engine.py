@@ -81,7 +81,9 @@ class MEngine(MMysqlBase):
         self.backtest_start_date = backtest_start_date  # 新增时间范围字段赋值
         self.backtest_end_date = backtest_end_date      # 新增时间范围字段赋值
         if broker_attitude is not None:
-            self.broker_attitude = ATTITUDE_TYPES.validate_input(broker_attitude) or 2  # 默认OPTIMISTIC
+            # validate_input 对 OTHER(0) 返 0(合法值);`or 2` 会误吞为 OPTIMISTIC(2) → 仅 None 兜底
+            validated = ATTITUDE_TYPES.validate_input(broker_attitude)
+            self.broker_attitude = validated if validated is not None else 2
         if status is not None:
             # validate_input 对 OTHER(0) 返 0(合法值);`or -1` 会误吞为 -1 → 仅 None 兜底
             validated = ENGINESTATUS_TYPES.validate_input(status)
@@ -117,7 +119,8 @@ class MEngine(MMysqlBase):
             self.source = validated if validated is not None else -1
             del kwargs['source']
         if 'broker_attitude' in kwargs:
-            self.broker_attitude = ATTITUDE_TYPES.validate_input(kwargs['broker_attitude']) or 2
+            validated = ATTITUDE_TYPES.validate_input(kwargs['broker_attitude'])
+            self.broker_attitude = validated if validated is not None else 2
             del kwargs['broker_attitude']
         # 设置其他字段，包括run_count
         for key, value in kwargs.items():
