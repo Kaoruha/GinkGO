@@ -261,8 +261,11 @@ class _CoreCRUD(Generic[T], ABC):
             page_size: Number of items per page;底层即 SQL LIMIT（page 缺省时
                 等价 LIMIT page_size）。优先用此参数在 DB 层截断，避免取全量后
                 Python 切片（反模式，见 issue #6572 与 PR #6561 讨论）
-            order_by: Field name to order by
-            desc_order: Whether to use descending order
+            order_by: Field name to order by；支持 ``-`` 前缀表倒序（如
+                ``"-end_time"`` 等价 ``order_by="end_time", desc_order=True``）。
+                缺省时按默认序「最新在最前」：时序模型（含 ``business_timestamp``）
+                按业务时间倒序，关系模型按 ``create_at`` 倒序（见 #6884）。
+            desc_order: Whether to use descending order（显式 order_by 时生效）
             distinct_field: Field name for DISTINCT query (returns unique values of this field)
             session: Optional SQLAlchemy session to use for the operation.
 
@@ -513,6 +516,38 @@ class _CoreCRUD(Generic[T], ABC):
         GLOG.DEBUG(f"Added {len(validated_items)} {self.model_class.__name__} items in batch")
         return result
 
+    def _resolve_order(
+        self,
+        order_by: Optional[str],
+        desc_order: bool,
+    ) -> tuple:
+        """解析排序字段与方向，返回 (字段属性 or None, 是否倒序)。
+
+        - ``order_by`` 带 ``-`` 前缀（如 ``"-end_time"``）→ 倒序，前缀剥离后须为模型字段
+          （历史 bug：``hasattr(model, "-end_time")`` 恒 False → 倒序被静默忽略，见 #6884）
+        - ``order_by`` 显式给出且为模型字段 → 按其排序，方向由 ``desc_order`` 决定
+        - ``order_by`` 缺省 → 回退默认序「最新在最前」：时序模型按 ``business_timestamp``，
+          关系模型按 ``create_at``，二者皆无则不排序（保持旧行为）
+        - 显式给出但字段不存在 → WARNING 并回退默认序（typo 的响亮报错留给 #6885）
+        """
+        # 1. 显式 order_by（含 - 前缀归一）
+        if order_by:
+            negated = order_by.startswith("-")
+            field_name = order_by[1:] if negated else order_by
+            is_desc = desc_order or negated
+            if hasattr(self.model_class, field_name):
+                return getattr(self.model_class, field_name), is_desc
+            GLOG.WARNING(
+                f"order_by field '{order_by}' not on "
+                f"{self.model_class.__name__}; falling back to default order"
+            )
+        # 2. 默认序：最新在最前（business_timestamp → create_at → 无）
+        if hasattr(self.model_class, "business_timestamp"):
+            return getattr(self.model_class, "business_timestamp"), True
+        if hasattr(self.model_class, "create_at"):
+            return getattr(self.model_class, "create_at"), True
+        return None, True
+
     def _do_find(
         self,
         filters: Optional[Dict[str, Any]] = None,
@@ -574,13 +609,12 @@ class _CoreCRUD(Generic[T], ABC):
                 if filter_conditions:
                     query = query.filter(and_(*filter_conditions))
 
-            # Apply ordering
-            if order_by and hasattr(self.model_class, order_by):
-                order_field = getattr(self.model_class, order_by)
-                if desc_order:
-                    query = query.order_by(order_field.desc())
-                else:
-                    query = query.order_by(order_field)
+            # Apply ordering（默认「最新在最前」，见 _resolve_order / #6884）
+            order_field_attr, order_desc = self._resolve_order(order_by, desc_order)
+            if order_field_attr is not None:
+                query = query.order_by(
+                    order_field_attr.desc() if order_desc else order_field_attr
+                )
 
             # Apply pagination
             if page_size is not None:
