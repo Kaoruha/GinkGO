@@ -22,15 +22,17 @@ class _FakeAnalyzerCrud:
 
 def test_get_analyzer_values_df_returns_dataframe():
     """get_by_task_id 返列表 → models_to_dataframe（L156）。patch models_to_dataframe
-    返 DataFrame 以隔离 ORM 模型构造，专注覆盖 L156 出口分支。"""
+    返 DataFrame 以隔离 ORM 模型构造；补 ``assert_called_once`` 锁住 L156 真调了出口
+    转换——否则回退/跳过 models_to_dataframe（→ else pd.DataFrame()）测试仍绿(silent-pass)。"""
     svc = ResultService(analyzer_crud=_FakeAnalyzerCrud())
     with patch(
         "ginkgo.data.services.result_service.models_to_dataframe",
         return_value=pd.DataFrame(),
-    ):
+    ) as mock_m2df:
         res = svc.get_analyzer_values_df(task_id="t")
     assert res.success
     assert isinstance(res.data, pd.DataFrame)
+    mock_m2df.assert_called_once()  # 锁 L156 真调了 models_to_dataframe(回退跳过→mock 未调→FAIL)
 
 
 def test_create_order_record_delegates_to_container():

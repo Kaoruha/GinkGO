@@ -101,11 +101,14 @@ def test_create_order_record_delegates_to_crud():
 
 # ---------------- get_orders_df ----------------
 def test_get_orders_df_returns_dataframe():
-    """find→list → models_to_dataframe（L122）。"""
+    """find→[MOrder] → models_to_dataframe（L122）产非空 DF。补 ``assert not empty``
+    锁住出口真调了转换——回退/跳过 L122（→ else pd.DataFrame() 空 DF）则断言 FAIL
+    （silent-pass 防护，与 result/signal/position DF 出口同形）。"""
     svc = OrderService(crud_repo=_FakeCrud())
     res = svc.get_orders_df(portfolio_id="p")
     assert res.success
     assert isinstance(res.data, pd.DataFrame)
+    assert not res.data.empty  # 锁 L122 真产非空 DF(回退→空 DF→FAIL)
 
 
 # ---------------- except 分支（覆盖 L283-285 / L317-319）----------------

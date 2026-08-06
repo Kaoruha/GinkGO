@@ -44,11 +44,14 @@ def test_save_positions_persists_via_mapper():
 
 
 def test_get_positions_df_returns_dataframe():
-    """get_positions_df：find → models_to_dataframe（L128）。"""
+    """get_positions_df：find→[MPosition] → models_to_dataframe（L128）产非空 DF。
+    补 ``assert not empty`` 锁住出口真调了转换——回退/跳过 L128（→ else pd.DataFrame()
+    空 DF）则断言 FAIL（silent-pass 防护，与 result/signal/order DF 出口同形）。"""
     svc = PositionService(crud_repo=_FakeCrud())
     res = svc.get_positions_df(portfolio_id="p")
     assert res.success
     assert isinstance(res.data, pd.DataFrame)
+    assert not res.data.empty  # 锁 L128 真产非空 DF(回退→空 DF→FAIL)
 
 
 def test_upsert_position_create_branch():

@@ -42,11 +42,14 @@ def test_add_signal_persists_via_mapper():
 
 
 def test_get_signals_df_returns_dataframe():
-    """get_signals_df：find→list → models_to_dataframe（L216）。"""
+    """get_signals_df：find→[MSignal()] → models_to_dataframe（L216）产非空 DF。
+    补 ``assert not empty`` 锁住出口真调了转换——回退/跳过 L216（→ else pd.DataFrame()
+    空 DF）则断言 FAIL（silent-pass 防护，与 result_service DF 出口同形）。"""
     svc = SignalService(crud_repo=_FakeCrud())
     res = svc.get_signals_df(engine_id="e")
     assert res.success
     assert isinstance(res.data, pd.DataFrame)
+    assert not res.data.empty  # 锁 L216 真产非空 DF(回退→空 DF→FAIL)
 
 
 def test_add_signal_with_explicit_timestamp():
