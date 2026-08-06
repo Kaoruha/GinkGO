@@ -13,7 +13,7 @@
 
 - PAPER 与 LIVE 的差异（模拟成交 vs 真实下单）属于 **Broker / Gateway 层**，不进引擎。
 - `EXECUTION_MODE` 枚举**保持四态不变**——PAPER / PAPER_MANUAL 在 Broker/Gateway 层仍有意义。
-- 旧 `LiveEngine` 已废弃，统一为 `TimeControlledEventEngine(mode=EXECUTION_MODE.LIVE)`。
+- 旧 `LiveEngine` 已废弃，统一为 `TimeControlledEventEngine(mode=EXECUTION_MODE.LIVE)`。（⟵ [ADR-039](ADR-039-liveengine-removal-distributed-live.md) 进一步：正式放弃"mode=LIVE 接管实盘"目标，实盘走 ExecutionNode 分布式；本条仅保留"引擎层 LIVE 与 PAPER 等价"语义，不承诺实盘跑在事件引擎上。）
 
 ## Rationale
 
@@ -24,4 +24,4 @@
 
 - 引擎代码中新增逻辑时，用 `if BACKTEST / else`，不要引入 `elif PAPER` 分支。
 - 若未来确需引擎层区分 PAPER/LIVE，**说明关注点放错了层级**，应下沉到 Broker/Gateway。
-- 详见 `src/ginkgo/trading/engines/time_controlled_engine.py` 与废弃的 `src/ginkgo/livecore/live_engine.py`。
+- 详见 `src/ginkgo/trading/engines/time_controlled_engine.py`；`livecore/live_engine.py` 已由 [ADR-039](ADR-039-liveengine-removal-distributed-live.md) 清理移除。
