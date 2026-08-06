@@ -26,3 +26,7 @@
 - 获取全局服务统一走 `services` 或 `service_hub`，不直接 `import` 服务实现类的模块级实例。
 - 新增全局服务时，注册到对应域的 `service_hub` 分层下，并在 `services` 公共接口按需导出。
 - 重构时禁止擅自修改 Base 类（BaseCRUD / BaseService），在具体实现层处理。
+  - **已授权例外（须 HITL 背书，见对应 ADR）**：
+    - [ADR-029](ADR-029-basecrud-hook-retirement.md)：BaseCRUD 转换钩子族 + `ModelList` 退役（line 28 立下以来的首次例外）。
+    - [ADR-031](ADR-031-enum-mapping-field-info-sink.md)：`_conversion._get_enum_mappings` 默认实现改为反射 `__table__.columns`。
+  - 新增例外须先立 ADR 并获 HITL 背书，不得默认沿用。

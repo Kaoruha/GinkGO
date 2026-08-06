@@ -14,7 +14,7 @@ Ginkgo 同时处理海量时序行情、关系型实体、热缓存、非结构�
 | 数据库 | 角色 | 存什么 |
 |---|---|---|
 | ClickHouse | 时序 | K线、Tick、行情、回测逐笔 |
-| MySQL | 关系 | Portfolio、组件、回测记录、用户配置 |
+| MySQL | 关系 | Portfolio、组件、回测记录、用户配置（注：`MOrder`/`MSignalTracker` 活状态写入当前休眠，见 [ADR-032](ADR-032-persistence-model-basesplit.md)/[034](ADR-034-signal-cross-store-namesake.md)） |
 | Redis | 缓存 | 热数据、会话、跨进程快取 |
 | MongoDB | 文档 | 非结构化/半结构化文档 |
 

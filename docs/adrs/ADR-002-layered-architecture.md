@@ -1,7 +1,9 @@
 # ADR-002: 分层架构 API/CLI → Service → CRUD → DB
 
-**Status:** Accepted
+**Status:** Accepted（CRUD 返回类型条款 §3 修订 by [ADR-029](ADR-029-basecrud-hook-retirement.md)）
 **Date:** 2026-06-13
+
+> **演进说明（ADR-029，2026-08-02）**：§3 "CRUD 返回 `ModelList`" 条款已修订——`ModelList` 退役，CRUD 改返 `list[Model]`，DataFrame 转换走独立 `models_to_dataframe`。本 ADR 的四层单向分层不变，仅 CRUD 出口类型更新。详见 [ADR-029](ADR-029-basecrud-hook-retirement.md) §D9。
 
 ## Context
 
@@ -19,13 +21,13 @@ API / CLI → Service → CRUD → DB
 
 1. **API 禁止直接调 CRUD**，必须通过 Service。
 2. **Service 禁止暴露 CRUD 实例**，只返回业务结果或数据传输对象。
-3. **CRUD 返回 `ModelList`**（ORM 模型集合），由调用方按需转换；不在 CRUD 层做 DTO 序列化。
+3. ~~**CRUD 返回 `ModelList`**~~（⟵ ADR-029 修订：退役为 `list[Model]`，DF 走 `models_to_dataframe`）——ORM 模型集合由调用方按需转换；不在 CRUD 层做 DTO 序列化。
 
 ## Rationale
 
 - 业务规则集中在 Service 层，API / CLI / Web-UI 三种入口共享同一套规则。
 - CRUD 实例不外泄，DB session 生命周期完全由 CRUD 内部管理。
-- CRUD 返回 `ModelList` 保持数据层"纯读写"，转换职责上推，避免 CRUD 被各种 DTO 形态污染。
+- CRUD 返回 ORM `list[Model]`（ADR-029 起，原 `ModelList` 退役）保持数据层"纯读写"，转换职责上推，避免 CRUD 被各种 DTO 形态污染。
 
 ## Consequences
 
