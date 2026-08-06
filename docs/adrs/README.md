@@ -53,6 +53,7 @@
 | ADR-038 | [日志表 TTL 自动清理（ginkgo_logs_* 三表 TTL 接线 + 存量 drop/reseed）](ADR-038-log-table-ttl-cleanup.md) | Accepted | 2026-07-29 |
 | ADR-039 | [实盘走 ExecutionNode 分布式，移除 LiveEngine 迁移孤儿](ADR-039-liveengine-removal-distributed-live.md) | Accepted | 2026-07-29 |
 | ADR-040 | [BaseCRUD interface 诚实收口（授权 Base 类变更）](ADR-040-basecrud-interface-honest-cleanup.md) | Accepted | 2026-08-05 |
+| ADR-041 | [三链路 Portfolio 契约统一（回测/模拟/实盘同源成本模型）](ADR-041-portfolio-contract-unify-three-paths.md) | Accepted（D1；D2/D3 draft） | 2026-07-29 |
 
 ## 如何新增 / 修订
 
