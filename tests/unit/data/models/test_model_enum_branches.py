@@ -118,6 +118,20 @@ def test_stock_info_update_str_enum_branches():
     assert si.source == SOURCE_TYPES.MANUAL.value
 
 
+def test_stock_info_update_str_other_zero_not_swallowed():
+    """currency/market/source=OTHER(0) 保真（旧 ``or -1`` 会吞成 -1）。
+
+    MStockInfo 是 4 个 enum model 里此前唯一无 0 值锚点的；补此锁使
+    tick/signal/stockinfo 对称。回退 I-2 fix（``validated or -1``）则
+    0 被 falsy 吞成 -1，三断言 FAIL。
+    """
+    si = MStockInfo("000001")
+    si.update("000001", currency=0, market=0, source=0)
+    assert si.currency == 0
+    assert si.market == 0
+    assert si.source == 0
+
+
 def test_stock_info_update_series_enum_branches():
     """update(pd.Series)：currency/market 必填 + source 可选分支。"""
     si = MStockInfo("000001")
