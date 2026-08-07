@@ -23,6 +23,7 @@
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
+from ginkgo.trading.bases.portfolio_info_access import get_positions, total_market_value
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.entities.mixins import LotAlignableMixin
@@ -263,12 +264,12 @@ class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
         Returns:
             float: 投资组合波动率
         """
-        positions = portfolio_info.get("positions", {})
+        positions = get_positions(portfolio_info)
         if not positions:
             return 0.0
 
         # 计算各股票的波动率和权重
-        total_value = sum(pos.market_value for pos in positions.values() if pos and pos.market_value)
+        total_value = total_market_value(portfolio_info)
         if total_value <= 0:
             return 0.0
 
