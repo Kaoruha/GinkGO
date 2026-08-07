@@ -292,18 +292,21 @@ class _CoreCRUD(Generic[T], ABC):
             GLOG.ERROR(f"Failed to find {self.model_class.__name__} items: {e}")
             return []
 
-    def remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> None:
+    def remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> int:
         """
-        Template method: Remove items by filters.
+        Template method: Remove items by filters, return deleted row count.
         Subclasses should override _do_remove() instead.
 
         Args:
             filters: Dictionary of field -> value filters for deletion
             session: Optional SQLAlchemy session to use for the operation.
+
+        Returns:
+            int: 实际删除的行数；空过滤（安全拒绝）返回 0。
         """
         if not filters:
             GLOG.ERROR("Remove operation requires filters for safety")
-            return
+            return 0
 
         try:
             return self._do_remove(filters, session)
@@ -637,9 +640,18 @@ class _CoreCRUD(Generic[T], ABC):
             # 出站转换（Entity/DF）由 service 层走 Mapper / models_to_dataframe。
             return results
 
-    def _do_remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> None:
-        """
-        Hook method: Override to customize remove logic.
+    def _do_remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> int:
+        """Hook method: 按过滤条件删除记录，返回删除行数。Override to customize remove logic.
+
+        Returns:
+            int: 实际删除的行数；过滤条件未命中任何字段时返回 0。
+
+        方言分叉说明（issue #6469，非缺陷——两库抽象层级不同）：
+        ClickHouse 的 MergeTree 引擎不支持 SQLAlchemy ORM 的 update/delete，
+        只能走原生 ``text("DELETE FROM ...")`` 并自行解析操作符（gte/lte/in/like）；
+        MySQL 走 ORM ``delete().where(...)`` 并复用 ``_parse_filters`` 的富操作符解析。
+        两者**不可合并**——强行统一会把 ClickHouse 推到 ORM 路径上直接抛错。
+        契约层（返回值）必须一致：均返回 ``int``（删除行数），调用方据此对账。
         """
         with self._session_scope(session) as s:
             if self._is_clickhouse:
@@ -685,10 +697,14 @@ class _CoreCRUD(Generic[T], ABC):
                             params[param_name] = value
 
                 if sql_parts:
-                    s.execute(
+                    result = s.execute(
                         text(f"DELETE FROM {self.model_class.__tablename__} WHERE {' AND '.join(sql_parts)}"), params
                     )
-                    GLOG.DEBUG(f"Deleted {self.model_class.__name__} records from ClickHouse")
+                    deleted_rows = result.rowcount if result else 0
+                    GLOG.DEBUG(f"Deleted {deleted_rows} {self.model_class.__name__} records from ClickHouse")
+                    return deleted_rows
+                GLOG.DEBUG(f"No filter conditions matched for ClickHouse delete operation")
+                return 0
             else:
                 # MySQL can use SQLAlchemy ORM with enhanced filters
                 filter_conditions = self._parse_filters(filters)

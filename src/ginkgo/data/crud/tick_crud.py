@@ -72,6 +72,15 @@ class TickCRUD:
     - 唯一入口：一个实例处理所有股票代码
     - DF 转换走 ``ginkgo.data.mappers.models_to_dataframe``
 
+    为何不继承 BaseCRUD（issue #6469 抽象盲区裁决——退出继承是刻意特例，非缺陷）：
+    BaseCRUD 的 ``_model_class`` 是**类级**属性，在 ``__init_subclass__`` 定义期
+    绑定单一 Model；而 TickCRUD 按 ``code`` 分区，每个股票代码对应一张独立动态表，
+    Model 在运行时按 ``code`` 解析生成（见 ``get_or_create_tick_model``）。
+    「类级单一 Model」与「运行时多 Model」在抽象层面互斥——强行塞回 BaseCRUD
+    要么牺牲分区隔离、要么架空 ``_model_class`` 注册校验。故 TickCRUD 独立实现
+    标准接口（duck typing），在 ``__init_subclass__`` 的豁免名单（``_exempt_classes``）
+    中显式登记。这是对动态表结构的**有意识抽象让步**。
+
     Usage:
     # 创建唯一入口
     tick_crud = TickCRUD()
