@@ -270,6 +270,8 @@ jobs:
         # 无 step 级/pytest 级超时 → 任一 hang 即无限占用 runner。
         #   --timeout=300：单测试卡 300s 即失败 + dump 该测试 traceback 定位 hang 点
         #   （pytest-timeout 已是 required_plugin；thread 法，CI 通用）。
+        # #6475 权益分析器 smoke 扩展：worth 口径统一覆盖（8 分析器 + worth_delta +
+        # portfolio_info_access）。纯计算无 DB，单进程安全，与上方 mock 子集并列。
         run: |
           uv run python -m pytest \
             tests/unit/data/crud/test_user_crud_mock.py \
@@ -319,6 +321,16 @@ jobs:
             tests/unit/client/test_backtest_cli_fill_price_policy.py \
             tests/unit/trading/brokers/test_sim_broker_reproducibility.py \
             tests/unit/workers/test_paper_trading_worker_slippage_smoke.py \
+            tests/unit/backtest/analyzers/test_profit.py \
+            tests/unit/backtest/analyzers/test_consecutive_pnl.py \
+            tests/unit/backtest/analyzers/test_sharpe_ratio.py \
+            tests/unit/backtest/analyzers/test_skew_kurtosis.py \
+            tests/unit/backtest/analyzers/test_sortino_ratio.py \
+            tests/unit/backtest/analyzers/test_var_cvar.py \
+            tests/unit/backtest/analyzers/test_volatility.py \
+            tests/unit/backtest/analyzers/test_win_rate.py \
+            tests/unit/trading/analysis/test_worth_delta.py \
+            tests/unit/trading/bases/test_portfolio_info_access.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \
