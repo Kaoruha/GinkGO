@@ -1,5 +1,5 @@
 # Upstream: Portfolio (ENDDAY stage), DeviationChecker
-# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, pandas, numpy
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, worth_delta, get_worth, pandas, numpy
 # Role: 连续盈亏分析器 — 记录最大连续盈利/亏损天数及金额，存储当前连续亏损天数
 
 
