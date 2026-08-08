@@ -1,10 +1,11 @@
 # Upstream: Portfolio (ENDDAY stage), BASIC_ANALYZERS
-# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, numpy
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, worth_delta, get_worth, numpy
 # Role: 夏普比率分析器 — 日收益率标准方法，(mean_excess / std) * sqrt(252)
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.libs.data.number import to_decimal
+from ginkgo.trading.analysis.worth_delta import worth_delta
+from ginkgo.trading.bases.portfolio_info_access import get_worth
 from ginkgo.enums import RECORDSTAGE_TYPES
 import numpy as np
 
@@ -39,15 +40,14 @@ class SharpeRatio(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """计算夏普比率"""
-        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
+        current_worth = get_worth(portfolio_info)
+        delta = worth_delta(current_worth, self._last_worth)
 
-        if self._last_worth is None:
-            self._last_worth = current_worth
+        if delta is None:
             sharpe_ratio = 0.0
         else:
-            if self._last_worth > 0:
-                daily_return = (current_worth - self._last_worth) / self._last_worth
-                self._returns.append(daily_return)
+            if delta.return_ is not None:
+                self._returns.append(delta.return_)
 
                 if len(self._returns) >= 10:
                     returns_array = np.array(self._returns)
@@ -68,8 +68,7 @@ class SharpeRatio(BaseAnalyzer):
             else:
                 sharpe_ratio = 0.0
 
-            self._last_worth = current_worth
-
+        self._last_worth = current_worth
         self.add_data(sharpe_ratio)
 
     @property

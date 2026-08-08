@@ -6,11 +6,13 @@
 - current_price: 替换 concentration 的 portfolio_info["prices"] 导航
 - pnl_ratio: dict/object 双兼容,修复 profit_target 读字段 bug
 """
+from decimal import Decimal
 from types import SimpleNamespace
 
 from ginkgo.trading.bases.portfolio_info_access import (
     current_price,
     get_positions,
+    get_worth,
     pnl_ratio,
     total_market_value,
 )
@@ -118,3 +120,27 @@ class TestPnlRatio:
     def test_none_returns_zero(self):
         """defensive: position 查不到时不崩。"""
         assert pnl_ratio(None) == 0
+
+
+# ---------------------------- get_worth ----------------------------
+
+class TestGetWorth:
+    def test_returns_decimal_native(self):
+        """worth 原生 Decimal 保留(与 total_market_value 一致),分析器按需 float 化。"""
+        assert get_worth({"worth": Decimal("10000")}) == Decimal("10000")
+
+    def test_returns_float_native(self):
+        assert get_worth({"worth": 10000.0}) == 10000.0
+
+    def test_missing_returns_zero(self):
+        """缺 worth 键返回 0(与原 .get('worth', 0) 一致)。"""
+        assert get_worth({}) == 0
+
+    def test_none_returns_zero(self):
+        """worth=None 兜 0(原裸读会拿到 None,后续浮点化会崩)。"""
+        assert get_worth({"worth": None}) == 0
+
+    def test_zero_preserved(self):
+        """worth=0 合法(空组合),原样保留不抖类型。"""
+        assert get_worth({"worth": 0}) == 0
+        assert get_worth({"worth": Decimal("0")}) == Decimal("0")
