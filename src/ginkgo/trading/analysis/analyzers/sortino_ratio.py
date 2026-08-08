@@ -1,5 +1,5 @@
 # Upstream: Portfolio (ENDDAY stage)
-# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, pandas, numpy
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, worth_delta, get_worth, pandas, numpy
 # Role: 索提诺比率分析器 — 仅用下行标准差计算风险调整收益，年化后输出
 
 
@@ -8,7 +8,8 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.libs.data.number import to_decimal
+from ginkgo.trading.analysis.worth_delta import worth_delta
+from ginkgo.trading.bases.portfolio_info_access import get_worth
 from ginkgo.enums import RECORDSTAGE_TYPES
 import numpy as np
 
@@ -34,25 +35,23 @@ class SortinoRatio(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """计算索提诺比率"""
-        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
+        current_worth = get_worth(portfolio_info)
+        delta = worth_delta(current_worth, self._last_worth)
 
-        if self._last_worth is None:
-            self._last_worth = current_worth
+        if delta is None:
             sortino_ratio = 0.0
         else:
-            # 计算日收益率
-            if self._last_worth > 0:
-                daily_return = (current_worth - self._last_worth) / self._last_worth
-                self._returns.append(daily_return)
-                
+            if delta.return_ is not None:
+                self._returns.append(delta.return_)
+
                 # 计算索提诺比率 (需要至少10个数据点)
                 if len(self._returns) >= 10:
                     returns_array = np.array(self._returns)
-                    
+
                     # 计算平均超额收益
                     excess_returns = returns_array - self._risk_free_rate
                     mean_excess_return = np.mean(excess_returns)
-                    
+
                     # 计算下行标准差 (只考虑负超额收益)
                     negative_excess_returns = excess_returns[excess_returns < 0]
                     if len(negative_excess_returns) > 0:
@@ -61,16 +60,15 @@ class SortinoRatio(BaseAnalyzer):
                     else:
                         # 没有负收益，设为一个大的正值
                         sortino_ratio = mean_excess_return / 0.0001 if mean_excess_return > 0 else 0
-                    
+
                     # 年化索提诺比率
                     sortino_ratio = sortino_ratio * np.sqrt(252)
                 else:
                     sortino_ratio = 0.0
             else:
                 sortino_ratio = 0.0
-            
-            self._last_worth = current_worth
-        
+
+        self._last_worth = current_worth
         self.add_data(sortino_ratio)
 
     @property

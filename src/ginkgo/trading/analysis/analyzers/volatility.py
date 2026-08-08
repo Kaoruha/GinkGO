@@ -1,5 +1,5 @@
 # Upstream: Portfolio (ENDDAY stage), BASIC_ANALYZERS
-# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, pandas, numpy
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, worth_delta, get_worth, pandas, numpy
 # Role: 波动率分析器 — 滚动窗口计算日收益率样本标准差并年化（sqrt(252)）
 
 
@@ -8,7 +8,8 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.libs.data.number import to_decimal
+from ginkgo.trading.analysis.worth_delta import worth_delta
+from ginkgo.trading.bases.portfolio_info_access import get_worth
 from ginkgo.enums import RECORDSTAGE_TYPES
 import numpy as np
 
@@ -34,21 +35,19 @@ class Volatility(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """计算波动率"""
-        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
+        current_worth = get_worth(portfolio_info)
+        delta = worth_delta(current_worth, self._last_worth)
 
-        if self._last_worth is None:
-            self._last_worth = current_worth
+        if delta is None:
             volatility = 0.0
         else:
-            # 计算日收益率
-            if self._last_worth > 0:
-                daily_return = (current_worth - self._last_worth) / self._last_worth
-                self._returns.append(daily_return)
-                
+            if delta.return_ is not None:
+                self._returns.append(delta.return_)
+
                 # 保持窗口大小
                 if len(self._returns) > self._window:
                     self._returns.pop(0)
-                
+
                 # 计算波动率 (需要至少2个数据点)
                 if len(self._returns) >= 2:
                     returns_array = np.array(self._returns)
@@ -60,9 +59,8 @@ class Volatility(BaseAnalyzer):
                     volatility = 0.0
             else:
                 volatility = 0.0
-            
-            self._last_worth = current_worth
-        
+
+        self._last_worth = current_worth
         self.add_data(volatility)
 
     @property

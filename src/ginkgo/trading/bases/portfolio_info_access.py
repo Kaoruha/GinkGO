@@ -97,3 +97,22 @@ def pnl_ratio(position: Any) -> Any:
     if isinstance(position, dict):
         return position.get("profit_loss_ratio", 0) or 0
     return getattr(position, "profit_loss_ratio", 0) or 0
+
+
+def get_worth(portfolio_info: Dict[str, Any]) -> Any:
+    """归一取出 worth(组合净值),保留原生类型。
+
+    替换 8 个权益分析器重复的 worth 读取(口径分歧):
+        float(to_decimal(portfolio_info.get("worth", 0)))   # 包装口径
+        portfolio_info.get("worth", 0)                       # 裸读口径
+    统一为单点读取,保留 worth 原生类型(Decimal,与 total_market_value 一致);
+    分析器需 float 时由 worth_delta 入参 float 化,不在本函数转。
+
+    Args:
+        portfolio_info: 组件收到的 portfolio_info dict
+
+    Returns:
+        worth 值(通常 Decimal);缺失/None 返回 0,永不 None
+    """
+    worth = portfolio_info.get("worth", 0)
+    return worth if worth is not None else 0

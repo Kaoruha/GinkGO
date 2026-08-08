@@ -1,5 +1,5 @@
 # Upstream: Portfolio (ENDDAY stage), BASIC_ANALYZERS
-# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, pandas, numpy
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, worth_delta, get_worth, pandas, numpy
 # Role: 胜率分析器 — 统计盈利日占比（胜率）和平均盈利/平均亏损比（盈亏比）
 
 
@@ -8,7 +8,8 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.libs.data.number import to_decimal
+from ginkgo.trading.analysis.worth_delta import worth_delta
+from ginkgo.trading.bases.portfolio_info_access import get_worth
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 
@@ -34,17 +35,15 @@ class WinRate(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """计算胜率"""
-        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
+        current_worth = get_worth(portfolio_info)
+        delta = worth_delta(current_worth, self._last_worth)
 
-        if self._last_worth is None:
-            self._last_worth = current_worth
+        if delta is None:
             win_rate = 0.0
         else:
-            # 计算日收益
-            if self._last_worth > 0:
-                daily_pnl = current_worth - self._last_worth
-                daily_return = daily_pnl / self._last_worth
-                self._returns.append(daily_return)
+            if delta.return_ is not None:
+                self._returns.append(delta.return_)
+                daily_pnl = delta.pnl
 
                 # 统计盈亏
                 if daily_pnl > 0:
@@ -53,7 +52,7 @@ class WinRate(BaseAnalyzer):
                 elif daily_pnl < 0:
                     self._loss_count += 1
                     self._total_loss += abs(daily_pnl)
-                
+
                 # 计算胜率
                 total_trades = self._win_count + self._loss_count
                 if total_trades > 0:
@@ -62,9 +61,8 @@ class WinRate(BaseAnalyzer):
                     win_rate = 0.0
             else:
                 win_rate = 0.0
-            
-            self._last_worth = current_worth
-        
+
+        self._last_worth = current_worth
         self.add_data(win_rate)
 
     @property

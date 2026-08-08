@@ -1,5 +1,5 @@
 # Upstream: Portfolio (ENDDAY stage)
-# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, pandas, numpy
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, worth_delta, get_worth, pandas, numpy
 # Role: VaR/CVaR分析器 — 历史模拟法计算风险价值和条件风险价值，年化后输出
 
 
@@ -8,6 +8,8 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.trading.analysis.worth_delta import worth_delta
+from ginkgo.trading.bases.portfolio_info_access import get_worth
 from ginkgo.enums import RECORDSTAGE_TYPES
 import numpy as np
 
@@ -34,38 +36,35 @@ class VarCVar(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """计算VaR值（存储为负值表示风险）"""
-        current_worth = portfolio_info.get("worth", 0)
-        
-        if self._last_worth is None:
-            self._last_worth = current_worth
+        current_worth = get_worth(portfolio_info)
+        delta = worth_delta(current_worth, self._last_worth)
+
+        if delta is None:
             var_value = 0.0
         else:
-            # 计算日收益率
-            if self._last_worth > 0:
-                daily_return = (current_worth - self._last_worth) / self._last_worth
-                self._returns.append(daily_return)
-                
+            if delta.return_ is not None:
+                self._returns.append(delta.return_)
+
                 # 保持窗口大小
                 if len(self._returns) > self._window:
                     self._returns.pop(0)
-                
+
                 # 计算VaR (需要至少20个数据点)
                 if len(self._returns) >= 20:
                     returns_array = np.array(self._returns)
-                    
+
                     # 计算VaR (历史模拟法)
                     var_percentile = (1 - self._confidence_level) * 100
                     var_value = np.percentile(returns_array, var_percentile)
-                    
+
                     # 年化VaR (存储为负值表示风险)
                     var_value = var_value * np.sqrt(252)
                 else:
                     var_value = 0.0
             else:
                 var_value = 0.0
-            
-            self._last_worth = current_worth
-        
+
+        self._last_worth = current_worth
         self.add_data(var_value)
 
     @property

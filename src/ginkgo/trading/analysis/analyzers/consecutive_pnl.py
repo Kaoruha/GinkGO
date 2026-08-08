@@ -1,5 +1,5 @@
 # Upstream: Portfolio (ENDDAY stage), DeviationChecker
-# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, pandas, numpy
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, worth_delta, get_worth, pandas, numpy
 # Role: 连续盈亏分析器 — 记录最大连续盈利/亏损天数及金额，存储当前连续亏损天数
 
 
@@ -8,6 +8,8 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.trading.analysis.worth_delta import worth_delta
+from ginkgo.trading.bases.portfolio_info_access import get_worth
 from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd
 import numpy as np
@@ -45,14 +47,14 @@ class ConsecutivePnL(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """计算连续盈亏统计，存储当前连续亏损天数"""
-        current_worth = portfolio_info.get("worth", 0)
+        current_worth = get_worth(portfolio_info)
+        delta = worth_delta(current_worth, self._last_worth)
 
-        if self._last_worth is None:
-            self._last_worth = current_worth
+        if delta is None:
             consecutive_losses = 0
         else:
             # 计算日盈亏
-            daily_pnl = current_worth - self._last_worth
+            daily_pnl = delta.pnl
 
             if daily_pnl > 0:
                 # 盈利日
@@ -100,8 +102,8 @@ class ConsecutivePnL(BaseAnalyzer):
 
             # 存储当前连续亏损天数（主要指标）
             consecutive_losses = self._current_loss_streak
-            self._last_worth = current_worth
 
+        self._last_worth = current_worth
         self.add_data(consecutive_losses)
 
     @property

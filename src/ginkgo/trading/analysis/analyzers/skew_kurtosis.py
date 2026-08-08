@@ -1,5 +1,5 @@
 # Upstream: Portfolio (ENDDAY stage)
-# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, pandas, numpy, scipy.stats
+# Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, worth_delta, get_worth, pandas, numpy, scipy.stats
 # Role: 偏度/峰度分析器 — 滚动窗口计算收益率分布偏度（右/左偏）和峰度（尖峭/平坦）
 
 
@@ -8,6 +8,8 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.trading.analysis.worth_delta import worth_delta
+from ginkgo.trading.bases.portfolio_info_access import get_worth
 from ginkgo.enums import RECORDSTAGE_TYPES
 import numpy as np
 from scipy import stats
@@ -34,21 +36,19 @@ class SkewKurtosis(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """计算偏度值（存储偏度，峰度通过属性获取）"""
-        current_worth = portfolio_info.get("worth", 0)
-        
-        if self._last_worth is None:
-            self._last_worth = current_worth
+        current_worth = get_worth(portfolio_info)
+        delta = worth_delta(current_worth, self._last_worth)
+
+        if delta is None:
             skewness = 0.0
         else:
-            # 计算日收益率
-            if self._last_worth > 0:
-                daily_return = (current_worth - self._last_worth) / self._last_worth
-                self._returns.append(daily_return)
-                
+            if delta.return_ is not None:
+                self._returns.append(delta.return_)
+
                 # 保持窗口大小
                 if len(self._returns) > self._window:
                     self._returns.pop(0)
-                
+
                 # 计算偏度 (需要至少30个数据点)
                 if len(self._returns) >= 30:
                     returns_array = np.array(self._returns)
@@ -57,9 +57,8 @@ class SkewKurtosis(BaseAnalyzer):
                     skewness = 0.0
             else:
                 skewness = 0.0
-            
-            self._last_worth = current_worth
-        
+
+        self._last_worth = current_worth
         self.add_data(skewness)
 
     @property
