@@ -13,6 +13,7 @@ import pytest
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import Mock, patch
+from types import SimpleNamespace
 import uuid
 
 from ginkgo.trading.risk_management.profit_target_risk import ProfitTargetRisk
@@ -197,6 +198,10 @@ class TestProfitLimitRiskThresholds:
     def test_profit_above_limit_generates_signal(self):
         """Test signal generation when profit exceeds threshold."""
         risk = ProfitTargetRisk(profit_target=0.15)
+        # 模拟引擎装配:create_signal 从 _context 自动填充信号 portfolio_id/engine_id
+        risk._context = SimpleNamespace(
+            portfolio_id="test_portfolio_id", engine_id="profit_target_risk", task_id=None
+        )
 
         # 16% profit (exceeds 15% threshold)
         position = _make_dict_position(profit_loss_ratio=0.16)
@@ -205,7 +210,7 @@ class TestProfitLimitRiskThresholds:
         )
         event = _make_price_event()
 
-        with patch("ginkgo.trading.risk_management.profit_target_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             mock_signal = Mock()
             MockSignal.return_value = mock_signal
 
@@ -252,7 +257,7 @@ class TestProfitLimitRiskThresholds:
         )
         event = _make_price_event()
 
-        with patch("ginkgo.trading.risk_management.profit_target_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             MockSignal.return_value = Mock()
 
             signals = risk.generate_signals(portfolio_info, event)
@@ -340,7 +345,7 @@ class TestProfitLimitRiskFinancialAccuracy:
         )
         event = _make_price_event()
 
-        with patch("ginkgo.trading.risk_management.profit_target_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             MockSignal.return_value = Mock()
 
             signals = risk.generate_signals(portfolio_info, event)
@@ -366,7 +371,7 @@ class TestProfitLimitRiskFinancialAccuracy:
         )
         event = _make_price_event()
 
-        with patch("ginkgo.trading.risk_management.profit_target_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             mock_signal = Mock()
             MockSignal.return_value = mock_signal
 
@@ -407,7 +412,7 @@ class TestProfitLimitRiskMultiplePositions:
         # Event for stock 2 (above threshold)
         event2 = _make_price_event(code="000002.SZ")
 
-        with patch("ginkgo.trading.risk_management.profit_target_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             mock_signal = Mock()
             MockSignal.return_value = mock_signal
 

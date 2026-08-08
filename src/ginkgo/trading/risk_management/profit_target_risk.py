@@ -21,6 +21,7 @@ from decimal import Decimal
 from typing import Dict, List, Any
 
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
+from ginkgo.trading.bases.portfolio_info_access import get_positions, pnl_ratio
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
 from ginkgo.trading.events.base_event import EventBase
@@ -89,13 +90,15 @@ class ProfitTargetRisk(BaseRiskManagement):
         signals = []
 
         # 检查是否有该股票的持仓
-        if not hasattr(event, 'code') or event.code not in portfolio_info.get('positions', {}):
+        positions = get_positions(portfolio_info)
+        if not hasattr(event, 'code') or event.code not in positions:
             return signals
 
-        position = portfolio_info['positions'][event.code]
+        position = positions[event.code]
 
-        # #3957 计算当前盈利比例 - Position 对象使用 getattr 而非 dict.get
-        current_profit_ratio = getattr(position, 'profit_loss_ratio', 0)
+        # 计算当前盈利比例 - 经 portfolio_info_access.pnl_ratio 统一读取
+        # (#6470 修复:原 getattr(position, 'profit_loss_ratio', 0) 在 dict 形态恒 0,止盈永不触发)
+        current_profit_ratio = pnl_ratio(position)
 
         # 检查是否达到止盈目标
         if current_profit_ratio >= self.profit_target:

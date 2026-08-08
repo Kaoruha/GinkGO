@@ -8,6 +8,7 @@ import pytest
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import Mock, patch, MagicMock
+from types import SimpleNamespace
 import uuid
 
 from ginkgo.trading.risk_management.loss_limit_risk import LossLimitRisk
@@ -221,6 +222,10 @@ class TestLossLimitRiskThresholds:
     def test_loss_above_limit_generates_signal(self):
         """Test signal generation when loss exceeds threshold."""
         risk = _make_risk()
+        # 模拟引擎装配:create_signal 从 _context 自动填充信号 portfolio_id/engine_id
+        risk._context = SimpleNamespace(
+            portfolio_id="test_portfolio_id", engine_id="test_engine_id", task_id=None
+        )
 
         position = _make_position(cost="10.0")
         event = _make_price_event(close="8.4", open_="8.5", high="8.6", low="8.2")
@@ -229,7 +234,7 @@ class TestLossLimitRiskThresholds:
         )
 
         # Patch Signal to bypass task_id validation and capture the args
-        with patch("ginkgo.trading.risk_management.loss_limit_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             mock_signal = Mock()
             MockSignal.return_value = mock_signal
 
@@ -245,7 +250,7 @@ class TestLossLimitRiskThresholds:
             assert call_kwargs["direction"] == DIRECTION_TYPES.SHORT
             assert call_kwargs["portfolio_id"] == "test_portfolio_id"
             assert call_kwargs["engine_id"] == "test_engine_id"
-            assert call_kwargs["source"] == SOURCE_TYPES.STRATEGY
+            assert call_kwargs["source"] == SOURCE_TYPES.RISK
             assert "Loss Limit" in call_kwargs["reason"]
             assert "16.00%" in call_kwargs["reason"]
 
@@ -280,7 +285,7 @@ class TestLossLimitRiskThresholds:
             positions={"000001.SZ": position}
         )
 
-        with patch("ginkgo.trading.risk_management.loss_limit_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             MockSignal.return_value = Mock()
 
             signals = risk.generate_signals(portfolio_info, event)
@@ -376,7 +381,7 @@ class TestLossLimitRiskFinancialAccuracy:
             positions={"000001.SZ": position}
         )
 
-        with patch("ginkgo.trading.risk_management.loss_limit_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             MockSignal.return_value = Mock()
 
             # Should trigger signal since loss exceeds the slightly-lower limit
@@ -399,7 +404,7 @@ class TestLossLimitRiskFinancialAccuracy:
             positions={"000001.SZ": position}
         )
 
-        with patch("ginkgo.trading.risk_management.loss_limit_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             MockSignal.return_value = Mock()
 
             signals = risk.generate_signals(portfolio_info, event)
@@ -433,7 +438,7 @@ class TestLossLimitRiskMultiplePositions:
         # Event for stock 2 (16.0 = 20% loss)
         event2 = _make_price_event(code="000002.SZ", close="16.0")
 
-        with patch("ginkgo.trading.risk_management.loss_limit_risk.Signal") as MockSignal:
+        with patch("ginkgo.entities.Signal") as MockSignal:
             mock_signal = Mock()
             MockSignal.return_value = mock_signal
 

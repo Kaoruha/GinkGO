@@ -23,6 +23,11 @@
 from typing import List, Dict, Optional
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
+from ginkgo.trading.bases.portfolio_info_access import (
+    current_price,
+    get_positions,
+    total_market_value,
+)
 from ginkgo.libs import to_decimal
 from ginkgo.entities import Signal
 from ginkgo.entities import Order
@@ -217,11 +222,11 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
 
     def _calculate_concentrations(self, portfolio_info: Dict) -> Dict:
         """计算各种集中度指标"""
-        positions = portfolio_info.get("positions", {})
+        positions = get_positions(portfolio_info)
         if not positions:
             return {}
 
-        total_value = sum(pos.market_value for pos in positions.values() if pos and pos.market_value)
+        total_value = total_market_value(portfolio_info)
         if total_value <= 0:
             return {}
 
@@ -284,13 +289,13 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
 
     def _get_current_position_ratio(self, portfolio_info: Dict, code: str) -> float:
         """获取指定股票的当前持仓比例"""
-        positions = portfolio_info.get("positions", {})
+        positions = get_positions(portfolio_info)
         position = positions.get(code)
 
         if not position or position.market_value <= 0:
             return 0.0
 
-        total_value = sum(pos.market_value for pos in positions.values() if pos and pos.market_value)
+        total_value = total_market_value(portfolio_info)
         if total_value <= 0:
             return 0.0
 
@@ -318,10 +323,10 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
         # #3959 使用实际价格计算订单金额
         price = getattr(order, 'limit_price', None)
         if not price or price <= 0:
-            price = portfolio_info.get("prices", {}).get(order.code, 100)
+            price = current_price(portfolio_info, order.code) or 100
         order_value = order.volume * price
-        positions = portfolio_info.get("positions", {})
-        total_value = sum(pos.market_value for pos in positions.values() if pos and pos.market_value)
+        positions = get_positions(portfolio_info)
+        total_value = total_market_value(portfolio_info)
 
         if total_value <= 0:
             return self._project_against_worth(portfolio_info, order_value)
@@ -334,13 +339,13 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
 
     def _calculate_projected_industry_ratio(self, portfolio_info: Dict, order: Order, industry: str) -> float:
         """计算下单后的预计行业持仓比例"""
-        positions = portfolio_info.get("positions", {})
-        total_value = sum(pos.market_value for pos in positions.values() if pos and pos.market_value)
+        positions = get_positions(portfolio_info)
+        total_value = total_market_value(portfolio_info)
 
         # #3959 使用实际价格计算订单价值(提前至空组合分支前,供 worth 投影复用)
         price = getattr(order, 'limit_price', None)
         if not price or price <= 0:
-            price = portfolio_info.get("prices", {}).get(order.code, 100)
+            price = current_price(portfolio_info, order.code) or 100
         order_value = order.volume * price
 
         if total_value <= 0:
