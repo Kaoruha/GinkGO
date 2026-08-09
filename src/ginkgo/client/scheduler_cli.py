@@ -67,6 +67,9 @@ def start(
 
         # Get Redis client
         console.print(f":hourglass: Connecting to Redis...")
+        # 注：此处 RedisCRUD 直取 raw client 是依赖注入给 livecore.Scheduler
+        # （构造签名要求 redis_client），非 CLI 直查数据；经评估保留为例外（#6300）。
+        # 查询型访问已统一收口至 redis_service（见 status/plan/nodes 等命令）。
         redis_crud = RedisCRUD()
         redis_client = redis_crud.redis
         if not redis_client:
@@ -248,23 +251,23 @@ def plan(
     console.print(":information: Current schedule plan")
 
     try:
-        from ginkgo.data.crud import RedisCRUD
+        from ginkgo import services
 
-        redis_crud = RedisCRUD()
-        redis_client = redis_crud.redis
+        redis_svc = services.data.redis_service()
+        result = redis_svc.get_schedule_plan()
+        if not result.is_success():
+            console.print(f"[red]:x: Error getting schedule plan: {result.error}[/red]")
+            raise typer.Exit(1)
 
-        # Get schedule plan
-        plan_data = redis_client.hgetall("schedule:plan")
+        plan_data = result.data or {}
 
         if not plan_data:
             console.print("[yellow]:warning: No schedule plan found[/yellow]")
             return
 
-        # Decode + filter by node
+        # Filter by node（plan_data 已 decode 为 Dict[str, str]）
         entries = []
-        for portfolio_id_bytes, node_id_bytes in plan_data.items():
-            portfolio_id = portfolio_id_bytes.decode('utf-8')
-            node_id = node_id_bytes.decode('utf-8')
+        for portfolio_id, node_id in plan_data.items():
             if node is not None and node_id != node:
                 continue
             entries.append((portfolio_id, node_id))
@@ -338,16 +341,17 @@ def nodes():
     console.print(":information: Healthy ExecutionNodes")
 
     try:
-        from ginkgo.data.crud import RedisCRUD
+        from ginkgo import services
 
-        redis_crud = RedisCRUD()
-        redis_client = redis_crud.redis
+        redis_svc = services.data.redis_service()
+        result = redis_svc.get_execution_nodes_detail()
+        if not result.is_success():
+            console.print(f"[red]:x: Error listing ExecutionNodes: {result.error}[/red]")
+            raise typer.Exit(1)
 
-        # Get all heartbeat keys
-        from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
-        heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
+        nodes_list = result.data or []
 
-        if not heartbeat_keys:
+        if not nodes_list:
             console.print("[yellow]:warning: No healthy ExecutionNodes found[/yellow]")
             console.print(":information: Nodes may be offline or Scheduler not running")
             return
@@ -360,24 +364,12 @@ def nodes():
         table.add_column("CPU Usage", justify="right", style="blue")
         table.add_column("Last Heartbeat", style="dim")
 
-        for key in heartbeat_keys:
-            node_id = extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
-
-            # Get heartbeat TTL
-            ttl = redis_client.ttl(key)
-
-            # Get metrics
-            metrics_key = f"node:metrics:{node_id}"
-            metrics = redis_client.hgetall(metrics_key)
-
-            if metrics:
-                portfolio_count = metrics.get(b'portfolio_count', b'0').decode('utf-8')
-                queue_size = metrics.get(b'queue_size', b'0').decode('utf-8')
-                cpu_usage = metrics.get(b'cpu_usage', b'0.0').decode('utf-8')
-            else:
-                portfolio_count = "0"
-                queue_size = "0"
-                cpu_usage = "0.0"
+        for n in nodes_list:
+            node_id = n["node_id"]
+            ttl = n["ttl"]
+            portfolio_count = str(n["portfolio_count"])
+            queue_size = str(n["queue_size"])
+            cpu_usage = str(n["cpu_usage"])
 
             # Format heartbeat time
             heartbeat_time = f"{ttl}s ago" if ttl > 0 else "expired"
@@ -388,8 +380,10 @@ def nodes():
             table.add_row(node_short, portfolio_count, queue_size, f"{cpu_usage}%", heartbeat_time)
 
         console.print(table)
-        console.print(f"\n:information: Total healthy nodes: [bold]{len(heartbeat_keys)}[/bold]")
+        console.print(f"\n:information: Total healthy nodes: [bold]{len(nodes_list)}[/bold]")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]:x: Error listing ExecutionNodes: {e}[/red]")
         raise typer.Exit(1)
@@ -412,7 +406,6 @@ def migrate(
     """
     try:
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-        from ginkgo.data.crud import RedisCRUD
         from ginkgo.interfaces.dtos import ScheduleUpdateDTO
 
         console.print(f":information: Migrating portfolio [cyan]{portfolio_id[:8]}...[/cyan]")
@@ -533,33 +526,28 @@ def recalculate(
       ginkgo scheduler recalculate --force
     """
     try:
-        from ginkgo.data.crud import RedisCRUD
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+        from ginkgo import services
 
         console.print(f":chart: [bold]Sending recalculate command to Scheduler...[/bold]")
 
-        # Show current state
-        redis_crud = RedisCRUD()
-        redis_client = redis_crud.redis
+        # Show current state（经 redis_service 收口，#6300/#6115）
+        redis_svc = services.data.redis_service()
 
-        # Get healthy nodes
-        from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
-        heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
-        healthy_nodes = []
-        for key in heartbeat_keys:
-            node_id = extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
-            ttl = redis_client.ttl(key)
-            if ttl > 0:
-                healthy_nodes.append(node_id)
+        # Get healthy nodes（ttl > 0）
+        nodes_result = redis_svc.get_execution_nodes_detail()
+        if not nodes_result.is_success():
+            console.print(f"[red]:x: Error getting node status: {nodes_result.error}[/red]")
+            raise typer.Exit(1)
+        healthy_nodes = [n["node_id"] for n in (nodes_result.data or []) if n["ttl"] > 0]
 
         # Get current plan (#5987-b): schedule:plan 是 Redis HASH（publisher.hset 写入），
         # 必须用 hgetall 读；误用 get() 会触发 WRONGTYPE。
-        plan_key = "schedule:plan"
-        plan_data = redis_client.hgetall(plan_key)
-        current_plan = {
-            k.decode("utf-8"): v.decode("utf-8")
-            for k, v in plan_data.items()
-        } if plan_data else {}
+        plan_result = redis_svc.get_schedule_plan()
+        if not plan_result.is_success():
+            console.print(f"[red]:x: Error getting schedule plan: {plan_result.error}[/red]")
+            raise typer.Exit(1)
+        current_plan = plan_result.data or {}
 
         # Show current state
         console.print(f"\n:clipboard: [bold]Current State:[/bold]")
@@ -603,6 +591,8 @@ def recalculate(
             console.print("[red]:x: Failed to send recalculate command[/red]")
             raise typer.Exit(1)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]:x: Error recalculating schedule: {e}[/red]")
         raise typer.Exit(1)
@@ -623,25 +613,20 @@ def schedule(
       ginkgo scheduler schedule --force
     """
     try:
-        from ginkgo.data.crud import RedisCRUD
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
         from ginkgo import services
 
         console.print(f":fast_forward: [bold]Triggering immediate schedule run...[/bold]")
 
-        # Get Redis client
-        redis_crud = RedisCRUD()
-        redis_client = redis_crud.redis
+        # 经 redis_service 收口（#6300/#6115）
+        redis_svc = services.data.redis_service()
 
-        # Get healthy nodes
-        from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
-        heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
-        healthy_nodes = []
-        for key in heartbeat_keys:
-            node_id = extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
-            ttl = redis_client.ttl(key)
-            if ttl > 0:
-                healthy_nodes.append(node_id)
+        # Get healthy nodes（ttl > 0）
+        nodes_result = redis_svc.get_execution_nodes_detail()
+        if not nodes_result.is_success():
+            console.print(f"[red]:x: Error getting node status: {nodes_result.error}[/red]")
+            raise typer.Exit(1)
+        healthy_nodes = [n["node_id"] for n in (nodes_result.data or []) if n["ttl"] > 0]
 
         console.print(f"\n:information: Healthy nodes: {len(healthy_nodes)}")
 
@@ -651,12 +636,11 @@ def schedule(
 
         # Get current plan (#5987-b): schedule:plan 是 Redis HASH（publisher.hset 写入），
         # 必须用 hgetall 读；误用 get() 会触发 WRONGTYPE。
-        plan_key = "schedule:plan"
-        plan_data = redis_client.hgetall(plan_key)
-        current_plan = {
-            k.decode("utf-8"): v.decode("utf-8")
-            for k, v in plan_data.items()
-        } if plan_data else {}
+        plan_result = redis_svc.get_schedule_plan()
+        if not plan_result.is_success():
+            console.print(f"[red]:x: Error getting schedule plan: {plan_result.error}[/red]")
+            raise typer.Exit(1)
+        current_plan = plan_result.data or {}
 
         # Get all live portfolios from database
         console.print(f"\n:database: Fetching live portfolios from database...")
@@ -714,6 +698,8 @@ def schedule(
             console.print("[red]:x: Failed to send schedule command[/red]")
             raise typer.Exit(1)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]:x: Error triggering schedule: {e}[/red]")
 

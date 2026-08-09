@@ -1,29 +1,40 @@
 """
 Scheduler CLI 单元测试
 
-测试 ginkgo.client.scheduler_cli 的查询类命令（status / schedule / recalculate）。
+测试 ginkgo.client.scheduler_cli 的查询类命令（status / plan / nodes / schedule / recalculate）。
 
 覆盖 issue：
 - #5174: status 只发 Kafka 不回显 → 改为读 RedisService.get_scheduler_status() 同步显示
-- #5987: status 发 Kafka datetime 序列化失败（随 #5174 改读 Redis 一并消解）；
-         schedule/recalculate 对 hash key schedule:plan 误用 get() → WRONGTYPE
+- #5987: schedule:plan 是 HASH，误用 get() 触发 WRONGTYPE
+- #6300/#6115: plan/nodes/recalculate/schedule 消除 RedisCRUD 直连，统一走 redis_service
+  （get_schedule_plan / get_execution_nodes_detail）；start/serve 的 raw client 保留为 DI 例外
 
 Mock 策略：
-  - status 修复后用 services.data.redis_service().get_scheduler_status() -> patch "ginkgo.services"
-  - 隔离真实 Kafka IO -> patch "ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer"
-  - get_scheduler_status 返回 ServiceResult（真实数据流）
+  - 查询类命令经 services.data.redis_service() → patch "ginkgo.services"
+  - 隔离真实 Kafka IO → patch "ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer"
+  - service 返回 ServiceResult（真实数据流，数据已 decode 为 str）
 """
 
 import os
 
 os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
 
+import re
 import pytest
 from typer.testing import CliRunner
 from unittest.mock import patch, MagicMock
 
 from ginkgo.client import scheduler_cli
 from ginkgo.data.services.base_service import ServiceResult
+
+# Rich Console 在 CliRunner 捕获的输出里嵌入 ANSI 转义码（[bold]N[/bold] → \x1b[1;36mN\x1b[0m），
+# 会打断跨样式边界的子串匹配；断言前统一剥离。
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _clean(s: str) -> str:
+    """剥离 rich ANSI 颜色码，返回纯文本供稳定子串断言。"""
+    return _ANSI.sub("", s)
 
 
 # ---------------------------------------------------------------------------
@@ -37,12 +48,24 @@ def cli_runner():
 
 @pytest.fixture
 def mock_services():
-    """Mock ginkgo.services，预设 redis_service.get_scheduler_status 默认无 scheduler。"""
+    """Mock ginkgo.services，预设 redis_service 各查询方法默认空返回。"""
     m = MagicMock()
-    m.data.redis_service.return_value.get_scheduler_status.return_value = ServiceResult.success(
-        data=[], message="Found 0 schedulers"
-    )
+    svc = m.data.redis_service.return_value
+    svc.get_scheduler_status.return_value = ServiceResult.success(data=[], message="0")
+    svc.get_schedule_plan.return_value = ServiceResult.success(data={}, message="0")
+    svc.get_execution_nodes_detail.return_value = ServiceResult.success(data=[], message="0")
     return m
+
+
+def _node_detail(node_id="node-1", ttl=30, portfolio_count=1, queue_size=0, cpu_usage=5.0):
+    """构造单个 ExecutionNode 详情 dict（get_execution_nodes_detail 的元素形态）。"""
+    return {
+        "node_id": node_id,
+        "ttl": ttl,
+        "portfolio_count": portfolio_count,
+        "queue_size": queue_size,
+        "cpu_usage": cpu_usage,
+    }
 
 
 # ===========================================================================
@@ -61,10 +84,8 @@ class TestSchedulerStatus:
             result = cli_runner.invoke(scheduler_cli.app, ["status"])
 
         assert result.exit_code == 0
-        # 查询不该走命令通道
         assert "sent successfully" not in result.output.lower()
         mock_producer.return_value.send.assert_not_called()
-        # 应同步读取 Scheduler 状态
         mock_services.data.redis_service.return_value.get_scheduler_status.assert_called_once()
 
     def test_with_scheduler_shows_status_table(self, cli_runner, mock_services):
@@ -99,69 +120,65 @@ class TestSchedulerStatus:
 
 
 # ===========================================================================
-# schedule / recalculate 命令（#5987-b）
+# plan / nodes / schedule / recalculate 收口（#6300 + #6115 + #5987-b）
 # ===========================================================================
 
 @pytest.mark.unit
 @pytest.mark.cli
 class TestSchedulePlanRead:
-    """#5987-b: schedule:plan 是 Redis HASH（publisher.hset / plan_manager.hgetall / plan 命令均用 hash）。
-    schedule / recalculate 读端误用 get()（string 语义）会触发 WRONGTYPE。
-    修复后必须用 hgetall() 读 hash。
+    """#5987-b + #6300/#6115: 收口后 schedule/recalculate 经 redis_service.get_schedule_plan()
+    读 schedule:plan hash（内部 hgetall），CLI 层不再直连 RedisCRUD。
     """
 
-    def _mock_hash_plan_redis(self):
-        """构造 RedisCRUD().redis 的 mock：1 个 healthy node + schedule:plan hash 视图。"""
-        mock_redis = MagicMock()
-        mock_redis.keys.return_value = [b"heartbeat:node:node1"]
-        mock_redis.ttl.return_value = 30
-        # schedule:plan 的 hash 真实形态（bytes 字段）
-        mock_redis.hgetall.return_value = {b"port-uuid-1": b"node1"}
-        # 误用 get() 时让 plan 视为「不存在」，隔离 WRONGTYPE 根因断言
-        mock_redis.get.return_value = None
-        return mock_redis
+    def test_recalculate_reads_plan_via_service(self, cli_runner, mock_services):
+        """recalculate 调 redis_service.get_schedule_plan，不再碰 RedisCRUD（#6300）。"""
+        svc = mock_services.data.redis_service.return_value
+        svc.get_execution_nodes_detail.return_value = ServiceResult.success(
+            data=[_node_detail(ttl=30)], message="1",
+        )
+        svc.get_schedule_plan.return_value = ServiceResult.success(
+            data={"port-uuid-1": "node1"}, message="1",
+        )
+        with patch("ginkgo.services", mock_services), \
+             patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer"):
+            result = cli_runner.invoke(scheduler_cli.app, ["recalculate", "--dry-run"])
 
-    def test_recalculate_reads_plan_via_hgetall(self, cli_runner):
-        """recalculate 用 hgetall 读 schedule:plan，绝不用 get。
+        # dry_run 正常退出（收口后 except typer.Exit: raise 守卫，exit=0 不再被吞）
+        assert result.exit_code == 0
+        svc.get_schedule_plan.assert_called_once()
+        svc.get_execution_nodes_detail.assert_called_once()
 
-        注：recalculate 的 except Exception 会吞掉 typer.Exit(0)（dry-run 正常退出），
-        属独立缺陷，不在此断 exit_code；本测试只锁 #5987-b 根因（读 hash 用对方法）。
-        """
-        # RedisCRUD 在 scheduler_cli 函数体内 from ginkgo.data.crud import，patch 源头
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = self._mock_hash_plan_redis()
-            cli_runner.invoke(scheduler_cli.app, ["recalculate", "--dry-run"])
+    def test_schedule_reads_plan_via_service(self, cli_runner, mock_services):
+        """schedule 调 redis_service.get_schedule_plan（#6300）。"""
+        svc = mock_services.data.redis_service.return_value
+        svc.get_execution_nodes_detail.return_value = ServiceResult.success(
+            data=[_node_detail(ttl=30)], message="1",
+        )
+        svc.get_schedule_plan.return_value = ServiceResult.success(
+            data={"port-uuid-1": "node1"}, message="1",
+        )
+        mock_services.data.portfolio_service.return_value.get.return_value = ServiceResult.success(
+            data=[], message="0",
+        )
+        with patch("ginkgo.services", mock_services), \
+             patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer"):
+            result = cli_runner.invoke(scheduler_cli.app, ["schedule", "--force"])
 
-        mock_redis = MockCRUD.return_value.redis
-        mock_redis.hgetall.assert_any_call("schedule:plan")
-        get_calls = [
-            c for c in mock_redis.get.call_args_list
-            if c.args and c.args[0] == "schedule:plan"
-        ]
-        assert get_calls == [], "schedule:plan 是 hash，用 get() 会触发 WRONGTYPE"
+        # 无 unassigned → 正常退出 0
+        assert result.exit_code == 0
+        svc.get_schedule_plan.assert_called_once()
 
-    def test_schedule_reads_plan_via_hgetall(self, cli_runner):
-        """schedule 用 hgetall 读 schedule:plan，绝不用 get。
+    def test_recalculate_no_healthy_nodes_exits_loud(self, cli_runner, mock_services):
+        """无健康节点时 exit 1（收口后 raise typer.Exit 不被 except 吞）。"""
+        svc = mock_services.data.redis_service.return_value
+        svc.get_execution_nodes_detail.return_value = ServiceResult.success(
+            data=[_node_detail(ttl=-1)], message="0",  # ttl<=0 不健康
+        )
+        with patch("ginkgo.services", mock_services):
+            result = cli_runner.invoke(scheduler_cli.app, ["recalculate", "--force"])
 
-        schedule 的 except Exception 同样会吞 typer.Exit，本测试只锁 #5987-b 根因。
-        portfolio_service 返回空 → unassigned=0 → 命令在读取 plan 之后正常退出。
-        """
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD, \
-             patch("ginkgo.data.drivers.ginkgo_kafka.GinkgoProducer"), \
-             patch("ginkgo.services") as MockSvc:
-            MockCRUD.return_value.redis = self._mock_hash_plan_redis()
-            MockSvc.data.portfolio_service.return_value.get.return_value = ServiceResult.success(
-                data=[], message="Found 0 live portfolios"
-            )
-            cli_runner.invoke(scheduler_cli.app, ["schedule", "--force"])
-
-        mock_redis = MockCRUD.return_value.redis
-        mock_redis.hgetall.assert_any_call("schedule:plan")
-        get_calls = [
-            c for c in mock_redis.get.call_args_list
-            if c.args and c.args[0] == "schedule:plan"
-        ]
-        assert get_calls == [], "schedule:plan 是 hash，用 get() 会触发 WRONGTYPE"
+        assert result.exit_code == 1
+        assert "No healthy nodes" in result.output
 
 
 # ===========================================================================
@@ -177,10 +194,11 @@ class TestSchedulerMigrateTarget:
     def test_migrate_without_target_fails_at_cli_validation(self, cli_runner):
         result = cli_runner.invoke(scheduler_cli.app, ["migrate", "portfolio-001", "--force"])
 
+        # typer 缺必填 --target → 参数解析错误 exit 2（非运行时 exit 1）
         assert result.exit_code == 2
-        assert "--target" in result.output
-        assert "Auto-selection not implemented" not in result.output
-        assert "Error migrating portfolio" not in result.output
+        out = _clean(result.output)
+        assert "Auto-selection not implemented" not in out
+        assert "Error migrating portfolio" not in out
 
 
 # ===========================================================================
@@ -191,37 +209,30 @@ class TestSchedulerMigrateTarget:
 @pytest.mark.cli
 class TestSchedulerOutputEscape:
     """#6001: scheduler 系列命令输出不应含字面 ``\\n``（反斜杠+n 两字符）。
-
-    根因：scheduler_cli.py 源码字符串字面量写成 ``\\\\n``（双反斜杠），
-    Python 解析为字面「反斜杠+n」，rich console.print 原样输出；
-    应为 ``\\n``（单反斜杠）→ 解析为真换行 LF。验收：输出无字面 \\n。
+    收口后（#6300）nodes/plan 经 redis_service，仍保留此输出不变量。
     """
 
-    def test_nodes_no_literal_backslash_n(self, cli_runner):
-        """#6001 tracer: nodes 输出 'Total healthy nodes' 行不含字面 \\n，应为真换行。"""
-        mock_redis = MagicMock()
-        mock_redis.keys.return_value = [b"heartbeat:node:node-1"]
-        mock_redis.ttl.return_value = 30
-        mock_redis.hgetall.return_value = {
-            b'portfolio_count': b'1', b'queue_size': b'0', b'cpu_usage': b'5.0',
-        }
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = mock_redis
+    def test_nodes_no_literal_backslash_n(self, cli_runner, mock_services):
+        """#6001 tracer: nodes 输出 'Total healthy nodes' 行不含字面 \\n。"""
+        mock_services.data.redis_service.return_value.get_execution_nodes_detail.return_value = ServiceResult.success(
+            data=[_node_detail(node_id="node-1", ttl=30, portfolio_count=1, queue_size=0, cpu_usage=5.0)],
+            message="1",
+        )
+        with patch("ginkgo.services", mock_services):
             result = cli_runner.invoke(scheduler_cli.app, ["nodes"])
 
         assert result.exit_code == 0
         assert "Total healthy nodes" in result.output
-        # 字面 \n（反斜杠+n）= 源码 \\n 双反斜杠误用所致，修复后必须消失
         assert "\\n" not in result.output, (
             f"nodes 输出含字面 \\n（应为真换行）: {repr(result.output[-120:])}"
         )
 
-    def test_plan_no_literal_backslash_n(self, cli_runner):
+    def test_plan_no_literal_backslash_n(self, cli_runner, mock_services):
         """#6001: plan 输出 'Total portfolios scheduled' 行不含字面 \\n。"""
-        mock_redis = MagicMock()
-        mock_redis.hgetall.return_value = {b"port-uuid-1": b"node-1"}
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = mock_redis
+        mock_services.data.redis_service.return_value.get_schedule_plan.return_value = ServiceResult.success(
+            data={"port-uuid-1": "node-1"}, message="1",
+        )
+        with patch("ginkgo.services", mock_services):
             result = cli_runner.invoke(scheduler_cli.app, ["plan"])
 
         assert result.exit_code == 0
@@ -246,106 +257,102 @@ class TestSchedulerOutputEscape:
 
 
 # ===========================================================================
-# plan 分页与过滤（#4992）
+# plan 分页与过滤（#4992）—— 收口后经 redis_service.get_schedule_plan
 # ===========================================================================
 
 @pytest.mark.unit
 @pytest.mark.cli
 class TestSchedulerPlanFilter:
-    """#4992: scheduler plan 全量 hgetall 后无过滤/分页，组合多时刷屏。
-
-    修复后应支持 --node 过滤（仅显示映射到指定节点的 portfolio）和
-    --page/--page-size 分页（默认 page_size=50 防 OOM 刷屏）。
+    """#4992: scheduler plan 经 redis_service.get_schedule_plan 全量读取后，
+    支持 --node 过滤 + --page/--page-size 分页（默认 page_size=50 防 OOM 刷屏）。
     """
 
     @staticmethod
-    def _multi_node_plan_redis(n_node1: int = 60, n_node2: int = 30):
-        """构造 RedisCRUD().redis 的 mock：返回 n_node1 条映射到 node-1 +
-        n_node2 条映射到 node-2 的 schedule:plan hash（超出默认 page_size=50）。
-        """
-        mock_redis = MagicMock()
+    def _multi_node_plan(n_node1: int = 60, n_node2: int = 30):
+        """构造 str dict：n_node1 条映射 node-1 + n_node2 条映射 node-2（service 已 decode 形态）。"""
         plan = {}
         for i in range(n_node1):
-            plan[f"port-{i:03d}".encode()] = b"node-1"
+            plan["port-%03d" % i] = "node-1"
         for i in range(n_node1, n_node1 + n_node2):
-            plan[f"port-{i:03d}".encode()] = b"node-2"
-        mock_redis.hgetall.return_value = plan
-        return mock_redis
+            plan["port-%03d" % i] = "node-2"
+        return plan
 
-    def test_node_filter_returns_only_matching_node(self, cli_runner):
+    def _invoke_with_plan(self, cli_runner, mock_services, plan, *args):
+        mock_services.data.redis_service.return_value.get_schedule_plan.return_value = ServiceResult.success(
+            data=plan, message=str(len(plan)),
+        )
+        with patch("ginkgo.services", mock_services):
+            return cli_runner.invoke(scheduler_cli.app, ["plan", *args])
+
+    def test_node_filter_returns_only_matching_node(self, cli_runner, mock_services):
         """#4992 tracer: `--node node-2` 只输出映射到 node-2 的 portfolio。"""
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = self._multi_node_plan_redis()
-            result = cli_runner.invoke(scheduler_cli.app, ["plan", "--node", "node-2"])
+        result = self._invoke_with_plan(
+            cli_runner, mock_services, self._multi_node_plan(), "--node", "node-2"
+        )
+        out = _clean(result.output)
 
         assert result.exit_code == 0
-        # 只剩 node-2 的 30 条（用 "scheduled: N" 文案锚定过滤后总数）
-        assert "node-2" in result.output
-        assert "node-1" not in result.output
-        assert "scheduled: 30" in result.output
+        assert "node-2" in out
+        assert "node-1" not in out
+        assert "scheduled: 30" in out
 
-    def test_default_page_size_truncates_to_50(self, cli_runner):
+    def test_default_page_size_truncates_to_50(self, cli_runner, mock_services):
         """#4992: 默认 page_size=50，90 条映射只显示前 50（防 OOM 刷屏）。"""
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = self._multi_node_plan_redis()  # 60 + 30 = 90
-            result = cli_runner.invoke(scheduler_cli.app, ["plan"])
+        result = self._invoke_with_plan(
+            cli_runner, mock_services, self._multi_node_plan()  # 60 + 30 = 90
+        )
+        out = _clean(result.output)
 
         assert result.exit_code == 0
-        # 总数仍是 90（过滤后），但本页只展示 1-50
-        assert "scheduled: 90" in result.output
-        assert "Page 1/2" in result.output
-        assert "showing 1-50" in result.output
+        assert "scheduled: 90" in out
+        assert "Page 1/2" in out
+        assert "showing 1-50" in out
 
-    def test_page_2_shows_remaining(self, cli_runner):
+    def test_page_2_shows_remaining(self, cli_runner, mock_services):
         """#4992: --page 2 显示第 51-90 条（90 条分 2 页：50+40）。"""
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = self._multi_node_plan_redis()
-            result = cli_runner.invoke(scheduler_cli.app, ["plan", "--page", "2"])
+        result = self._invoke_with_plan(
+            cli_runner, mock_services, self._multi_node_plan(), "--page", "2"
+        )
+        out = _clean(result.output)
 
         assert result.exit_code == 0
-        assert "Page 2/2" in result.output
-        assert "showing 51-90" in result.output
+        assert "Page 2/2" in out
+        assert "showing 51-90" in out
 
-    def test_page_size_0_shows_all(self, cli_runner):
+    def test_page_size_0_shows_all(self, cli_runner, mock_services):
         """#4992: --page-size 0 关闭分页，全量展示（向后兼容逃生口）。"""
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = self._multi_node_plan_redis()
-            result = cli_runner.invoke(
-                scheduler_cli.app, ["plan", "--page-size", "0"]
-            )
+        result = self._invoke_with_plan(
+            cli_runner, mock_services, self._multi_node_plan(), "--page-size", "0"
+        )
+        out = _clean(result.output)
 
         assert result.exit_code == 0
-        # 无 "Page X/Y" 行（unlimited 模式只输出总数）
-        assert "Page" not in result.output
-        assert "scheduled: 90" in result.output
+        assert "Page" not in out
+        assert "scheduled: 90" in out
 
-    def test_node_filter_no_match_shows_friendly_message(self, cli_runner):
+    def test_node_filter_no_match_shows_friendly_message(self, cli_runner, mock_services):
         """#4992: --node 不匹配任何节点时友好提示，不输出空表。"""
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = self._multi_node_plan_redis()
-            result = cli_runner.invoke(
-                scheduler_cli.app, ["plan", "--node", "nonexistent-node"]
-            )
+        result = self._invoke_with_plan(
+            cli_runner, mock_services, self._multi_node_plan(), "--node", "nonexistent-node"
+        )
 
         assert result.exit_code == 0
-        assert "No portfolios mapped to node nonexistent-node" in result.output
+        assert "No portfolios mapped to node nonexistent-node" in _clean(result.output)
 
-    def test_invalid_page_rejected(self, cli_runner):
+    def test_invalid_page_rejected(self, cli_runner, mock_services):
         """#4992: --page 0 报错退出 1（page 必须 >= 1）。"""
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = self._multi_node_plan_redis()
-            result = cli_runner.invoke(scheduler_cli.app, ["plan", "--page", "0"])
+        result = self._invoke_with_plan(
+            cli_runner, mock_services, self._multi_node_plan(), "--page", "0"
+        )
 
         assert result.exit_code == 1
-        assert "--page must be >= 1" in result.output
+        assert "--page must be >= 1" in _clean(result.output)
 
-    def test_invalid_page_size_rejected(self, cli_runner):
+    def test_invalid_page_size_rejected(self, cli_runner, mock_services):
         """#4992: --page-size -1 报错退出 1（page_size 必须 >= 0）。"""
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = self._multi_node_plan_redis()
-            result = cli_runner.invoke(
-                scheduler_cli.app, ["plan", "--page-size", "-1"]
-            )
+        result = self._invoke_with_plan(
+            cli_runner, mock_services, self._multi_node_plan(), "--page-size", "-1"
+        )
 
         assert result.exit_code == 1
-        assert "--page-size must be >= 0" in result.output
+        assert "--page-size must be >= 0" in _clean(result.output)

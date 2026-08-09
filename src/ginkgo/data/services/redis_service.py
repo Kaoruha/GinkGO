@@ -967,6 +967,72 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to get scheduler status: {e}")
             return ServiceResult.error(f"Failed to get scheduler status: {str(e)}")
 
+    def get_schedule_plan(self) -> ServiceResult:
+        """
+        获取当前 Portfolio→ExecutionNode 调度计划
+
+        读取 Scheduler 写入的 schedule:plan hash（portfolio_id → node_id）。
+        注意：schedule:plan 由 livecore Scheduler publisher 用 hset 写入，
+        必须用 hgetall 读；误用 get() 会触发 WRONGTYPE（#5987-b）。
+        schedule:plan / node:metrics 为 scheduler 运行时 key，暂未纳入 redis_schema 常量。
+
+        Returns:
+            ServiceResult: data = Dict[str, str]（portfolio_id → node_id）
+        """
+        try:
+            plan = self._crud_repo.hgetall("schedule:plan")
+            return ServiceResult.success(
+                data=plan or {},
+                message=f"Found {len(plan)} scheduled portfolios"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get schedule plan: {e}")
+            return ServiceResult.error(f"Failed to get schedule plan: {str(e)}")
+
+    def get_execution_nodes_detail(self) -> ServiceResult:
+        """
+        获取所有 ExecutionNode 的详情（心跳 TTL + metrics）
+
+        供 scheduler CLI 的 nodes/recalculate/schedule 命令使用，统一收口
+        原先散布在 client 层的 keys+ttl+hgetall 直连。返回每个节点的：
+        node_id / ttl（心跳剩余秒，>0 视为健康）/ portfolio_count / queue_size / cpu_usage。
+
+        Returns:
+            ServiceResult: data = List[Dict]（每节点含上述字段）
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
+            )
+
+            nodes = []
+            heartbeat_keys = self._crud_repo.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
+
+            for key in heartbeat_keys:
+                try:
+                    node_id = extract_id_from_key(key, f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
+                    ttl = self._crud_repo.ttl(key)
+                    # node:metrics:{id} 由 ExecutionNode 上报，暂未纳入 redis_schema 常量
+                    metrics = self._crud_repo.hgetall(f"node:metrics:{node_id}")
+                    nodes.append({
+                        "node_id": node_id,
+                        "ttl": ttl,
+                        "portfolio_count": int(metrics.get("portfolio_count", 0) or 0),
+                        "queue_size": int(metrics.get("queue_size", 0) or 0),
+                        "cpu_usage": float(metrics.get("cpu_usage", 0.0) or 0.0),
+                    })
+                except Exception as e:
+                    self._logger.WARN(f"Failed to parse node detail for {key}: {e}")
+                    continue
+
+            return ServiceResult.success(
+                data=nodes,
+                message=f"Found {len(nodes)} execution nodes"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get execution nodes detail: {e}")
+            return ServiceResult.error(f"Failed to get execution nodes detail: {str(e)}")
+
     def get_task_timer_status(self) -> ServiceResult:
         """
         获取所有TaskTimer的状态

@@ -447,6 +447,9 @@ def serve_scheduler(
         ))
 
         console.print(f"\n:hourglass: Connecting to Redis...")
+        # 注：此处 RedisCRUD 直取 raw client 是依赖注入给 livecore.Scheduler
+        # （构造签名要求 redis_client），非 CLI 直查数据；保留为例外（#6300）。
+        # 查询型访问已统一收口至 redis_service。
         redis_crud = RedisCRUD()
         redis_client = redis_crud.redis
         if not redis_client:
