@@ -53,6 +53,9 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+# Generated test reports (e.g. scripts/run_tests_safe.sh)
+test_report.md
+test_memory_profile.md
 
 # Test results directories
 test-results/
