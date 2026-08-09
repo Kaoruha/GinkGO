@@ -381,39 +381,40 @@ def status(
       ginkgo execution status --node-id node_1  # Show specific node
     """
     try:
-        from ginkgo.data.crud import RedisCRUD
+        from ginkgo import services
 
-        # Get Redis client
-        redis_crud = RedisCRUD()
-        redis_client = redis_crud.redis
+        redis_svc = services.data.redis_service()
 
         if node_id:
             # Query specific node
             console.print(f":information: Querying status of ExecutionNode '{node_id}'...")
 
-            # Check heartbeat
-            from ginkgo.data.redis_schema import RedisKeyBuilder
-            heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
-            heartbeat_exists = redis_client.exists(heartbeat_key)
+            # 心跳 TTL 收口至 redis_service.get_node_heartbeat_ttl（#6300）
+            ttl_result = redis_svc.get_node_heartbeat_ttl(node_id)
+            if not ttl_result.is_success():
+                console.print(f"[red]:x: Error querying heartbeat: {ttl_result.error}[/red]")
+                raise typer.Exit(1)
+            heartbeat_ttl = ttl_result.data
 
-            if not heartbeat_exists:
+            if heartbeat_ttl == -2:
+                # TTL=-2: 心跳键不存在（节点未运行）
                 console.print(f"[yellow]:warning: ExecutionNode '{node_id}' is [red]NOT RUNNING[/red] (no heartbeat)[/yellow]")
                 return
-
-            # Check heartbeat TTL to detect stale heartbeats
-            heartbeat_ttl = redis_client.ttl(heartbeat_key)
             if heartbeat_ttl < 0:
-                # Key exists but has no expiration (shouldn't happen with proper setup)
+                # TTL=-1: 键存在但无过期（异常，可能 stale）
                 console.print(f"[red]:x: ExecutionNode '{node_id}' heartbeat has no expiration (may be stale)[/red]")
                 return
             elif heartbeat_ttl < 5:
-                # TTL < 5 seconds: heartbeat is about to expire, node likely stopped
+                # TTL < 5 秒：心跳即将过期，节点可能已停
                 console.print(f"[yellow]:warning: ExecutionNode '{node_id}' heartbeat is [red]STALE[/red] (TTL: {heartbeat_ttl}s)[/yellow]")
                 return
 
-            # Get metrics
-            metrics_key = f"node:metrics:{node_id}"
-            metrics = redis_client.hgetall(metrics_key)
+            # Get metrics（service 已 decode 为 str dict）
+            metrics_result = redis_svc.get_execution_node_metrics(node_id)
+            if not metrics_result.is_success():
+                console.print(f"[red]:x: Error querying metrics: {metrics_result.error}[/red]")
+                raise typer.Exit(1)
+            metrics = metrics_result.data or {}
 
             if not metrics:
                 console.print(f"[yellow]:warning: No metrics found for ExecutionNode '{node_id}'[/yellow]")
@@ -426,21 +427,17 @@ def status(
             # Query all nodes
             console.print(":information: Querying [bold]all[/bold] ExecutionNodes...")
 
-            # Get all heartbeat keys
-            from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix, RedisKeyBuilder
-            # #5519: scan_iter 游标式非阻塞扫描；keys() 是 O(N) 阻塞 Redis 单线程。
-            # count=limit 作 SCAN COUNT hint（批次大小），[:limit] 截断结果上限。
-            heartbeat_keys = list(redis_client.scan_iter(
-                match=RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL,
-                count=limit,
-            ))[:limit]
+            # #5519: scan_iter 游标式非阻塞扫描收口至 redis_service.scan_execution_node_ids
+            # （内部 SCAN，非 keys() 的 O(N) 阻塞）。limit 作 COUNT hint + 结果上限。
+            ids_result = redis_svc.scan_execution_node_ids(limit=limit)
+            if not ids_result.is_success():
+                console.print(f"[red]:x: Error scanning nodes: {ids_result.error}[/red]")
+                raise typer.Exit(1)
+            node_ids = ids_result.data or []
 
-            if not heartbeat_keys:
+            if not node_ids:
                 console.print("[yellow]:warning: No ExecutionNodes running (no heartbeats found)[/yellow]")
                 return
-
-            # Extract node IDs
-            node_ids = [extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:") for key in heartbeat_keys]
 
             # Create table for all nodes
             table = Table(title=f":execution: ExecutionNode Status ({len(node_ids)} nodes)", show_header=True)
@@ -451,23 +448,21 @@ def status(
             table.add_column("Events", style="magenta")
             table.add_column("Heartbeat TTL", style="dim")
 
-            for node_id in node_ids:
-                # Get heartbeat TTL
-                heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
-                heartbeat_ttl = redis_client.ttl(heartbeat_key)
+            for nid in node_ids:
+                ttl_r = redis_svc.get_node_heartbeat_ttl(nid)
+                heartbeat_ttl = ttl_r.data if ttl_r.is_success() else -2
 
-                # Get metrics
-                metrics_key = f"node:metrics:{node_id}"
-                metrics = redis_client.hgetall(metrics_key)
+                mt_r = redis_svc.get_execution_node_metrics(nid)
+                metrics = mt_r.data if mt_r.is_success() else {}
 
                 if not metrics:
                     continue
 
-                # Parse metrics
-                status_str = metrics.get(b'status', b'UNKNOWN').decode('utf-8')
-                portfolio_count = metrics.get(b'portfolio_count', b'0').decode('utf-8')
-                queue_size = metrics.get(b'queue_size', b'0').decode('utf-8')
-                total_events = metrics.get(b'total_events', b'0').decode('utf-8')
+                # Parse metrics（service 已 decode 为 str，无需 bytes 解码）
+                status_str = metrics.get('status', 'UNKNOWN')
+                portfolio_count = metrics.get('portfolio_count', '0')
+                queue_size = metrics.get('queue_size', '0')
+                total_events = metrics.get('total_events', '0')
 
                 # Status icon
                 if status_str == "RUNNING":
@@ -478,7 +473,7 @@ def status(
                     status_icon = ":stop_button:"
 
                 table.add_row(
-                    node_id,
+                    nid,
                     f"{status_icon} {status_str}",
                     portfolio_count,
                     queue_size,
@@ -489,6 +484,8 @@ def status(
             console.print("\n")
             console.print(table)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]:x: Error querying ExecutionNode status: {e}[/red]")
         raise typer.Exit(1)
@@ -500,11 +497,11 @@ def _display_single_node_status(node_id: str, heartbeat_ttl: int, metrics: dict)
     console.print(f"  [bold]Node ID:[/bold] {node_id}")
     console.print(f"  [dim]Heartbeat TTL: {heartbeat_ttl}s[/dim]")
 
-    # Parse metrics
-    status_str = metrics.get(b'status', b'UNKNOWN').decode('utf-8')
-    portfolio_count = metrics.get(b'portfolio_count', b'0').decode('utf-8')
-    queue_size = metrics.get(b'queue_size', b'0').decode('utf-8')
-    total_events = metrics.get(b'total_events', b'0').decode('utf-8')
+    # Parse metrics（service 已 decode 为 str，无需 bytes 解码）
+    status_str = metrics.get('status', 'UNKNOWN')
+    portfolio_count = metrics.get('portfolio_count', '0')
+    queue_size = metrics.get('queue_size', '0')
+    total_events = metrics.get('total_events', '0')
 
     # Status color
     if status_str == "RUNNING":

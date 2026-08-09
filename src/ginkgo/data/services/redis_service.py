@@ -1058,6 +1058,65 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to get heartbeat ttl for {node_id}: {e}")
             return ServiceResult.error(f"Failed to get heartbeat ttl: {str(e)}")
 
+    def get_execution_node_metrics(self, node_id: str) -> ServiceResult:
+        """
+        获取 ExecutionNode 上报的 metrics hash（已 decode 为 str dict）
+
+        供 execution_cli status 展示 status / portfolio_count / queue_size /
+        total_events。node:metrics:{id} 由 ExecutionNode 上报，暂未纳入 redis_schema
+        常量。
+
+        Returns:
+            ServiceResult: data = Dict[str, str]（metrics 字段，已 decode）
+        """
+        try:
+            metrics = self._crud_repo.hgetall(f"node:metrics:{node_id}")
+            return ServiceResult.success(
+                data=metrics or {},
+                message=f"Found {len(metrics)} metrics fields"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get metrics for {node_id}: {e}")
+            return ServiceResult.error(f"Failed to get execution node metrics: {str(e)}")
+
+    def scan_execution_node_ids(self, limit: Optional[int] = None) -> ServiceResult:
+        """
+        游标式扫描所有 ExecutionNode 心跳键，返回 node_id 列表（#5519 非阻塞）
+
+        供 execution_cli status（全量节点）与 cleanup（无 --node-id 清所有）使用，
+        统一收口原先 client 层对 scan_iter / keys 的直连。内部用 RedisCRUD.scan_iter
+        （SCAN 游标式），而非 keys() 的 O(N) 阻塞 Redis 单线程。
+
+        Args:
+            limit: 可选上限（同时作 SCAN COUNT hint）；None 表示不截断（全量扫描）。
+
+        Returns:
+            ServiceResult: data = List[str]（node_id 列表）
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
+            )
+
+            count_hint = limit if limit is not None else 100
+            heartbeat_keys = self._crud_repo.scan_iter(
+                match=RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL,
+                count=count_hint,
+            )
+            node_ids = [
+                extract_id_from_key(k, f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
+                for k in heartbeat_keys
+            ]
+            if limit is not None:
+                node_ids = node_ids[:limit]
+            return ServiceResult.success(
+                data=node_ids,
+                message=f"Found {len(node_ids)} execution nodes"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to scan execution node ids: {e}")
+            return ServiceResult.error(f"Failed to scan execution node ids: {str(e)}")
+
     def get_task_timer_status(self) -> ServiceResult:
         """
         获取所有TaskTimer的状态
