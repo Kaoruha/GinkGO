@@ -152,3 +152,194 @@ class TestGetNodeHeartbeatTtl:
         svc.get_node_heartbeat_ttl("node-1")
 
         mock_crud.ttl.assert_called_once_with("heartbeat:node:node-1")
+
+
+def _make_exists(hb: int, mt: int):
+    """key-aware exists side_effect：按 key 名区分 heartbeat/metrics，不依赖调用顺序。
+
+    service 构造的键：heartbeat:node:{id}（含 "heartbeat"）与 node:metrics:{id}（不含），
+    以 "heartbeat" 子串区分。与原 client 层 _make_exists 同逻辑（逻辑下沉后接口不变）。
+    """
+    def fake(key):
+        k = key.decode() if isinstance(key, bytes) else key
+        return hb if "heartbeat" in k else mt
+    return fake
+
+
+class TestIsExecutionNodeActive:
+    """is_execution_node_active：#4945 判活（原 execution_cli._is_node_active 下沉）。
+
+    阈值 5s：TTL≥5 活跃，0≤TTL<5 stale（可清理），TTL<0 永不过期保守判活，
+    heartbeat 不存在→不活跃。
+    """
+
+    def test_fresh_heartbeat_is_active(self):
+        """TTL ≥ 阈值 → 活跃（运行中，不应清理）。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.return_value = 1
+        mock_crud.ttl.return_value = 20
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.is_execution_node_active("node-a")
+
+        assert result.is_success()
+        assert result.data is True
+
+    def test_stale_heartbeat_is_not_active(self):
+        """TTL < 阈值（即将过期）→ 不活跃（可清理）。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.return_value = 1
+        mock_crud.ttl.return_value = 3  # < 5s 阈值
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.is_execution_node_active("node-a")
+
+        assert result.is_success()
+        assert result.data is False
+
+    def test_no_heartbeat_is_not_active(self):
+        """heartbeat 不存在 → 不活跃（短路，不查 TTL）。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.return_value = 0
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.is_execution_node_active("node-a")
+
+        assert result.is_success()
+        assert result.data is False
+        mock_crud.ttl.assert_not_called()  # 短路
+
+    def test_never_expire_heartbeat_is_active(self):
+        """TTL=-1（key 存在但永不过期，异常）→ 保守判活（#4945 review）。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.return_value = 1
+        mock_crud.ttl.return_value = -1
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.is_execution_node_active("node-a")
+
+        assert result.is_success()
+        assert result.data is True
+
+
+class TestCleanupExecutionNode:
+    """cleanup_execution_node：#5980 删除 + #4945 活跃守卫（原 _cleanup_node 下沉）。
+
+    返回 data = {skipped_active, heartbeat_deleted, metrics_deleted}：
+    - 活跃节点（fresh heartbeat）默认拒绝（skipped_active=True），force=True 跳过守卫。
+    - stale/无数据节点按 key 存在性删除；dry_run=True 探测仍跑、delete 不触发。
+    """
+
+    def test_stale_node_deletes_heartbeat_and_metrics(self):
+        """stale 节点（heartbeat 存在但 TTL 很小）→ 删 heartbeat + metrics。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.side_effect = _make_exists(hb=1, mt=1)
+        mock_crud.ttl.return_value = 0  # stale
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.cleanup_execution_node("node-a")
+
+        assert result.is_success()
+        d = result.data
+        assert d["skipped_active"] is False
+        assert d["heartbeat_deleted"] is True and d["metrics_deleted"] is True
+        assert mock_crud.delete.call_count == 2
+
+    def test_no_data_returns_false_and_skips_delete(self):
+        """无任何数据 → 不删。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.side_effect = _make_exists(hb=0, mt=0)
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.cleanup_execution_node("node-x")
+
+        assert result.is_success()
+        d = result.data
+        assert d["skipped_active"] is False
+        assert d["heartbeat_deleted"] is False and d["metrics_deleted"] is False
+        mock_crud.delete.assert_not_called()
+
+    def test_stale_node_heartbeat_only_deletes_heartbeat(self):
+        """stale 节点且只有 heartbeat → 只删 heartbeat。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.side_effect = _make_exists(hb=1, mt=0)
+        mock_crud.ttl.return_value = 0  # stale
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.cleanup_execution_node("node-hb")
+
+        assert result.is_success()
+        d = result.data
+        assert d["heartbeat_deleted"] is True and d["metrics_deleted"] is False
+        assert mock_crud.delete.call_count == 1
+
+    def test_active_node_rejected_without_force(self):
+        """#4945: 活跃节点（fresh heartbeat）默认拒绝清理，不删任何 key。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.side_effect = _make_exists(hb=1, mt=1)
+        mock_crud.ttl.return_value = 20  # 活跃（≥ 阈值 5）
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.cleanup_execution_node("node-a")
+
+        assert result.is_success()
+        d = result.data
+        assert d["skipped_active"] is True
+        assert d["heartbeat_deleted"] is False and d["metrics_deleted"] is False
+        mock_crud.delete.assert_not_called()
+
+    def test_active_node_force_overrides_guard(self):
+        """#4945: force=True 强制清理活跃节点（跳过守卫）。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.side_effect = _make_exists(hb=1, mt=1)
+        mock_crud.ttl.return_value = 20  # 活跃
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.cleanup_execution_node("node-a", force=True)
+
+        assert result.is_success()
+        d = result.data
+        assert d["skipped_active"] is False
+        assert d["heartbeat_deleted"] is True and d["metrics_deleted"] is True
+        assert mock_crud.delete.call_count == 2
+
+    def test_never_expire_node_rejected_without_force(self):
+        """#4945 review: TTL=-1（永不过期异常 heartbeat）默认拒绝，保守口径一致。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.side_effect = _make_exists(hb=1, mt=1)
+        mock_crud.ttl.return_value = -1  # 永不过期（异常）
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.cleanup_execution_node("node-a")
+
+        assert result.is_success()
+        d = result.data
+        assert d["skipped_active"] is True
+        mock_crud.delete.assert_not_called()
+
+    def test_dry_run_does_not_delete(self):
+        """dry_run=True：exists 探测仍跑，delete 不被调用（#5980 预览）。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.return_value = 1  # key 存在
+        mock_crud.ttl.return_value = 2  # < 阈值 5 → stale，放行清理
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.cleanup_execution_node("node_1", force=False, dry_run=True)
+
+        assert result.is_success()
+        d = result.data
+        assert d["skipped_active"] is False
+        assert d["heartbeat_deleted"] is True and d["metrics_deleted"] is True
+        mock_crud.exists.assert_called()  # 探测仍发生
+        mock_crud.delete.assert_not_called()  # 关键：dry-run 不删
+
+    def test_real_run_deletes(self):
+        """对照：dry_run=False 仍调用 delete（heartbeat + metrics）。"""
+        mock_crud = MagicMock()
+        mock_crud.exists.return_value = 1
+        mock_crud.ttl.return_value = 2
+        svc = RedisService(redis_crud=mock_crud)
+
+        svc.cleanup_execution_node("node_1", force=False, dry_run=False)
+
+        assert mock_crud.delete.call_count == 2

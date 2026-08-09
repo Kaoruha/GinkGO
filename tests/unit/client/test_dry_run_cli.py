@@ -69,38 +69,23 @@ class TestExecutionCleanupDryRun:
         assert res.exit_code == 0
         assert "without deleting" in _strip_ansi(res.output)
 
-    def test_cleanup_node_dry_run_does_not_delete(self):
-        """_cleanup_node(dry_run=True)：exists 探测仍跑，delete 不被调用。"""
-        from ginkgo.client.execution_cli import _cleanup_node
-        rc = MagicMock()
-        rc.exists.return_value = 1  # key 存在
-        rc.ttl.return_value = 2  # < _STALE_HEARTBEAT_TTL_THRESHOLD(5) → 视为非活跃，放行清理
-        skipped, hb, mt = _cleanup_node(rc, "node_1", force=False, dry_run=True)
-        assert skipped is False
-        assert hb is True and mt is True
-        rc.exists.assert_called()  # 探测仍发生
-        rc.delete.assert_not_called()  # 关键：dry-run 不删
+    def test_command_passes_dry_run_to_cleanup_service(self, cli_runner):
+        """execution cleanup --node-id n1 --dry-run → cleanup_execution_node 收到 dry_run=True。
 
-    def test_cleanup_node_real_run_deletes(self):
-        """对照：dry_run=False 仍调用 delete。"""
-        from ginkgo.client.execution_cli import _cleanup_node
-        rc = MagicMock()
-        rc.exists.return_value = 1
-        rc.ttl.return_value = 2
-        _cleanup_node(rc, "node_1", force=False, dry_run=False)
-        assert rc.delete.call_count == 2  # heartbeat + metrics
-
-    def test_command_passes_dry_run_to_cleanup_node(self, cli_runner):
-        """execution cleanup --node-id n1 --dry-run → _cleanup_node 收到 dry_run=True。"""
-        mock_redis = MagicMock()
-        mock_crud = MagicMock()
-        mock_crud.redis = mock_redis
-        with patch("ginkgo.data.crud.RedisCRUD", return_value=mock_crud), \
-             patch("ginkgo.client.execution_cli._cleanup_node", return_value=(False, True, True)) as m:
+        dry-run 的"不实际删除"语义在 service 层（cleanup_execution_node(dry_run=True) 不
+        delete，见 tests/unit/data/services/test_redis_service_execution_nodes.py），本处只断言
+        命令把 dry_run 透传给 service 并打印预览文案。
+        """
+        mock_services = MagicMock()
+        svc = mock_services.data.redis_service.return_value
+        svc.cleanup_execution_node.return_value = ServiceResult.success(
+            data={"skipped_active": False, "heartbeat_deleted": True, "metrics_deleted": True}
+        )
+        with patch("ginkgo.services", mock_services):
             res = cli_runner.invoke(_get_main_app(), ["execution", "cleanup", "--node-id", "n1", "--dry-run"])
         assert res.exit_code == 0
-        m.assert_called_once()
-        assert m.call_args.kwargs.get("dry_run") is True
+        svc.cleanup_execution_node.assert_called_once()
+        assert svc.cleanup_execution_node.call_args.kwargs.get("dry_run") is True
         # dry-run 横幅 + dry-run 文案（单节点路径用 verb_hb="Would delete"）
         out = _strip_ansi(res.output)
         assert "Dry-run" in out
