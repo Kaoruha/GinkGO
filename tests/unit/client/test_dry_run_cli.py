@@ -282,17 +282,17 @@ class TestGroupRemoveDryRun:
 @pytest.mark.unit
 @pytest.mark.cli
 class TestParamDeleteDryRun:
-    def test_dry_run_skips_crud(self, cli_runner):
-        """param delete --dry-run：confirm_or_exit 被旁路，delete_by_uuid 未调用。"""
-        crud = MagicMock()
+    def test_dry_run_skips_service(self, cli_runner):
+        """param delete --dry-run：confirm_or_exit 被旁路，param_service.delete_by_uuid 未调用。"""
+        svc = MagicMock()
         cont = MagicMock()
-        cont.cruds.param.return_value = crud
+        cont.param_service.return_value = svc
         with patch("ginkgo.data.containers.container", cont):
             res = cli_runner.invoke(
                 _get_main_app(), ["param", "delete", "--param", "pid1234567890ab", "--dry-run"]
             )
         assert res.exit_code == 0
-        crud.delete_by_uuid.assert_not_called()
+        svc.delete_by_uuid.assert_not_called()
         out = _strip_ansi(res.output)
         assert "Would delete parameter" in out
 

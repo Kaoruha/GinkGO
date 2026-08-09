@@ -33,8 +33,8 @@ def list(
     """
     from ginkgo.data.containers import container
 
-    param_crud = container.cruds.param()
-    params = param_crud.find_by_mapping_id(mapping)
+    param_svc = container.param_service()
+    params = param_svc.find_by_mapping_id(mapping)
 
     if raw:
         import json
@@ -72,17 +72,17 @@ def add(
     """
     from ginkgo.data.containers import container
 
-    param_crud = container.cruds.param()
+    param_svc = container.param_service()
 
     if index is None:
-        existing = param_crud.find_by_mapping_id(mapping)
+        existing = param_svc.find_by_mapping_id(mapping)
         if existing:
             index = max(p.index for p in existing) + 1
         else:
             index = 0
 
     try:
-        param_crud.set_param_value(mapping, index, value)
+        param_svc.set_param_value(mapping, index, value)
         console.print(f":white_check_mark: Added parameter at index {index}: [cyan]{value}[/cyan]")
     except Exception as e:
         console.print(f":x: Failed to add parameter: {e}")
@@ -100,8 +100,8 @@ def update(
     from ginkgo.data.containers import container
 
     try:
-        param_crud = container.cruds.param()
-        param_crud.update_value(param_id, value)
+        param_svc = container.param_service()
+        param_svc.update_value(param_id, value)
         console.print(f":white_check_mark: Updated parameter {param_id[:8]}... to [cyan]{value}[/cyan]")
     except Exception as e:
         console.print(f":x: Failed to update parameter: {e}")
@@ -127,8 +127,8 @@ def delete(
     confirm_or_exit(f":question: Delete parameter {param_id[:8]}...?", yes_flag=force)
 
     try:
-        param_crud = container.cruds.param()
-        param_crud.delete_by_uuid(param_id)
+        param_svc = container.param_service()
+        param_svc.delete_by_uuid(param_id)
         console.print(f":white_check_mark: Deleted parameter {param_id[:8]}...")
     except Exception as e:
         console.print(f":x: Failed to delete parameter: {e}")
