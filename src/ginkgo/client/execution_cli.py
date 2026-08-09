@@ -183,22 +183,20 @@ def list_portfolios(
       ginkgo execution list-portfolios --node-id node_1
     """
     try:
-        from ginkgo.data.crud import RedisCRUD
-        from ginkgo.data.redis_schema import RedisKeyBuilder
+        from ginkgo import services
 
-        redis_client = RedisCRUD().redis
+        redis_svc = services.data.redis_service()
 
-        # schedule:plan hash: {portfolio_id -> node_id}
-        # (Scheduler.SCHEDULE_PLAN_KEY；CLI 沿用 status 命令既有先例直接引用键名)
-        plan = redis_client.hgetall("schedule:plan")
-
-        def _decode(v):
-            return v.decode("utf-8") if isinstance(v, bytes) else v
+        # schedule:plan hash: {portfolio_id -> node_id}（Scheduler 写入）
+        # 收口至 redis_service.get_schedule_plan（内部 hgetall，已 decode 为 str）。#6300
+        plan_result = redis_svc.get_schedule_plan()
+        if not plan_result.is_success():
+            console.print(f"[red]:x: Error getting schedule plan: {plan_result.error}[/red]")
+            raise typer.Exit(1)
+        plan = plan_result.data or {}
 
         portfolios_on_node = [
-            _decode(pid)
-            for pid, assigned_node in plan.items()
-            if _decode(assigned_node) == node_id
+            pid for pid, assigned_node in plan.items() if assigned_node == node_id
         ]
 
         if not portfolios_on_node:
@@ -206,9 +204,8 @@ def list_portfolios(
                 f"[yellow]:information: No portfolios assigned to ExecutionNode '{node_id}'[/yellow]"
             )
             # 信息性心跳提示（不阻断；调度计划为空也可能是节点未启动）
-            heartbeat_ttl = redis_client.ttl(
-                RedisKeyBuilder.execution_node_heartbeat(node_id)
-            )
+            ttl_result = redis_svc.get_node_heartbeat_ttl(node_id)
+            heartbeat_ttl = ttl_result.data if ttl_result.is_success() else -2
             if heartbeat_ttl < 0:
                 console.print(
                     f"[dim]  (node '{node_id}' 心跳未检出 — TTL={heartbeat_ttl}；"
@@ -228,6 +225,8 @@ def list_portfolios(
         console.print("\n")
         console.print(table)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]:x: Error listing portfolios: {e}[/red]")
         raise typer.Exit(1)

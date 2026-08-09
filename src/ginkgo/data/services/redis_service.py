@@ -1033,6 +1033,31 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to get execution nodes detail: {e}")
             return ServiceResult.error(f"Failed to get execution nodes detail: {str(e)}")
 
+    def get_node_heartbeat_ttl(self, node_id: str) -> ServiceResult:
+        """
+        获取 ExecutionNode 心跳键的剩余 TTL（秒）
+
+        供 execution_cli list-portfolios（空分配时的心跳提示）与 status（单点/全量
+        节点存活判定）使用，收口原先 client 层对 redis ttl/exists 的直连（#6300）。
+
+        TTL 语义（与 RedisCRUD.ttl 一致）：
+          -2: 心跳键不存在（节点未运行）或连接失败
+          -1: 键存在但永不过期（异常，保守视为占用）
+          >=0: 剩余秒数
+
+        Returns:
+            ServiceResult: data = int (TTL 秒数)
+        """
+        try:
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
+            heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
+            ttl = self._crud_repo.ttl(heartbeat_key)
+            return ServiceResult.success(data=ttl, message=f"TTL={ttl}")
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get heartbeat ttl for {node_id}: {e}")
+            return ServiceResult.error(f"Failed to get heartbeat ttl: {str(e)}")
+
     def get_task_timer_status(self) -> ServiceResult:
         """
         获取所有TaskTimer的状态
