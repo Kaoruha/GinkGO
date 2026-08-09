@@ -639,3 +639,17 @@ class TestParamServiceClientPassthrough:
 
         crud.find_by_mapping_id.assert_called_once_with("m1")
         assert result == ["p1", "p2"]
+
+    def test_find_active_by_mapping_id_delegates_with_is_del_filter(self):
+        """find_active_by_mapping_id 忠实传 is_del=False（paper-portfolio 复制路径依赖）。
+
+        与 find_by_mapping_id 的差别：带 is_del 守卫 + 不强制 order_by（复刻原
+        ``param_crud.find(filters={"mapping_id": .., "is_del": False})`` 默认序语义）。
+        """
+        svc, crud = self._svc()
+        crud.find.return_value = ["p1"]
+
+        result = svc.find_active_by_mapping_id("m1")
+
+        crud.find.assert_called_once_with(filters={"mapping_id": "m1", "is_del": False})
+        assert result == ["p1"]

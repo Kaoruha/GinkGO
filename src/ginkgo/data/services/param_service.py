@@ -799,6 +799,16 @@ class ParamService(BaseService):
         """查询指定映射的所有参数（按索引排序）"""
         return self._crud_repo.find_by_mapping_id(mapping_id)
 
+    def find_active_by_mapping_id(self, mapping_id: str):
+        """查询指定映射的活跃参数（is_del=False，默认序）。
+
+        #6456 收口 seam：paper-portfolio 组件复制路径原直连
+        ``param_crud.find(filters={"mapping_id": .., "is_del": False})``，此处忠实
+        保留 is_del 过滤与默认排序（与 find_by_mapping_id 的 order_by="index" 不同，
+        复刻原 find 语义）。零行为变更。
+        """
+        return self._crud_repo.find(filters={"mapping_id": mapping_id, "is_del": False})
+
     # ==================== client 层收口薄封装（#6456：消除 CLI→CRUD 直连） ====================
     # 语义与 ParamCRUD 同名 helper 完全一致（含 upsert/日志/守卫），仅为分层——client 经
     # service，不再触达 data.crud。零行为变更的 refactor。
