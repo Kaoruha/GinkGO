@@ -22,20 +22,16 @@ console = Console()
 
 
 def _get_component_parameters(mapping_id: str, file_id: str, file_type: FILE_TYPES) -> dict:
-    """获取组件的参数信息"""
+    """获取组件的参数信息（#6456 收口：经 param_service，不再直连 ParamCRUD）"""
     try:
         from ginkgo.data.containers import container
 
-        # 从params表获取所有构造参数
-        param_crud = container.cruds.param()
-        params_df = param_crud.find(filters={"mapping_id": mapping_id}, order_by="index")
+        # 经 param_service 取该 mapping 的全部参数（list[MParam]，按 index 排序）
+        param_svc = container.param_service()
+        params = param_svc.find_by_mapping_id(mapping_id)
         params_dict = {}
-
-        if params_df.shape[0] > 0:
-            # 显示所有参数，使用索引作为键名
-            for i, param_value in enumerate(params_df["value"].values):
-                params_dict[f"param_{i}"] = param_value
-
+        for i, p in enumerate(params):
+            params_dict[f"param_{i}"] = p.value
         return params_dict
 
     except Exception as e:
