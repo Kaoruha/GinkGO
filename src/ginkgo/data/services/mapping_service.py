@@ -436,6 +436,38 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"获取Portfolio-File绑定失败: {str(e)}")
 
+    def get_active_portfolio_file_bindings(self, portfolio_uuid: str) -> ServiceResult:
+        """获取Portfolio的活跃File绑定关系（is_del=False）。
+
+        #6456 收口 seam：paper-portfolio 组件复制路径原直连
+        ``portfolio_file_mapping().find(filters={"portfolio_id": .., "is_del": False})``，
+        此处忠实保留 is_del 过滤（排除已解绑的软删组件）。与 get_portfolio_file_bindings
+        的差别仅在 is_del 守卫。零行为变更。
+        """
+        try:
+            bindings = self._portfolio_file_mapping_crud.find(
+                filters={"portfolio_id": portfolio_uuid, "is_del": False}
+            )
+            return ServiceResult.success(bindings, f"找到 {len(bindings)} 个活跃绑定")
+        except Exception as e:
+            return ServiceResult.error(f"获取活跃Portfolio-File绑定失败: {str(e)}")
+
+    def create_file_binding(self, portfolio_id: str, file_id: str, name: str, file_type_value):
+        """忠实创建一条 Portfolio-File 绑定（raw create，无 dedup），返回新 mapping（含 uuid）。
+
+        #6456 收口 seam：paper-portfolio 组件复制路径原直连
+        ``portfolio_file_mapping().create(portfolio_id=, file_id=, name=, type=)``。与
+        create_portfolio_file_binding 的差别：无 dedup find（源 portfolio 若含重复 file_id
+        绑定，dedup 会错误合并参数到同一新 mapping），type 取原始值（不经 FILE_TYPES 枚举
+        包装）。零行为变更。
+        """
+        return self._portfolio_file_mapping_crud.create(
+            portfolio_id=portfolio_id,
+            file_id=file_id,
+            name=name,
+            type=file_type_value,
+        )
+
     @retry(max_try=3)
     def delete_portfolio_file_binding(self, portfolio_uuid: str, file_uuid: str) -> ServiceResult:
         """删除Portfolio-File组件绑定关系"""

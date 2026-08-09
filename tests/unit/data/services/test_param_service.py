@@ -574,3 +574,82 @@ class TestParamServiceEdgeCases:
         # 验证索引唯一性
         indices = [p.index for p in result.data]
         assert len(indices) == len(set(indices))
+
+
+# ============================================================================
+# client 层收口薄封装（#6456：消除 CLI→CRUD 直连）
+# 验证 set_param_value/update_value/delete_by_uuid 忠实委托 _crud_repo 同名 helper，
+# 语义（upsert/modify/remove + source 默认 SIM）与 ParamCRUD 一致。不依赖真实 DB。
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestParamServiceClientPassthrough:
+    """client 收口薄封装的委托正确性（#6456 service seam）。"""
+
+    def _svc(self):
+        from unittest.mock import MagicMock
+        crud = MagicMock()
+        return ParamService(crud_repo=crud), crud
+
+    def test_set_param_value_delegates_upsert_with_sim_default(self):
+        """set_param_value 委托 CRUD 同名方法，source 默认 SOURCE_TYPES.SIM。"""
+        svc, crud = self._svc()
+
+        svc.set_param_value("m1", 2, "v1")
+
+        crud.set_param_value.assert_called_once()
+        args, kwargs = crud.set_param_value.call_args
+        # 位置参数委托（与 param_cli 调用序一致）
+        assert args[0] == "m1" and args[1] == 2 and args[2] == "v1"
+        from ginkgo.enums import SOURCE_TYPES
+        assert args[3] == SOURCE_TYPES.SIM
+
+    def test_set_param_value_explicit_source_passed_through(self):
+        """显式 source 透传，不覆写为 SIM。"""
+        svc, crud = self._svc()
+        from ginkgo.enums import SOURCE_TYPES
+
+        svc.set_param_value("m1", 0, "v", source=SOURCE_TYPES.BACKTEST)
+
+        assert crud.set_param_value.call_args.args[3] == SOURCE_TYPES.BACKTEST
+
+    def test_update_value_delegates(self):
+        """update_value(uuid, value) 委托 CRUD.update_value。"""
+        svc, crud = self._svc()
+
+        svc.update_value("uuid-1", "new_val")
+
+        crud.update_value.assert_called_once_with("uuid-1", "new_val")
+
+    def test_delete_by_uuid_delegates(self):
+        """delete_by_uuid(uuid) 委托 CRUD.delete_by_uuid（含其空值守卫+日志）。"""
+        svc, crud = self._svc()
+
+        svc.delete_by_uuid("uuid-1")
+
+        crud.delete_by_uuid.assert_called_once_with("uuid-1")
+
+    def test_find_by_mapping_id_delegates(self):
+        """find_by_mapping_id 仍忠实委托（client list 命令依赖）。"""
+        svc, crud = self._svc()
+        crud.find_by_mapping_id.return_value = ["p1", "p2"]
+
+        result = svc.find_by_mapping_id("m1")
+
+        crud.find_by_mapping_id.assert_called_once_with("m1")
+        assert result == ["p1", "p2"]
+
+    def test_find_active_by_mapping_id_delegates_with_is_del_filter(self):
+        """find_active_by_mapping_id 忠实传 is_del=False（paper-portfolio 复制路径依赖）。
+
+        与 find_by_mapping_id 的差别：带 is_del 守卫 + 不强制 order_by（复刻原
+        ``param_crud.find(filters={"mapping_id": .., "is_del": False})`` 默认序语义）。
+        """
+        svc, crud = self._svc()
+        crud.find.return_value = ["p1"]
+
+        result = svc.find_active_by_mapping_id("m1")
+
+        crud.find.assert_called_once_with(filters={"mapping_id": "m1", "is_del": False})
+        assert result == ["p1"]

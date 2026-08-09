@@ -271,8 +271,10 @@ def collect_component_info(engine_id: str, container) -> dict:
     }
 
     try:
-        # 1. 获取Engine-Portfolio绑定关系
-        portfolio_mappings = container.cruds.engine_portfolio_mapping().find(filters={"engine_id": engine_id})
+        # 1. 获取Engine-Portfolio绑定关系（#6456 收口：经 mapping_service，不再直连 CRUD）
+        mapping_service = container.mapping_service()
+        ep_result = mapping_service.get_engine_portfolio_mapping(engine_uuid=engine_id)
+        portfolio_mappings = ep_result.data if (ep_result.success and ep_result.data) else []
 
         if len(portfolio_mappings) > 0:
             portfolio_id = portfolio_mappings[0].portfolio_id
@@ -286,9 +288,9 @@ def collect_component_info(engine_id: str, container) -> dict:
             if portfolio_result.success and len(portfolio_result.data) > 0:
                 component_data['portfolio_info'] = portfolio_result.data[0]
 
-            # 3. 一次性获取Portfolio的所有文件绑定关系
-            file_mapping_crud = container.cruds.portfolio_file_mapping()
-            all_file_mappings = file_mapping_crud.find(filters={"portfolio_id": portfolio_id})
+            # 3. 一次性获取Portfolio的所有文件绑定关系（#6456 收口：经 mapping_service）
+            fb_result = mapping_service.get_portfolio_file_bindings(portfolio_uuid=portfolio_id)
+            all_file_mappings = fb_result.data if (fb_result.success and fb_result.data) else []
 
             # 4. 按类型分类文件映射，并添加参数字段
             for mapping in all_file_mappings:
@@ -310,8 +312,8 @@ def collect_component_info(engine_id: str, container) -> dict:
                 elif mapping.type == 5:  # FILE_TYPES.SIZER
                     component_data['sizers'].append(file_info)
 
-            # 5. 获取所有参数 - 修复：现在参数使用mapping.uuid作为mapping_id
-            param_crud = container.cruds.param()
+            # 5. 获取所有参数（#6456 收口：经 param_service，不再直连 ParamCRUD）
+            param_svc = container.param_service()
 
             # 收集所有mapping的UUID
             mapping_uuids = [mapping.uuid for mapping in all_file_mappings]
@@ -319,9 +321,9 @@ def collect_component_info(engine_id: str, container) -> dict:
             # 按mapping_uuid分别获取参数
             all_params = {}
             for mapping_uuid in mapping_uuids:
-                params = param_crud.find(filters={"mapping_id": mapping_uuid})
+                params = param_svc.find_by_mapping_id(mapping_uuid)
                 if params:
-                    # 按index排序
+                    # 按index排序（find_by_mapping_id 已按 index 排序，此为防御性去重保序）
                     sorted_params = sorted(params, key=lambda p: p.index)
                     all_params[mapping_uuid] = sorted_params
 

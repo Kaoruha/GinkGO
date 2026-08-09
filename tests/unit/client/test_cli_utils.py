@@ -49,26 +49,28 @@ class TestGetComponentParameters:
     """Tests for _get_component_parameters helper."""
 
     def test_returns_empty_dict_when_no_params(self):
-        crud = MagicMock()
-        crud.find.return_value = pd.DataFrame(columns=["value"])
+        svc = MagicMock()
+        svc.find_by_mapping_id.return_value = []
         with patch("ginkgo.data.containers.container") as mock_container:
-            mock_container.cruds.param.return_value = crud
+            mock_container.param_service.return_value = svc
             result = cli_utils._get_component_parameters("mapping-1", "file-1", FILE_TYPES.STRATEGY)
         assert result == {}
 
     def test_returns_params_dict(self):
-        crud = MagicMock()
-        crud.find.return_value = pd.DataFrame({"value": [100, 0.5]})
+        p0 = MagicMock(); p0.value = 100
+        p1 = MagicMock(); p1.value = 0.5
+        svc = MagicMock()
+        svc.find_by_mapping_id.return_value = [p0, p1]
         with patch("ginkgo.data.containers.container") as mock_container:
-            mock_container.cruds.param.return_value = crud
+            mock_container.param_service.return_value = svc
             result = cli_utils._get_component_parameters("mapping-1", "file-1", FILE_TYPES.STRATEGY)
         assert result == {"param_0": 100, "param_1": 0.5}
 
     def test_returns_empty_on_exception(self):
-        crud = MagicMock()
-        crud.find.side_effect = Exception("DB error")
+        svc = MagicMock()
+        svc.find_by_mapping_id.side_effect = Exception("DB error")
         with patch("ginkgo.data.containers.container") as mock_container:
-            mock_container.cruds.param.return_value = crud
+            mock_container.param_service.return_value = svc
             result = cli_utils._get_component_parameters("mapping-1", "file-1", FILE_TYPES.STRATEGY)
         assert result == {}
 

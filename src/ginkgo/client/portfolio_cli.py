@@ -878,7 +878,9 @@ def _deploy_paper_trading(
     from ginkgo.enums import PORTFOLIO_MODE_TYPES, SOURCE_TYPES
 
     portfolio_service = services.data.portfolio_service()
-    mapping_crud = services.data.cruds.portfolio_file_mapping()
+    # #6456 收口：经 mapping_service / param_service，不再直连 CRUD
+    mapping_service = services.data.mapping_service()
+    param_service = services.data.param_service()
 
     # 1. 读取源 Portfolio 信息
     source_result = portfolio_service.get(portfolio_id=source_portfolio_id)
@@ -906,23 +908,25 @@ def _deploy_paper_trading(
     new_portfolio_id = create_result.data["uuid"]
     GLOG.INFO(f"[DEPLOY] Created paper portfolio: {new_portfolio_id} ({new_name})")
 
-    # 3. 复制组件文件映射 + 参数
-    param_crud = services.data.cruds.param()
-    mappings = mapping_crud.find(filters={"portfolio_id": source_portfolio_id, "is_del": False})
+    # 3. 复制组件文件映射 + 参数（#6456 收口：经 service）
+    # 取源 Portfolio 的活跃绑定（is_del=False，排除已解绑组件）
+    bindings_result = mapping_service.get_active_portfolio_file_bindings(portfolio_uuid=source_portfolio_id)
+    mappings = bindings_result.data if (bindings_result.success and bindings_result.data) else []
     param_count = 0
     for mapping in mappings:
         mapping_type = mapping.type.value if hasattr(mapping.type, "value") else mapping.type
-        # create(**kwargs) 返回带 uuid 的新 mapping（add 收 model 对象，传 kwargs 会 TypeError）
-        new_mapping = mapping_crud.create(
+        # 经 mapping_service 忠实创建绑定（raw create，返回带 uuid 的新 mapping）
+        new_mapping = mapping_service.create_file_binding(
             portfolio_id=new_portfolio_id,
             file_id=mapping.file_id,
             name=mapping.name,
-            type=mapping_type,
+            file_type_value=mapping_type,
         )
-        # 复制源 mapping 的参数到新 mapping（mapping_id 指向新 uuid）
-        src_params = param_crud.find(filters={"mapping_id": mapping.uuid, "is_del": False})
+        # 复制源 mapping 的活跃参数到新 mapping（mapping_id 指向新 uuid）
+        # set_param_value 对 fresh mapping 必走 create 分支（= 原 raw create 语义）
+        src_params = param_service.find_active_by_mapping_id(mapping.uuid)
         for p in src_params:
-            param_crud.create(
+            param_service.set_param_value(
                 mapping_id=new_mapping.uuid,
                 index=p.index,
                 value=p.value,

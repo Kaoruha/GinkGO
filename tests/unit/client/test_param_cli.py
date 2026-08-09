@@ -32,27 +32,27 @@ class TestParamDeleteConfirm:
     def test_non_tty_without_force_exits1_and_skips_delete(self, cli_runner):
         """非 TTY 无 --force → Exit(1)，CRUD 未被调用（不再静默 no-op）。"""
         with patch("ginkgo.data.containers.container") as mock_container:
-            mock_crud = MagicMock()
-            mock_container.cruds.param.return_value = mock_crud
+            mock_svc = MagicMock()
+            mock_container.param_service.return_value = mock_svc
             result = cli_runner.invoke(param_cli.app, ["delete", "--param", PARAM_ID])
 
         # CliRunner 默认非 TTY → safe_confirm raise CliConfirmError
         # → confirm_or_exit raise typer.Exit(1)；standalone_mode 转 SystemExit
         assert result.exit_code == 1
         assert isinstance(result.exception, (typer.Exit, SystemExit))
-        mock_crud.delete_by_uuid.assert_not_called()
+        mock_svc.delete_by_uuid.assert_not_called()
 
     def test_non_tty_with_force_deletes(self, cli_runner):
         """非 TTY + --force → CRUD 正常删除。"""
         with patch("ginkgo.data.containers.container") as mock_container:
-            mock_crud = MagicMock()
-            mock_container.cruds.param.return_value = mock_crud
+            mock_svc = MagicMock()
+            mock_container.param_service.return_value = mock_svc
             result = cli_runner.invoke(
                 param_cli.app, ["delete", "--param", PARAM_ID, "--force"]
             )
 
         assert result.exit_code == 0, result.output
-        mock_crud.delete_by_uuid.assert_called_once_with(PARAM_ID)
+        mock_svc.delete_by_uuid.assert_called_once_with(PARAM_ID)
 
     def test_confirmed_proceeds_with_delete(self, cli_runner):
         """确认通过（用户在 TTY 同意）→ CRUD 正常删除。
@@ -62,9 +62,9 @@ class TestParamDeleteConfirm:
         """
         with patch("ginkgo.client.cli_utils.safe_confirm", return_value=True), \
              patch("ginkgo.data.containers.container") as mock_container:
-            mock_crud = MagicMock()
-            mock_container.cruds.param.return_value = mock_crud
+            mock_svc = MagicMock()
+            mock_container.param_service.return_value = mock_svc
             result = cli_runner.invoke(param_cli.app, ["delete", "--param", PARAM_ID])
 
         assert result.exit_code == 0, result.output
-        mock_crud.delete_by_uuid.assert_called_once_with(PARAM_ID)
+        mock_svc.delete_by_uuid.assert_called_once_with(PARAM_ID)

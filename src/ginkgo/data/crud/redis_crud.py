@@ -767,7 +767,40 @@ class RedisCRUD:
             ]
             GLOG.DEBUG(f"Found {len(result)} keys matching pattern: {pattern}")
             return result
-            
+
         except Exception as e:
             GLOG.ERROR(f"Failed to get Redis keys by pattern {pattern}: {e}")
+            return []
+
+    @time_logger
+    def scan_iter(self, match: str = "*", count: int = 100) -> List[str]:
+        """
+        游标式扫描匹配键名（非阻塞，#5519）
+
+        相比 keys() 的 O(N) 阻塞 Redis 单线程，scan_iter 用 SCAN 游标分批返回，
+        生产环境扫全库安全（status/cleanup 查所有 ExecutionNode 心跳键用此）。
+        count 是 SCAN COUNT hint（批次大小），非结果上限——scan_iter 总会遍历完
+        所有匹配键；需要截断由调用方 [:limit] 完成。
+
+        Args:
+            match: 键名通配模式
+            count: SCAN COUNT hint（批次大小）
+
+        Returns:
+            List[str]: 匹配的键名列表（已 decode 为 str）
+        """
+        try:
+            if not self._test_connection():
+                return []
+
+            keys = list(self._redis.scan_iter(match=match, count=count))
+            result = [
+                key.decode('utf-8') if isinstance(key, bytes) else key
+                for key in keys
+            ]
+            GLOG.DEBUG(f"Scanned {len(result)} keys matching pattern: {match}")
+            return result
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to scan_iter Redis pattern {match}: {e}")
             return []

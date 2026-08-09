@@ -967,6 +967,244 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to get scheduler status: {e}")
             return ServiceResult.error(f"Failed to get scheduler status: {str(e)}")
 
+    def get_schedule_plan(self) -> ServiceResult:
+        """
+        获取当前 Portfolio→ExecutionNode 调度计划
+
+        读取 Scheduler 写入的 schedule:plan hash（portfolio_id → node_id）。
+        注意：schedule:plan 由 livecore Scheduler publisher 用 hset 写入，
+        必须用 hgetall 读；误用 get() 会触发 WRONGTYPE（#5987-b）。
+        schedule:plan / node:metrics 为 scheduler 运行时 key，暂未纳入 redis_schema 常量。
+
+        Returns:
+            ServiceResult: data = Dict[str, str]（portfolio_id → node_id）
+        """
+        try:
+            plan = self._crud_repo.hgetall("schedule:plan")
+            return ServiceResult.success(
+                data=plan or {},
+                message=f"Found {len(plan)} scheduled portfolios"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get schedule plan: {e}")
+            return ServiceResult.error(f"Failed to get schedule plan: {str(e)}")
+
+    def get_execution_nodes_detail(self) -> ServiceResult:
+        """
+        获取所有 ExecutionNode 的详情（心跳 TTL + metrics）
+
+        供 scheduler CLI 的 nodes/recalculate/schedule 命令使用，统一收口
+        原先散布在 client 层的 keys+ttl+hgetall 直连。返回每个节点的：
+        node_id / ttl（心跳剩余秒，>0 视为健康）/ portfolio_count / queue_size / cpu_usage。
+
+        Returns:
+            ServiceResult: data = List[Dict]（每节点含上述字段）
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
+            )
+
+            nodes = []
+            heartbeat_keys = self._crud_repo.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
+
+            for key in heartbeat_keys:
+                try:
+                    node_id = extract_id_from_key(key, f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
+                    ttl = self._crud_repo.ttl(key)
+                    # node:metrics:{id} 由 ExecutionNode 上报，暂未纳入 redis_schema 常量
+                    metrics = self._crud_repo.hgetall(f"node:metrics:{node_id}")
+                    nodes.append({
+                        "node_id": node_id,
+                        "ttl": ttl,
+                        "portfolio_count": int(metrics.get("portfolio_count", 0) or 0),
+                        "queue_size": int(metrics.get("queue_size", 0) or 0),
+                        "cpu_usage": float(metrics.get("cpu_usage", 0.0) or 0.0),
+                    })
+                except Exception as e:
+                    self._logger.WARN(f"Failed to parse node detail for {key}: {e}")
+                    continue
+
+            return ServiceResult.success(
+                data=nodes,
+                message=f"Found {len(nodes)} execution nodes"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get execution nodes detail: {e}")
+            return ServiceResult.error(f"Failed to get execution nodes detail: {str(e)}")
+
+    def get_node_heartbeat_ttl(self, node_id: str) -> ServiceResult:
+        """
+        获取 ExecutionNode 心跳键的剩余 TTL（秒）
+
+        供 execution_cli list-portfolios（空分配时的心跳提示）与 status（单点/全量
+        节点存活判定）使用，收口原先 client 层对 redis ttl/exists 的直连（#6300）。
+
+        TTL 语义（与 RedisCRUD.ttl 一致）：
+          -2: 心跳键不存在（节点未运行）或连接失败
+          -1: 键存在但永不过期（异常，保守视为占用）
+          >=0: 剩余秒数
+
+        Returns:
+            ServiceResult: data = int (TTL 秒数)
+        """
+        try:
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
+            heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
+            ttl = self._crud_repo.ttl(heartbeat_key)
+            return ServiceResult.success(data=ttl, message=f"TTL={ttl}")
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get heartbeat ttl for {node_id}: {e}")
+            return ServiceResult.error(f"Failed to get heartbeat ttl: {str(e)}")
+
+    def get_execution_node_metrics(self, node_id: str) -> ServiceResult:
+        """
+        获取 ExecutionNode 上报的 metrics hash（已 decode 为 str dict）
+
+        供 execution_cli status 展示 status / portfolio_count / queue_size /
+        total_events。node:metrics:{id} 由 ExecutionNode 上报，暂未纳入 redis_schema
+        常量。
+
+        Returns:
+            ServiceResult: data = Dict[str, str]（metrics 字段，已 decode）
+        """
+        try:
+            metrics = self._crud_repo.hgetall(f"node:metrics:{node_id}")
+            return ServiceResult.success(
+                data=metrics or {},
+                message=f"Found {len(metrics)} metrics fields"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get metrics for {node_id}: {e}")
+            return ServiceResult.error(f"Failed to get execution node metrics: {str(e)}")
+
+    def scan_execution_node_ids(self, limit: Optional[int] = None) -> ServiceResult:
+        """
+        游标式扫描所有 ExecutionNode 心跳键，返回 node_id 列表（#5519 非阻塞）
+
+        供 execution_cli status（全量节点）与 cleanup（无 --node-id 清所有）使用，
+        统一收口原先 client 层对 scan_iter / keys 的直连。内部用 RedisCRUD.scan_iter
+        （SCAN 游标式），而非 keys() 的 O(N) 阻塞 Redis 单线程。
+
+        Args:
+            limit: 可选上限（同时作 SCAN COUNT hint）；None 表示不截断（全量扫描）。
+
+        Returns:
+            ServiceResult: data = List[str]（node_id 列表）
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
+            )
+
+            count_hint = limit if limit is not None else 100
+            heartbeat_keys = self._crud_repo.scan_iter(
+                match=RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL,
+                count=count_hint,
+            )
+            node_ids = [
+                extract_id_from_key(k, f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
+                for k in heartbeat_keys
+            ]
+            if limit is not None:
+                node_ids = node_ids[:limit]
+            return ServiceResult.success(
+                data=node_ids,
+                message=f"Found {len(node_ids)} execution nodes"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to scan execution node ids: {e}")
+            return ServiceResult.error(f"Failed to scan execution node ids: {str(e)}")
+
+    def is_execution_node_active(self, node_id: str) -> ServiceResult:
+        """
+        判断 ExecutionNode 是否活跃（运行中，不应清理）（#4945）
+
+        供 cleanup 命令的活跃守卫使用（原 execution_cli._is_node_active 逻辑下沉）。
+        判活阈值 5 秒与 status 命令的 ``< 5`` 判 stale 一致——避免 status 说活跃、
+        cleanup 却清掉同一节点。
+
+        判定口径：
+          - heartbeat 不存在 → 不活跃（可清理）
+          - TTL ≥ 5 → 活跃（fresh heartbeat，运行中）
+          - 0 ≤ TTL < 5 → stale（即将过期），不活跃（可清理）
+          - TTL < 0（key 存在但永不过期，异常）→ 保守判活（拒绝清理，需 --force）
+
+        注意：heartbeat_manager.is_node_id_in_use（节点启动时判 node_id 是否被占用）
+        用更宽松阈值 10 秒，与本函数 5 秒口径不同——目的不同：cleanup 问"清掉是否误杀
+        运行节点"，is_node_id_in_use 问"能否用此 node_id 启动"。仅 TTL<0 永不过期
+        分支语义一致（都保守拒绝）。
+
+        Returns:
+            ServiceResult: data = bool（True=活跃/运行中，不应清理）
+        """
+        try:
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
+            heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
+            if not self._crud_repo.exists(heartbeat_key):
+                return ServiceResult.success(data=False)
+            heartbeat_ttl = self._crud_repo.ttl(heartbeat_key)
+            if heartbeat_ttl < 0:
+                # 永不过期（异常情况），保守判活
+                return ServiceResult.success(data=True)
+            # 与 status 命令 < 5 判 stale 一致（_STALE_HEARTBEAT_TTL_THRESHOLD=5）
+            return ServiceResult.success(data=heartbeat_ttl >= 5)
+        except Exception as e:
+            self._logger.ERROR(f"Failed to check node active for {node_id}: {e}")
+            return ServiceResult.error(f"Failed to check node active: {str(e)}")
+
+    def cleanup_execution_node(
+        self, node_id: str, force: bool = False, dry_run: bool = False
+    ) -> ServiceResult:
+        """
+        清理单个 ExecutionNode 的 heartbeat + metrics（#5980/#4945）
+
+        原 execution_cli._cleanup_node 逻辑下沉。返回 dict 供调用方统计/输出：
+          - skipped_active: 节点活跃（fresh heartbeat）且非 force，已拒绝清理
+          - heartbeat_deleted / metrics_deleted: 是否（将）删除对应 key
+
+        force=True 跳过活跃守卫，强制清理。dry_run=True 只做 exists 探测与活跃守卫
+        判定，不实际 delete（返回值含义改为"将删除"）；活跃守卫在 dry_run 下仍生效
+        （预览也应诚实反映跳过项）。
+
+        Returns:
+            ServiceResult: data = Dict {skipped_active, heartbeat_deleted, metrics_deleted}
+        """
+        try:
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
+            # #4945: 活跃守卫——fresh heartbeat 表示节点在运行，删它会让调度器误判离线
+            if not force:
+                active_result = self.is_execution_node_active(node_id)
+                # 守卫判定失败时保守判活（拒绝清理），避免清掉可能的活跃节点
+                is_active = active_result.data if active_result.is_success() else True
+                if is_active:
+                    return ServiceResult.success(data={
+                        "skipped_active": True,
+                        "heartbeat_deleted": False,
+                        "metrics_deleted": False,
+                    })
+
+            heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
+            metrics_key = f"node:metrics:{node_id}"
+            heartbeat_exists = self._crud_repo.exists(heartbeat_key)
+            metrics_exists = self._crud_repo.exists(metrics_key)
+            if not dry_run:
+                if heartbeat_exists:
+                    self._crud_repo.delete(heartbeat_key)
+                if metrics_exists:
+                    self._crud_repo.delete(metrics_key)
+            return ServiceResult.success(data={
+                "skipped_active": False,
+                "heartbeat_deleted": bool(heartbeat_exists),
+                "metrics_deleted": bool(metrics_exists),
+            })
+        except Exception as e:
+            self._logger.ERROR(f"Failed to cleanup execution node {node_id}: {e}")
+            return ServiceResult.error(f"Failed to cleanup execution node: {str(e)}")
+
     def get_task_timer_status(self) -> ServiceResult:
         """
         获取所有TaskTimer的状态

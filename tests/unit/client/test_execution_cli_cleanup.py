@@ -1,14 +1,13 @@
 """
-TDD tests for execution cleanup 命令（#5980）。
+execution cleanup 命令端到端测试（#5980/#4945/#5519/#6300）。
 
-#5980: execution cleanup 硬编码 node_id="execution_node_1"，但实际节点用
-hostname/自定义 ID，cleanup 不带 --node-id 时永远清不存在的节点。
+收口后（#6300/#6115）cleanup 命令不再直连 Redis：
+- 节点枚举走 redis_service.scan_execution_node_ids（#5519 scan_iter 非阻塞）
+- 清理逻辑（判活 #4945 + 删除 #5980 + dry-run）走 redis_service.cleanup_execution_node
 
-修复：
-- 提取 _cleanup_node(redis_client, node_id) deep module（清单个节点）
-- cleanup 默认 node_id=None → 扫描所有 heartbeat keys（复用 status 的
-  RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL）逐个清理
-- 指定 --node-id 时只清该节点
+故本文件只断言命令的**编排/输出**（scan→per-node cleanup→统计/提示），删除/判活的
+底层不变量（活跃守卫、force、dry-run 不删）下沉至 service 层测试
+（见 tests/unit/data/services/test_redis_service_execution_nodes.py）。
 """
 
 import os
@@ -19,11 +18,8 @@ import pytest
 from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 
-from ginkgo.client.execution_cli import _cleanup_node, _is_node_active, app
-from ginkgo.data.redis_schema import (
-    RedisKeyPattern,
-    RedisKeyPrefix,
-)
+from ginkgo.client.execution_cli import app
+from ginkgo.data.services.base_service import ServiceResult
 
 
 @pytest.fixture
@@ -32,248 +28,135 @@ def cli_runner():
 
 
 # ---------------------------------------------------------------------------
-# _cleanup_node deep module
+# ServiceResult 构造 helper（与 service 层 cleanup_execution_node 返回契约一致）
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit
-@pytest.mark.cli
-class TestCleanupNode:
-    """_cleanup_node：清单个节点的 heartbeat + metrics。
+def _cleaned(hb=True, mt=True):
+    """清理成功（skipped_active=False）：heartbeat/metrics 按存在性置删除标志。"""
+    return ServiceResult.success(
+        data={"skipped_active": False, "heartbeat_deleted": hb, "metrics_deleted": mt}
+    )
 
-    返回三元组 (skipped_active, hb_deleted, mt_deleted)：
-    - 活跃节点（fresh heartbeat）默认拒绝（skipped_active=True），除非 force=True。
-    - stale/无数据节点正常处理（skipped_active=False）。
-    """
 
-    @staticmethod
-    def _make_exists(hb: int, mt: int):
-        """key-aware exists side_effect：按 key 名区分 heartbeat/metrics，不依赖调用顺序。"""
-        def fake(key):
-            k = key.decode() if isinstance(key, bytes) else key
-            return hb if "heartbeat" in k else mt
-        return fake
+def _skipped():
+    """活跃守卫拒绝（fresh heartbeat，#4945）：跳过，不删任何 key。"""
+    return ServiceResult.success(
+        data={"skipped_active": True, "heartbeat_deleted": False, "metrics_deleted": False}
+    )
 
-    def test_stale_node_deletes_heartbeat_and_metrics(self):
-        """stale 节点（heartbeat 存在但 TTL 已很小）→ 正常删除 heartbeat + metrics"""
-        redis = MagicMock()
-        redis.exists.side_effect = self._make_exists(hb=1, mt=1)
-        redis.ttl.return_value = 0  # stale
-        skipped, hb_deleted, mt_deleted = _cleanup_node(redis, "node-a")
-        assert skipped is False
-        assert hb_deleted is True and mt_deleted is True
-        assert redis.delete.call_count == 2
 
-    def test_no_data_returns_false_and_skips_delete(self):
-        """无任何数据 → 不删"""
-        redis = MagicMock()
-        redis.exists.side_effect = self._make_exists(hb=0, mt=0)
-        skipped, hb_deleted, mt_deleted = _cleanup_node(redis, "node-x")
-        assert skipped is False
-        assert hb_deleted is False and mt_deleted is False
-        redis.delete.assert_not_called()
-
-    def test_stale_node_heartbeat_only_deletes_heartbeat(self):
-        """stale 节点且只有 heartbeat → 只删 heartbeat"""
-        redis = MagicMock()
-        redis.exists.side_effect = self._make_exists(hb=1, mt=0)
-        redis.ttl.return_value = 0  # stale
-        skipped, hb_deleted, mt_deleted = _cleanup_node(redis, "node-hb")
-        assert skipped is False
-        assert hb_deleted is True and mt_deleted is False
-        assert redis.delete.call_count == 1
-
-    def test_active_node_rejected_without_force(self):
-        """#4945: 活跃节点（fresh heartbeat）默认拒绝清理，不删任何 key"""
-        redis = MagicMock()
-        redis.exists.side_effect = self._make_exists(hb=1, mt=1)
-        redis.ttl.return_value = 20  # 活跃（≥ 阈值 5）
-        skipped, hb_deleted, mt_deleted = _cleanup_node(redis, "node-a")
-        assert skipped is True
-        assert hb_deleted is False and mt_deleted is False
-        redis.delete.assert_not_called()
-
-    def test_active_node_force_overrides_guard(self):
-        """#4945: force=True 强制清理活跃节点"""
-        redis = MagicMock()
-        redis.exists.side_effect = self._make_exists(hb=1, mt=1)
-        redis.ttl.return_value = 20  # 活跃
-        skipped, hb_deleted, mt_deleted = _cleanup_node(redis, "node-a", force=True)
-        assert skipped is False
-        assert hb_deleted is True and mt_deleted is True
-        assert redis.delete.call_count == 2
-
-    def test_never_expire_node_rejected_without_force(self):
-        """#4945 review: TTL=-1（永不过期异常 heartbeat）默认拒绝清理，与 heartbeat_manager 保守口径一致。"""
-        redis = MagicMock()
-        redis.exists.side_effect = self._make_exists(hb=1, mt=1)
-        redis.ttl.return_value = -1  # 永不过期（异常）
-        skipped, hb_deleted, mt_deleted = _cleanup_node(redis, "node-a")
-        assert skipped is True
-        assert hb_deleted is False and mt_deleted is False
-        redis.delete.assert_not_called()
+def _mock_services():
+    """构造 mock ginkgo.services，返回其 redis_service mock 供各 test 精细配置。"""
+    m = MagicMock()
+    svc = m.data.redis_service.return_value
+    return m, svc
 
 
 # ---------------------------------------------------------------------------
-# cleanup 命令端到端（#5980：默认 node_id 应扫描所有节点，非硬编码 execution_node_1）
+# cleanup 命令端到端（#5980：默认扫描所有节点；#4945：活跃守卫；#5519：scan 枚举）
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 @pytest.mark.cli
 class TestCleanupCommand:
-    """cleanup 命令：扫描/指定节点清理 + #4945 活跃守卫。"""
+    """cleanup 命令：scan/指定节点清理 + #4945 活跃守卫（经 redis_service，不直连 Redis）。"""
 
     def test_no_node_id_scans_all_stale_nodes(self, cli_runner):
-        """#5980: 不带 --node-id 应扫描所有 heartbeat keys 逐个清理（stale 节点）"""
-        redis = MagicMock()
-        prefix = f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:"
-        redis.keys.return_value = [
-            f"{prefix}node-a".encode(),
-            f"{prefix}node-b".encode(),
-        ]
-        redis.exists.return_value = 1  # 每节点 heartbeat+metrics 均存在
-        redis.ttl.return_value = 0  # stale，可清理
+        """#5980/#5519: 不带 --node-id 调 scan_execution_node_ids 逐个清理（stale 节点）。"""
+        mock_services, svc = _mock_services()
+        svc.scan_execution_node_ids.return_value = ServiceResult.success(data=["node-a", "node-b"])
+        svc.cleanup_execution_node.return_value = _cleaned()
 
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = redis
+        with patch("ginkgo.services", mock_services):
             result = cli_runner.invoke(app, ["cleanup"])
 
         assert result.exit_code == 0
-        redis.keys.assert_called_once_with(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
-        # 2 节点 × (heartbeat + metrics) = 4 次 delete
-        assert redis.delete.call_count == 4
+        # #5519: 节点枚举走 scan service（CLI 不再 keys）
+        svc.scan_execution_node_ids.assert_called_once()
+        # 2 个节点各调一次 cleanup service
+        assert svc.cleanup_execution_node.call_count == 2
         assert "node-a" in result.output
         assert "node-b" in result.output
+        # 实清非 dry-run → 打印调度器将判定离线
+        assert "will detect" in result.output.lower()
 
     def test_with_node_id_cleans_stale(self, cli_runner):
-        """指定 --node-id 清 stale 节点"""
-        redis = MagicMock()
-        redis.exists.return_value = 1
-        redis.ttl.return_value = 0  # stale
+        """指定 --node-id 清 stale 节点（不 scan，单点 cleanup service）。"""
+        mock_services, svc = _mock_services()
+        svc.cleanup_execution_node.return_value = _cleaned()
 
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = redis
+        with patch("ginkgo.services", mock_services):
             result = cli_runner.invoke(app, ["cleanup", "--node-id", "my-host"])
 
         assert result.exit_code == 0
-        redis.keys.assert_not_called()
-        assert redis.delete.call_count == 2  # heartbeat + metrics
+        svc.scan_execution_node_ids.assert_not_called()
+        svc.cleanup_execution_node.assert_called_once()
+        assert svc.cleanup_execution_node.call_args.args[0] == "my-host"
         assert "my-host" in result.output
+        assert "heartbeat" in result.output.lower()
 
     def test_no_nodes_found_shows_warning(self, cli_runner):
-        """无节点时提示，不崩溃"""
-        redis = MagicMock()
-        redis.keys.return_value = []
+        """scan 返回空 → 提示，不调 cleanup service。"""
+        mock_services, svc = _mock_services()
+        svc.scan_execution_node_ids.return_value = ServiceResult.success(data=[])
 
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = redis
+        with patch("ginkgo.services", mock_services):
             result = cli_runner.invoke(app, ["cleanup"])
 
         assert result.exit_code == 0
+        svc.cleanup_execution_node.assert_not_called()
         assert "No ExecutionNodes" in result.output or "no heartbeat" in result.output.lower()
 
     # --- #4945: 活跃守卫命令级行为 ---
 
     def test_active_node_with_id_refused_without_force(self, cli_runner):
-        """#4945: --node-id 指定活跃节点 → 拒绝清理，不删任何 key"""
-        redis = MagicMock()
-        redis.exists.return_value = 1
-        redis.ttl.return_value = 20  # 活跃
+        """#4945: --node-id 指定活跃节点 → service 返回 skipped_active，命令拒绝，不删。"""
+        mock_services, svc = _mock_services()
+        svc.cleanup_execution_node.return_value = _skipped()
 
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = redis
+        with patch("ginkgo.services", mock_services):
             result = cli_runner.invoke(app, ["cleanup", "--node-id", "live-host"])
 
         assert result.exit_code == 0  # 拒绝但非错误退出
-        redis.delete.assert_not_called()
+        svc.cleanup_execution_node.assert_called_once()
         out = result.output.lower()
         assert "running" in out or "fresh" in out  # 明确告知节点在运行
         # #4945 表象：拒绝时绝不能出现"调度器会判定它离线"的误导语（那正是 bug）
         assert "will detect" not in out and "detect this node as offline" not in out
 
     def test_active_node_with_id_force_cleans(self, cli_runner):
-        """#4945: --force 强制清理活跃节点"""
-        redis = MagicMock()
-        redis.exists.return_value = 1
-        redis.ttl.return_value = 20  # 活跃
+        """#4945: --force 透传 service，强制清理活跃节点。"""
+        mock_services, svc = _mock_services()
+        svc.cleanup_execution_node.return_value = _cleaned()
 
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = redis
+        with patch("ginkgo.services", mock_services):
             result = cli_runner.invoke(app, ["cleanup", "--node-id", "live-host", "--force"])
 
         assert result.exit_code == 0
-        assert redis.delete.call_count == 2  # force 跳过守卫，正常删
+        svc.cleanup_execution_node.assert_called_once()
+        assert svc.cleanup_execution_node.call_args.kwargs.get("force") is True
         assert "live-host" in result.output
 
     def test_scan_all_skips_active_and_cleans_stale(self, cli_runner):
-        """#4945: scan-all 混合场景——活跃节点跳过 + stale 节点清理 + 统计 skipped"""
-        redis = MagicMock()
-        prefix = f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:"
-        redis.keys.return_value = [
-            f"{prefix}stale-node".encode(),
-            f"{prefix}live-node".encode(),
-        ]
-        redis.exists.return_value = 1  # 所有 key 存在
+        """#4945: scan-all 混合——活跃节点跳过 + stale 节点清理 + 统计 skipped。"""
+        mock_services, svc = _mock_services()
+        svc.scan_execution_node_ids.return_value = ServiceResult.success(data=["stale-node", "live-node"])
 
-        def fake_ttl(key):
-            k = key.decode() if isinstance(key, bytes) else key
-            return 20 if "live" in k else 3  # live 活跃，stale 即将过期
+        def cleanup_side(node_id, **kw):
+            return _skipped() if node_id == "live-node" else _cleaned()
 
-        redis.ttl.side_effect = fake_ttl
+        svc.cleanup_execution_node.side_effect = cleanup_side
 
-        with patch("ginkgo.data.crud.RedisCRUD") as MockCRUD:
-            MockCRUD.return_value.redis = redis
+        with patch("ginkgo.services", mock_services):
             result = cli_runner.invoke(app, ["cleanup"])
 
         assert result.exit_code == 0
-        # stale-node: hb+mt = 2 delete；live-node: 0 delete
-        assert redis.delete.call_count == 2
-        out = result.output.lower()
+        # 两节点都进了 cleanup service（守卫判定在 service 内）
+        assert svc.cleanup_execution_node.call_count == 2
         assert "stale-node" in result.output
         assert "live-node" in result.output
         # 活跃跳过提示
+        out = result.output.lower()
         assert "running" in out or "skipped" in out
-
-
-# ---------------------------------------------------------------------------
-# _is_node_active deep module (#4945：cleanup 删前必须判活)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-@pytest.mark.cli
-class TestIsNodeActive:
-    """_is_node_active：查 heartbeat TTL 判断节点是否活跃（复用 status 命令阈值）。"""
-
-    def test_fresh_heartbeat_is_active(self):
-        """TTL ≥ 阈值 → 活跃（运行中，不应清理）"""
-        redis = MagicMock()
-        redis.exists.return_value = 1
-        redis.ttl.return_value = 20  # 30s TTL 还剩 20s，刚刷新
-        assert _is_node_active(redis, "node-a") is True
-
-    def test_stale_heartbeat_is_not_active(self):
-        """TTL < 阈值（即将过期）→ 不活跃（可清理）"""
-        redis = MagicMock()
-        redis.exists.return_value = 1
-        redis.ttl.return_value = 3  # < 5s 阈值，stale
-        assert _is_node_active(redis, "node-a") is False
-
-    def test_no_heartbeat_is_not_active(self):
-        """heartbeat 不存在 → 不活跃"""
-        redis = MagicMock()
-        redis.exists.return_value = 0
-        assert _is_node_active(redis, "node-a") is False
-        redis.ttl.assert_not_called()  # 短路，不查 TTL
-
-    def test_never_expire_heartbeat_is_active(self):
-        """TTL=-1（key 存在但永不过期，异常情况）→ 保守判活（#4945 review）。
-
-        与 heartbeat_manager._check_node_id_in_use 口径一致：永不过期的 heartbeat
-        视为"被占用=有实例运行"，cleanup 拒绝清理（需 --force），避免清掉可能的活跃节点。
-        """
-        redis = MagicMock()
-        redis.exists.return_value = 1
-        redis.ttl.return_value = -1  # Redis: key 存在但无过期时间
-        assert _is_node_active(redis, "node-a") is True
