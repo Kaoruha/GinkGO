@@ -319,6 +319,8 @@ jobs:
             tests/unit/client/test_backtest_cli_fill_price_policy.py \
             tests/unit/trading/brokers/test_sim_broker_reproducibility.py \
             tests/unit/workers/test_paper_trading_worker_slippage_smoke.py \
+            tests/unit/data/services/test_mapping_service_client_seams.py \
+            tests/unit/data/services/test_redis_service_execution_nodes.py \
             --cov=src/ginkgo \
             --cov=api \
             --cov-report=json:coverage.json \

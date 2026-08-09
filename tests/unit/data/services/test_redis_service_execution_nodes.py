@@ -343,3 +343,111 @@ class TestCleanupExecutionNode:
         svc.cleanup_execution_node("node_1", force=False, dry_run=False)
 
         assert mock_crud.delete.call_count == 2
+
+
+class TestGetSchedulePlan:
+    """get_schedule_plan：读 schedule:plan hash（hgetall，非 get 防 WRONGTYPE #5987-b）。"""
+
+    def test_returns_plan(self):
+        mock_crud = MagicMock()
+        mock_crud.hgetall.return_value = {"port-1": "node-a", "port-2": "node-b"}
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.get_schedule_plan()
+
+        mock_crud.hgetall.assert_called_once_with("schedule:plan")
+        assert result.is_success()
+        assert result.data == {"port-1": "node-a", "port-2": "node-b"}
+
+    def test_empty_plan_returns_empty_dict(self):
+        mock_crud = MagicMock()
+        mock_crud.hgetall.return_value = {}
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.get_schedule_plan()
+
+        assert result.is_success()
+        assert result.data == {}
+
+    def test_crud_error_returns_service_error(self):
+        mock_crud = MagicMock()
+        mock_crud.hgetall.side_effect = RuntimeError("redis down")
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.get_schedule_plan()
+
+        assert not result.is_success()
+
+
+class TestGetExecutionNodesDetail:
+    """get_execution_nodes_detail：keys+ttl+hgetall 收口 scheduler CLI 节点详情查询。"""
+
+    def test_returns_parsed_nodes(self):
+        mock_crud = MagicMock()
+        mock_crud.keys.return_value = [f"{_HB_PREFIX}node-a", f"{_HB_PREFIX}node-b"]
+        mock_crud.ttl.side_effect = [30, 0]  # node-a 活，node-b 已过期
+        mock_crud.hgetall.side_effect = [
+            {"portfolio_count": "5", "queue_size": "2", "cpu_usage": "0.45"},
+            {},
+        ]
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.get_execution_nodes_detail()
+
+        assert result.is_success()
+        assert len(result.data) == 2
+        a, b = result.data
+        assert a["node_id"] == "node-a" and a["ttl"] == 30
+        assert a["portfolio_count"] == 5 and a["queue_size"] == 2 and a["cpu_usage"] == 0.45
+        assert b["node_id"] == "node-b" and b["ttl"] == 0
+        assert b["portfolio_count"] == 0  # 空 metrics → 默认 0
+
+    def test_skip_unparseable_node(self):
+        """单节点 ttl 异常 → per-key except continue，其余节点仍返回。"""
+        mock_crud = MagicMock()
+        mock_crud.keys.return_value = [f"{_HB_PREFIX}ok", f"{_HB_PREFIX}bad"]
+        mock_crud.ttl.side_effect = [30, RuntimeError("ttl fail")]
+        mock_crud.hgetall.return_value = {}
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.get_execution_nodes_detail()
+
+        assert result.is_success()
+        assert len(result.data) == 1
+        assert result.data[0]["node_id"] == "ok"  # bad 被跳过
+
+    def test_outer_error_returns_service_error(self):
+        """keys() 抛错 → 外层 except 返回 ServiceResult.error。"""
+        mock_crud = MagicMock()
+        mock_crud.keys.side_effect = RuntimeError("redis down")
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.get_execution_nodes_detail()
+
+        assert not result.is_success()
+
+
+class TestNodeHeartbeatTtlErrorPath:
+    """get_node_heartbeat_ttl：crud 异常 → ServiceResult.error（覆盖 except）。"""
+
+    def test_ttl_crud_error_returns_service_error(self):
+        mock_crud = MagicMock()
+        mock_crud.ttl.side_effect = RuntimeError("redis down")
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.get_node_heartbeat_ttl("node-a")
+
+        assert not result.is_success()
+
+
+class TestExecutionNodeMetricsErrorPath:
+    """get_execution_node_metrics：crud 异常 → ServiceResult.error（覆盖 except）。"""
+
+    def test_metrics_crud_error_returns_service_error(self):
+        mock_crud = MagicMock()
+        mock_crud.hgetall.side_effect = RuntimeError("redis down")
+        svc = RedisService(redis_crud=mock_crud)
+
+        result = svc.get_execution_node_metrics("node-a")
+
+        assert not result.is_success()
