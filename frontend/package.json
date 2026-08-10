@@ -3,6 +3,7 @@
   "version": "0.11.0",
   "private": true,
   "type": "module",
+  "main": "out/main/index.js",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
@@ -59,5 +60,10 @@
     "vite-plugin-static-copy": "^2.0.0",
     "vitest": "^4.1.0",
     "vue-tsc": "^2.2.12"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
   }
 }

@@ -23,6 +23,9 @@ export default defineConfig({
   },
   renderer: {
     root: 'src/renderer',
+    // 与浏览器形态 vite.config.ts 对齐:publicDir 指向 frontend/public
+    // 让 App.vue/index.html 里 /favicon.svg 这类公开资源在 dev 与 prod build 都能解析
+    publicDir: resolve(__dirname, 'public'),
     build: {
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/renderer/index.html') },
