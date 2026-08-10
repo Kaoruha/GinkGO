@@ -137,6 +137,8 @@
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { rand, pick, randomRange } from '@/utils/random'
+import { bootSequence, stocks, terminalMessages } from './loginConstants'
 
 const router = useRouter()
 const route = useRoute()
@@ -200,16 +202,6 @@ let pendingLines: string[] = []
 let bootTimer: number | null = null
 let isBootComplete = false
 
-const bootSequence = [
-  '> BIOS v2.0.11 initialized',
-  '> Memory check: 65536KB OK',
-  '> Loading kernel modules...',
-  '> Initializing neural network...',
-  '> Connecting to market data feed...',
-  '> Loading quantitative models...',
-  '> System ready.',
-]
-
 const randomEvents = [
   () => `> Heartbeat OK [${timestamp()}]`,
   () => `> Market data stream: ${rand(800, 1500)} msg/s`,
@@ -229,14 +221,6 @@ const randomEvents = [
 function timestamp() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
-}
-
-function rand(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
 }
 
 function startBootLog() {
@@ -296,23 +280,6 @@ function triggerGlitch() {
 }
 
 // ========== 股票代码滚动 ==========
-const stocks = [
-  { code: 'AAPL', price: 185.92, change: 2.34 },
-  { code: 'GOOGL', price: 141.80, change: -0.89 },
-  { code: 'MSFT', price: 378.91, change: 1.56 },
-  { code: 'TSLA', price: 248.50, change: -2.15 },
-  { code: 'NVDA', price: 495.22, change: 3.78 },
-  { code: 'AMZN', price: 178.25, change: 0.67 },
-  { code: 'META', price: 505.95, change: 1.23 },
-  { code: 'BRK.B', price: 408.32, change: -0.45 },
-  { code: 'JPM', price: 198.45, change: 0.89 },
-  { code: 'V', price: 279.30, change: 1.12 },
-  { code: '000001.SZ', price: 12.85, change: 0.78 },
-  { code: '600519.SH', price: 1756.00, change: -1.23 },
-  { code: '000858.SZ', price: 168.50, change: 2.45 },
-  { code: '601318.SH', price: 45.32, change: -0.56 },
-]
-
 const stockList = computed(() => {
   return [...stocks, ...stocks, ...stocks].map(s => ({
     ...s,
@@ -324,17 +291,6 @@ const stockList = computed(() => {
 const tickerDuration = computed(() => stockList.value.length * 0.5)
 
 // ========== 终端打字机效果 ==========
-const terminalMessages = [
-  'Loading market data...',
-  'Analyzing price patterns...',
-  'Computing alpha signals...',
-  'Backtesting strategy...',
-  'Optimizing portfolio allocation...',
-  'Monitoring real-time positions...',
-  'Calculating risk metrics...',
-  'Fetching tick data...',
-]
-
 const displayText = ref('')
 const showCursor = ref(true)
 let messageIndex = 0
@@ -342,10 +298,6 @@ let charIndex = 0
 let isTyping = true
 let typewriterTimer: number | null = null
 let pauseTimer: number | null = null
-
-function randomRange(min: number, max: number) {
-  return min + Math.random() * (max - min)
-}
 
 function startTypewriter() {
   function type() {
