@@ -646,15 +646,8 @@ const getPairVolume = (symbol: string) => {
   return ticker.volume_24h || 0
 }
 
-// 格式化 ticker 成交量（用于模板）
-const formatTickerVolume = (volume: number | string | undefined | null) => {
-  if (volume === undefined || volume === null || volume === '') return '-'
-  const numVolume = typeof volume === 'string' ? parseFloat(volume) : volume
-  if (isNaN(numVolume) || numVolume === 0) return '-'
-  if (numVolume >= 1000000) return (numVolume / 1000000).toFixed(2) + 'M'
-  if (numVolume >= 1000) return (numVolume / 1000).toFixed(2) + 'K'
-  return numVolume.toFixed(2)
-}
+// formatTickerVolume 与 formatVolume 逻辑逐字节相同(模板两处历史命名),复用同一实现
+const formatTickerVolume = formatVolume
 
 // 监听计价货币变化
 watch(selectedQuoteCurrency, async () => {

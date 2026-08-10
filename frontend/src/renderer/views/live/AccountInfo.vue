@@ -123,14 +123,28 @@ const loadAccountInfo = async () => {
   }
 }
 
+// 设置账户的 balance/positions 加载状态(updateAccountDetails 三处复用)
+const setAccountLoading = (accountId: string, balance: boolean, positions: boolean) => {
+  const state = accountLoadingStates.value[accountId]
+  if (state) {
+    state.balance = balance
+    state.positions = positions
+  }
+}
+
+// 在 accounts 数组中替换指定账户(合并 patch,返回索引;触发响应式更新)
+const replaceAccount = (accountId: string, patch: Partial<AccountData>) => {
+  const index = accounts.value.findIndex(a => a.uuid === accountId)
+  if (index !== -1) {
+    accounts.value[index] = { ...accounts.value[index], ...patch }
+  }
+  return index
+}
+
 // 更新单个账户的详细信息（通过替换对象触发响应式更新）
 const updateAccountDetails = async (account: AccountData) => {
   const accountId = account.uuid
-  // 设置加载状态
-  if (accountLoadingStates.value[accountId]) {
-    accountLoadingStates.value[accountId].balance = true
-    accountLoadingStates.value[accountId].positions = true
-  }
+  setAccountLoading(accountId, true, true)
 
   try {
     const [balanceRes, positionsRes] = await liveAccountApi.getAccountInfo(accountId) as [any, any]
@@ -164,32 +178,19 @@ const updateAccountDetails = async (account: AccountData) => {
     }
 
     // 在数组中找到索引并替换整个对象，触发响应式更新
-    const index = accounts.value.findIndex(a => a.uuid === accountId)
-    if (index !== -1) {
-      accounts.value[index] = updatedAccount
-      console.log(`[${accountId}] Account updated at index ${index}`)
+    const idx = replaceAccount(accountId, updatedAccount)
+    if (idx !== -1) {
+      console.log(`[${accountId}] Account updated at index ${idx}`)
     }
 
     // 清除加载状态
-    if (accountLoadingStates.value[accountId]) {
-      accountLoadingStates.value[accountId].balance = false
-      accountLoadingStates.value[accountId].positions = false
-    }
+    setAccountLoading(accountId, false, false)
   } catch (e) {
     console.error(`Failed to load info for ${accountId}:`, e)
     // 更新错误状态
-    const index = accounts.value.findIndex(a => a.uuid === accountId)
-    if (index !== -1) {
-      accounts.value[index] = {
-        ...accounts.value[index],
-        error: '加载失败'
-      }
-    }
+    replaceAccount(accountId, { error: '加载失败' })
     // 加载失败时也清除加载状态
-    if (accountLoadingStates.value[accountId]) {
-      accountLoadingStates.value[accountId].balance = false
-      accountLoadingStates.value[accountId].positions = false
-    }
+    setAccountLoading(accountId, false, false)
   }
 }
 
