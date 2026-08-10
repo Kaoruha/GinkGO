@@ -56,6 +56,12 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      // Inter 正文 + JetBrains Mono 等宽(ADR-045 §3,PR5/Task10)
+      // 中文回退: PingFang SC(macOS) / Microsoft YaHei(Win) / Noto Sans CJK SC(Linux)
+      fontFamily: {
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+      },
     },
   },
   plugins: [

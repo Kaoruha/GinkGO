@@ -1,0 +1,37 @@
+/* Inter + JetBrains Mono 打包接入(ADR-045 §3)
+ * 随 Electron 打包离线可用,非构建期下载。
+ * Inter 是 variable 字体(单文件覆盖 100-900 字重);
+ * JetBrains Mono v2.304 无 variable woff2,使用 static Regular/Medium/Bold 三字重。
+ * LICENSE: 两字体均 SIL OFL 1.1,见 assets/fonts/LICENSE-*.txt。
+ */
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/InterVariable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

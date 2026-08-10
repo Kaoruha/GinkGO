@@ -4,6 +4,7 @@ import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
 import './styles/main.css'   // @tailwind base/components/utilities + @import design-tokens.css(修复 token 接线断层,见 ADR-045)
+import './styles/fonts.css'  // Inter(正文)+ JetBrains Mono(等宽)@font-face,ADR-045 §3,随 Electron 打包离线可用
 import './styles/index.less'
 
 const app = createApp(App)
