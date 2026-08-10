@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Wallet, TrendingUp, TrendingDown, AlertCircle, DollarSign, Coins, Clock, Activity } from 'lucide-vue-next'
 import { liveAccountApi } from '@/api'
+import { usePolling } from '@/composables'
 
 // Types
 interface BalanceInfo {
@@ -47,9 +48,6 @@ const accounts = ref<AccountData[]>([])
 const loading = ref(true)
 const refreshing = ref(false)
 const accountLoadingStates = ref<Record<string, { balance: boolean; positions: boolean }>>({})
-
-// 刷新定时器
-let refreshInterval: ReturnType<typeof setInterval> | null = null
 
 // 统计数据
 const totalEquity = computed(() => {
@@ -252,19 +250,13 @@ const getEnvironmentVariant = (environment: string) => {
   return environment === 'production' ? 'destructive' : 'secondary'
 }
 
-// 组件挂载
+// 组件挂载:首次加载账号列表(loadAccountInfo 拉账号列表,区别于 refreshAll 只刷已有账号数据)
 onMounted(() => {
   loadAccountInfo()
-  // 每10秒自动刷新数据（不重新创建对象，只更新数据）
-  refreshInterval = setInterval(refreshAll, 10000)
 })
 
-// 组件卸载
-onUnmounted(() => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-  }
-})
+// 每 10 秒刷新已有账号数据(usePolling 封装 setInterval + onUnmounted 清理 + 可见性暂停)
+usePolling(refreshAll, 10000)
 </script>
 
 <template>

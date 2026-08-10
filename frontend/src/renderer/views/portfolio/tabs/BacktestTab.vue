@@ -606,6 +606,7 @@ import { canStartByState, canStopByState, canCancelByState, BACKTEST_DEFAULT_RAN
 import { NetValueChart } from '@/components/charts'
 import type { LineData } from 'lightweight-charts'
 import { message } from '@/utils/toast'
+import { formatPercent, formatMoney } from '@/utils/format'
 import dayjs from 'dayjs'
 
 const route = useRoute()
@@ -1060,11 +1061,6 @@ const formatDecimal = (val: string | number) => {
   return isNaN(n) ? '-' : n.toFixed(2)
 }
 
-const formatPercent = (val: string | number) => {
-  const n = typeof val === 'number' ? val : parseFloat(String(val))
-  return isNaN(n) ? '-' : (n * 100).toFixed(2) + '%'
-}
-
 const getPnLColor = (val: string | number) => {
   const n = typeof val === 'number' ? val : parseFloat(String(val))
   // ADR-045 §2 西式涨绿跌红(原中式 #cf1322=红涨/#3f8600=绿跌 → 反转)
@@ -1084,10 +1080,6 @@ const getDrawdownColor = (val: string | number) => {
 const DIR_MAP: Record<number, string> = { 1: 'LONG', 2: 'SHORT' }
 const directionLabel = (d: number | string) => DIR_MAP[Number(d)] || String(d)
 const directionColor = (d: number | string) => Number(d) === 1 ? 'text-green' : 'text-red'
-
-const formatMoney = (val: number) => {
-  return '¥' + val.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 const pnlColor = computed(() => {
   const v = currentTask.value?.total_pnl ?? 0
