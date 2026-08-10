@@ -87,6 +87,10 @@ jobs:
           enable-cache: true
       - name: Sync deps (frozen, +dev for pytest plugins)
         run: uv sync --frozen --extra dev --python 3.12
+      - name: import-linter layer gate (#6906 ADR-002)
+        # 分层门禁：client + api 禁止直连 ginkgo.data.crud（须经 *_service）。
+        # 配置在 pyproject [tool.importlinter]，allow_indirect_imports=true 只拦直接 import。
+        run: uv run lint-imports
       - name: user_crud mock tests (#6015 点名)
         run: |
           uv run python -m pytest tests/unit/data/crud/test_user_crud_mock.py \

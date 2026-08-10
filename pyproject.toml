@@ -131,7 +131,8 @@ dev = [
     "ruff>=0.8.0",
     "pre-commit>=4.0.0",
     "typer[testing]>=0.9.0",
-    "graphifyy>=0.2.0",  # knowledge graph for codebase exploration
+    "graphifyy>=0.2.0", # knowledge graph for codebase exploration
+    "import-linter>=2.13",
 ]
 # 参数优化依赖（遗传算法、贝叶斯优化）
 optimization = [
@@ -300,6 +301,24 @@ target-version = "py311"
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4"]
 ignore = ["E501"]
 fixable = ["ALL"]
+
+# CI 分层 import 门禁 (#6906 / ADR-002)：
+# client + api 禁止直连 ginkgo.data.crud，须经 *_service 触达数据层。
+# 两处 scheduler 启动期构造 RedisCRUD 注入 livecore.Scheduler 的 DI 边界（#6300 评估为合法）按站点白名单。
+[tool.importlinter]
+root_packages = ["ginkgo", "api"]
+
+[[tool.importlinter.contracts]]
+name = "client and api must not import crud directly"
+type = "forbidden"
+source_modules = ["ginkgo.client", "api"]
+forbidden_modules = ["ginkgo.data.crud"]
+# 仅拦直接 import；client→service→crud 的合法传递路径放行（allow_indirect_imports=true）。
+allow_indirect_imports = true
+ignore_imports = [
+    "ginkgo.client.scheduler_cli -> ginkgo.data.crud",
+    "ginkgo.client.serve_cli -> ginkgo.data.crud",
+]
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
