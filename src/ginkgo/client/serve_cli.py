@@ -93,8 +93,8 @@ def serve_api(
         console.print("\n:stop_button: [yellow]API Server stopped[/yellow]")
 
 
-@app.command("webui")
-def serve_webui(
+@app.command("web")
+def serve_web(
     host: str = typer.Option("0.0.0.0", "--host", "-h", help="Host to bind"),
     port: int = typer.Option(5173, "--port", "-p", help="Port to bind"),
     open_browser: bool = typer.Option(False, "--open", "-o", help="Open browser automatically"),
@@ -103,9 +103,9 @@ def serve_webui(
     :desktop_computer: Start Ginkgo Web UI development server.
 
     Examples:
-      ginkgo serve webui
-      ginkgo serve webui --port 3000
-      ginkgo serve webui --open
+      ginkgo serve web
+      ginkgo serve web --port 3000
+      ginkgo serve web --open
     """
     import os
     import subprocess
@@ -165,14 +165,14 @@ def serve_webui(
 @app.command("all")
 def serve_all(
     api_port: int = typer.Option(8000, "--api-port", "-a", help="API server port"),
-    webui_port: int = typer.Option(5173, "--webui-port", "-w", help="Web UI port"),
+    web_port: int = typer.Option(5173, "--web-port", "-w", help="Web UI port"),
 ):
     """
     :rocket: Start both API server and Web UI.
 
     Examples:
       ginkgo serve all
-      ginkgo serve all --api-port 8080 --webui-port 3000
+      ginkgo serve all --api-port 8080 --web-port 3000
     """
     import os
     import subprocess
@@ -182,7 +182,7 @@ def serve_all(
     console.print(Panel.fit(
         f"[bold green]:rocket: Full Stack Server[/bold green]\n"
         f"[dim]API Port:[/dim] {api_port}\n"
-        f"[dim]Web UI Port:[/dim] {webui_port}",
+        f"[dim]Web UI Port:[/dim] {web_port}",
         title="[bold]Ginkgo Full Stack[/bold]",
         border_style="green"
     ))
@@ -249,7 +249,7 @@ def serve_all(
         try:
             env = os.environ.copy()
             env["HOST"] = "0.0.0.0"
-            env["PORT"] = str(webui_port)
+            env["PORT"] = str(web_port)
 
             webui_process = subprocess.Popen(
                 [npm_cmd, "run", "dev"],
@@ -257,7 +257,7 @@ def serve_all(
                 env=env,
             )
             processes.append(webui_process)
-            console.print(f"[green]:white_check_mark: Web UI started at http://0.0.0.0:{webui_port}[/green]")
+            console.print(f"[green]:white_check_mark: Web UI started at http://0.0.0.0:{web_port}[/green]")
         except Exception as e:
             console.print(f"[red]:x: Failed to start Web UI: {e}[/red]")
             cleanup()
@@ -267,7 +267,7 @@ def serve_all(
     console.print(f"\n[bold green]:white_check_mark: All services started![/bold green]")
     console.print(f"[dim]API:[/dim] http://localhost:{api_port}")
     console.print(f"[dim]API Docs:[/dim] http://localhost:{api_port}/docs")
-    console.print(f"[dim]Web UI:[/dim] http://localhost:{webui_port}")
+    console.print(f"[dim]Web UI:[/dim] http://localhost:{web_port}")
     console.print("[dim]Press Ctrl+C to stop all services[/dim]\n")
 
     # 等待进程

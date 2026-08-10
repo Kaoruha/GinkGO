@@ -4,7 +4,7 @@ Serve CLI 单元测试
 
 测试 ginkgo.client.serve_cli 的所有命令：
 - api: 启动 API 服务器 (FastAPI + Uvicorn)
-- webui: 启动 Web UI 开发服务器 (Vue 3 + Vite)
+- web: 启动 Web UI 开发服务器 (Vue 3 + Vite)
 - all: 同时启动 API + Web UI
 - livecore: 启动 LiveCore 实盘交易容器
 - execution: 启动 ExecutionNode 执行节点
@@ -49,7 +49,8 @@ class TestServeHelp:
         result = runner.invoke(serve_cli.app, ["--help"])
         assert result.exit_code == 0
         assert "api" in result.output
-        assert "webui" in result.output
+        assert "web" in result.output
+        assert "webui" not in result.output
         assert "all" in result.output
         assert "livecore" in result.output
         assert "execution" in result.output
@@ -67,13 +68,22 @@ class TestServeHelp:
         assert "--port" in result.output or "-p" in result.output
         assert "--reload" in result.output or "-r" in result.output
 
-    def test_serve_webui_help_shows_options(self, runner):
-        """serve webui --help 显示 host/port/open 选项"""
-        result = runner.invoke(serve_cli.app, ["webui", "--help"])
+    def test_serve_web_help_shows_options(self, runner):
+        """serve web --help 显示 host/port/open 选项"""
+        result = runner.invoke(serve_cli.app, ["web", "--help"])
         assert result.exit_code == 0
         assert "--host" in result.output or "-h" in result.output
         assert "--port" in result.output or "-p" in result.output
         assert "--open" in result.output or "-o" in result.output
+
+    def test_serve_all_help_shows_web_port_option(self, runner):
+        """serve all --help 显示 --web-port（非 --webui-port）选项"""
+        import re
+        result = runner.invoke(serve_cli.app, ["all", "--help"])
+        assert result.exit_code == 0
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+        assert "--web-port" in plain
+        assert "--webui-port" not in plain
 
 
 # ============================================================================
@@ -146,7 +156,7 @@ class TestServeWebui:
     @patch("subprocess.run")
     def test_webui_default_invocation(self, mock_run, mock_which, mock_exists, runner):
         """默认参数调用 webui 命令"""
-        result = runner.invoke(serve_cli.app, ["webui"])
+        result = runner.invoke(serve_cli.app, ["web"])
         assert result.exit_code == 0
         assert "Web UI" in result.output
         assert "5173" in result.output
@@ -161,7 +171,7 @@ class TestServeWebui:
     @patch("subprocess.run")
     def test_webui_open_browser_flag(self, mock_run, mock_which, mock_exists, runner):
         """--open 标志被传递到环境变量"""
-        result = runner.invoke(serve_cli.app, ["webui", "--open"])
+        result = runner.invoke(serve_cli.app, ["web", "--open"])
         assert result.exit_code == 0
         # 验证命令被调用
         mock_run.assert_called_once()
@@ -189,7 +199,7 @@ class TestServeErrorHandling:
     @patch("os.path.exists", return_value=False)
     def test_webui_path_not_found(self, mock_exists, runner):
         """Web UI 路径不存在时退出码为 1"""
-        result = runner.invoke(serve_cli.app, ["webui"])
+        result = runner.invoke(serve_cli.app, ["web"])
         assert result.exit_code == 1
         assert "not found" in result.output.lower()
 
@@ -208,7 +218,7 @@ class TestServeErrorHandling:
     @patch("shutil.which", return_value=None)
     def test_webui_npm_not_found(self, mock_which, mock_exists, runner):
         """npm 不存在时显示安装提示并退出"""
-        result = runner.invoke(serve_cli.app, ["webui"])
+        result = runner.invoke(serve_cli.app, ["web"])
         assert result.exit_code == 1
         assert "npm" in result.output.lower()
         assert "Node.js" in result.output
