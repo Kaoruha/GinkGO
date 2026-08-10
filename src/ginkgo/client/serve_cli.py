@@ -111,15 +111,15 @@ def serve_web(
     import subprocess
     import shutil
 
-    # 获取 web-ui 目录路径
-    webui_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "web-ui")
+    # 获取 frontend 目录路径
+    frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "frontend")
 
-    if not os.path.exists(webui_path):
-        console.print(f"[red]:x: Web UI not found at {webui_path}[/red]")
+    if not os.path.exists(frontend_path):
+        console.print(f"[red]:x: Web UI not found at {frontend_path}[/red]")
         raise typer.Exit(1)
 
     # 检查 node_modules 是否存在
-    node_modules = os.path.join(webui_path, "node_modules")
+    node_modules = os.path.join(frontend_path, "node_modules")
     if not os.path.exists(node_modules):
         console.print("[yellow]:information: node_modules not found, running npm install...[/yellow]")
         npm_cmd = shutil.which("npm")
@@ -128,7 +128,7 @@ def serve_web(
             raise typer.Exit(1)
 
         try:
-            subprocess.run([npm_cmd, "install"], cwd=webui_path, check=True)
+            subprocess.run([npm_cmd, "install"], cwd=frontend_path, check=True)
             console.print("[green]:white_check_mark: Dependencies installed[/green]")
         except subprocess.CalledProcessError:
             console.print("[red]:x: Failed to install dependencies[/red]")
@@ -138,7 +138,7 @@ def serve_web(
         f"[bold green]:desktop_computer: Web UI[/bold green]\n"
         f"[dim]Host:[/dim] {host}\n"
         f"[dim]Port:[/dim] {port}\n"
-        f"[dim]Path:[/dim] {webui_path}",
+        f"[dim]Path:[/dim] {frontend_path}",
         title="[bold]Ginkgo Web UI[/bold]",
         border_style="green"
     ))
@@ -157,7 +157,7 @@ def serve_web(
         env["HOST"] = host
         env["PORT"] = str(port)
 
-        subprocess.run([npm_cmd, "run", "dev"], cwd=webui_path, env=env)
+        subprocess.run([npm_cmd, "run", "dev"], cwd=frontend_path, env=env)
     except KeyboardInterrupt:
         console.print("\n:stop_button: [yellow]Web UI stopped[/yellow]")
 
@@ -206,7 +206,7 @@ def serve_all(
     # 获取路径
     base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     api_path = os.path.join(base_path, "api", "main.py")
-    webui_path = os.path.join(base_path, "web-ui")
+    frontend_path = os.path.join(base_path, "frontend")
 
     # 检查 API
     if not os.path.exists(api_path):
@@ -214,8 +214,8 @@ def serve_all(
         raise typer.Exit(1)
 
     # 检查 Web UI
-    if not os.path.exists(webui_path):
-        console.print(f"[red]:x: Web UI not found at {webui_path}[/red]")
+    if not os.path.exists(frontend_path):
+        console.print(f"[red]:x: Web UI not found at {frontend_path}[/red]")
         raise typer.Exit(1)
 
     # 启动 API Server
@@ -253,7 +253,7 @@ def serve_all(
 
             webui_process = subprocess.Popen(
                 [npm_cmd, "run", "dev"],
-                cwd=webui_path,
+                cwd=frontend_path,
                 env=env,
             )
             processes.append(webui_process)
