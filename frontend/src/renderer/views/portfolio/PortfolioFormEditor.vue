@@ -551,6 +551,25 @@ const buildDefaultConfig = (parameters: any[]) => {
   return config
 }
 
+// 合并旧配置到新参数定义(旧值优先,缺失项用默认)
+const mergeConfig = (parameters: any[], oldConfig: Record<string, any>): Record<string, any> => {
+  const newConfig = buildDefaultConfig(parameters)
+  const merged: Record<string, any> = {}
+  for (const param of parameters) {
+    merged[param.name] = param.name in oldConfig ? oldConfig[param.name] : newConfig[param.name]
+  }
+  return merged
+}
+
+// 组件类型 → formData 列表访问器(sizer 单数,包成单元素数组统一处理)
+const componentAccessors: Record<string, () => any[]> = {
+  selector: () => formData.value.selectors,
+  sizer: () => (formData.value.sizer ? [formData.value.sizer] : []),
+  strategy: () => formData.value.strategies,
+  risk: () => formData.value.risk_managers,
+  analyzer: () => formData.value.analyzers,
+}
+
 // 模拟加载组件版本
 const loadComponentVersions = async (name: string, type: string) => {
   const cacheKey = `${name}_${type}`
@@ -560,83 +579,23 @@ const loadComponentVersions = async (name: string, type: string) => {
   return componentVersionsCache.value[cacheKey]
 }
 
-// 切换组件版本
+// 切换组件版本(sizer 单数走 index=0,通过 componentAccessors 统一访问)
 const changeComponentVersion = async (componentType: string, index: number, versionValue: string) => {
   try {
-    let componentName = ''
-    let oldConfig: Record<string, any> = {}
-    let componentTypeKey = ''
+    const accessor = componentAccessors[componentType]
+    if (!accessor) return
+    const entry = accessor()[index]
+    if (!entry) return
 
-    if (componentType === 'selector') {
-      componentName = formData.value.selectors[index].name
-      oldConfig = formData.value.selectors[index].config || {}
-      componentTypeKey = 'selector'
-    } else if (componentType === 'sizer') {
-      componentName = formData.value.sizer!.name
-      oldConfig = formData.value.sizer!.config || {}
-      componentTypeKey = 'sizer'
-    } else if (componentType === 'strategy') {
-      componentName = formData.value.strategies[index].name
-      oldConfig = formData.value.strategies[index].config || {}
-      componentTypeKey = 'strategy'
-    } else if (componentType === 'risk') {
-      componentName = formData.value.risk_managers[index].name
-      oldConfig = formData.value.risk_managers[index].config || {}
-      componentTypeKey = 'risk'
-    } else if (componentType === 'analyzer') {
-      componentName = formData.value.analyzers[index].name
-      oldConfig = formData.value.analyzers[index].config || {}
-      componentTypeKey = 'analyzer'
-    }
-
-    const versions = getComponentVersions(componentName, componentTypeKey)
+    const versions = getComponentVersions(entry.name, componentType)
     const targetVersion = versions.find((v: any) => v.version === versionValue)
     if (!targetVersion) return
 
-    const newUuid = targetVersion.uuid
-    const parameters = await loadComponentParameters(newUuid)
-    const newConfig = buildDefaultConfig(parameters)
-
-    // 合并配置
-    const mergedConfig: Record<string, any> = {}
-    for (const param of parameters) {
-      const paramName = param.name
-      if (paramName in oldConfig) {
-        mergedConfig[paramName] = oldConfig[paramName]
-      } else {
-        mergedConfig[paramName] = newConfig[paramName]
-      }
-    }
-
-    // 更新组件信息
-    if (componentType === 'selector') {
-      formData.value.selectors[index].uuid = newUuid
-      formData.value.selectors[index].version = versionValue
-      formData.value.selectors[index].parameters = parameters
-      formData.value.selectors[index].config = mergedConfig
-    } else if (componentType === 'sizer') {
-      if (formData.value.sizer) {
-        formData.value.sizer.uuid = newUuid
-        formData.value.sizer.version = versionValue
-        formData.value.sizer.parameters = parameters
-        formData.value.sizer.config = mergedConfig
-      }
-    } else if (componentType === 'strategy') {
-      formData.value.strategies[index].uuid = newUuid
-      formData.value.strategies[index].version = versionValue
-      formData.value.strategies[index].parameters = parameters
-      formData.value.strategies[index].config = mergedConfig
-    } else if (componentType === 'risk') {
-      formData.value.risk_managers[index].uuid = newUuid
-      formData.value.risk_managers[index].version = versionValue
-      formData.value.risk_managers[index].parameters = parameters
-      formData.value.risk_managers[index].config = mergedConfig
-    } else if (componentType === 'analyzer') {
-      formData.value.analyzers[index].uuid = newUuid
-      formData.value.analyzers[index].version = versionValue
-      formData.value.analyzers[index].parameters = parameters
-      formData.value.analyzers[index].config = mergedConfig
-    }
+    const parameters = await loadComponentParameters(targetVersion.uuid)
+    entry.uuid = targetVersion.uuid
+    entry.version = versionValue
+    entry.parameters = parameters
+    entry.config = mergeConfig(parameters, entry.config || {})
   } catch (error) {
     message.error('切换版本失败')
   }
@@ -879,30 +838,15 @@ const setInputValue = (e: Event, value: string): void => {
   if (target) target.value = value
 }
 
-const onSelectorVersionChange = (index: number) => (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  changeComponentVersion('selector', index, target.value)
+// 版本切换事件工厂(sizer 单数 index=0,其余按 index)
+const makeVersionChange = (type: string, index = 0) => (event: Event) => {
+  changeComponentVersion(type, index, (event.target as HTMLSelectElement).value)
 }
-
-const onSizerVersionChange = (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  changeComponentVersion('sizer', 0, target.value)
-}
-
-const onStrategyVersionChange = (index: number) => (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  changeComponentVersion('strategy', index, target.value)
-}
-
-const onRiskVersionChange = (index: number) => (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  changeComponentVersion('risk', index, target.value)
-}
-
-const onAnalyzerVersionChange = (index: number) => (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  changeComponentVersion('analyzer', index, target.value)
-}
+const onSelectorVersionChange = (index: number) => makeVersionChange('selector', index)
+const onSizerVersionChange = makeVersionChange('sizer')
+const onStrategyVersionChange = (index: number) => makeVersionChange('strategy', index)
+const onRiskVersionChange = (index: number) => makeVersionChange('risk', index)
+const onAnalyzerVersionChange = (index: number) => makeVersionChange('analyzer', index)
 
 onMounted(() => {
   loadComponents()
