@@ -417,7 +417,9 @@ const stopAllTickersPolling = () => {
 // API Server WebSocket（通过 API Server 中转 OKX WebSocket）
 const connectWebSocket = () => {
   // 连接到 API Server WebSocket
-  const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+  // 双形态对齐 request.ts 契约:Electron 优先 window.appConfig.apiBase,浏览器回退 env
+  // 注:apiBase 为 HTTP 格式(http://host:port),下方 new URL + protocol 转换沿用既有逻辑
+  const apiBase = window.appConfig?.apiBase || import.meta.env.VITE_API_BASE_URL || ''
   const url = new URL(apiBase || `${window.location.protocol}//${window.location.hostname}:8000`)
   const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
   const wsUrl = `${protocol}//${url.host}/ws`

@@ -124,16 +124,13 @@ export function handleApiError(
       }
     }
 
-    // 特殊处理：未授权跳转登录页
+    // 特殊处理：未授权(401 实际由 request.ts:63 走 hash 跳转;此处仅清 token,勿用 href 漂移)
     if (code === ErrorCode.UNAUTHORIZED) {
       // Electron 形态:由主进程 onHeadersReceived 处理(清 safeStorage + 推 auth:unauthorized)
       // 浏览器形态:渲染层清 localStorage
       if (!isElectron) {
         localStorage.removeItem('access_token')
       }
-      setTimeout(() => {
-        window.location.href = '/login'
-      }, 1000)
     }
 
     return
@@ -157,12 +154,10 @@ export function handleApiError(
           case 401:
             message.error('未授权，请先登录')
             // Electron 形态:由主进程 onHeadersReceived 处理;浏览器形态:渲染层清 localStorage
+            // 401 实际跳转由 request.ts:63 hash 走;此处勿用 href 漂移
             if (!isElectron) {
               localStorage.removeItem('access_token')
             }
-            setTimeout(() => {
-              window.location.href = '/login'
-            }, 1000)
             break
           case 403:
             message.warning('没有权限执行此操作')

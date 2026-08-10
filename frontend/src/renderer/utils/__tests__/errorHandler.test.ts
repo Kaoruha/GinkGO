@@ -61,7 +61,7 @@ describe('errorHandler', () => {
       expect(message.warning).toHaveBeenCalledWith('资源不存在')
     })
 
-    it('应该处理未授权错误并跳转登录页', () => {
+    it('应该处理未授权错误并清理 token', () => {
       const error = {
         code: ErrorCode.UNAUTHORIZED,
         message: '请先登录'
@@ -70,7 +70,7 @@ describe('errorHandler', () => {
 
       expect(message.error).toHaveBeenCalledWith('请先登录')
       expect(localStorage.removeItem).toHaveBeenCalledWith('access_token')
-      expect(window.location.href).toBe('/login')
+      // 401 跳转由 request.ts:63 hash 走;errorHandler 不再 redirect(避免 href 漂移)
     })
 
     it('应该处理网络错误', () => {
