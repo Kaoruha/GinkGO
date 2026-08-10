@@ -142,20 +142,20 @@ class TestServeApi:
 
 
 # ============================================================================
-# 3. WebUI 命令
+# 3. Web 命令
 # ============================================================================
 
 
 @pytest.mark.unit
 @pytest.mark.cli
-class TestServeWebui:
-    """serve webui 命令测试"""
+class TestServeWeb:
+    """serve web 命令测试"""
 
     @patch("os.path.exists", return_value=True)
     @patch("shutil.which", return_value="/usr/bin/npm")
     @patch("subprocess.run")
-    def test_webui_default_invocation(self, mock_run, mock_which, mock_exists, runner):
-        """默认参数调用 webui 命令"""
+    def test_web_default_invocation(self, mock_run, mock_which, mock_exists, runner):
+        """默认参数调用 web 命令"""
         result = runner.invoke(serve_cli.app, ["web"])
         assert result.exit_code == 0
         assert "Web UI" in result.output
@@ -169,7 +169,7 @@ class TestServeWebui:
     @patch("os.path.exists", return_value=True)
     @patch("shutil.which", return_value="/usr/bin/npm")
     @patch("subprocess.run")
-    def test_webui_open_browser_flag(self, mock_run, mock_which, mock_exists, runner):
+    def test_web_open_browser_flag(self, mock_run, mock_which, mock_exists, runner):
         """--open 标志被传递到环境变量"""
         result = runner.invoke(serve_cli.app, ["web", "--open"])
         assert result.exit_code == 0
@@ -197,7 +197,7 @@ class TestServeErrorHandling:
         assert "not found" in result.output.lower()
 
     @patch("os.path.exists", return_value=False)
-    def test_webui_path_not_found(self, mock_exists, runner):
+    def test_web_path_not_found(self, mock_exists, runner):
         """Web UI 路径不存在时退出码为 1"""
         result = runner.invoke(serve_cli.app, ["web"])
         assert result.exit_code == 1
@@ -216,7 +216,7 @@ class TestServeErrorHandling:
 
     @patch("os.path.exists", return_value=True)
     @patch("shutil.which", return_value=None)
-    def test_webui_npm_not_found(self, mock_which, mock_exists, runner):
+    def test_web_npm_not_found(self, mock_which, mock_exists, runner):
         """npm 不存在时显示安装提示并退出"""
         result = runner.invoke(serve_cli.app, ["web"])
         assert result.exit_code == 1

@@ -88,7 +88,7 @@ async def _update_progress(self, task_uuid: str, progress: float, ...):
 
 ## 前端实现
 
-### 1. API 模块 (`/home/kaoru/Ginkgo/web-ui/src/api/modules/backtest.ts`)
+### 1. API 模块 (`/home/kaoru/Ginkgo/frontend/src/api/modules/backtest.ts`)
 
 提供订阅 SSE 的方法：
 
@@ -115,7 +115,7 @@ const eventSource = backtestApi.subscribeProgress(
 eventSource.close()
 ```
 
-### 2. 详情页面 (`/home/kaoru/Ginkgo/web-ui/src/views/Backtest/BacktestDetail.vue`)
+### 2. 详情页面 (`/home/kaoru/Ginkgo/frontend/src/views/Backtest/BacktestDetail.vue`)
 
 实时显示回测进度：
 
@@ -253,6 +253,6 @@ cd /home/kaoru/Ginkgo/apiserver
 - `/home/kaoru/Ginkgo/apiserver/core/redis_client.py` - Redis 客户端工具
 - `/home/kaoru/Ginkgo/apiserver/api/backtest.py` - SSE 端点实现
 - `/home/kaoru/Ginkgo/apiserver/services/backtest_progress_consumer.py` - 进度消费者
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/backtest.ts` - 前端 API 封装
-- `/home/kaoru/Ginkgo/web-ui/src/views/Backtest/BacktestDetail.vue` - 详情页面
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/backtest.ts` - 前端 API 封装
+- `/home/kaoru/Ginkgo/frontend/src/views/Backtest/BacktestDetail.vue` - 详情页面
 - `/home/kaoru/Ginkgo/apiserver/scripts/test_sse.py` - 测试脚本

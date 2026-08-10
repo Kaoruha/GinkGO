@@ -129,7 +129,7 @@ def _register_all_commands():
     _main_app.add_typer(backtest_cli.app, name="backtest", help=":chart_with_upwards_trend: Backtest task management")
     _main_app.add_typer(factor_cli.app, name="factor", help=":bar_chart: Factor materialization & management (#6792)")
 
-    # Serve commands (api, webui, worker-data, worker-backtest, etc.)
+    # Serve commands (api, web, worker-data, worker-backtest, etc.)
     _main_app.add_typer(serve_cli.app, name="serve", help=":rocket: Start services in foreground")
 
     # Validation command (component code validation before backtesting)
@@ -167,7 +167,7 @@ def _register_all_commands():
     _main_app.command(name="version", help=":rabbit: Version info")(core_cli.version if hasattr(core_cli, 'version') else lambda: None)
     _main_app.command(name="debug", help=":bug: Toggle debug mode")(core_cli.debug if hasattr(core_cli, 'debug') else lambda: None)
     _main_app.command(name="cleanup", help=":broom: Cleanup orphaned data (mappings, params, dead tasks, cache)")(core_cli.cleanup if hasattr(core_cli, 'cleanup') else lambda: None)
-    # serve 命令已移到 serve_cli.app (包含 api, webui, worker-data, worker-backtest 等子命令)
+    # serve 命令已移到 serve_cli.app (包含 api, web, worker-data, worker-backtest 等子命令)
     # Configuration 已整合到 get/set config 命令中
 
     # Add standalone version command (if not available in core_cli)

@@ -284,10 +284,10 @@ const { execute } = useRequestCancelable()
 ## 示例项目
 
 查看完整示例：
-- `/home/kaoru/Ginkgo/web-ui/src/examples/CancelableRequestExample.vue`
+- `/home/kaoru/Ginkgo/frontend/src/examples/CancelableRequestExample.vue`
 
 ## 相关文档
 
-- 使用指南: `/home/kaoru/Ginkgo/web-ui/src/composables/README.md`
-- 快速参考: `/home/kaoru/Ginkgo/web-ui/docs/abortcontroller-quick-reference.md`
-- 实现总结: `/home/kaoru/Ginkgo/web-ui/docs/abortcontroller-implementation.md`
+- 使用指南: `/home/kaoru/Ginkgo/frontend/src/composables/README.md`
+- 快速参考: `/home/kaoru/Ginkgo/frontend/docs/abortcontroller-quick-reference.md`
+- 实现总结: `/home/kaoru/Ginkgo/frontend/docs/abortcontroller-implementation.md`

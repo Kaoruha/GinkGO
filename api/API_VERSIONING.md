@@ -178,7 +178,7 @@ async def old_endpoint():
 - `/home/kaoru/Ginkgo/apiserver/core/version.py` - 版本配置
 - `/home/kaoru/Ginkgo/apiserver/main.py` - 路由注册
 - `/home/kaoru/Ginkgo/apiserver/api/` - API 路由实现
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/` - 前端 API 模块
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/` - 前端 API 模块
 
 ## 参考资源
 

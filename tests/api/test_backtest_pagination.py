@@ -1,4 +1,4 @@
-# Issue: web-ui 分页性能修复
+# Issue: frontend 分页性能修复
 # Upstream: api.api.backtest
 # Downstream: BacktestTaskService.list_summaries()
 # Role: 验证回测列表接口使用 Service 层 schema 方法，API handler 不直接访问 ORM

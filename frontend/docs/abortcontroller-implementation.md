@@ -8,7 +8,7 @@
 
 ### 1. 核心 Composable
 
-**文件**: `/home/kaoru/Ginkgo/web-ui/src/composables/useRequestCancelable.ts`
+**文件**: `/home/kaoru/Ginkgo/frontend/src/composables/useRequestCancelable.ts`
 
 提供了两个 Composable：
 
@@ -23,7 +23,7 @@
 
 ### 2. 类型定义
 
-**文件**: `/home/kaoru/Ginkgo/web-ui/src/types/api-request.ts`
+**文件**: `/home/kaoru/Ginkgo/frontend/src/types/api-request.ts`
 
 统一的类型定义：
 
@@ -37,7 +37,7 @@
 
 ### 3. 请求拦截器
 
-**文件**: `/home/kaoru/Ginkgo/web-ui/src/api/request.ts`
+**文件**: `/home/kaoru/Ginkgo/frontend/src/api/request.ts`
 
 更新了响应拦截器：
 - 忽略 `AbortError` 的错误提示
@@ -47,16 +47,16 @@
 
 所有 API 模块已添加 `signal` 参数支持：
 
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/portfolio.ts`
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/backtest.ts`
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/components.ts`
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/nodeGraph.ts`
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/auth.ts`
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/settings.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/portfolio.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/backtest.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/components.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/nodeGraph.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/auth.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/settings.ts`
 
 ### 5. Store 更新
 
-**文件**: `/home/kaoru/Ginkgo/web-ui/src/stores/portfolio.ts`
+**文件**: `/home/kaoru/Ginkgo/frontend/src/stores/portfolio.ts`
 
 添加了请求取消功能：
 - 内置 AbortController 管理
@@ -65,9 +65,9 @@
 
 ### 6. 文档和示例
 
-- `/home/kaoru/Ginkgo/web-ui/src/composables/README.md` - 使用指南
-- `/home/kaoru/Ginkgo/web-ui/src/examples/CancelableRequestExample.vue` - 示例组件
-- `/home/kaoru/Ginkgo/web-ui/src/composables/__tests__/useRequestCancelable.spec.ts` - 单元测试
+- `/home/kaoru/Ginkgo/frontend/src/composables/README.md` - 使用指南
+- `/home/kaoru/Ginkgo/frontend/src/examples/CancelableRequestExample.vue` - 示例组件
+- `/home/kaoru/Ginkgo/frontend/src/composables/__tests__/useRequestCancelable.spec.ts` - 单元测试
 
 ## 使用方式
 
@@ -179,4 +179,4 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 - 多请求管理
 - 请求去重
 
-测试文件: `/home/kaoru/Ginkgo/web-ui/src/composables/__tests__/useRequestCancelable.spec.ts`
+测试文件: `/home/kaoru/Ginkgo/frontend/src/composables/__tests__/useRequestCancelable.spec.ts`

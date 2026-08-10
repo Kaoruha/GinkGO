@@ -6,7 +6,7 @@ service 的 ``ServiceResult`` 契约（DataFrame / 可属性访问对象），�
 
 阻抗说明（重要）
 ----------------
-远端 REST 面向 web-ui，字段集合 ≠ 本地 service 面向 CLI 的字段集合：
+远端 REST 面向 frontend，字段集合 ≠ 本地 service 面向 CLI 的字段集合：
 
 - ``GET /portfolio`` list 不含 ``initial_capital`` / ``is_live`` / ``status``；
 - ``GET /portfolio/{uuid}`` detail 用 ``initial_cash``/``current_cash``，而 CLI 期望

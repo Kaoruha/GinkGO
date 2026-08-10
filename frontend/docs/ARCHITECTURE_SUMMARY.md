@@ -70,8 +70,8 @@
 
 | 文档 | 路径 |
 |------|------|
-| 组件使用指南 | `web-ui/USAGE_GUIDE.md` |
-| 架构总结 | `web-ui/docs/ARCHITECTURE_SUMMARY.md` |
+| 组件使用指南 | `frontend/USAGE_GUIDE.md` |
+| 架构总结 | `frontend/docs/ARCHITECTURE_SUMMARY.md` |
 
 ## 🎯 重构完成清单
 

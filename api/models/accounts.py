@@ -1,7 +1,7 @@
 """
 Live Account 相关数据模型
 
-与前端 web-ui/src/api/modules/live.ts 中的类型定义对应
+与前端 frontend/src/api/modules/live.ts 中的类型定义对应
 """
 
 from pydantic import BaseModel, Field, field_validator, AliasChoices

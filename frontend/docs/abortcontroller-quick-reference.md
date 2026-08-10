@@ -169,7 +169,7 @@ nodeGraphApi.get(uuid, { signal })
 
 ## 文件位置
 
-- Composable: `/home/kaoru/Ginkgo/web-ui/src/composables/useRequestCancelable.ts`
-- 类型定义: `/home/kaoru/Ginkgo/web-ui/src/types/api-request.ts`
-- 使用指南: `/home/kaoru/Ginkgo/web-ui/src/composables/README.md`
-- 示例组件: `/home/kaoru/Ginkgo/web-ui/src/examples/CancelableRequestExample.vue`
+- Composable: `/home/kaoru/Ginkgo/frontend/src/composables/useRequestCancelable.ts`
+- 类型定义: `/home/kaoru/Ginkgo/frontend/src/types/api-request.ts`
+- 使用指南: `/home/kaoru/Ginkgo/frontend/src/composables/README.md`
+- 示例组件: `/home/kaoru/Ginkgo/frontend/src/examples/CancelableRequestExample.vue`

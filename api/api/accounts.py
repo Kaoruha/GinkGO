@@ -1,7 +1,7 @@
 """
 Live Account 相关API路由
 
-实盘账号管理接口，对应前端 web-ui/src/api/modules/live.ts
+实盘账号管理接口，对应前端 frontend/src/api/modules/live.ts
 """
 
 from fastapi import APIRouter, Query, Request, status, HTTPException

@@ -299,7 +299,7 @@ onMounted(() => {
 
 ## 相关文件
 
-- `/home/kaoru/Ginkgo/web-ui/src/composables/useRequestCancelable.ts` - Composable 实现
-- `/home/kaoru/Ginkgo/web-ui/src/api/request.ts` - Axios 请求配置
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/*.ts` - 各 API 模块
-- `/home/kaoru/Ginkgo/web-ui/src/stores/portfolio.ts` - Store 示例
+- `/home/kaoru/Ginkgo/frontend/src/composables/useRequestCancelable.ts` - Composable 实现
+- `/home/kaoru/Ginkgo/frontend/src/api/request.ts` - Axios 请求配置
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/*.ts` - 各 API 模块
+- `/home/kaoru/Ginkgo/frontend/src/stores/portfolio.ts` - Store 示例

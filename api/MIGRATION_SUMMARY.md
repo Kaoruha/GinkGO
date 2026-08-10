@@ -40,24 +40,24 @@
 #### 2. 前端修改
 
 **修改的 API 模块文件：**
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/portfolio.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/portfolio.ts`
   - 所有路径从 `/portfolio` 改为 `/api/v1/portfolios`
 
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/backtest.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/backtest.ts`
   - 所有路径从 `/backtest` 改为 `/api/v1/backtests`
   - SSE 端点从 `/api/backtest/{uuid}/events` 改为 `/api/v1/backtests/{uuid}/events`
 
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/nodeGraph.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/nodeGraph.ts`
   - 所有路径从 `/api/node-graphs` 改为 `/api/v1/node-graphs`
 
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/components.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/components.ts`
   - Components API: `/components` → `/api/v1/components`
   - Data API: `/data/*` → `/api/v1/data/*`
 
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/auth.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/auth.ts`
   - 所有路径从 `/auth/*` 改为 `/api/v1/auth/*`
 
-- `/home/kaoru/Ginkgo/web-ui/src/api/modules/settings.ts`
+- `/home/kaoru/Ginkgo/frontend/src/api/modules/settings.ts`
   - 所有路径从 `/settings/*` 改为 `/api/v1/settings/*`
 
 #### 3. 文档和测试
@@ -172,12 +172,12 @@
 - `api/dashboard.py` - Dashboard 路由
 - `api/components.py` - Components 路由
 - `api/node_graph.py` - NodeGraph 路由
-- `web-ui/src/api/modules/portfolio.ts` - Portfolio API 模块
-- `web-ui/src/api/modules/backtest.ts` - Backtest API 模块
-- `web-ui/src/api/modules/nodeGraph.ts` - NodeGraph API 模块
-- `web-ui/src/api/modules/components.ts` - Components API 模块
-- `web-ui/src/api/modules/auth.ts` - Auth API 模块
-- `web-ui/src/api/modules/settings.ts` - Settings API 模块
+- `frontend/src/api/modules/portfolio.ts` - Portfolio API 模块
+- `frontend/src/api/modules/backtest.ts` - Backtest API 模块
+- `frontend/src/api/modules/nodeGraph.ts` - NodeGraph API 模块
+- `frontend/src/api/modules/components.ts` - Components API 模块
+- `frontend/src/api/modules/auth.ts` - Auth API 模块
+- `frontend/src/api/modules/settings.ts` - Settings API 模块
 
 ## 总结
 

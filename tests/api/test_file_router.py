@@ -8,7 +8,7 @@
 文件管理 flat 适配路由测试
 
 后端 FileService 能力完整但只通过 /components、/node-graphs/{uuid}/files 暴露；
-前端 web-ui/src/api/modules/file.ts 调的 /api/v1/file_list 等 flat 端点无对应路由（全 404）。
+前端 frontend/src/api/modules/file.ts 调的 /api/v1/file_list 等 flat 端点无对应路由（全 404）。
 本测试验证新建的 api.file router 提供 5 个 flat 端点，薄委托 FileService 既有方法。
 """
 

@@ -4,7 +4,7 @@
 
 ## Wire 形状
 
-所有业务端点统一返回同一信封（前端 `web-ui/src/api/request.ts` + `types/api.ts` 已锁此形状）：
+所有业务端点统一返回同一信封（前端 `frontend/src/api/request.ts` + `types/api.ts` 已锁此形状）：
 
 ```json
 {
@@ -102,7 +102,7 @@ raise ConflictError("Name exists", resource_type="Portfolio", resource_id=uid)  
 
 ## 前端契约
 
-`web-ui/src/api/request.ts` 响应拦截器自动解包：
+`frontend/src/api/request.ts` 响应拦截器自动解包：
 
 ```typescript
 // request.ts:28 — code !== 0 抛错, 否则返回完整信封
@@ -112,7 +112,7 @@ if (data && typeof data.code === 'number' && data.code !== 0) {
 return data  // 调用方拿到的就是 {code, data, message, meta?, trace_id}
 ```
 
-类型（`web-ui/src/types/api.ts`）：
+类型（`frontend/src/types/api.ts`）：
 
 ```typescript
 interface APIResponse<T> { code: number; data: T; message: string; meta?: PaginationMeta; trace_id: string }
@@ -144,7 +144,7 @@ function isOk<T>(r: APIResponse<T>): r is APIResponse<T> & { code: 0 }  // code 
 - `api/core/response.py` — `ok/fail/paginated/pagination_meta` helper + `APIResponse[T]/PaginatedResponse` 泛型
 - `api/core/exceptions.py` — `APIError` 家族 + `to_dict()`
 - `api/middleware/error_handler.py` — 全局 `global_error_handler`（异常 → 信封）
-- `web-ui/src/api/request.ts` — 响应拦截器（解包 `code`）
-- `web-ui/src/types/api.ts` — `APIResponse<T>` / `PaginationMeta` 类型
+- `frontend/src/api/request.ts` — 响应拦截器（解包 `code`）
+- `frontend/src/types/api.ts` — `APIResponse<T>` / `PaginationMeta` 类型
 - `tests/api/test_response_format.py` — helper + 异常测试
 - `tests/api/test_response_envelope.py` — 泛型 + response_model 契约测试

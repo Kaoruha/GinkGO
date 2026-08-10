@@ -7,7 +7,7 @@ Ginkgo Serve CLI - 统一组件启动命令
 
 所有组件前台运行都通过 serve 命令统一管理：
 - ginkgo serve api            # API server (FastAPI)
-- ginkgo serve webui          # Web UI (Vue 3 + Vite)
+- ginkgo serve web            # Web UI (Vue 3 + Vite)
 - ginkgo serve all            # 同时启动 API + Web UI
 - ginkgo serve livecore       # LiveCore 实盘交易容器
 - ginkgo serve execution      # ExecutionNode 执行节点
@@ -251,12 +251,12 @@ def serve_all(
             env["HOST"] = "0.0.0.0"
             env["PORT"] = str(web_port)
 
-            webui_process = subprocess.Popen(
+            web_process = subprocess.Popen(
                 [npm_cmd, "run", "dev"],
                 cwd=frontend_path,
                 env=env,
             )
-            processes.append(webui_process)
+            processes.append(web_process)
             console.print(f"[green]:white_check_mark: Web UI started at http://0.0.0.0:{web_port}[/green]")
         except Exception as e:
             console.print(f"[red]:x: Failed to start Web UI: {e}[/red]")
