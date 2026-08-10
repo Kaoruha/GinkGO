@@ -488,7 +488,7 @@ onMounted(() => {
 
 .perm-read {
   background: hsl(var(--primary));
-  color: hsl(var(--foreground));
+  color: hsl(var(--primary-foreground));
 }
 
 .perm-trade {
@@ -602,7 +602,7 @@ onMounted(() => {
   border: none;
   border-radius: 4px;
   padding: 8px 16px;
-  color: hsl(var(--foreground));
+  color: hsl(var(--primary-foreground));
   font-size: 13px;
   cursor: pointer;
 }

@@ -1835,9 +1835,9 @@ onUnmounted(() => {
 
 .picker-day:hover:not(:disabled) { background: hsl(var(--border)); color: hsl(var(--foreground)); }
 .picker-day:disabled { visibility: hidden; }
-.picker-day.selected { background: hsl(var(--primary)); color: hsl(var(--foreground)); }
+.picker-day.selected { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 .picker-day.today { font-weight: 700; color: hsl(var(--primary)); }
-.picker-day.today.selected { color: hsl(var(--foreground)); }
+.picker-day.today.selected { color: hsl(var(--primary-foreground)); }
 
 /* Logs */
 .logs-filter { margin-bottom: 8px; }

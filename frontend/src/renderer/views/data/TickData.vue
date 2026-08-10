@@ -430,7 +430,7 @@ onUnmounted(() => {
 
 .btn-query {
   display: inline-flex; align-items: center; padding: 7px 16px;
-  background: hsl(var(--primary)); border: none; border-radius: 4px; color: hsl(var(--foreground));
+  background: hsl(var(--primary)); border: none; border-radius: 4px; color: hsl(var(--primary-foreground));
   font-size: 13px; cursor: pointer; transition: all 0.2s;
 }
 .btn-query:hover:not(:disabled) { background: hsl(var(--primary)); }
@@ -453,7 +453,7 @@ onUnmounted(() => {
   border-radius: 4px; color: hsl(var(--muted-foreground)); font-size: 12px; cursor: pointer; transition: all 0.2s;
 }
 .bucket-btn:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
-.bucket-btn.active { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--foreground)); }
+.bucket-btn.active { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 
 .chart-wrapper { position: relative; }
 .chart-container { width: 100%; height: 420px; }

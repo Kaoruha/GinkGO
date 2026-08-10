@@ -489,7 +489,7 @@ function formatValue(val: any): string {
 
 .pg-btn:hover:not(:disabled):not(.active) { background: hsl(var(--secondary)); border-color: hsl(var(--primary)); }
 .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.pg-btn.active { background: hsl(var(--primary)); border-color: hsl(var(--primary)); }
+.pg-btn.active { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 
 .pg-ellipsis { padding: 0 4px; color: hsl(var(--muted-foreground)); font-size: 12px; }
 

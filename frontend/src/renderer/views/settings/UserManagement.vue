@@ -374,7 +374,7 @@ onMounted(() => {
   background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: hsl(var(--foreground));
+  color: hsl(var(--primary-foreground));
   font-size: 13px;
   cursor: pointer;
 }

@@ -1075,7 +1075,7 @@ onMounted(() => {
 .type-btn.active {
   background: hsl(var(--primary));
   border-color: hsl(var(--primary));
-  color: hsl(var(--foreground));
+  color: hsl(var(--primary-foreground));
 }
 
 .component-selector {

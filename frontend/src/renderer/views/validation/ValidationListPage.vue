@@ -241,7 +241,7 @@ onMounted(() => {
 .tab-btn.active {
   background: hsl(var(--primary));
   border-color: hsl(var(--primary));
-  color: hsl(var(--foreground));
+  color: hsl(var(--primary-foreground));
 }
 .tab-btn.sm {
   padding: 4px 12px;

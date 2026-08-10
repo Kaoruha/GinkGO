@@ -356,7 +356,7 @@ onUnmounted(() => {
   gap: 8px;
   padding: 4px 16px;
   background: hsl(var(--primary));
-  color: hsl(var(--foreground));
+  color: hsl(var(--primary-foreground));
   font-size: 12px;
   flex-shrink: 0;
 }

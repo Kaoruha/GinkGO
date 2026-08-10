@@ -319,7 +319,7 @@ onMounted(() => {
 
 .tag-sh {
   background: hsl(var(--primary));
-  color: hsl(var(--foreground));
+  color: hsl(var(--primary-foreground));
 }
 
 .tag-sz {
