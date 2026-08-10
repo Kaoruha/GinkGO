@@ -13,47 +13,63 @@
   white-space: nowrap;
 }
 
+// 全局标签:统一底色 /0.12(更浅→字色对比更高);字色走 *-fg 文字专用 token。
+// 页面 scoped 的 .tag-* 副本已全部删除,此为唯一权威(ADR-045 Codex 视觉)。
 .tag-blue {
-  background: hsl(var(--primary) / 0.2);
+  background: hsl(var(--primary) / 0.12);
   color: hsl(var(--primary));
 }
 
 .tag-green, .tag-success {
-  background: hsl(var(--success) / 0.2);
-  color: hsl(var(--success));
+  background: hsl(var(--success) / 0.12);
+  color: hsl(var(--success-fg));
 }
 
 .tag-red, .tag-danger {
-  background: hsl(var(--error) / 0.2);
-  color: hsl(var(--error));
+  background: hsl(var(--error) / 0.12);
+  color: hsl(var(--error-fg));
 }
 
 .tag-orange, .tag-warning {
-  background: hsl(var(--warning) / 0.2);
-  color: hsl(var(--warning));
+  background: hsl(var(--warning) / 0.12);
+  color: hsl(var(--warning-fg));
 }
 
 .tag-gray, .tag-default {
-  background: hsl(var(--muted-foreground) / 0.2);
+  background: hsl(var(--muted-foreground) / 0.12);
   color: hsl(var(--muted-foreground));
 }
 
 .tag-purple {
-  background: hsl(var(--secondary-foreground) / 0.2);
+  background: hsl(var(--secondary-foreground) / 0.12);
   color: hsl(var(--secondary-foreground));
 }
 
 .tag-cyan {
-  background: hsl(var(--success) / 0.2);
-  color: hsl(var(--success));
+  background: hsl(var(--success) / 0.12);
+  color: hsl(var(--success-fg));
 }
 
 .tag-gold {
-  background: hsl(var(--warning) / 0.2);
-  color: hsl(var(--warning));
+  background: hsl(var(--warning) / 0.12);
+  color: hsl(var(--warning-fg));
 }
 
 .tag-lime {
-  background: hsl(var(--success) / 0.2);
-  color: hsl(var(--success));
+  background: hsl(var(--success) / 0.12);
+  color: hsl(var(--success-fg));
 }
+
+// magenta/pink 无对应语义 token:固定 hsl + .dark 反相(浅色暗可读 / 深色亮可读)
+.tag-magenta {
+  background: hsl(326 76% 50% / 0.12);
+  color: hsl(326 76% 32%);
+}
+
+.tag-pink {
+  background: hsl(330 80% 55% / 0.12);
+  color: hsl(330 80% 34%);
+}
+
+:is(.dark) .tag-magenta { color: hsl(326 76% 62%); }
+:is(.dark) .tag-pink { color: hsl(330 80% 65%); }

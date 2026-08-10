@@ -485,7 +485,7 @@ const handleLogout = async () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: hsl(var(--foreground));
+  color: hsl(var(--primary-foreground));
 }
 
 .user-dropdown {

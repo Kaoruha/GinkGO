@@ -368,21 +368,6 @@ function formatValue(val: any): string {
 .clear-btn:hover { color: hsl(var(--foreground)); }
 
 /* Buttons */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: hsl(var(--primary));
-  border: none;
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover { background: hsl(var(--primary)); }
 
 /* Content */
 .list-content {

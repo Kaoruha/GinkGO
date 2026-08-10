@@ -960,10 +960,6 @@ onMounted(() => {
   gap: 8px;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .form-layout {
   display: flex;
   gap: 16px;

@@ -463,6 +463,4 @@ onUnmounted(() => {
 .text-neutral { color: hsl(var(--muted-foreground)); }
 
 .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-.tag-orange { background: hsl(var(--warning) / 0.15); color: hsl(var(--warning)); }
-.tag-blue { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
 </style>

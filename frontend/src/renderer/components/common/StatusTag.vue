@@ -73,10 +73,4 @@ const label = computed(() => config.value.label)
   font-weight: 500;
 }
 
-.tag-blue { background: hsl(var(--primary) / 0.2); color: hsl(var(--primary)); }
-.tag-green { background: hsl(var(--success) / 0.2); color: hsl(var(--success)); }
-.tag-red { background: hsl(var(--error) / 0.2); color: hsl(var(--error)); }
-.tag-orange { background: hsl(var(--warning) / 0.2); color: hsl(var(--warning)); }
-.tag-gray { background: hsl(var(--muted-foreground) / 0.2); color: hsl(var(--muted-foreground)); }
-.tag-cyan { background: hsl(var(--success) / 0.2); color: hsl(var(--success)); }
 </style>

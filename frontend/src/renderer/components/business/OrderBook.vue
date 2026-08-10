@@ -156,8 +156,6 @@ const orders = ref<Order[]>([
   font-weight: 500;
 }
 
-.tag-green { background: hsl(var(--success) / 0.2); color: hsl(var(--success)); }
-.tag-red { background: hsl(var(--error) / 0.2); color: hsl(var(--error)); }
 
 .status-badge {
   display: inline-block;

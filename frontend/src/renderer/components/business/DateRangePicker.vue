@@ -231,26 +231,6 @@ const handleCancel = () => {
   gap: 12px;
 }
 
-.btn-primary {
-  padding: 8px 16px;
-  background: hsl(var(--primary));
-  border: none;
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .btn-secondary {
   padding: 8px 16px;
   background: transparent;

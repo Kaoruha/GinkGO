@@ -162,10 +162,6 @@ onMounted(() => {
   color: hsl(var(--foreground));
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -192,9 +188,6 @@ onMounted(() => {
   }
 
   .form-select,
-  .btn-primary {
-    width: 100%;
-  }
 
   .stats-grid {
     grid-template-columns: 1fr;

@@ -135,10 +135,6 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .table-wrapper {
   overflow-x: auto;
 }

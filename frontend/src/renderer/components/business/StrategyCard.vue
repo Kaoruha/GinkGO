@@ -176,21 +176,6 @@ const handleSelect = () => {
   margin-top: 16px;
 }
 
-.btn-primary {
-  padding: 6px 12px;
-  background: hsl(var(--primary));
-  border: none;
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: hsl(var(--primary));
-}
-
 .btn-secondary {
   padding: 6px 12px;
   background: transparent;
@@ -216,9 +201,4 @@ const handleSelect = () => {
   font-weight: 500;
 }
 
-.tag-blue { background: hsl(var(--primary) / 0.2); color: hsl(var(--primary)); }
-.tag-green { background: hsl(var(--success) / 0.2); color: hsl(var(--success)); }
-.tag-orange { background: hsl(var(--warning) / 0.2); color: hsl(var(--warning)); }
-.tag-purple { background: hsl(var(--secondary-foreground) / 0.2); color: hsl(var(--secondary-foreground)); }
-.tag-gray { background: hsl(var(--border)); color: hsl(var(--muted-foreground)); }
 </style>

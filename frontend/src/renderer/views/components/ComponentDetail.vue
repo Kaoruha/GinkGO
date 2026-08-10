@@ -299,11 +299,6 @@ onUnmounted(() => {
   background: hsl(var(--primary) / 0.1);
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-  border-color: hsl(var(--primary));
-}
-
 .file-info {
   color: hsl(var(--border));
   display: flex;

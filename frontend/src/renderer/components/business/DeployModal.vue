@@ -171,18 +171,6 @@ const handleDeploy = async () => {
   transition: all 0.2s;
 }
 .radio-button:hover { color: hsl(var(--foreground)); }
-.radio-button.active { background: hsl(var(--primary)); color: hsl(var(--foreground)); }
-.btn-primary {
-  padding: 6px 14px;
-  background: hsl(var(--primary));
-  border: none;
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 13px;
-  cursor: pointer;
-}
-.btn-primary:hover { background: hsl(var(--primary)); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-secondary {
   padding: 6px 14px;
   background: hsl(var(--border));

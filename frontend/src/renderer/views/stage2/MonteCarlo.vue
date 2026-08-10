@@ -173,10 +173,6 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .stat-danger {
   color: hsl(var(--error));
 }

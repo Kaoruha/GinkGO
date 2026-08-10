@@ -194,28 +194,8 @@ const generateSignal = () => {
   border-color: hsl(var(--primary));
 }
 
-.radio-button.active {
-  background: hsl(var(--primary));
-  border-color: hsl(var(--primary));
-  color: hsl(var(--foreground));
-}
-
 .form-actions {
   margin-top: 8px;
 }
 
-.btn-primary {
-  padding: 8px 16px;
-  background: hsl(var(--primary));
-  border: none;
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: hsl(var(--primary));
-}
 </style>

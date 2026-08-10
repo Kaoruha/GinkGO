@@ -422,25 +422,6 @@ onMounted(() => {
   color: hsl(var(--muted-foreground));
 }
 
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: hsl(var(--primary));
-  border: none;
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: hsl(var(--primary));
-}
-
 .content-layout {
   flex: 1;
   display: flex;

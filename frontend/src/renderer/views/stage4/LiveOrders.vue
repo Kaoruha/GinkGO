@@ -256,10 +256,6 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .btn-link-danger {
   color: hsl(var(--error));
 }

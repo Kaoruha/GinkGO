@@ -342,10 +342,6 @@ onMounted(() => {
   border-color: hsl(var(--primary));
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .btn-success {
   padding: 8px 20px;
   background: hsl(var(--success));

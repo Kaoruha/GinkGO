@@ -160,8 +160,8 @@ watch(() => route.params.type, () => loadFiles(), { immediate: true })
   text-decoration: none;
 }
 .act-link:hover { color: hsl(var(--primary)); }
-.act-link.danger { color: hsl(var(--error)); }
-.act-link.danger:hover { color: hsl(var(--error)); }
+.act-link.danger { color: hsl(var(--error-fg)); }
+.act-link.danger:hover { color: hsl(var(--error-fg)); }
 
 .modal-overlay {
   position: fixed;

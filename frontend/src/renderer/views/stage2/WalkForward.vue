@@ -219,10 +219,6 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .stat-danger {
   color: hsl(var(--error));
 }

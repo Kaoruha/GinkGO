@@ -73,19 +73,4 @@ const handleAction = () => {
   margin-bottom: 16px;
 }
 
-.btn-primary {
-  padding: 8px 16px;
-  background: hsl(var(--primary));
-  border: none;
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: hsl(var(--primary));
-}
 </style>

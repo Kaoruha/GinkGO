@@ -167,10 +167,6 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .stats-grid-three {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

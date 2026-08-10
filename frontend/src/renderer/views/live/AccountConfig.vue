@@ -454,7 +454,6 @@ onMounted(() => {
   max-height: 90vh;
 }
 
-
 .account-config-page {
   padding: 24px;
 }
@@ -494,10 +493,6 @@ onMounted(() => {
   color: hsl(var(--foreground));
   font-size: 16px;
   font-weight: 600;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
 }
 
 .btn-small:hover:not(:disabled) {

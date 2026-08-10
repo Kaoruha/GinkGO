@@ -266,10 +266,6 @@ onMounted(() => {
   color: hsl(var(--foreground));
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 /* 统计卡片 */
 
 .stat-card::before {
@@ -463,7 +459,7 @@ onMounted(() => {
 
 .source-desc {
   font-size: 12px;
-  color: hsl(var(--muted-foreground));
+  color: hsl(var(--foreground));
 }
 
 .status-tag {
@@ -473,13 +469,14 @@ onMounted(() => {
   font-weight: 500;
 }
 
+/* badge 字色走 *-fg 文字专用 token: 浅色暗(白底可读)/ 深色亮(深底可读) */
 .status-tag.online {
-  background: hsl(var(--success) / 0.2);
-  color: hsl(var(--success));
+  background: hsl(var(--success) / 0.12);
+  color: hsl(var(--success-fg));
 }
 
 .status-tag.offline {
-  background: hsl(var(--error) / 0.2);
-  color: hsl(var(--error));
+  background: hsl(var(--error) / 0.12);
+  color: hsl(var(--error-fg));
 }
 </style>

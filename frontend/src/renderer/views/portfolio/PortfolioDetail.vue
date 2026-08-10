@@ -223,17 +223,6 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
   gap: 8px;
 }
 
-.btn-primary {
-  padding: 8px 16px;
-  background: hsl(var(--primary));
-  border: none;
-  border-radius: 6px;
-  color: hsl(var(--foreground));
-  font-size: 13px;
-  cursor: pointer;
-}
-.btn-primary:hover { background: hsl(var(--primary)); }
-
 .btn-secondary {
   padding: 8px 16px;
   background: transparent;

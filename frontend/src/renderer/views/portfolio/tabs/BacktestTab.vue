@@ -1235,7 +1235,6 @@ onUnmounted(() => {
 }
 
 .radio-button:hover { color: hsl(var(--foreground)); }
-.radio-button.active { background: hsl(var(--primary)); color: hsl(var(--foreground)); }
 
 .search-input {
   padding: 5px 10px;
@@ -1250,18 +1249,6 @@ onUnmounted(() => {
 .search-input:focus { border-color: hsl(var(--primary)); outline: none; }
 
 /* Buttons */
-.btn-primary {
-  padding: 6px 14px;
-  background: hsl(var(--primary));
-  border: none;
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.btn-primary:hover { background: hsl(var(--primary)); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-secondary {
   padding: 6px 14px;
@@ -1463,11 +1450,6 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.tag-blue { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
-.tag-green { background: hsl(var(--success) / 0.15); color: hsl(var(--success)); }
-.tag-orange { background: hsl(var(--warning) / 0.15); color: hsl(var(--warning)); }
-.tag-red { background: hsl(var(--error) / 0.15); color: hsl(var(--error)); }
-.tag-gray { background: hsl(var(--foreground) / 0.08); color: hsl(var(--muted-foreground)); }
 .tag-processing { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
 
 .text-green { color: hsl(var(--success)); }

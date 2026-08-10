@@ -58,20 +58,20 @@ const isActive = (itemRoute: string) => {
   padding: 6px 20px;
   font-size: 11px;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.4);
+  color: hsl(var(--muted-foreground));
   letter-spacing: 0.5px;
 }
 .admin-nav-item {
   display: block;
   padding: 8px 20px;
-  color: rgba(255,255,255,0.6);
+  color: hsl(var(--muted-foreground));
   text-decoration: none;
   font-size: 13px;
   transition: all 0.2s;
 }
 .admin-nav-item:hover {
-  color: rgba(255,255,255,0.9);
-  background: rgba(255,255,255,0.05);
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent));
 }
 .admin-nav-item.active {
   color: hsl(var(--primary));

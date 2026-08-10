@@ -51,6 +51,12 @@
     --warning: 38 92% 50%;
     --error: 0 72% 51%;                /* 跌红 */
     --info: 0 0% 40%;                  /* 去蓝,改中性 */
+
+    /* 文字专用语义色:浅色下作文字须够暗(r≥4.5);底色仍用上面的 --success 等。
+       L45% 绿在白底 r≈2.2 不可读 → 文字场景统一走 *-fg。 */
+    --success-fg: 142 71% 25%;
+    --warning-fg: 38 90% 28%;
+    --error-fg: 0 72% 40%;
   }
 
   .dark {
@@ -84,7 +90,11 @@
     --input: 0 0% 16%;
     --ring: 0 0% 70%;
 
-    /* 状态颜色同浅色(radiant/success/warning/error/info 由 :root 继承) */
+    /* 状态颜色同浅色(success/warning/error/info 由 :root 继承);
+       文字专用 *-fg 在深色下用亮色,深底可读。 */
+    --success-fg: 142 71% 50%;
+    --warning-fg: 38 92% 55%;
+    --error-fg: 0 72% 68%;
   }
 }
 

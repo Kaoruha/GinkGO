@@ -149,11 +149,6 @@ onMounted(() => {
 .control-input[type="date"] { width: 140px; }
 
 .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-.tag-purple { background: hsl(var(--secondary-foreground) / 0.15); color: hsl(var(--secondary-foreground)); }
-
-.btn-primary { display: inline-flex; align-items: center; padding: 7px 16px; background: hsl(var(--primary)); border: none; border-radius: 4px; color: hsl(var(--foreground)); font-size: 13px; cursor: pointer; }
-.btn-primary:hover { background: hsl(var(--primary)); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Stats */
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }

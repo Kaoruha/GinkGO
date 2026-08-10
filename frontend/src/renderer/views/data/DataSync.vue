@@ -276,10 +276,6 @@ onMounted(() => {
   margin-top: 8px;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .btn-small:hover {
   border-color: hsl(var(--muted-foreground));
 }

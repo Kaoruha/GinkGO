@@ -88,27 +88,17 @@
   margin-top: 4px;
 }
 
-.stat-success {
-  color: hsl(var(--success)) !important;
-}
+// 状态/涨跌字色统一走文字专用 *-fg token(浅色暗·白底可读;深色亮·深底可读)。
+// 底色块仍用上面的 --success 等。全局收口,页面 scoped 副本删除。
+.stat-success { color: hsl(var(--success-fg)) !important; }
+.stat-danger  { color: hsl(var(--error-fg)); }
+.stat-warning { color: hsl(var(--warning-fg)); }
+.stat-muted   { color: hsl(var(--muted-foreground)); }
 
 // Change indicators
-.value-up {
-  color: hsl(var(--success));
-}
+.value-up   { color: hsl(var(--success-fg)); }
+.value-down { color: hsl(var(--error-fg)); }
+.value-flat { color: hsl(var(--muted-foreground)); }
 
-.value-down {
-  color: hsl(var(--error));
-}
-
-.value-flat {
-  color: hsl(var(--muted-foreground));
-}
-
-.positive {
-  color: hsl(var(--success));
-}
-
-.negative {
-  color: hsl(var(--error));
-}
+.positive { color: hsl(var(--success-fg)); }
+.negative { color: hsl(var(--error-fg)); }

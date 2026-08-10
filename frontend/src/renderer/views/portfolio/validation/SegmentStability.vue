@@ -461,9 +461,7 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.stat-warning { color: hsl(var(--warning)); }
-.stat-success { color: hsl(var(--success)); }
-.stat-danger { color: hsl(var(--error)); }
+/* stat-* 字色由全局 cards.less 统一收口(*-fg token) */
 
 .segment-tags {
   display: flex;

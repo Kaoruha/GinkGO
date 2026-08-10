@@ -213,11 +213,12 @@ const componentCounts = computed(() => {
 
 // 组件类型映射
 const componentTypeMap: Record<string, { label: string; color: string; typeKey: string }> = {
-  data_workers: { label: 'DataWorker', color: '#722ed1', typeKey: 'data_worker' },
-  backtest_workers: { label: 'BacktestWorker', color: '#1890ff', typeKey: 'backtest_worker' },
-  execution_nodes: { label: 'ExecutionNode', color: '#52c41a', typeKey: 'execution_node' },
-  schedulers: { label: 'Scheduler', color: '#fa8c16', typeKey: 'scheduler' },
-  task_timers: { label: 'TaskTimer', color: '#eb2f96', typeKey: 'task_timer' },
+  // ADR-045 Codex 视觉:清除 Ant Design 硬编码 hex,改用主题 token(浅/深自适应可读)
+  data_workers: { label: 'DataWorker', color: 'hsl(var(--secondary-foreground))', typeKey: 'data_worker' },
+  backtest_workers: { label: 'BacktestWorker', color: 'hsl(var(--primary))', typeKey: 'backtest_worker' },
+  execution_nodes: { label: 'ExecutionNode', color: 'hsl(var(--success-fg))', typeKey: 'execution_node' },
+  schedulers: { label: 'Scheduler', color: 'hsl(var(--warning-fg))', typeKey: 'scheduler' },
+  task_timers: { label: 'TaskTimer', color: 'hsl(var(--error-fg))', typeKey: 'task_timer' },
 }
 
 const getOnlineCount = (type: string): number => {
@@ -474,7 +475,7 @@ onUnmounted(() => {
 }
 
 .infra-card {
-  background: hsl(var(--border));
+  background: hsl(var(--muted));
   border-radius: 6px;
   padding: 12px;
 }
@@ -501,7 +502,7 @@ onUnmounted(() => {
 }
 
 .infra-error {
-  color: hsl(var(--error));
+  color: hsl(var(--error-fg));
 }
 
 /* 组件统计 */
@@ -513,7 +514,7 @@ onUnmounted(() => {
 }
 
 .component-stat-card {
-  background: hsl(var(--border));
+  background: hsl(var(--muted));
   border-radius: 6px;
   padding: 12px;
   text-align: center;
@@ -537,10 +538,6 @@ onUnmounted(() => {
 
 /* 标签 */
 
-.tag-magenta {
-  background: rgba(235, 47, 150, 0.2);
-  color: hsl(var(--error));
-}
 
 /* 表格 */
 .table-wrapper {
@@ -561,7 +558,7 @@ onUnmounted(() => {
 }
 
 .data-table th {
-  background: hsl(var(--border));
+  background: hsl(var(--muted));
   color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 12px;

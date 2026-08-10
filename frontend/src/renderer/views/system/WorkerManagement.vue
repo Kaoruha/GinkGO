@@ -301,9 +301,7 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
-.stat-success { color: hsl(var(--success)); }
-.stat-danger { color: hsl(var(--error)); }
-.stat-muted { color: hsl(var(--muted-foreground)); }
+/* stat-* 字色由全局 cards.less 统一收口(*-fg token) */
 
 /* 卡片 */
 .card-header {
@@ -331,10 +329,6 @@ onUnmounted(() => {
 }
 
 /* 标签 */
-.tag-magenta {
-  background: rgba(235, 47, 150, 0.2);
-  color: hsl(var(--error));
-}
 
 /* 表格 */
 .table-wrapper {

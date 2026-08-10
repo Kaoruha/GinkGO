@@ -143,10 +143,6 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: hsl(var(--primary));
-}
-
 .stat-small {
   font-size: 14px;
 }

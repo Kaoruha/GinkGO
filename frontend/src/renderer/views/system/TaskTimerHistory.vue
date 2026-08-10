@@ -214,10 +214,6 @@ onMounted(() => {
 .mono { font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Menlo', monospace; font-size: 12px; }
 
 .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-.tag-blue { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
-.tag-green { background: hsl(var(--success) / 0.15); color: hsl(var(--success)); }
-.tag-red { background: hsl(var(--error) / 0.15); color: hsl(var(--error)); }
-.tag-gray { background: hsl(var(--foreground) / 0.08); color: hsl(var(--muted-foreground)); }
 
 .filter-bar { display: flex; gap: 8px; }
 .control-input { padding: 6px 12px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: 4px; color: hsl(var(--foreground)); font-size: 13px; }
