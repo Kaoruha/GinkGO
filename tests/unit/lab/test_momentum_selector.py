@@ -1,42 +1,39 @@
 """
-性能: 219MB RSS, 1.86s, 3 tests [PASS]
+性能: ~220MB RSS, 2.0s, 7 tests [PASS]
 """
 
-import sys
 import unittest
-import datetime
-from time import sleep
+import inspect
 import pandas as pd
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.trading.selectors.momentum_selector import MomentumSelector
-
-engine_id = "backtest_example_001"
-
-
-class _ForbiddenCruds:
-    def __getattr__(self, name):
-        raise AssertionError(f"MomentumSelector must use services, not container.cruds.{name}")
 
 
 class MomentumSelectorTest(unittest.TestCase):
     """
-    MomentumValueSelector Unit test.
+    MomentumSelector Unit test.
     """
 
     def __init__(self, *args, **kwargs) -> None:
         super(MomentumSelectorTest, self).__init__(*args, **kwargs)
 
+    @staticmethod
+    def _make_feeder(codes, df=None):
+        """构造 mock _data_feeder（#4608：穿透已收敛到 feeder DI 注入）。"""
+        feeder = MagicMock()
+        feeder.get_available_codes.return_value = ServiceResult.success(data=codes)
+        if df is not None:
+            feeder.get_bars_window.return_value = ServiceResult.success(data=df)
+        return feeder
+
     def test_init(self):
-        """
-        实例化 动量选择器
-        """
+        """实例化 动量选择器"""
         s = MomentumSelector(name="test_selector", window=30, rank=2)
         print(s)
 
-    @patch("ginkgo.trading.selectors.momentum_selector.container")
-    def test_pick_uses_bar_service_and_available_codes(self, mock_container):
-        """pick() uses the data service boundary and scans only codes with bar data."""
+    def test_pick_uses_feeder_and_available_codes(self):
+        """#4608：pick() 走 _data_feeder 边界，只扫有 bar 数据的 code。"""
         df = pd.DataFrame(
             [
                 {"code": "A", "close": 10.0, "timestamp": pd.Timestamp("2019-12-10")},
@@ -46,41 +43,29 @@ class MomentumSelectorTest(unittest.TestCase):
                 {"code": "NO_BAR_METADATA_ONLY", "close": 1.0, "timestamp": pd.Timestamp("2019-12-30")},
             ]
         )
-        mock_bar_service = MagicMock()
-        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["A", "B"])
-        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=df)
-        mock_container.cruds = _ForbiddenCruds()
-        mock_container.bar_service.return_value = mock_bar_service
-
         s = MomentumSelector(name="test_selector", window=30, rank=1)
+        s._data_feeder = self._make_feeder(["A", "B"], df)
         res = s.pick(time="2020-01-01")
 
         self.assertEqual(res, ["B"])
-        mock_bar_service.get_available_codes.assert_called_once()
-        mock_bar_service.get_bars_df.assert_called_once()
+        s._data_feeder.get_available_codes.assert_called_once()
+        s._data_feeder.get_bars_window.assert_called_once()
 
-    @patch("ginkgo.trading.selectors.momentum_selector.container")
-    def test_pick(self, mock_container):
-        """测试pick方法 - mock数据库依赖."""
-        mock_bar_service = MagicMock()
-        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=[])
-        mock_container.bar_service.return_value = mock_bar_service
-
+    def test_pick_empty_universe(self):
+        """universe 为空时返回空列表。"""
         s = MomentumSelector(name="test_selector", window=30, rank=2)
+        s._data_feeder = self._make_feeder([])
         res = s.pick(time="2020-01-01")
         self.assertEqual(len(res), 0)
 
-    @patch("ginkgo.trading.selectors.momentum_selector.container")
-    def test_pick_batch_selects_top_n_by_momentum(self, mock_container):
+    def test_pick_batch_selects_top_n_by_momentum(self):
         """批量查询路径：按窗口内首末收盘价正确计算动量并选出 top-N。
 
-        数据按 timestamp 排序（模拟真实 order_by='timestamp' 查询返回）：
+        数据按 timestamp 排序（模拟真实查询返回）：
             A: 10→20→30  momentum = 30/10-1 = 2.0
             B: 5→50→100 momentum = 100/5-1  = 19.0  ← 最高
             C: 100→50→10 momentum = 10/100-1 = -0.9
         rank=2 期望 [B, A]。
-        逐股 buggy 实现会对每个 code 用整 df 的 iloc[0]/iloc[-1]（均为 10）算出
-        相同动量 0，稳定排序后得 [A, B]，与本断言不符，确保 RED 可区分。
         """
         df = pd.DataFrame(
             [
@@ -95,21 +80,13 @@ class MomentumSelectorTest(unittest.TestCase):
                 {"code": "C", "close": 10.0, "timestamp": pd.Timestamp("2019-12-30")},
             ]
         )
-        mock_bar_service = MagicMock()
-        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["A", "B", "C"])
-        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=df)
-        mock_container.bar_service.return_value = mock_bar_service
-
         s = MomentumSelector(name="test_selector", window=30, rank=2)
+        s._data_feeder = self._make_feeder(["A", "B", "C"], df)
         res = s.pick(time="2020-01-01")
         self.assertEqual(res, ["B", "A"])
 
-    @patch("ginkgo.trading.selectors.momentum_selector.container")
-    def test_pick_uses_single_batch_query(self, mock_container):
-        """验收：pick 只发起一次 bar 批量查询（O(1)），不再逐股 round-trip。
-
-        旧逐股实现对 N 支股票调用 find() N 次；批量实现应只调用 1 次。
-        """
+    def test_pick_uses_single_batch_query(self):
+        """验收：pick 只发起一次 bar 批量查询（O(1)），不再逐股 round-trip。"""
         df = pd.DataFrame(
             [
                 {"code": "A", "close": 10.0, "timestamp": pd.Timestamp("2019-12-10")},
@@ -118,21 +95,16 @@ class MomentumSelectorTest(unittest.TestCase):
                 {"code": "B", "close": 100.0, "timestamp": pd.Timestamp("2019-12-30")},
             ]
         )
-        mock_bar_service = MagicMock()
-        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["A", "B"])
-        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=df)
-        mock_container.bar_service.return_value = mock_bar_service
-
         s = MomentumSelector(name="test_selector", window=30, rank=2)
+        s._data_feeder = self._make_feeder(["A", "B"], df)
         s.pick(time="2020-01-01")
         self.assertEqual(
-            mock_bar_service.get_bars_df.call_count,
+            s._data_feeder.get_bars_window.call_count,
             1,
-            "pick() 应只通过 service 发起一次批量 bar 查询，而非逐股查询",
+            "pick() 应只通过 _data_feeder 发起一次批量 bar 查询，而非逐股查询",
         )
 
-    @patch("ginkgo.trading.selectors.momentum_selector.container")
-    def test_pick_filters_invalid_stocks(self, mock_container):
+    def test_pick_filters_invalid_stocks(self):
         """过滤无效股票：窗口内不足两条 bar 或首条收盘价非正的股票不参与排名。
 
             Z: 10→20      count=2, first=10  → 有效，momentum=1.0
@@ -149,14 +121,31 @@ class MomentumSelectorTest(unittest.TestCase):
                 {"code": "Y", "close": 10.0, "timestamp": pd.Timestamp("2019-12-30")},
             ]
         )
-        mock_bar_service = MagicMock()
-        mock_bar_service.get_available_codes.return_value = ServiceResult.success(data=["Z", "X", "Y"])
-        mock_bar_service.get_bars_df.return_value = ServiceResult.success(data=df)
-        mock_container.bar_service.return_value = mock_bar_service
-
         s = MomentumSelector(name="test_selector", window=30, rank=2)
+        s._data_feeder = self._make_feeder(["Z", "X", "Y"], df)
         res = s.pick(time="2020-01-01")
         self.assertEqual(res, ["Z"])
 
+    def test_no_container_import(self):
+        """#4608：MomentumSelector 不再穿透 container（依赖收敛到 _data_feeder DI）。"""
+        from ginkgo.trading.selectors import momentum_selector
+        src = inspect.getsource(momentum_selector)
+        self.assertNotIn(
+            "from ginkgo.data.containers",
+            src,
+            "MomentumSelector 不应 import container，应通过 _data_feeder 取数据",
+        )
+
+    def test_pick_no_feeder_skips_with_warning(self):
+        """#4608：_data_feeder 未绑定时 WARN + 返回空 _interested，不崩。"""
+        s = MomentumSelector(name="test_selector", window=30, rank=2)
+        # _data_feeder 默认 None（未 bind）
+        res = s.pick(time="2020-01-01")
+        self.assertEqual(res, [])
+
     def test_date_scene(self):
         pass
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,5 +1,5 @@
 # Upstream: EngineAssemblyService, PortfolioBase
-# Downstream: BaseSelector, container.stockinfo_service
+# Downstream: BaseSelector, _data_feeder.stockinfo_service
 # Role: 全A股选股器，从股票信息服务获取全部A股代码列表
 
 
@@ -8,6 +8,7 @@
 
 
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
+from ginkgo.libs import GLOG
 
 import datetime
 
@@ -29,9 +30,11 @@ class CNAllSelector(BaseSelector):
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         if len(self._interested) > 0:
             return self._interested
-        # 使用服务容器避免导入时的循环依赖问题
-        from ginkgo.data.containers import container
-        result = container.stockinfo_service().get_stockinfos_df()
+        if self._data_feeder is None:
+            GLOG.WARN(f"CNAllSelector({self.name}): data_feeder 未绑定，跳过选股。")
+            return self._interested
+        # #4608：走 _data_feeder 显式依赖，不再穿透 container
+        result = self._data_feeder.get_stockinfos_df()
         if result.success and not result.data.empty:
             self._interested = result.data["code"].tolist()
         else:

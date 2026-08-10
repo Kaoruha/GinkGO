@@ -49,8 +49,8 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
     
     __abstract__ = False
 
-    def __init__(self, name="backtest_feeder", bar_service=None, *args, **kwargs):
-        super().__init__(name=name, bar_service=bar_service, *args, **kwargs)
+    def __init__(self, name="backtest_feeder", bar_service=None, stockinfo_service=None, *args, **kwargs):
+        super().__init__(name=name, bar_service=bar_service, stockinfo_service=stockinfo_service, *args, **kwargs)
 
         self.status = DataFeedStatus.IDLE
 
@@ -302,6 +302,35 @@ class BacktestFeeder(FeederPublishMixin, SubscribableMixin, BaseFeeder, Backtest
         """获取数据时间范围（从已加载数据推断）"""
         # 如果没有配置，尝试从数据中推断
         return self._infer_data_range()
+
+    def get_available_codes(self):
+        """全市场 bar 代码池（委托 bar_service）。
+
+        #4608：A 股 Selector（MomentumSelector）通过 _data_feeder 显式取 universe，
+        不再穿透 container。返回 bar_service 的 ServiceResult。
+        """
+        return self.bar_service.get_available_codes()
+
+    def get_bars_window(self, start_date, end_date, adjustment_type=ADJUSTMENT_TYPES.FORE):
+        """批量取窗口内全市场复权 bar（委托 bar_service.get_bars_df(code=None)）。
+
+        #4608：MomentumSelector 全市场动量排名用。默认前复权（FORE）——动量必须用
+        复权价，否则除权日产生假动量。走预取优化的 apply_price_adjustment_multi_stock
+        （一次性预取因子，消除逐股 N+1），比逐股 get_historical_data 快。返回 ServiceResult。
+        """
+        return self.bar_service.get_bars_df(
+            start_date=start_date,
+            end_date=end_date,
+            adjustment_type=adjustment_type,
+        )
+
+    def get_stockinfos_df(self):
+        """全 A 股信息（委托 stockinfo_service）。
+
+        #4608：CNAllSelector 通过 _data_feeder 显式取 universe，不再穿透 container。
+        stockinfo_service 由 BaseFeeder DI 注入。返回 ServiceResult。
+        """
+        return self.stockinfo_service.get_stockinfos_df()
     
     # === 原有接口兼容性保持 ===
     

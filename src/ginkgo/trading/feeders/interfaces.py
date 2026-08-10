@@ -172,11 +172,35 @@ class BacktestDataFeeder(DataFeeder):
     def get_data_range(self) -> tuple[datetime, datetime]:
         """
         获取数据时间范围
-        
+
         Returns:
             tuple[datetime, datetime]: (开始时间, 结束时间)
         """
         pass
+
+    def get_available_codes(self):
+        """全市场 bar 代码池（Selector 选股用）。
+
+        默认未实现——由 BacktestFeeder 委托 bar_service.get_available_codes()。
+        A 股 Selector 通过 _data_feeder 显式获取 universe，不再穿透 container。
+        """
+        raise NotImplementedError(f"{type(self).__name__} 未实现 get_available_codes")
+
+    def get_bars_window(self, start_date, end_date, adjustment_type=None):
+        """批量取窗口内全市场 bar（Selector 排名用，默认前复权）。
+
+        默认未实现——由 BacktestFeeder 委托 bar_service.get_bars_df(code=None, FORE)，
+        走预取优化的批量复权（消除逐股 N+1）。动量排名必须用复权价，否则除权日
+        产生假动量；全市场批量比逐股 get_historical_data 快（1 查询 + 1 因子预取）。
+        """
+        raise NotImplementedError(f"{type(self).__name__} 未实现 get_bars_window")
+
+    def get_stockinfos_df(self):
+        """全 A 股信息（CNAllSelector 选股用）。
+
+        默认未实现——由 BacktestFeeder 委托 stockinfo_service.get_stockinfos_df()。
+        """
+        raise NotImplementedError(f"{type(self).__name__} 未实现 get_stockinfos_df")
 
 
 class LiveDataFeeder(DataFeeder):

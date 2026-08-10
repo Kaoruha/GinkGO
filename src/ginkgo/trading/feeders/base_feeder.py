@@ -23,7 +23,7 @@ class BaseFeeder(EngineBindableMixin, TimeMixin, NamedMixin, Base):
     Feed something like price info, news...
     """
 
-    def __init__(self, name="basic_feeder", timestamp=None, bar_service=None, *args, **kwargs):
+    def __init__(self, name="basic_feeder", timestamp=None, bar_service=None, stockinfo_service=None, *args, **kwargs):
         super().__init__(name=name, *args, **kwargs)
         if timestamp is not None:
             self.set_business_timestamp(timestamp)
@@ -34,6 +34,12 @@ class BaseFeeder(EngineBindableMixin, TimeMixin, NamedMixin, Base):
             self.bar_service = container.bar_service()
         else:
             self.bar_service = bar_service
+
+        if stockinfo_service is None:
+            from ginkgo.data import container
+            self.stockinfo_service = container.stockinfo_service()
+        else:
+            self.stockinfo_service = stockinfo_service
 
     def is_code_on_market(self, code: str, *args, **kwargs) -> bool:
         raise NotImplementedError()

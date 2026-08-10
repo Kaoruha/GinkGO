@@ -1,9 +1,8 @@
 # Upstream: EngineAssemblyService, PortfolioBase
-# Downstream: BaseSelector, container, pandas, GLOG
+# Downstream: BaseSelector, _data_feeder, pandas, GLOG
 # Role: 动量选股器，基于时间窗口内的收益率排名动态选取Top-N股票
 
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
-from ginkgo.data.containers import container
 from ginkgo.libs import datetime_normalize, GLOG
 import datetime
 
@@ -48,6 +47,10 @@ class MomentumSelector(BaseSelector):
         return self._window
 
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
+        if self._data_feeder is None:
+            GLOG.WARN(f"MomentumSelector({self.name}): data_feeder 未绑定，跳过选股。")
+            return self._interested
+
         end_date = datetime_normalize(time)
         start_date = end_date - datetime.timedelta(days=self._window)
 
@@ -62,11 +65,10 @@ class MomentumSelector(BaseSelector):
             if end_date - datetime_normalize(self._last_pick) > datetime.timedelta(days=self._interval):
                 self._last_pick = end_date
 
-        bar_service = container.bar_service()
-
         # Use the actual bar universe instead of stock metadata. In small/test DBs,
         # most listed stocks have no bar rows, so scanning stock_info creates empty work.
-        codes_result = bar_service.get_available_codes()
+        # #4608：走 _data_feeder 显式依赖，不穿透 container。
+        codes_result = self._data_feeder.get_available_codes()
         if not codes_result or not codes_result.is_success():
             GLOG.WARN(f"MomentumSelector: failed to load available bar codes: {getattr(codes_result, 'error', '')}")
             return self._interested
@@ -77,13 +79,10 @@ class MomentumSelector(BaseSelector):
 
         GLOG.INFO(f"MomentumSelector: scanning {len(codes)} stocks, window={self._window}d, top={self._rank}")
 
-        # 批量查询：一次取全市场窗口内全部 bar，内存 groupby 算动量。
+        # 批量查询：一次取全市场窗口内全部复权 bar（FORE），内存 groupby 算动量。
         # 将 DB 查询次数从 O(universe) 降到 O(1)，避免逐股 round-trip。
-        bars_result = bar_service.get_bars_df(
-            start_date=start_date,
-            end_date=end_date,
-            order_by="timestamp",
-        )
+        # #4608：走 _data_feeder 显式依赖；复权由 feeder 默认 FORE 保证（修正除权日假动量）。
+        bars_result = self._data_feeder.get_bars_window(start_date, end_date)
         if not bars_result or not bars_result.is_success():
             GLOG.WARN(f"MomentumSelector: failed to load bar data: {getattr(bars_result, 'error', '')}")
             return self._interested
