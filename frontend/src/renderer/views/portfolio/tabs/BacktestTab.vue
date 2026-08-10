@@ -608,6 +608,11 @@ import type { LineData } from 'lightweight-charts'
 import { message } from '@/utils/toast'
 import { formatPercent, formatMoney } from '@/utils/format'
 import dayjs from 'dayjs'
+import {
+  formatShortDate, formatDecimal, getPnLColor, getSharpeColor, getDrawdownColor,
+  directionLabel, directionColor, dirLabel, fmtAnalyzer, getAnalyzerColor,
+  formatLogTime, levelClass, eventClass,
+} from '@/composables/useBacktestFormatters'
 
 const route = useRoute()
 const router = useRouter()
@@ -1050,97 +1055,10 @@ const goBack = () => {
   router.push(`/portfolios/${portfolioId.value}/backtests`)
 }
 
-// ========== 工具函数 ==========
-const formatShortDate = (d?: string | null) => {
-  if (!d) return '-'
-  return dayjs(d).format('YYYY-MM-DD HH:mm')
-}
-
-const formatDecimal = (val: string | number) => {
-  const n = typeof val === 'number' ? val : parseFloat(String(val))
-  return isNaN(n) ? '-' : n.toFixed(2)
-}
-
-const getPnLColor = (val: string | number) => {
-  const n = typeof val === 'number' ? val : parseFloat(String(val))
-  // ADR-045 §2 西式涨绿跌红(原中式 #cf1322=红涨/#3f8600=绿跌 → 反转)
-  return isNaN(n) ? 'hsl(var(--muted-foreground))' : n >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
-}
-
-const getSharpeColor = (val: string | number) => {
-  const n = typeof val === 'number' ? val : parseFloat(String(val))
-  return isNaN(n) ? 'hsl(var(--muted-foreground))' : n >= 1 ? 'hsl(var(--success))' : 'hsl(var(--warning))'
-}
-
-const getDrawdownColor = (val: string | number) => {
-  const n = typeof val === 'number' ? val : parseFloat(String(val))
-  return isNaN(n) ? 'hsl(var(--muted-foreground))' : n <= 0.1 ? 'hsl(var(--success))' : 'hsl(var(--error))'
-}
-
-const DIR_MAP: Record<number, string> = { 1: 'LONG', 2: 'SHORT' }
-const directionLabel = (d: number | string) => DIR_MAP[Number(d)] || String(d)
-const directionColor = (d: number | string) => Number(d) === 1 ? 'text-green' : 'text-red'
-
 const pnlColor = computed(() => {
   const v = currentTask.value?.total_pnl ?? 0
   return v >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
 })
-
-const fmtAnalyzer = (name: string, value: number | null): string => {
-  if (value === null || value === undefined) return '-'
-  const nl = name.toLowerCase()
-  if (['max_drawdown', 'win_rate', 'trade_win_rate', 'hold_pct', 'annual_return'].some(a => nl.includes(a))) return `${(value * 100).toFixed(2)}%`
-  if (['sharpe', 'sortino', 'calmar'].some(a => nl.includes(a))) return value.toFixed(3)
-  if (['signal_count', 'trade_count', 'order_count', 'max_consecutive_losses'].some(a => nl.includes(a))) return Math.round(value).toString()
-  if (['net_value', 'profit', 'pnl', 'capital'].some(a => nl.includes(a))) return `¥${value.toFixed(2)}`
-  if (['profit_factor', 'avg_win_loss_ratio'].some(a => nl.includes(a))) return value.toFixed(2)
-  if (nl.includes('avg_holding_period')) return value.toFixed(1) + ' 天'
-  return value.toFixed(4)
-}
-
-const formatLogTime = (ts?: string | null) => {
-  if (!ts) return '-'
-  const d = dayjs(ts)
-  if (d.year() < 2000) return '-'
-  return d.format('YYYY-MM-DD HH:mm:ss')
-}
-
-const levelClass = (level?: string | null) => {
-  if (!level) return ''
-  const l = level.toUpperCase()
-  if (l === 'ERROR' || l === 'CRITICAL') return 'level-error'
-  if (l === 'WARNING') return 'level-warning'
-  if (l === 'INFO') return 'level-info'
-  if (l === 'DEBUG') return 'level-debug'
-  return ''
-}
-
-const eventClass = (et?: string | null) => {
-  if (!et) return ''
-  const e = et.toUpperCase()
-  if (e === 'SIGNALGENERATION' || e === 'STRATEGYSIGNAL') return 'event-signal'
-  if (e.startsWith('ORDER')) return 'event-order'
-  if (e === 'POSITIONUPDATE') return 'event-position'
-  if (e === 'CAPITALUPDATE') return 'event-capital'
-  if (e.startsWith('ENGINE')) return 'event-engine'
-  if (e === 'PRICERECEIVED' || e === 'PRICEUPDATE') return 'event-price'
-  if (e.startsWith('RISK')) return 'event-risk'
-  if (e.startsWith('T1') || e === 'TIMEADVANCE') return 'event-t1'
-  return ''
-}
-
-const DIR_LABEL_MAP: Record<string, string> = { '1': 'LONG', '2': 'SHORT', 'LONG': 'LONG', 'SHORT': 'SHORT' }
-const dirLabel = (d: string | number | null) => DIR_LABEL_MAP[String(d)] || String(d ?? '')
-
-const getAnalyzerColor = (name: string, value: number | null): string => {
-  if (value === null || value === undefined) return 'hsl(var(--muted-foreground))'
-  const nl = name.toLowerCase()
-  if (nl.includes('drawdown')) return value <= 0.1 ? 'hsl(var(--success))' : value <= 0.2 ? 'hsl(var(--warning))' : 'hsl(var(--error))'
-  if (nl.includes('return') || nl.includes('win_rate')) return value >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
-  if (nl.includes('sharpe') || nl.includes('sortino')) return value >= 1 ? 'hsl(var(--success))' : value >= 0 ? 'hsl(var(--warning))' : 'hsl(var(--error))'
-  if (nl.includes('profit') || nl.includes('pnl')) return value >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
-  return 'hsl(var(--muted-foreground))'
-}
 
 // ========== WebSocket ==========
 const { subscribe } = useWebSocket()
