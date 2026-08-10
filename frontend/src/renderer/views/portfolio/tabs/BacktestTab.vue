@@ -235,65 +235,9 @@
 
           <!-- 指标 -->
           <div class="metrics-grid">
-            <div class="metric-card">
-              <div class="metric-label">最终资产</div>
-              <div class="metric-value">{{ formatMoney(currentTask.final_portfolio_value ?? 0) }}</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">总盈亏</div>
-              <div class="metric-value" :style="{ color: pnlColor }">{{ formatMoney(currentTask.total_pnl ?? 0) }}</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">年化收益</div>
-              <div class="metric-value" :style="{ color: (currentTask.annual_return ?? 0) >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
-                {{ ((currentTask.annual_return ?? 0) * 100).toFixed(2) }}%
-              </div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">夏普比率</div>
-              <div class="metric-value">{{ (currentTask.sharpe_ratio ?? 0).toFixed(2) }}</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">最大回撤</div>
-              <div class="metric-value" :style="{ color: (currentTask.max_drawdown ?? 0) <= 0.1 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
-                {{ ((currentTask.max_drawdown ?? 0) * 100).toFixed(2) }}%
-              </div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">交易胜率</div>
-              <div class="metric-value" :style="{ color: tradeWinRate !== null ? ((tradeWinRate ?? 0) >= 0.5 ? 'hsl(var(--success))' : 'hsl(var(--error))') : '' }">
-                {{ tradeWinRate !== null ? ((tradeWinRate) * 100).toFixed(1) + '%' : '-' }}
-              </div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">日胜率</div>
-              <div class="metric-value" :style="{ color: dailyWinRate !== null ? ((dailyWinRate ?? 0) >= 0.5 ? 'hsl(var(--success))' : 'hsl(var(--error))') : '' }">
-                {{ dailyWinRate !== null ? ((dailyWinRate) * 100).toFixed(1) + '%' : '-' }}
-              </div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">盈亏比</div>
-              <div class="metric-value" :style="{ color: profitFactor !== null ? ((profitFactor ?? 0) >= 1 ? 'hsl(var(--success))' : 'hsl(var(--error))') : '' }">
-                {{ profitFactor !== null ? (profitFactor).toFixed(2) : '-' }}
-              </div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">平均盈亏比</div>
-              <div class="metric-value" :style="{ color: avgWinLoss !== null ? ((avgWinLoss ?? 0) >= 1 ? 'hsl(var(--success))' : 'hsl(var(--error))') : '' }">
-                {{ avgWinLoss !== null ? (avgWinLoss).toFixed(2) : '-' }}
-              </div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">最大连续亏损</div>
-              <div class="metric-value" :style="{ color: maxConsLosses !== null && maxConsLosses > 5 ? 'hsl(var(--error))' : '' }">
-                {{ maxConsLosses !== null ? Math.round(maxConsLosses) + ' 笔' : '-' }}
-              </div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-label">平均持仓</div>
-              <div class="metric-value">
-                {{ avgHoldPeriod !== null ? (avgHoldPeriod).toFixed(1) + ' 天' : '-' }}
-              </div>
+            <div v-for="m in metrics" :key="m.label" class="metric-card">
+              <div class="metric-label">{{ m.label }}</div>
+              <div class="metric-value" :style="m.color ? { color: m.color } : undefined">{{ m.value }}</div>
             </div>
           </div>
 
@@ -1058,6 +1002,34 @@ const goBack = () => {
 const pnlColor = computed(() => {
   const v = currentTask.value?.total_pnl ?? 0
   return v >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
+})
+
+// 声明式指标卡片:label/value/color 数据驱动,取代 11 个散落 metric-card 块
+const metrics = computed<{ label: string; value: string; color?: string }[]>(() => {
+  const t = currentTask.value
+  const ar = t?.annual_return ?? 0
+  const md = t?.max_drawdown ?? 0
+  const twr = tradeWinRate.value
+  const dwr = dailyWinRate.value
+  const pf = profitFactor.value
+  const awl = avgWinLoss.value
+  const mcl = maxConsLosses.value
+  const ahp = avgHoldPeriod.value
+  const pos = 'hsl(var(--success))'
+  const neg = 'hsl(var(--error))'
+  return [
+    { label: '最终资产', value: formatMoney(t?.final_portfolio_value ?? 0) },
+    { label: '总盈亏', value: formatMoney(t?.total_pnl ?? 0), color: pnlColor.value },
+    { label: '年化收益', value: `${(ar * 100).toFixed(2)}%`, color: ar >= 0 ? pos : neg },
+    { label: '夏普比率', value: (t?.sharpe_ratio ?? 0).toFixed(2) },
+    { label: '最大回撤', value: `${(md * 100).toFixed(2)}%`, color: md <= 0.1 ? pos : neg },
+    { label: '交易胜率', value: twr !== null ? `${(twr * 100).toFixed(1)}%` : '-', color: twr !== null ? (twr >= 0.5 ? pos : neg) : '' },
+    { label: '日胜率', value: dwr !== null ? `${(dwr * 100).toFixed(1)}%` : '-', color: dwr !== null ? (dwr >= 0.5 ? pos : neg) : '' },
+    { label: '盈亏比', value: pf !== null ? pf.toFixed(2) : '-', color: pf !== null ? (pf >= 1 ? pos : neg) : '' },
+    { label: '平均盈亏比', value: awl !== null ? awl.toFixed(2) : '-', color: awl !== null ? (awl >= 1 ? pos : neg) : '' },
+    { label: '最大连续亏损', value: mcl !== null ? `${Math.round(mcl)} 笔` : '-', color: mcl !== null && mcl > 5 ? neg : '' },
+    { label: '平均持仓', value: ahp !== null ? `${ahp.toFixed(1)} 天` : '-' },
+  ]
 })
 
 // ========== WebSocket ==========
