@@ -1,0 +1,24 @@
+# electron-builder 配置:未签名本地包(ADR-043 §5 自用场景)
+# build:electron = electron-vite build && electron-builder(见 package.json)
+# 产物 out/{main,preload,renderer} 由 electron-vite build 产出
+appId: org.ginkgo.desktop
+productName: Ginkgo
+# asar 显式声明:将源码打包为 app.asar(便于审查 + 标准打包形态)
+asar: true
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+mac:
+  target: dmg
+  # 强制未签名:electron-builder 默认会自动探测本机 codesign identity,若有则自动签
+  # (自用不需要,且 headless/无证书环境会失败)。identity: null 显式禁签
+  identity: null
+win:
+  target: nsis
+linux:
+  target: AppImage
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
