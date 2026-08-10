@@ -448,6 +448,64 @@ onUnmounted(() => {
 })
 </script>
 
+<style>
+/* ========== 登录页双主题 CSS 变量 (ADR-045 §5 登录页双主题) ========== */
+/* 与 ThemeToggle / useTheme 协作: 切 document.documentElement.classList 的 .dark */
+/* 结构保留: BIOS/粒子/跑马灯/故障字/终端/像素输入 class 全部不动,仅调色 */
+
+/* 深色版默认 (ADR-045 §1 深色优先) */
+html {
+  --login-bg: #0a0a0f;
+  --login-fg: #ffffff;
+  --login-title-fg: #ffffff;
+  --login-card-bg: rgba(15, 15, 25, 0.9);
+  --login-card-border: #2a2a3e;
+  --login-input-bg: #0d0d15;
+  --login-input-border: #3a3a4e;
+  --login-muted: #8a8a9a;
+  /* 霓虹色降饱和: 保留色相识别(绿仍是绿/红仍是红),只降饱和度+调亮度向 Codex 中性灰靠
+     用户约束 "登录页风格尽可能保留" — 不极端去色,保留赛博朋克终端结构
+     具体色值待用户截图校准 (ADR-045 Consequences) */
+  --login-neon: #3ddc89;          /* 原 #00ff88 hsl(150 100% 50%) → hsl(149 69% 55%) */
+  --login-neon-alt: #2db878;      /* 原 #00cc6a hsl(150 100% 40%) → hsl(152 61% 45%) */
+  --login-neon-end: #238f5d;      /* 原 #00aa55 hsl(150 100% 33%) → hsl(152 61% 35%) */
+  --login-neon-rgb: 61, 220, 137;
+  --login-error: #e5536b;         /* 原 #ff4757 hsl(355 100% 64%) → hsl(350 74% 61%) */
+  --login-error-rgb: 229, 83, 107;
+  --login-accent-magenta: #c960a6;/* 原 #ff0080 hsl(330 100% 50%) → hsl(320 49% 58%) */
+  --login-accent-cyan: #4cb8c0;   /* 原 #00ffff hsl(180 100% 50%) → hsl(184 48% 53%) */
+  --login-ticker-bg: rgba(10, 10, 15, 0.95);
+  --login-ticker-border: #1a1a2e;
+  --login-separator: #5a5a6a;
+  --login-card-shadow-bg: rgba(0, 0, 0, 0.5);
+}
+
+/* 浅色版: html 上无 .dark 时(用户主动切浅色,终端风浅色化) */
+html:not(.dark) {
+  --login-bg: #f6f7f8;
+  --login-fg: #1f2328;
+  --login-title-fg: #1f2328;
+  --login-card-bg: rgba(255, 255, 255, 0.92);
+  --login-card-border: #d0d7de;
+  --login-input-bg: #ffffff;
+  --login-input-border: #d0d7de;
+  --login-muted: #57606a;
+  /* 浅色版终端风: 降饱和绿/红/紫/蓝,在浅 bg 上仍可读(更深主色) */
+  --login-neon: #1a7f4e;          /* 浅 bg 上的深绿(降饱和保留绿相) */
+  --login-neon-alt: #2da566;
+  --login-neon-end: #207a55;
+  --login-neon-rgb: 26, 127, 78;
+  --login-error: #cf222e;         /* Codex 浅色红 */
+  --login-error-rgb: 207, 34, 46;
+  --login-accent-magenta: #8250df;/* Codex 紫(替代品红,浅 bg 友好) */
+  --login-accent-cyan: #0969da;   /* Codex 蓝(替代青,浅 bg 友好) */
+  --login-ticker-bg: rgba(255, 255, 255, 0.95);
+  --login-ticker-border: #d0d7de;
+  --login-separator: #8c959f;
+  --login-card-shadow-bg: rgba(0, 0, 0, 0.08);
+}
+</style>
+
 <style scoped>
 /* ========== 头部 ========== */
 .login-card-header {
@@ -464,7 +522,7 @@ onUnmounted(() => {
   left: 16px;
   font-family: 'Silkscreen', monospace;
   font-size: 11px;
-  color: #00ff88;
+  color: var(--login-neon);
   text-align: left;
   z-index: 100;
   opacity: 0.35;
@@ -494,7 +552,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0a0f;
+  background: var(--login-bg);
   position: relative;
   overflow: hidden;
   padding-top: 40px;
@@ -505,8 +563,8 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(var(--login-neon-rgb), 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--login-neon-rgb), 0.03) 1px, transparent 1px);
   background-size: 20px 20px;
   pointer-events: none;
 }
@@ -521,7 +579,7 @@ onUnmounted(() => {
 .particle {
   position: absolute;
   bottom: -10px;
-  background: #00ff88;
+  background: var(--login-neon);
   opacity: 0;
   animation: float-up linear infinite;
 }
@@ -550,8 +608,8 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   height: 28px;
-  background: rgba(10, 10, 15, 0.95);
-  border-bottom: 1px solid #1a1a2e;
+  background: var(--login-ticker-bg);
+  border-bottom: 1px solid var(--login-ticker-border);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -583,7 +641,7 @@ onUnmounted(() => {
 }
 
 .stock-code {
-  color: #8a8a9a;
+  color: var(--login-muted);
 }
 
 .stock-price {
@@ -591,11 +649,11 @@ onUnmounted(() => {
 }
 
 .stock-price.up {
-  color: #00ff88;
+  color: var(--login-neon);
 }
 
 .stock-price.down {
-  color: #ff4757;
+  color: var(--login-error);
 }
 
 .stock-change {
@@ -603,25 +661,25 @@ onUnmounted(() => {
 }
 
 .stock-change.up {
-  color: #00ff88;
+  color: var(--login-neon);
 }
 
 .stock-change.down {
-  color: #ff4757;
+  color: var(--login-error);
 }
 
 /* ========== 登录卡片 ========== */
 .login-card {
   width: 380px;
-  background: rgba(15, 15, 25, 0.9);
-  border: 1px solid #2a2a3e;
+  background: var(--login-card-bg);
+  border: 1px solid var(--login-card-border);
   border-radius: 4px;
   padding: 40px;
   position: relative;
   z-index: 10;
   box-shadow:
-    0 0 0 1px rgba(0, 255, 136, 0.1),
-    0 20px 50px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(var(--login-neon-rgb), 0.1),
+    0 20px 50px var(--login-card-shadow-bg),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --mouse-x: 50%;
   --mouse-y: 50%;
@@ -635,7 +693,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #00ff88, transparent);
+  background: linear-gradient(90deg, transparent, var(--login-neon), transparent);
   transform: translateX(var(--light-offset));
   opacity: 0.8;
   transition: transform 0.15s ease-out;
@@ -647,7 +705,7 @@ onUnmounted(() => {
   inset: 0;
   background: radial-gradient(
     circle 200px at var(--mouse-x) var(--mouse-y),
-    rgba(0, 255, 136, 0.06) 0%,
+    rgba(var(--login-neon-rgb), 0.06) 0%,
     transparent 50%
   );
   pointer-events: none;
@@ -663,20 +721,20 @@ onUnmounted(() => {
 .pixel-logo {
   width: 64px;
   height: 64px;
-  background: linear-gradient(135deg, #00ff88, #00cc6a);
+  background: linear-gradient(135deg, var(--login-neon), var(--login-neon-alt));
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   box-shadow:
-    0 0 20px rgba(0, 255, 136, 0.3),
+    0 0 20px rgba(var(--login-neon-rgb), 0.3),
     inset 0 -2px 0 rgba(0, 0, 0, 0.2);
 }
 
 .pixel-logo .letter {
   font-size: 28px;
   font-weight: 700;
-  color: #0a0a0f;
+  color: var(--login-bg);
   font-family: 'Silkscreen', monospace;
 }
 
@@ -684,11 +742,11 @@ onUnmounted(() => {
 .title {
   font-size: 24px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--login-title-fg);
   letter-spacing: 8px;
   margin: 0;
   font-family: 'Silkscreen', monospace;
-  text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+  text-shadow: 0 0 20px rgba(var(--login-neon-rgb), 0.5);
   position: relative;
 }
 
@@ -712,14 +770,14 @@ onUnmounted(() => {
 }
 
 .title.glitching .glitch-text::before {
-  color: #ff0080;
+  color: var(--login-accent-magenta);
   animation: glitch-1 0.2s ease;
   clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
   transform: translateX(-3px);
 }
 
 .title.glitching .glitch-text::after {
-  color: #00ffff;
+  color: var(--login-accent-cyan);
   animation: glitch-2 0.2s ease;
   clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
   transform: translateX(3px);
@@ -748,7 +806,7 @@ onUnmounted(() => {
   margin-top: 20px;
   font-family: 'Silkscreen', monospace;
   font-size: 14px;
-  color: #00ff88;
+  color: var(--login-neon);
   min-height: 20px;
   display: flex;
   align-items: center;
@@ -760,11 +818,11 @@ onUnmounted(() => {
 }
 
 .terminal-display .terminal-text {
-  color: #8a8a9a;
+  color: var(--login-muted);
 }
 
 .terminal-display .cursor {
-  color: #00ff88;
+  color: var(--login-neon);
   margin-left: 2px;
   animation: blink 1s infinite;
 }
@@ -786,7 +844,7 @@ onUnmounted(() => {
 
 .input-label {
   display: block;
-  color: #00ff88;
+  color: var(--login-neon);
   font-family: 'Silkscreen', monospace;
   font-size: 12px;
   font-weight: 400;
@@ -796,7 +854,7 @@ onUnmounted(() => {
 
 .error-message {
   display: block;
-  color: #ff4757;
+  color: var(--login-error);
   font-family: 'Silkscreen', monospace;
   font-size: 10px;
   margin-top: 4px;
@@ -809,9 +867,9 @@ onUnmounted(() => {
 
 .pixel-input-wrapper input {
   width: 100%;
-  background: #0d0d15;
-  border: 1px solid #3a3a4e;
-  color: #ffffff;
+  background: var(--login-input-bg);
+  border: 1px solid var(--login-input-border);
+  color: var(--login-fg);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 14px;
   height: 40px;
@@ -822,21 +880,21 @@ onUnmounted(() => {
 }
 
 .pixel-input-wrapper input::placeholder {
-  color: #8a8a9a;
+  color: var(--login-muted);
 }
 
 .pixel-input-wrapper input:focus {
   outline: none;
-  border-color: #00ff88;
-  box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.1);
+  border-color: var(--login-neon);
+  box-shadow: 0 0 0 2px rgba(var(--login-neon-rgb), 0.1);
 }
 
 .pixel-input-wrapper input.has-error {
-  border-color: #ff4757;
+  border-color: var(--login-error);
 }
 
 .pixel-input-wrapper input.has-error:focus {
-  box-shadow: 0 0 0 2px rgba(255, 71, 87, 0.1);
+  box-shadow: 0 0 0 2px rgba(var(--login-error-rgb), 0.1);
 }
 
 /* 密码输入框 */
@@ -857,7 +915,7 @@ onUnmounted(() => {
   border: none;
   padding: 8px;
   cursor: pointer;
-  color: #8a8a9a;
+  color: var(--login-muted);
   transition: color 0.2s;
   display: flex;
   align-items: center;
@@ -865,7 +923,7 @@ onUnmounted(() => {
 }
 
 .password-toggle:hover {
-  color: #00ff88;
+  color: var(--login-neon);
 }
 
 .password-toggle svg {
@@ -889,13 +947,13 @@ onUnmounted(() => {
 }
 
 .toast-message.success {
-  background: rgba(0, 255, 136, 0.9);
-  color: #0a0a0f;
+  background: rgba(var(--login-neon-rgb), 0.9);
+  color: var(--login-bg);
 }
 
 .toast-message.error {
-  background: rgba(255, 71, 87, 0.9);
-  color: #ffffff;
+  background: rgba(var(--login-error-rgb), 0.9);
+  color: var(--login-fg);
 }
 
 @keyframes slideDown {
@@ -913,10 +971,10 @@ onUnmounted(() => {
 .login-btn {
   width: 100%;
   height: 44px;
-  background: linear-gradient(135deg, #00ff88, #00cc6a);
+  background: linear-gradient(135deg, var(--login-neon), var(--login-neon-alt));
   border: none;
   border-radius: 4px;
-  color: #0a0a0f;
+  color: var(--login-bg);
   font-family: 'Silkscreen', monospace;
   font-size: 14px;
   font-weight: 700;
@@ -927,9 +985,9 @@ onUnmounted(() => {
 }
 
 .login-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #00cc6a, #00aa55);
+  background: linear-gradient(135deg, var(--login-neon-alt), var(--login-neon-end));
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
+  box-shadow: 0 4px 20px rgba(var(--login-neon-rgb), 0.3);
 }
 
 .login-btn:active:not(:disabled) {
@@ -949,7 +1007,7 @@ onUnmounted(() => {
 }
 
 .comment {
-  color: #8a8a9a;
+  color: var(--login-muted);
 }
 
 /* ========== 页脚 ========== */
@@ -960,12 +1018,12 @@ onUnmounted(() => {
   transform: translateX(-50%);
   font-family: 'Silkscreen', monospace;
   font-size: 10px;
-  color: #8a8a9a;
+  color: var(--login-muted);
   display: flex;
   gap: 12px;
 }
 
 .separator {
-  color: #5a5a6a;
+  color: var(--login-separator);
 }
 </style>
