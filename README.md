@@ -67,7 +67,7 @@ ginkgo deploy deploy <pid> --mode live --account <account_uuid>
 
 # Servers
 ginkgo serve api      # FastAPI on :8000
-ginkgo serve webui    # Vue dev server on :5173
+ginkgo serve web    # Vue dev server on :5173
 ```
 
 Full CLI walkthrough (build → backtest → paper → live) → [docs/e2e-cli-flow-audit.md](docs/e2e-cli-flow-audit.md)

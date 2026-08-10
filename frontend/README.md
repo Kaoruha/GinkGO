@@ -9,7 +9,7 @@ pnpm install
 pnpm dev
 ```
 
-启动命令：`ginkgo serve webui`
+启动命令：`ginkgo serve web`
 
 ## 测试
 

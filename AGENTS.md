@@ -33,7 +33,7 @@ src/ginkgo/
 ```bash
 ginkgo config set env DEVELOPMENT      # 切 Test 集群（debug 不再管 DB，ADR-028）
 ginkgo serve api                      # API服务器
-ginkgo serve webui                    # Web界面
+ginkgo serve web                    # Web界面
 ```
 
 ### 关键文件
