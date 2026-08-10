@@ -70,6 +70,7 @@
               <span v-if="notificationCount > 0" class="count">{{ notificationCount }}</span>
             </span>
           </button>
+          <ThemeToggle />
           <div class="user-dropdown">
             <button class="avatar-btn" data-testid="user-menu-btn" @click="toggleUserMenu">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -126,6 +127,7 @@ import {
 } from 'lucide-vue-next'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { ThemeToggle } from '@/components/common'
 
 // 简化的通知函数
 const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
@@ -349,7 +351,7 @@ const handleLogout = async () => {
 }
 
 .menu-item.selected {
-  background: rgba(24, 144, 255, 0.1);
+  background: hsl(var(--primary) / 0.1);
   color: hsl(var(--primary));
 }
 

@@ -99,7 +99,7 @@ const handleSelect = () => {
 }
 
 .strategy-card:hover {
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
+  box-shadow: 0 4px 12px hsl(var(--primary) / 0.2);
   transform: translateY(-4px);
   border-color: hsl(var(--primary));
 }
@@ -216,9 +216,9 @@ const handleSelect = () => {
   font-weight: 500;
 }
 
-.tag-blue { background: rgba(24, 144, 255, 0.2); color: hsl(var(--primary)); }
-.tag-green { background: rgba(82, 196, 26, 0.2); color: hsl(var(--success)); }
-.tag-orange { background: rgba(250, 173, 20, 0.2); color: hsl(var(--warning)); }
-.tag-purple { background: rgba(114, 46, 209, 0.2); color: hsl(var(--secondary-foreground)); }
+.tag-blue { background: hsl(var(--primary) / 0.2); color: hsl(var(--primary)); }
+.tag-green { background: hsl(var(--success) / 0.2); color: hsl(var(--success)); }
+.tag-orange { background: hsl(var(--warning) / 0.2); color: hsl(var(--warning)); }
+.tag-purple { background: hsl(var(--secondary-foreground) / 0.2); color: hsl(var(--secondary-foreground)); }
 .tag-gray { background: hsl(var(--border)); color: hsl(var(--muted-foreground)); }
 </style>

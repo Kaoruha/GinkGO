@@ -442,8 +442,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  background: rgba(82, 196, 26, 0.15);
-  border: 1px solid rgba(82, 196, 26, 0.3);
+  background: hsl(var(--success) / 0.15);
+  border: 1px solid hsl(var(--success) / 0.3);
   border-radius: 6px;
   color: hsl(var(--success));
   font-size: 13px;
@@ -453,7 +453,7 @@ onUnmounted(() => {
 }
 
 .btn-sync:hover:not(:disabled) {
-  background: rgba(82, 196, 26, 0.25);
+  background: hsl(var(--success) / 0.25);
   border-color: hsl(var(--success));
 }
 
@@ -518,8 +518,8 @@ onUnmounted(() => {
   position: absolute;
   top: 10px; left: 50%;
   transform: translateX(-50%);
-  background: rgba(24, 144, 255, 0.9);
-  color: white;
+  background: hsl(var(--primary) / 0.9);
+  color: hsl(var(--primary-foreground));
   padding: 6px 16px;
   border-radius: 4px;
   font-size: 13px;

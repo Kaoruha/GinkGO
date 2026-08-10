@@ -247,7 +247,7 @@ onMounted(() => {
 
           <Card>
             <CardContent class="p-4">
-              <div class="text-2xl font-bold text-green-600">
+              <div class="text-2xl font-bold text-success">
                 {{ statistics.buy_trades }} / {{ statistics.sell_trades }}
               </div>
               <div class="text-sm text-muted-foreground">买入 / 卖出</div>
@@ -263,14 +263,14 @@ onMounted(() => {
 
           <Card>
             <CardContent class="p-4">
-              <div class="text-2xl font-bold text-blue-600">{{ formatNumber(totalValue) }}</div>
+              <div class="text-2xl font-bold text-primary">{{ formatNumber(totalValue) }}</div>
               <div class="text-sm text-muted-foreground">总成交额</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent class="p-4">
-              <div class="text-2xl font-bold text-red-600">{{ formatNumber(totalFees) }}</div>
+              <div class="text-2xl font-bold text-error">{{ formatNumber(totalFees) }}</div>
               <div class="text-sm text-muted-foreground">总手续费</div>
             </CardContent>
           </Card>

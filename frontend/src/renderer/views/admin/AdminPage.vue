@@ -75,7 +75,7 @@ const isActive = (itemRoute: string) => {
 }
 .admin-nav-item.active {
   color: hsl(var(--primary));
-  background: rgba(59,130,246,0.1);
+  background: hsl(var(--primary) / 0.1);
   border-right: 2px solid hsl(var(--primary));
 }
 .admin-content {

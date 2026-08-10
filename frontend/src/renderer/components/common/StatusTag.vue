@@ -73,10 +73,10 @@ const label = computed(() => config.value.label)
   font-weight: 500;
 }
 
-.tag-blue { background: rgba(24, 144, 255, 0.2); color: hsl(var(--primary)); }
-.tag-green { background: rgba(82, 196, 26, 0.2); color: hsl(var(--success)); }
-.tag-red { background: rgba(245, 34, 45, 0.2); color: hsl(var(--error)); }
-.tag-orange { background: rgba(250, 173, 20, 0.2); color: hsl(var(--warning)); }
-.tag-gray { background: rgba(140, 140, 140, 0.2); color: hsl(var(--muted-foreground)); }
-.tag-cyan { background: rgba(19, 194, 194, 0.2); color: hsl(var(--success)); }
+.tag-blue { background: hsl(var(--primary) / 0.2); color: hsl(var(--primary)); }
+.tag-green { background: hsl(var(--success) / 0.2); color: hsl(var(--success)); }
+.tag-red { background: hsl(var(--error) / 0.2); color: hsl(var(--error)); }
+.tag-orange { background: hsl(var(--warning) / 0.2); color: hsl(var(--warning)); }
+.tag-gray { background: hsl(var(--muted-foreground) / 0.2); color: hsl(var(--muted-foreground)); }
+.tag-cyan { background: hsl(var(--success) / 0.2); color: hsl(var(--success)); }
 </style>

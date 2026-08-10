@@ -291,12 +291,12 @@ onUnmounted(() => {
 
 .btn-back:hover {
   border-color: hsl(var(--primary));
-  background: rgba(24, 144, 255, 0.1);
+  background: hsl(var(--primary) / 0.1);
 }
 
 .btn-secondary:hover:not(:disabled) {
   border-color: hsl(var(--primary));
-  background: rgba(24, 144, 255, 0.1);
+  background: hsl(var(--primary) / 0.1);
 }
 
 .btn-primary:hover:not(:disabled) {

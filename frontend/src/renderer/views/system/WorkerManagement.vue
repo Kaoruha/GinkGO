@@ -396,21 +396,21 @@ onUnmounted(() => {
 }
 
 .btn-start {
-  background: rgba(82, 196, 26, 0.2);
+  background: hsl(var(--success) / 0.2);
   color: hsl(var(--success));
 }
 
 .btn-start:hover {
-  background: rgba(82, 196, 26, 0.3);
+  background: hsl(var(--success) / 0.3);
 }
 
 .btn-stop {
-  background: rgba(245, 34, 45, 0.2);
+  background: hsl(var(--error) / 0.2);
   color: hsl(var(--error));
 }
 
 .btn-stop:hover {
-  background: rgba(245, 34, 45, 0.3);
+  background: hsl(var(--error) / 0.3);
 }
 
 /* 空状态 */

@@ -806,8 +806,8 @@ onUnmounted(() => {
 }
 
 .pair-item.subscribed {
-  background: rgba(24, 144, 255, 0.1);
-  border: 1px solid rgba(24, 144, 255, 0.3);
+  background: hsl(var(--primary) / 0.1);
+  border: 1px solid hsl(var(--primary) / 0.3);
 }
 
 .pair-info {
@@ -875,13 +875,13 @@ onUnmounted(() => {
 
 .ws-toggle-btn.connected {
   border-color: hsl(var(--success));
-  background: rgba(82, 196, 26, 0.1);
+  background: hsl(var(--success) / 0.1);
   color: hsl(var(--success));
 }
 
 .ws-toggle-btn.disconnected {
   border-color: hsl(var(--error));
-  background: rgba(245, 34, 45, 0.1);
+  background: hsl(var(--error) / 0.1);
   color: hsl(var(--error));
 }
 
@@ -964,7 +964,7 @@ onUnmounted(() => {
 
 @keyframes flashGreen {
   0% {
-    background-color: rgba(82, 196, 26, 0.4);
+    background-color: hsl(var(--success) / 0.4);
   }
   100% {
     background-color: transparent;
@@ -973,7 +973,7 @@ onUnmounted(() => {
 
 @keyframes flashRed {
   0% {
-    background-color: rgba(245, 34, 45, 0.4);
+    background-color: hsl(var(--error) / 0.4);
   }
   100% {
     background-color: transparent;

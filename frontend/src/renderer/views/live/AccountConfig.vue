@@ -510,7 +510,7 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.tag-yellow { background: rgba(250, 173, 20, 0.2); color: hsl(var(--warning)); }
+.tag-yellow { background: hsl(var(--warning) / 0.2); color: hsl(var(--warning)); }
 
 .account-name {
   display: flex;
@@ -598,13 +598,13 @@ onMounted(() => {
 }
 
 .alert-success {
-  background: rgba(82, 196, 26, 0.1);
-  border: 1px solid rgba(82, 196, 26, 0.3);
+  background: hsl(var(--success) / 0.1);
+  border: 1px solid hsl(var(--success) / 0.3);
 }
 
 .alert-error {
-  background: rgba(245, 34, 45, 0.1);
-  border: 1px solid rgba(245, 34, 45, 0.3);
+  background: hsl(var(--error) / 0.1);
+  border: 1px solid hsl(var(--error) / 0.3);
 }
 
 .alert-icon {

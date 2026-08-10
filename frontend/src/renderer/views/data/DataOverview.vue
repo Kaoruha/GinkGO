@@ -296,10 +296,10 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
-.stat-blue .stat-icon { background: rgba(24, 144, 255, 0.1); color: hsl(var(--primary)); }
-.stat-green .stat-icon { background: rgba(82, 196, 26, 0.1); color: hsl(var(--success)); }
-.stat-orange .stat-icon { background: rgba(250, 140, 22, 0.1); color: hsl(var(--warning)); }
-.stat-purple .stat-icon { background: rgba(114, 46, 209, 0.1); color: hsl(var(--secondary-foreground)); }
+.stat-blue .stat-icon { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); }
+.stat-green .stat-icon { background: hsl(var(--success) / 0.1); color: hsl(var(--success)); }
+.stat-orange .stat-icon { background: hsl(var(--warning) / 0.1); color: hsl(var(--warning)); }
+.stat-purple .stat-icon { background: hsl(var(--secondary-foreground) / 0.1); color: hsl(var(--secondary-foreground)); }
 
 .stat-footer {
   margin-top: 12px;
@@ -474,12 +474,12 @@ onMounted(() => {
 }
 
 .status-tag.online {
-  background: rgba(82, 196, 26, 0.2);
+  background: hsl(var(--success) / 0.2);
   color: hsl(var(--success));
 }
 
 .status-tag.offline {
-  background: rgba(245, 34, 45, 0.2);
+  background: hsl(var(--error) / 0.2);
   color: hsl(var(--error));
 }
 </style>

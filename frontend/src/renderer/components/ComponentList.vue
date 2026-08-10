@@ -496,7 +496,7 @@ onMounted(() => {
 }
 
 .data-table tbody tr.active {
-  background: rgba(24, 144, 255, 0.1);
+  background: hsl(var(--primary) / 0.1);
 }
 
 .file-name {

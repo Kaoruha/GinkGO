@@ -517,11 +517,11 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.tag-purple { background: rgba(114,46,209,0.15); color: hsl(var(--secondary-foreground)); }
-.tag-blue { background: rgba(24,144,255,0.15); color: hsl(var(--primary)); }
-.tag-green { background: rgba(82,196,26,0.15); color: hsl(var(--success)); }
-.tag-orange { background: rgba(250,173,20,0.15); color: hsl(var(--warning)); }
-.tag-red { background: rgba(245,34,45,0.15); color: hsl(var(--error)); }
+.tag-purple { background: hsl(var(--secondary-foreground) / 0.15); color: hsl(var(--secondary-foreground)); }
+.tag-blue { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
+.tag-green { background: hsl(var(--success) / 0.15); color: hsl(var(--success)); }
+.tag-orange { background: hsl(var(--warning) / 0.15); color: hsl(var(--warning)); }
+.tag-red { background: hsl(var(--error) / 0.15); color: hsl(var(--error)); }
 
 /* Card grid */
 .portfolio-grid {
@@ -622,7 +622,7 @@ onUnmounted(() => {
 
 .dropdown-item:hover { background: hsl(var(--secondary)); }
 .dropdown-item.danger { color: hsl(var(--error)); }
-.dropdown-item.danger:hover { background: rgba(245,34,45,0.1); }
+.dropdown-item.danger:hover { background: hsl(var(--error) / 0.1); }
 .dropdown-divider { height: 1px; background: hsl(var(--secondary)); margin: 4px 0; }
 
 .card-body { display: flex; flex-direction: column; gap: 12px; flex: 1; }

@@ -1,8 +1,8 @@
 <template>
-  <div class="h-screen flex bg-gray-50">
+  <div class="h-screen flex bg-background">
     <!-- 左侧导航栏 -->
-    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-      <div class="h-14 flex items-center px-6 border-b border-gray-200">
+    <aside class="w-64 bg-card border-r border-border flex flex-col flex-shrink-0">
+      <div class="h-14 flex items-center px-6 border-b border-border">
         <h1 class="text-xl font-bold text-primary">
           Ginkgo
         </h1>
@@ -17,7 +17,7 @@
           <div v-if="item.children">
             <div
               class="flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-colors text-sm"
-              :class="isMenuActive(item) ? 'bg-primary/10 text-primary' : 'text-gray-700 hover:bg-gray-100'"
+              :class="isMenuActive(item) ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'"
               @click="toggleMenu(item.path)"
             >
               <div class="flex items-center">
@@ -40,7 +40,7 @@
                 :key="child.path"
                 :to="child.path"
                 class="flex items-center justify-between px-4 py-2 rounded-lg transition-colors text-sm"
-                :class="isActive(child.path) ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'"
+                :class="isActive(child.path) ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'"
               >
                 <div class="flex items-center">
                   <span class="mr-3">{{ child.icon || '•' }}</span>
@@ -58,7 +58,7 @@
             v-else
             :to="item.path"
             class="flex items-center justify-between px-4 py-2.5 rounded-lg transition-colors text-sm"
-            :class="isActive(item.path) ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'"
+            :class="isActive(item.path) ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'"
           >
             <div class="flex items-center">
               <span class="text-lg mr-3">{{ item.icon }}</span>
@@ -71,13 +71,13 @@
         </template>
       </nav>
 
-      <div class="p-3 border-t border-gray-200">
+      <div class="p-3 border-t border-border">
         <div class="flex items-center px-1">
-          <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm">
+          <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm">
             {{ userInitial }}
           </div>
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900">
+            <p class="text-sm font-medium text-foreground">
               {{ username }}
             </p>
           </div>
@@ -88,16 +88,16 @@
     <!-- 右侧主体区 -->
     <div class="flex-1 flex flex-col min-w-0">
       <!-- 页面标题区（固定） - 使用命名视图 -->
-      <header class="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0 min-h-[60px] flex items-center">
+      <header class="bg-card border-b border-border px-6 py-4 flex-shrink-0 min-h-[60px] flex items-center">
         <router-view name="header">
           <!-- 默认 header 内容（当路由没有提供 header 组件时显示） -->
           <template #default>
             <div class="flex items-center justify-between w-full">
-              <h2 class="text-lg font-semibold text-gray-900">
+              <h2 class="text-lg font-semibold text-foreground">
                 {{ defaultPageTitle }}
               </h2>
               <div class="flex items-center space-x-4">
-                <span class="text-sm text-gray-500">{{ currentTime }}</span>
+                <span class="text-sm text-muted-foreground">{{ currentTime }}</span>
               </div>
             </div>
           </template>

@@ -332,7 +332,7 @@ onMounted(() => {
 }
 
 .badge-success {
-  background: rgba(82, 196, 26, 0.2);
+  background: hsl(var(--success) / 0.2);
   color: hsl(var(--success));
 }
 
@@ -386,7 +386,7 @@ onMounted(() => {
 
 .checkbox-label.selected {
   border-color: hsl(var(--primary));
-  background: rgba(24, 144, 255, 0.1);
+  background: hsl(var(--primary) / 0.1);
 }
 
 .checkbox-label input[type="checkbox"] {

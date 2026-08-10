@@ -523,27 +523,27 @@ onMounted(fetchDashboardData)
 }
 
 .badge-running {
-  background: rgba(82, 196, 26, 0.15);
+  background: hsl(var(--success) / 0.15);
   color: hsl(var(--success));
 }
 
 .badge-paused {
-  background: rgba(250, 140, 22, 0.15);
+  background: hsl(var(--warning) / 0.15);
   color: hsl(var(--warning));
 }
 
 .badge-stopped {
-  background: rgba(255, 255, 255, 0.08);
+  background: hsl(var(--foreground) / 0.08);
   color: hsl(var(--muted-foreground));
 }
 
 .badge-completed {
-  background: rgba(24, 144, 255, 0.15);
+  background: hsl(var(--primary) / 0.15);
   color: hsl(var(--primary));
 }
 
 .badge-error {
-  background: rgba(245, 34, 45, 0.15);
+  background: hsl(var(--error) / 0.15);
   color: hsl(var(--error));
 }
 

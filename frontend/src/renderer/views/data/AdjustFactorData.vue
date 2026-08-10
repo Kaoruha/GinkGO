@@ -149,7 +149,7 @@ onMounted(() => {
 .control-input[type="date"] { width: 140px; }
 
 .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-.tag-purple { background: rgba(114,46,209,0.15); color: hsl(var(--secondary-foreground)); }
+.tag-purple { background: hsl(var(--secondary-foreground) / 0.15); color: hsl(var(--secondary-foreground)); }
 
 .btn-primary { display: inline-flex; align-items: center; padding: 7px 16px; background: hsl(var(--primary)); border: none; border-radius: 4px; color: hsl(var(--foreground)); font-size: 13px; cursor: pointer; }
 .btn-primary:hover { background: hsl(var(--primary)); }

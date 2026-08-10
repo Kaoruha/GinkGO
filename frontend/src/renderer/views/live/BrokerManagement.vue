@@ -360,12 +360,12 @@ onMounted(() => {
 
 .broker-card {
   background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid hsl(var(--border));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .broker-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid hsl(var(--border));
   padding-bottom: 16px;
 }
 
@@ -407,13 +407,13 @@ onMounted(() => {
 }
 
 .refresh-btn {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: hsl(var(--border));
   color: hsl(var(--muted-foreground));
 }
 
 .refresh-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: hsl(var(--foreground) / 0.05);
+  border-color: hsl(var(--foreground) / 0.3);
 }
 
 .broker-content {
@@ -437,23 +437,23 @@ onMounted(() => {
 
 .broker-item {
   position: relative;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: hsl(var(--foreground) / 0.03);
+  border: 1px solid hsl(var(--border));
   border-radius: 12px;
   padding: 20px;
   transition: all 0.2s ease;
 }
 
 .broker-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: hsl(var(--foreground) / 0.05);
+  border-color: hsl(var(--foreground) / 0.12);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .broker-item.has-error {
-  border-color: rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.05);
+  border-color: hsl(var(--error) / 0.3);
+  background: hsl(var(--error) / 0.05);
 }
 
 .broker-status-indicator {
@@ -518,7 +518,7 @@ onMounted(() => {
 
 .account-name {
   font-size: 14px;
-  color: hsl(var(--border));
+  color: hsl(var(--muted-foreground));
   font-weight: 500;
 }
 
@@ -532,21 +532,21 @@ onMounted(() => {
 }
 
 .exchange-badge {
-  background: rgba(59, 130, 246, 0.1);
+  background: hsl(var(--primary) / 0.1);
   color: hsl(var(--primary));
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border: 1px solid hsl(var(--primary) / 0.2);
 }
 
 .env-badge {
-  background: rgba(16, 185, 129, 0.1);
+  background: hsl(var(--success) / 0.1);
   color: hsl(var(--success));
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  border: 1px solid hsl(var(--success) / 0.2);
 }
 
 .env-badge:deep(.destructive) {
-  background: rgba(239, 68, 68, 0.1);
+  background: hsl(var(--error) / 0.1);
   color: hsl(var(--error));
-  border-color: rgba(239, 68, 68, 0.2);
+  border-color: hsl(var(--error) / 0.2);
 }
 
 .process-info {
@@ -576,12 +576,12 @@ onMounted(() => {
 }
 
 .pause-btn {
-  border-color: rgba(245, 158, 11, 0.3);
+  border-color: hsl(var(--warning) / 0.3);
   color: hsl(var(--warning));
 }
 
 .pause-btn:hover:not(:disabled) {
-  background: rgba(245, 158, 11, 0.1);
+  background: hsl(var(--warning) / 0.1);
 }
 
 .resume-btn {
@@ -605,8 +605,8 @@ onMounted(() => {
 .error-message {
   margin-top: 12px;
   padding: 12px;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: hsl(var(--error) / 0.1);
+  border: 1px solid hsl(var(--error) / 0.3);
   border-radius: 8px;
   color: hsl(var(--error));
   font-size: 13px;
@@ -619,7 +619,7 @@ onMounted(() => {
   margin-top: 16px;
   margin-left: 60px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid hsl(var(--border));
   display: flex;
   gap: 16px;
 }
@@ -663,42 +663,6 @@ onMounted(() => {
   .broker-status-indicator {
     position: static;
     margin-bottom: 12px;
-  }
-}
-
-@media (prefers-color-scheme: light) {
-  .broker-card {
-    background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
-    border-color: rgba(0, 0, 0, 0.1);
-  }
-
-  .title {
-    color: hsl(var(--card));
-  }
-
-  .description {
-    color: hsl(var(--muted-foreground));
-  }
-
-  .broker-item {
-    background: hsl(var(--card));
-    border-color: rgba(0, 0, 0, 0.08);
-  }
-
-  .broker-item:hover {
-    background: hsl(var(--muted));
-  }
-
-  .broker-name {
-    color: hsl(var(--card));
-  }
-
-  .account-name {
-    color: hsl(var(--muted-foreground));
-  }
-
-  .time-label {
-    color: hsl(var(--muted-foreground));
   }
 }
 </style>

@@ -89,7 +89,7 @@ const valueStyle = computed(() => {
 }
 
 .stat-card-clickable:hover {
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+  box-shadow: 0 2px 8px hsl(var(--primary) / 0.2);
 }
 
 .stat-title {

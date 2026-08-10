@@ -286,7 +286,7 @@ const toggleFactor = (name: string) => {
 }
 
 .factor-item.selected {
-  background: rgba(24, 144, 255, 0.1);
+  background: hsl(var(--primary) / 0.1);
   border: 1px solid hsl(var(--primary));
 }
 

@@ -205,9 +205,9 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
   font-size: 12px;
   font-weight: 500;
 }
-.status-tag.live { background: rgba(34,197,94,0.15); color: hsl(var(--success)); }
-.status-tag.paper { background: rgba(59,130,246,0.15); color: hsl(var(--primary)); }
-.status-tag.idle { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
+.status-tag.live { background: hsl(var(--success) / 0.15); color: hsl(var(--success)); }
+.status-tag.paper { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
+.status-tag.idle { background: hsl(var(--foreground) / 0.1); color: hsl(var(--muted-foreground)); }
 
 .deploy-source {
   font-size: 11px;

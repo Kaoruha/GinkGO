@@ -231,10 +231,10 @@ const formatCurrency = (num: string) => {
 // 获取未实现盈亏颜色
 const getPnLColor = (pnl: string) => {
   const n = parseFloat(pnl)
-  if (isNaN(n)) return 'text-gray-400'
-  if (n > 0) return 'text-green-400'
-  if (n < 0) return 'text-red-400'
-  return 'text-gray-400'
+  if (isNaN(n)) return 'text-muted-foreground'
+  if (n > 0) return 'text-success'
+  if (n < 0) return 'text-error'
+  return 'text-muted-foreground'
 }
 
 // 获取交易所图标样式
@@ -512,7 +512,7 @@ onUnmounted(() => {
             <!-- 无持仓 -->
             <div v-else-if="!accountLoadingStates[account.uuid]?.positions" class="no-positions">
               <Activity class="w-4 h-4 mr-2" />
-              <span class="text-gray-500">暂无持仓</span>
+              <span class="text-muted-foreground">暂无持仓</span>
             </div>
           </div>
 

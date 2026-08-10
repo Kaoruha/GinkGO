@@ -442,7 +442,7 @@ onUnmounted(() => {
 }
 
 .stat-error {
-  background: rgba(245, 34, 45, 0.2);
+  background: hsl(var(--error) / 0.2);
   color: hsl(var(--error));
 }
 

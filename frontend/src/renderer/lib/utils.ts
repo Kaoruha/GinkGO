@@ -31,38 +31,38 @@ export function formatDateTime(dateTime: string | Date | null | undefined): stri
  * 获取状态对应的颜色
  *
  * @param status - 状态字符串
- * @returns Tailwind 颜色类名
+ * @returns Tailwind 颜色类名(token 化,主题感知)
  */
 export function getStatusColor(status: string): string {
   const colorMap: Record<string, string> = {
-    enabled: 'text-green-600',
-    disabled: 'text-gray-400',
-    connecting: 'text-blue-600',
-    connected: 'text-green-600',
-    disconnected: 'text-yellow-600',
-    error: 'text-red-600',
-    active: 'text-green-600',
-    inactive: 'text-gray-400',
+    enabled: 'text-success',
+    disabled: 'text-muted-foreground',
+    connecting: 'text-primary',
+    connected: 'text-success',
+    disconnected: 'text-warning',
+    error: 'text-error',
+    active: 'text-success',
+    inactive: 'text-muted-foreground',
   }
-  return colorMap[status] || 'text-gray-600'
+  return colorMap[status] || 'text-muted-foreground'
 }
 
 /**
  * 获取状态对应的背景色
  *
  * @param status - 状态字符串
- * @returns Tailwind 背景颜色类名
+ * @returns Tailwind 背景颜色类名(token 化,主题感知)
  */
 export function getStatusBgColor(status: string): string {
   const colorMap: Record<string, string> = {
-    enabled: 'bg-green-100',
-    disabled: 'bg-gray-100',
-    connecting: 'bg-blue-100',
-    connected: 'bg-green-100',
-    disconnected: 'bg-yellow-100',
-    error: 'bg-red-100',
-    active: 'bg-green-100',
-    inactive: 'bg-gray-100',
+    enabled: 'bg-success/15',
+    disabled: 'bg-muted',
+    connecting: 'bg-primary/15',
+    connected: 'bg-success/15',
+    disconnected: 'bg-warning/15',
+    error: 'bg-error/15',
+    active: 'bg-success/15',
+    inactive: 'bg-muted',
   }
-  return colorMap[status] || 'bg-gray-100'
+  return colorMap[status] || 'bg-muted'
 }

@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-gray-50 flex">
+  <div class="min-h-screen bg-background flex">
     <!-- 侧边栏 -->
-    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
-      <div class="h-16 flex items-center px-6 border-b border-gray-200">
+    <aside class="w-64 bg-card border-r border-border flex flex-col">
+      <div class="h-16 flex items-center px-6 border-b border-border">
         <h1 class="text-xl font-bold text-primary">
           Ginkgo
         </h1>
@@ -17,7 +17,7 @@
           <div v-if="item.children">
             <div
               class="flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer transition-colors"
-              :class="isMenuActive(item) ? 'bg-primary/10 text-primary' : 'text-gray-700 hover:bg-gray-100'"
+              :class="isMenuActive(item) ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'"
               @click="toggleMenu(item.path)"
             >
               <div class="flex items-center">
@@ -40,7 +40,7 @@
                 :key="child.path"
                 :to="child.path"
                 class="flex items-center px-4 py-2 rounded-lg transition-colors text-sm"
-                :class="isActive(child.path) ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'"
+                :class="isActive(child.path) ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'"
               >
                 <span class="mr-3">{{ child.icon || '•' }}</span>
                 <span>{{ child.label }}</span>
@@ -53,7 +53,7 @@
             v-else
             :to="item.path"
             class="flex items-center px-4 py-3 rounded-lg transition-colors"
-            :class="isActive(item.path) ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'"
+            :class="isActive(item.path) ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'"
           >
             <span class="text-xl mr-3">{{ item.icon }}</span>
             <span>{{ item.label }}</span>
@@ -61,13 +61,13 @@
         </template>
       </nav>
 
-      <div class="p-4 border-t border-gray-200">
+      <div class="p-4 border-t border-border">
         <div class="flex items-center">
-          <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white">
+          <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground">
             {{ userInitial }}
           </div>
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900">
+            <p class="text-sm font-medium text-foreground">
               {{ username }}
             </p>
           </div>
@@ -77,12 +77,12 @@
 
     <!-- 主内容区 -->
     <div class="flex-1 flex flex-col">
-      <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-        <h2 class="text-lg font-semibold text-gray-900">
+      <header class="h-16 bg-card border-b border-border flex items-center justify-between px-6">
+        <h2 class="text-lg font-semibold text-foreground">
           {{ pageTitle }}
         </h2>
         <div class="flex items-center space-x-4">
-          <span class="text-sm text-gray-500">{{ currentTime }}</span>
+          <span class="text-sm text-muted-foreground">{{ currentTime }}</span>
         </div>
       </header>
 

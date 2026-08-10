@@ -489,7 +489,7 @@ onUnmounted(() => {
 }
 
 .segment-tag.active {
-  background: rgba(59, 130, 246, 0.15);
+  background: hsl(var(--primary) / 0.15);
   border-color: hsl(var(--primary));
   color: hsl(var(--primary));
   font-weight: 600;
