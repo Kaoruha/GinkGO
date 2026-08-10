@@ -23,6 +23,8 @@ Ginkgo: Python 量化交易库。事件驱动回测引擎，支持 ClickHouse/My
 2. **Service 禁止暴露 CRUD 实例**
 3. **CRUD 返回 `ModelList`**，调用方按需转换
 
+> **CI 门禁（#6906）**：`ginkgo.client` + `api` 禁止直接 `import ginkgo.data.crud`，由 `uv run lint-imports` 在 CI 强制（配置在 `pyproject.toml [tool.importlinter]`，`allow_indirect_imports=true` 只拦直接 import，合法的 `client→service→crud` 传递路径放行）。例外：`scheduler_cli`/`serve_cli` 启动期构造 `RedisCRUD` 注入 `livecore.Scheduler` 的 DI 边界（#6300）按站点白名单。
+
 ### 全局实例
 `GLOG`(日志) | `GCONF`(配置) | `GTM`(线程管理)，通过 `from ginkgo import services` 统一访问
 
