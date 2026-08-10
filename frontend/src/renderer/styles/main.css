@@ -20,7 +20,7 @@
 
   /* 按钮变体 */
   .btn-primary {
-    @apply bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded transition-colors;
+    @apply bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded transition-colors;
   }
 
   .btn-secondary {
@@ -54,15 +54,15 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: hsl(var(--muted));
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
+    background: hsl(var(--muted-foreground));
     border-radius: 3px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
+    background: hsl(var(--accent-foreground));
   }
 }

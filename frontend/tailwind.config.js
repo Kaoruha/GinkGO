@@ -18,9 +18,6 @@ export default {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
-          // 保留 Ant Design 兼容色
-          light: '#40a9ff',
-          dark: '#096dd9',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
@@ -46,10 +43,10 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // 保留 Ant Design 兼容色
-        success: '#52c41a',
-        warning: '#faad14',
-        error: '#f5222d',
+        // 状态色接 token(ADR-045 §2 去蓝:不再保留 Ant Design 兼容 hex)
+        success: 'hsl(var(--success))',
+        warning: 'hsl(var(--warning))',
+        error: 'hsl(var(--error))',
       },
       borderRadius: {
         lg: 'var(--radius)',
