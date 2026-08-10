@@ -21,6 +21,14 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        // Task1 root 迁至 src/renderer 后,前端 api 模块的 dev URL = /api/*.ts,
+        // 命中此 proxy 被转后端→401 致整个 @/api 模块树加载失败(ADR-042 §1)。
+        // bypass: 带源码扩展名的请求走 vite 自 serve,不转发后端。
+        bypass(req) {
+          if (/\.(ts|js|jsx|tsx|mjs|vue|css|less|scss|json|map)(\?|$)/.test(req.url)) {
+            return req.url
+          }
+        },
       },
       '/ws': {
         target: 'ws://localhost:8000',
