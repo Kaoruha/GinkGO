@@ -7,6 +7,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { createChart, type IChartApi, type LineData } from 'lightweight-charts'
+import { useChartTheme, cssColor } from '@/composables/useChartTheme'
 
 interface ICData {
   date: string
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
   showRankIC: true
 })
 
+const { theme } = useChartTheme()
 const chartRef = ref<HTMLDivElement>()
 let chart: IChartApi | null = null
 let icSeries: any = null
@@ -51,36 +53,54 @@ const initChart = () => {
     width: chartRef.value.clientWidth,
     height: parseInt(props.height),
     layout: {
-      background: { color: '#ffffff' },
-      textColor: '#333',
+      background: { color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
     },
     grid: {
-      vertLines: { color: '#e1e1e1' },
-      horzLines: { color: '#e1e1e1' },
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
     },
     timeScale: {
       timeVisible: true,
     },
   })
 
-  // IC系列
+  // IC系列(主线)
   icSeries = chart.addLineSeries({
-    color: '#2196F3',
+    color: cssColor('--primary'),
     lineWidth: 2,
     title: 'IC',
   })
   icSeries.setData(icLineData.value)
 
-  // Rank IC系列
+  // Rank IC系列(次线,warning 色保持区分)
   if (props.showRankIC) {
     rankIcSeries = chart.addLineSeries({
-      color: '#FF9800',
+      color: cssColor('--warning-fg'),
       lineWidth: 2,
       title: 'RankIC',
     })
     rankIcSeries.setData(rankIcLineData.value)
   }
 }
+
+// 主题切换重绘:canvas 不认 CSS var,须重读 token 调 applyOptions(ADR-045)。
+const applyChartTheme = () => {
+  if (!chart) return
+  chart.applyOptions({
+    layout: {
+      background: { color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
+    },
+    grid: {
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
+    },
+  })
+  icSeries?.applyOptions({ color: cssColor('--primary') })
+  rankIcSeries?.applyOptions({ color: cssColor('--warning-fg') })
+}
+watch(theme, applyChartTheme)
 
 onMounted(() => {
   initChart()

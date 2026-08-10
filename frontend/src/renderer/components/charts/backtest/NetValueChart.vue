@@ -4,9 +4,6 @@
       ref="chartRef"
       :data="chartData"
       :height="height"
-      :line-color="lineColor"
-      :top-color="topColor"
-      :bottom-color="bottomColor"
       title="净值"
     />
     <div v-if="benchmarkData.length > 0" class="benchmark-overlay">
@@ -14,7 +11,6 @@
         :data="benchmarkChartData"
         :height="height"
         :line-width="1"
-        color="hsl(var(--muted-foreground))"
         title="基准"
       />
     </div>
@@ -52,10 +48,6 @@ const benchmarkChartData = computed(() => {
     value: d.value,
   })) as any[]
 })
-
-const lineColor = '#2196F3'
-const topColor = 'rgba(33, 150, 243, 0.4)'
-const bottomColor = 'rgba(33, 150, 243, 0.0)'
 
 defineExpose({
   fitContent: () => chartRef.value?.getInstance()?.timeScale().fitContent(),

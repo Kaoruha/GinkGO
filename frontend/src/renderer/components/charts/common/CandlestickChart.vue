@@ -5,6 +5,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { createChart, type IChartApi, type CandlestickData } from 'lightweight-charts'
+import { useChartTheme, cssColor, upColor as upClr, downColor as downClr } from '@/composables/useChartTheme'
 
 interface Props {
   data: CandlestickData[]
@@ -18,14 +19,19 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   width: '100%',
   height: '400px',
-  upColor: '#26a69a',
-  downColor: '#ef5350',
+  upColor: '',
+  downColor: '',
   title: ''
 })
 
+const { theme } = useChartTheme()
 const chartRef = ref<HTMLDivElement>()
 let chart: IChartApi | null = null
 let candlestickSeries: any = null
+
+// 涨跌色:prop 优先,缺省回退 token(ADR-045 西方语义 绿涨红跌)。
+const resolveUp = () => props.upColor || upClr()
+const resolveDown = () => props.downColor || downClr()
 
 const initChart = () => {
   if (!chartRef.value) return
@@ -34,12 +40,12 @@ const initChart = () => {
     width: chartRef.value.clientWidth,
     height: parseInt(props.height),
     layout: {
-      background: { color: '#ffffff' },
-      textColor: '#333',
+      background: { color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
     },
     grid: {
-      vertLines: { color: '#e1e1e1' },
-      horzLines: { color: '#e1e1e1' },
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
     },
     timeScale: {
       timeVisible: true,
@@ -47,17 +53,37 @@ const initChart = () => {
     },
   })
 
+  const up = resolveUp(), down = resolveDown()
   candlestickSeries = chart.addCandlestickSeries({
-    upColor: props.upColor,
-    downColor: props.downColor,
+    upColor: up, downColor: down,
     borderVisible: false,
-    wickUpColor: props.upColor,
-    wickDownColor: props.downColor,
+    wickUpColor: up, wickDownColor: down,
     title: props.title,
   })
 
   candlestickSeries.setData(props.data)
 }
+
+// 主题切换重绘:canvas 不认 CSS var,须重读 token 调 applyOptions(ADR-045)。
+const applyChartTheme = () => {
+  if (!chart) return
+  chart.applyOptions({
+    layout: {
+      background: { color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
+    },
+    grid: {
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
+    },
+  })
+  const up = resolveUp(), down = resolveDown()
+  candlestickSeries?.applyOptions({
+    upColor: up, downColor: down,
+    wickUpColor: up, wickDownColor: down,
+  })
+}
+watch(theme, applyChartTheme)
 
 const updateChart = () => {
   if (!candlestickSeries) return

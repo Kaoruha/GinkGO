@@ -11,6 +11,7 @@ import {
   LineData,
   ColorType,
 } from 'lightweight-charts'
+import { useChartTheme, cssColor } from '@/composables/useChartTheme'
 
 interface Props {
   data?: LineData[]
@@ -26,6 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
   showBenchmark: true,
 })
 
+const { theme } = useChartTheme()
 const chartContainer = ref<HTMLElement | null>(null)
 let chart: IChartApi | null = null
 let mainSeries: ISeriesApi<'Area'> | null = null
@@ -38,18 +40,18 @@ const initChart = () => {
     width: chartContainer.value.clientWidth,
     height: props.height,
     layout: {
-      background: { type: ColorType.Solid, color: '#ffffff' },
-      textColor: '#666',
+      background: { type: ColorType.Solid, color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
     },
     grid: {
-      vertLines: { color: '#f5f5f5' },
-      horzLines: { color: '#f5f5f5' },
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
     },
     rightPriceScale: {
-      borderColor: '#e8e8e8',
+      borderColor: cssColor('--border'),
     },
     timeScale: {
-      borderColor: '#e8e8e8',
+      borderColor: cssColor('--border'),
       timeVisible: true,
     },
     handleScale: {
@@ -60,9 +62,9 @@ const initChart = () => {
   // 主策略净值曲线（面积图）
   if (props.data.length > 0) {
     mainSeries = chart.addAreaSeries({
-      topColor: 'rgba(33, 150, 243, 0.4)',
-      bottomColor: 'rgba(33, 150, 243, 0.0)',
-      lineColor: '#2196F3',
+      topColor: cssColor('--primary', 0.4),
+      bottomColor: cssColor('--primary', 0.0),
+      lineColor: cssColor('--primary'),
       lineWidth: 2,
     })
     // 去重并排序数据（lightweight-charts 要求时间升序且无重复）
@@ -78,7 +80,7 @@ const initChart = () => {
   // 基准净值曲线
   if (props.showBenchmark && props.benchmarkData.length > 0) {
     benchmarkSeries = chart.addLineSeries({
-      color: '#9E9E9E',
+      color: cssColor('--muted-foreground'),
       lineWidth: 1,
       lineStyle: 2, // 虚线
     })
@@ -94,6 +96,30 @@ const initChart = () => {
 
   chart.timeScale().fitContent()
 }
+
+// 主题切换重绘:canvas 不认 CSS var,须重读 token 调 applyOptions(ADR-045)。
+const applyChartTheme = () => {
+  if (!chart) return
+  chart.applyOptions({
+    layout: {
+      background: { type: ColorType.Solid, color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
+    },
+    grid: {
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
+    },
+    rightPriceScale: { borderColor: cssColor('--border') },
+    timeScale: { borderColor: cssColor('--border') },
+  })
+  mainSeries?.applyOptions({
+    topColor: cssColor('--primary', 0.4),
+    bottomColor: cssColor('--primary', 0.0),
+    lineColor: cssColor('--primary'),
+  })
+  benchmarkSeries?.applyOptions({ color: cssColor('--muted-foreground') })
+}
+watch(theme, applyChartTheme)
 
 const handleResize = () => {
   if (chart && chartContainer.value) {

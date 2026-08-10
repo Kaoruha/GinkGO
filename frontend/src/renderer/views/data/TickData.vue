@@ -85,11 +85,13 @@ import { useRoute } from 'vue-router'
 import DataTable from '@/components/data/DataTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
 import * as echarts from 'echarts'
+import { useChartTheme, cssColor, upColor, downColor } from '@/composables/useChartTheme'
 import { dataApi } from '@/api/modules/data'
 import type { TickData } from '@/api/modules/data'
 import dayjs from 'dayjs'
 
 const route = useRoute()
+const { theme } = useChartTheme()
 
 const loading = ref(false)
 const searched = ref(false)
@@ -299,7 +301,7 @@ async function autoSelectStock() {
 function initChart() {
   if (!chartContainer.value) return
   if (chart) { chart.dispose(); chart = null }
-  chart = echarts.init(chartContainer.value, 'dark')
+  chart = echarts.init(chartContainer.value)
   resizeObserver?.disconnect()
   resizeObserver = new ResizeObserver(() => { chart?.resize() })
   resizeObserver.observe(chartContainer.value)
@@ -318,11 +320,11 @@ function updateChart() {
   const volumes = buckets.map(b => b.volume)
   const volColors = buckets.map(b => {
     const ratio = b.buyCount / (b.buyCount + b.sellCount || 1)
-    return ratio >= 0.5 ? 'rgba(82,196,26,0.6)' : 'rgba(245,34,45,0.6)'
+    return ratio >= 0.5 ? upColor(0.6) : downColor(0.6)
   })
 
   chart!.setOption({
-    backgroundColor: '#1a1a2e',
+    backgroundColor: cssColor('--card'),
     animation: false,
     tooltip: {
       trigger: 'axis',
@@ -333,9 +335,9 @@ function updateChart() {
         const b = buckets[idx]
         const chg = b.close - b.open
         const chgPct = b.open ? ((chg / b.open) * 100).toFixed(2) : '0.00'
-        const color = chg >= 0 ? '#52c41a' : '#f5222d'
+        const color = chg >= 0 ? upColor() : downColor()
         return `<div style="font-size:12px">
-          <div style="margin-bottom:4px;color:#8a8a9a">${b.time}</div>
+          <div style="margin-bottom:4px;color:${cssColor('--muted-foreground')}">${b.time}</div>
           <div>开 <strong>${b.open.toFixed(2)}</strong> 高 <strong>${b.high.toFixed(2)}</strong></div>
           <div>低 <strong>${b.low.toFixed(2)}</strong> 收 <strong>${b.close.toFixed(2)}</strong></div>
           <div style="color:${color}">涨跌 ${chg >= 0 ? '+' : ''}${chg.toFixed(2)} (${chgPct}%)</div>
@@ -344,37 +346,37 @@ function updateChart() {
         </div>`
       },
     },
-    legend: { data: ['K线', '成交量'], top: 4, textStyle: { color: '#8a8a9a' } },
+    legend: { data: ['K线', '成交量'], top: 4, textStyle: { color: cssColor('--muted-foreground') } },
     grid: [
       { left: 60, right: 30, top: 40, height: '52%' },
       { left: 60, right: 30, top: '72%', height: '18%' },
     ],
     xAxis: [
-      { type: 'category', data: times, gridIndex: 0, axisLabel: { color: '#8a8a9a', fontSize: 10 }, axisLine: { lineStyle: { color: '#3a3a4e' } }, splitLine: { show: false } },
-      { type: 'category', data: times, gridIndex: 1, axisLabel: { show: false }, axisLine: { lineStyle: { color: '#3a3a4e' } }, splitLine: { show: false } },
+      { type: 'category', data: times, gridIndex: 0, axisLabel: { color: cssColor('--muted-foreground'), fontSize: 10 }, axisLine: { lineStyle: { color: cssColor('--border') } }, splitLine: { show: false } },
+      { type: 'category', data: times, gridIndex: 1, axisLabel: { show: false }, axisLine: { lineStyle: { color: cssColor('--border') } }, splitLine: { show: false } },
     ],
     yAxis: [
-      { type: 'value', scale: true, gridIndex: 0, axisLabel: { color: '#8a8a9a', fontSize: 10 }, splitLine: { lineStyle: { color: '#2a2a3e' } } },
-      { type: 'value', gridIndex: 1, axisLabel: { color: '#8a8a9a', fontSize: 10 }, splitLine: { lineStyle: { color: '#2a2a3e' } } },
+      { type: 'value', scale: true, gridIndex: 0, axisLabel: { color: cssColor('--muted-foreground'), fontSize: 10 }, splitLine: { lineStyle: { color: cssColor('--border') } } },
+      { type: 'value', gridIndex: 1, axisLabel: { color: cssColor('--muted-foreground'), fontSize: 10 }, splitLine: { lineStyle: { color: cssColor('--border') } } },
     ],
     dataZoom: [
       { type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 },
-      { type: 'slider', xAxisIndex: [0, 1], top: '93%', height: 16, borderColor: '#3a3a4e', fillerColor: 'rgba(24,144,255,0.15)', handleStyle: { color: '#1890ff' }, textStyle: { color: '#8a8a9a' } },
+      { type: 'slider', xAxisIndex: [0, 1], top: '93%', height: 16, borderColor: cssColor('--border'), fillerColor: cssColor('--primary', 0.15), handleStyle: { color: cssColor('--primary') }, textStyle: { color: cssColor('--muted-foreground') } },
     ],
     series: [
       {
         name: 'K线', type: 'candlestick', data: ohlc,
         xAxisIndex: 0, yAxisIndex: 0,
         itemStyle: {
-          color: '#52c41a', color0: '#f5222d',
-          borderColor: '#52c41a', borderColor0: '#f5222d',
+          color: upColor(), color0: downColor(),
+          borderColor: upColor(), borderColor0: downColor(),
         },
       },
       {
         name: '成交量', type: 'bar', data: volumes,
         xAxisIndex: 1, yAxisIndex: 1,
         itemStyle: {
-          color: (params: any) => volColors[params.dataIndex] || 'rgba(138,138,154,0.4)',
+          color: (params: any) => volColors[params.dataIndex] || cssColor('--muted-foreground', 0.4),
         },
       },
     ],
@@ -383,6 +385,9 @@ function updateChart() {
 
 // 桶大小变化时刷新图表（数据不变，只需重新聚合渲染）
 watch(bucketSize, () => { nextTick(() => updateChart()) })
+
+// 主题切换重绘:setOption 用 notMerge 全量替换,token 重读即生效
+watch(theme, () => { nextTick(() => updateChart()) })
 
 onMounted(async () => {
   const code = route.query.code as string

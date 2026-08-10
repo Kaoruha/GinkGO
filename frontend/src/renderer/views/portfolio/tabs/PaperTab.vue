@@ -5,9 +5,11 @@ import { portfolioApi } from '@/api/modules/portfolio'
 import StatCard from '@/components/common/StatCard.vue'
 import { RefreshCw, Settings } from 'lucide-vue-next'
 import * as echarts from 'echarts'
+import { useChartTheme, cssColor } from '@/composables/useChartTheme'
 
 const route = useRoute()
 const portfolioId = route.params.id as string
+const { theme } = useChartTheme()
 
 // ── 指标定义 ──────────────────────────────
 interface MetricDef {
@@ -115,7 +117,7 @@ let resizeObs: ResizeObserver | null = null
 const initChart = () => {
   if (!chartRef.value) return
   if (chart) { chart.dispose(); chart = null }
-  chart = echarts.init(chartRef.value, 'dark')
+  chart = echarts.init(chartRef.value)
   resizeObs?.disconnect()
   resizeObs = new ResizeObserver(() => chart?.resize())
   resizeObs.observe(chartRef.value)
@@ -127,45 +129,45 @@ const updateChart = () => {
   const data = netValueSeries.value
   if (!data.length) {
     chart.setOption({
-      backgroundColor: '#1a1a2e',
-      title: { text: '暂无净值数据', left: 'center', top: 'center', textStyle: { color: '#8a8a9a', fontSize: 14 } },
+      backgroundColor: cssColor('--card'),
+      title: { text: '暂无净值数据', left: 'center', top: 'center', textStyle: { color: cssColor('--muted-foreground'), fontSize: 14 } },
     })
     return
   }
   chart.setOption({
-    backgroundColor: '#1a1a2e',
+    backgroundColor: cssColor('--card'),
     animation: true,
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(26,26,46,0.95)',
-      borderColor: '#2a2a3e',
-      textStyle: { color: '#ccc', fontSize: 12 },
+      backgroundColor: cssColor('--card', 0.95),
+      borderColor: cssColor('--border'),
+      textStyle: { color: cssColor('--foreground'), fontSize: 12 },
     },
     grid: { left: 60, right: 16, top: 16, bottom: 28 },
     xAxis: {
       type: 'category',
       data: data.map(d => d.time),
-      axisLine: { lineStyle: { color: '#2a2a3e' } },
-      axisLabel: { color: '#8a8a9a', fontSize: 11 },
+      axisLine: { lineStyle: { color: cssColor('--border') } },
+      axisLabel: { color: cssColor('--muted-foreground'), fontSize: 11 },
       axisTick: { show: false },
     },
     yAxis: {
       type: 'value',
       scale: true,
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#2a2a3e', type: 'dashed' } },
-      axisLabel: { color: '#8a8a9a', fontSize: 11 },
+      splitLine: { lineStyle: { color: cssColor('--border'), type: 'dashed' } },
+      axisLabel: { color: cssColor('--muted-foreground'), fontSize: 11 },
     },
     series: [{
       type: 'line',
       data: data.map(d => d.value),
       smooth: true,
       showSymbol: false,
-      lineStyle: { color: '#3b82f6', width: 2 },
+      lineStyle: { color: cssColor('--primary'), width: 2 },
       areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(59,130,246,0.25)' },
-          { offset: 1, color: 'rgba(59,130,246,0.02)' },
+          { offset: 0, color: cssColor('--primary', 0.25) },
+          { offset: 1, color: cssColor('--primary', 0.02) },
         ]),
       },
     }],
@@ -174,20 +176,28 @@ const updateChart = () => {
 
 watch(netValueSeries, () => nextTick(updateChart))
 
+// 主题切换重绘:setOption 全量替换,token 重读生效;事件 badge 走 DOM 由 getEventStyle 重算
+watch(theme, () => nextTick(updateChart))
+
 // ── 事件类型样式 ──────────────────────────
-const EVENT_STYLES: Record<string, { icon: string; color: string; label: string }> = {
-  SIGNALGENERATION: { icon: '📡', color: '#3b82f6', label: '信号' },
-  ORDERSUBMITTED: { icon: '📋', color: '#eab308', label: '下单' },
-  ORDERFILLED: { icon: '✅', color: '#10b981', label: '成交' },
-  ORDERPARTIALLYFILLED: { icon: '✅', color: '#10b981', label: '部分成交' },
-  ORDERREJECTED: { icon: '❌', color: '#ef4444', label: '拒绝' },
-  ORDERCANCELACK: { icon: '⏹', color: '#6b7280', label: '取消' },
-  ORDEREXPIRED: { icon: '⏰', color: '#6b7280', label: '过期' },
-  RISKBREACH: { icon: '⚠️', color: '#f97316', label: '风控' },
+// 事件语义色:走主题 token(ADR-045 去硬编码 hex);badge 底=同色 12% 透明。
+// DOM 染色非 canvas,getEventStyle 内 void theme.value 建立响应依赖,主题切换随重染。
+const EVENT_TOKENS: Record<string, { icon: string; token: string; label: string }> = {
+  SIGNALGENERATION: { icon: '📡', token: '--info', label: '信号' },
+  ORDERSUBMITTED: { icon: '📋', token: '--warning-fg', label: '下单' },
+  ORDERFILLED: { icon: '✅', token: '--success-fg', label: '成交' },
+  ORDERPARTIALLYFILLED: { icon: '✅', token: '--success-fg', label: '部分成交' },
+  ORDERREJECTED: { icon: '❌', token: '--error-fg', label: '拒绝' },
+  ORDERCANCELACK: { icon: '⏹', token: '--muted-foreground', label: '取消' },
+  ORDEREXPIRED: { icon: '⏰', token: '--muted-foreground', label: '过期' },
+  RISKBREACH: { icon: '⚠️', token: '--warning-fg', label: '风控' },
 }
 
-const getEventStyle = (type: string) =>
-  EVENT_STYLES[type] || { icon: '📌', color: '#8a8a9a', label: type }
+const getEventStyle = (type: string) => {
+  void theme.value  // 显式建依赖:主题切换触发模板重染 → cssColor 重读
+  const s = EVENT_TOKENS[type] || { icon: '📌', token: '--muted-foreground', label: type }
+  return { icon: s.icon, label: s.label, bg: cssColor(s.token, 0.12), color: cssColor(s.token) }
+}
 
 const formatEventDesc = (e: any): string => {
   const parts: string[] = []
@@ -316,7 +326,7 @@ onUnmounted(() => {
             <span
               class="event-badge"
               :style="{
-                background: getEventStyle(e.event_type).color + '18',
+                background: getEventStyle(e.event_type).bg,
                 color: getEventStyle(e.event_type).color,
               }"
             >
@@ -341,13 +351,13 @@ onUnmounted(() => {
 /* 加载 */
 .loading-state {
   display: flex; align-items: center; gap: 8px;
-  padding: 32px 0; color: rgba(255,255,255,0.5);
+  padding: 32px 0; color: hsl(var(--muted-foreground));
 }
 
 /* 通用 section */
 .section {
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: hsl(var(--foreground) / 0.03);
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   padding: 14px 16px;
 }
@@ -356,16 +366,16 @@ onUnmounted(() => {
   margin-bottom: 12px;
 }
 .section-header h3 {
-  margin: 0; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.85);
+  margin: 0; font-size: 14px; font-weight: 600; color: hsl(var(--foreground));
 }
 .header-actions { display: flex; gap: 4px; }
 
 /* 按钮 */
 .btn-ghost {
-  background: none; border: none; color: rgba(255,255,255,0.4);
+  background: none; border: none; color: hsl(var(--muted-foreground));
   cursor: pointer; padding: 4px; display: flex; align-items: center;
 }
-.btn-ghost:hover { color: rgba(255,255,255,0.7); }
+.btn-ghost:hover { color: hsl(var(--foreground)); }
 
 /* 指标卡网格 */
 .metrics-grid {
@@ -388,7 +398,7 @@ onUnmounted(() => {
 }
 .config-item {
   display: flex; align-items: center; gap: 8px;
-  padding: 4px 0; font-size: 13px; color: rgba(255,255,255,0.8);
+  padding: 4px 0; font-size: 13px; color: hsl(var(--foreground));
   cursor: pointer;
 }
 .config-item:hover { color: hsl(var(--foreground)); }
@@ -413,7 +423,7 @@ onUnmounted(() => {
   font-size: 12px; color: hsl(var(--muted-foreground));
 }
 .empty-hint {
-  color: rgba(255,255,255,0.35); font-size: 13px;
+  color: hsl(var(--muted-foreground) / 0.6); font-size: 13px;
   padding: 20px 0; text-align: center;
 }
 .event-list {
@@ -426,7 +436,7 @@ onUnmounted(() => {
 .event-item {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 4px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid hsl(var(--border));
   font-size: 13px;
 }
 .event-item:last-child { border-bottom: none; }
@@ -440,7 +450,7 @@ onUnmounted(() => {
   font-family: monospace; min-width: 110px;
 }
 .event-desc {
-  color: rgba(255,255,255,0.8);
+  color: hsl(var(--foreground));
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 </style>

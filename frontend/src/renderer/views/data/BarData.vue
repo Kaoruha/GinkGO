@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import DataTable from '@/components/data/DataTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
@@ -101,8 +101,10 @@ import {
   CrosshairMode,
   Time,
 } from 'lightweight-charts'
+import { useChartTheme, cssColor, upColor, downColor } from '@/composables/useChartTheme'
 
 const route = useRoute()
+const { theme } = useChartTheme()
 const loading = ref(false)
 const isLoadingMore = ref(false)
 const chartContainer = ref<HTMLElement | null>(null)
@@ -197,24 +199,24 @@ const initChart = () => {
   chart = createChart(chartContainer.value, {
     width: chartContainer.value.clientWidth,
     height: 500,
-    layout: { background: { type: ColorType.Solid, color: '#1a1a2e' }, textColor: '#ffffff' },
-    grid: { vertLines: { color: '#2a2a3e' }, horzLines: { color: '#2a2a3e' } },
+    layout: { background: { type: ColorType.Solid, color: cssColor('--card') }, textColor: cssColor('--muted-foreground') },
+    grid: { vertLines: { color: cssColor('--border') }, horzLines: { color: cssColor('--border') } },
     crosshair: {
       mode: CrosshairMode.Normal,
-      vertLine: { color: '#758696', width: 1, style: 3, labelBackgroundColor: '#2962ff' },
-      horzLine: { color: '#758696', width: 1, style: 3, labelBackgroundColor: '#2962ff' },
+      vertLine: { color: cssColor('--border'), width: 1, style: 3, labelBackgroundColor: cssColor('--primary') },
+      horzLine: { color: cssColor('--border'), width: 1, style: 3, labelBackgroundColor: cssColor('--primary') },
     },
-    rightPriceScale: { borderColor: '#2a2a3e', scaleMargins: { top: 0.1, bottom: 0.25 } },
-    timeScale: { borderColor: '#2a2a3e', timeVisible: true, secondsVisible: false, fixRightEdge: true, fixLeftEdge: false },
+    rightPriceScale: { borderColor: cssColor('--border'), scaleMargins: { top: 0.1, bottom: 0.25 } },
+    timeScale: { borderColor: cssColor('--border'), timeVisible: true, secondsVisible: false, fixRightEdge: true, fixLeftEdge: false },
   })
 
   candlestickSeries = chart.addCandlestickSeries({
-    upColor: '#ef5350', downColor: '#26a69a',
-    borderUpColor: '#ef5350', borderDownColor: '#26a69a',
-    wickUpColor: '#ef5350', wickDownColor: '#26a69a',
+    upColor: upColor(), downColor: downColor(),
+    borderUpColor: upColor(), borderDownColor: downColor(),
+    wickUpColor: upColor(), wickDownColor: downColor(),
   })
   volumeSeries = chart.addHistogramSeries({
-    color: '#26a69a', priceFormat: { type: 'volume' }, priceScaleId: 'volume',
+    color: cssColor('--muted-foreground', 0.5), priceFormat: { type: 'volume' }, priceScaleId: 'volume',
   })
   chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } })
 
@@ -243,6 +245,28 @@ const initChart = () => {
   resizeObserver.observe(chartContainer.value)
 }
 
+// 主题切换重绘:canvas 不认 CSS var,须重读 token 调 applyOptions(ADR-045)。
+const applyChartTheme = () => {
+  if (!chart) return
+  chart.applyOptions({
+    layout: { background: { type: ColorType.Solid, color: cssColor('--card') }, textColor: cssColor('--muted-foreground') },
+    grid: { vertLines: { color: cssColor('--border') }, horzLines: { color: cssColor('--border') } },
+    crosshair: {
+      vertLine: { color: cssColor('--border'), labelBackgroundColor: cssColor('--primary') },
+      horzLine: { color: cssColor('--border'), labelBackgroundColor: cssColor('--primary') },
+    },
+    rightPriceScale: { borderColor: cssColor('--border') },
+    timeScale: { borderColor: cssColor('--border') },
+  })
+  candlestickSeries?.applyOptions({
+    upColor: upColor(), downColor: downColor(),
+    borderUpColor: upColor(), borderDownColor: downColor(),
+    wickUpColor: upColor(), wickDownColor: downColor(),
+  })
+  volumeSeries?.applyOptions({ color: cssColor('--muted-foreground', 0.5) })
+}
+watch(theme, applyChartTheme)
+
 let cachedCandleData: CandlestickData[] = []
 let cachedVolumeData: HistogramData[] = []
 
@@ -251,7 +275,7 @@ const convertToChartData = (data: any[]) => {
   for (const item of data) {
     const time = dayjs(item.timestamp).format('YYYY-MM-DD') as any
     candles.push({ time, open: item.open, high: item.high, low: item.low, close: item.close })
-    volumes.push({ time, value: item.volume, color: item.close >= item.open ? '#ef535080' : '#26a69a80' })
+    volumes.push({ time, value: item.volume })
   }
   return { candles, volumes }
 }

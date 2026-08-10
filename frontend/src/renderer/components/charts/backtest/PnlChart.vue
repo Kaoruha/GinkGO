@@ -4,7 +4,6 @@
       ref="chartRef"
       :data="chartData"
       :height="height"
-      :color="color"
       title="收益分布"
     />
     <div class="pnl-stats">
@@ -54,7 +53,6 @@ const chartData = computed<HistogramData[]>(() => {
     return {
       time: binMin as any,
       value: count,
-      color: count > 0 ? (count > returns.length / binCount ? '#ef5350' : '#26a69a') : '#ccc'
     }
   })
 
@@ -75,8 +73,6 @@ const stdPnl = computed(() => {
   const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length
   return (Math.sqrt(variance) * 100).toFixed(2) + '%'
 })
-
-const color = '#26a69a'
 </script>
 
 <style scoped>

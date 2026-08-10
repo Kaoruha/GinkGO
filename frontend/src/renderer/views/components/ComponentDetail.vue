@@ -16,7 +16,7 @@
             <polyline points="13 2 13 9 20 9"></polyline>
           </svg>
           <span class="file-name">{{ fileName }}</span>
-          <span v-if="fileTypeLabel" class="tag" :style="{ background: `${fileTypeColor}20`, color: fileTypeColor, marginLeft: '8px' }">
+          <span v-if="fileTypeLabel" class="tag" :class="`tag-${fileTypeColorClass}`" style="margin-left: 8px">
             {{ fileTypeLabel }}
           </span>
         </span>
@@ -105,15 +105,23 @@ const typeNames: Record<number, string> = {
   1: '分析器', 3: '风控', 4: '选股器', 5: '仓位', 6: '策略', 8: '处理器'
 }
 
-const typeColors: Record<number, string> = {
-  1: '#1890ff', 3: '#ff4d4f', 4: '#52c41a', 5: '#fa8c16', 6: '#eb2f96', 8: '#13c2c2'
+// 组件类型 → 全局 tag-* 色板后缀(tags.less,token 化 + .dark 自动反相)。
+// 取代旧 Ant Design hex 全色板(ADR-045 去 Ant 蓝):走中心化 tag 体系,
+// 主题切换由 CSS 接管,无需 JS 重染。语义就近:风控=红/策略=蓝(primary)。
+const typeColorClass: Record<number, string> = {
+  1: 'purple',  // 分析器
+  3: 'red',     // 风控
+  4: 'green',   // 选股器
+  5: 'orange',  // 仓位
+  6: 'blue',    // 策略
+  8: 'gray',    // 处理器
 }
 
 const fileName = ref('')
 const fileType = ref<number>(0)
 
 const fileTypeLabel = computed(() => typeNames[fileType.value] || '')
-const fileTypeColor = computed(() => typeColors[fileType.value] || '#8c8c8c')
+const fileTypeColorClass = computed(() => typeColorClass[fileType.value] || 'gray')
 
 const hasUnsavedChanges = computed(() => {
   return currentContent.value !== originalContent.value

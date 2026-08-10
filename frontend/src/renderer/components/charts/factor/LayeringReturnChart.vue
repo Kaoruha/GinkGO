@@ -13,6 +13,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { createChart, type IChartApi, type LineData } from 'lightweight-charts'
+import { useChartTheme, cssColor } from '@/composables/useChartTheme'
 
 interface LayerData {
   date: string
@@ -28,18 +29,23 @@ const props = withDefaults(defineProps<Props>(), {
   height: '400px'
 })
 
+const { theme } = useChartTheme()
 const chartRef = ref<HTMLDivElement>()
 let chart: IChartApi | null = null
 const seriesMap = new Map<string, any>()
 
-const colorPool = ['#d32f2f', '#f57c00', '#fbc02d', '#689f38', '#388e3c']
+// token 池:主题切换时各组颜色保持区分(ADR-045)。
+const tokenPool = ['--primary', '--success-fg', '--warning-fg', '--error-fg', '--muted-foreground']
+const colorAt = (i: number) => cssColor(tokenPool[i % tokenPool.length])
 
 const groups = computed(() => {
+  // 读 theme 建立响应依赖:主题切换时重算 legend/series 色(ADR-045)。
+  void theme.value
   if (props.layerData.length === 0) return []
   const keys = Object.keys(props.layerData[0].returns).filter(k => k !== 'long_short')
   return keys.map((key, i) => ({
     name: key,
-    color: colorPool[i % colorPool.length]
+    color: colorAt(i),
   }))
 })
 
@@ -50,12 +56,12 @@ const initChart = () => {
     width: chartRef.value.clientWidth,
     height: parseInt(props.height),
     layout: {
-      background: { color: '#ffffff' },
-      textColor: '#333',
+      background: { color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
     },
     grid: {
-      vertLines: { color: '#e1e1e1' },
-      horzLines: { color: '#e1e1e1' },
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
     },
   })
 
@@ -87,6 +93,25 @@ const updateSeriesData = () => {
     series.setData(data)
   })
 }
+
+// 主题切换重绘:canvas 不认 CSS var,须重读 token 调 applyOptions(ADR-045)。
+const applyChartTheme = () => {
+  if (!chart) return
+  chart.applyOptions({
+    layout: {
+      background: { color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
+    },
+    grid: {
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
+    },
+  })
+  groups.value.forEach((group, i) => {
+    seriesMap.get(group.name)?.applyOptions({ color: colorAt(i) })
+  })
+}
+watch(theme, applyChartTheme)
 
 onMounted(() => {
   initChart()

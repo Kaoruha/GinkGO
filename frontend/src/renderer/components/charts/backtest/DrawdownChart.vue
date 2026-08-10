@@ -2,9 +2,6 @@
   <AreaChart
     :data="chartData"
     :height="height"
-    :line-color="lineColor"
-    :top-color="topColor"
-    :bottom-color="bottomColor"
     title="回撤"
   />
 </template>
@@ -29,9 +26,4 @@ const chartData = computed<AreaData[]>(() => {
     value: d.value,
   }))
 })
-
-// 回撤图用红色系
-const lineColor = '#ef5350'
-const topColor = 'rgba(239, 83, 80, 0.4)'
-const bottomColor = 'rgba(239, 83, 80, 0.0)'
 </script>

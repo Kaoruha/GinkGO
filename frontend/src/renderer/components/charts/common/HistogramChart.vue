@@ -5,6 +5,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { createChart, type IChartApi, type HistogramData } from 'lightweight-charts'
+import { useChartTheme, cssColor } from '@/composables/useChartTheme'
 
 interface Props {
   data: HistogramData[]
@@ -18,13 +19,17 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   width: '100%',
   height: '200px',
-  color: '#26a69a',
+  color: '',
   title: 'Volume'
 })
 
+const { theme } = useChartTheme()
 const chartRef = ref<HTMLDivElement>()
 let chart: IChartApi | null = null
 let histogramSeries: any = null
+
+// 颜色解析:prop 优先,缺省回退 token(ADR-045 中性半透明)。
+const resolveColor = () => props.color || cssColor('--muted-foreground', 0.5)
 
 const initChart = () => {
   if (!chartRef.value) return
@@ -33,12 +38,12 @@ const initChart = () => {
     width: chartRef.value.clientWidth,
     height: parseInt(props.height),
     layout: {
-      background: { color: '#ffffff' },
-      textColor: '#333',
+      background: { color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
     },
     grid: {
-      vertLines: { color: '#e1e1e1' },
-      horzLines: { color: '#e1e1e1' },
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
     },
     timeScale: {
       timeVisible: true,
@@ -47,13 +52,30 @@ const initChart = () => {
   } as any)
 
   histogramSeries = chart.addHistogramSeries({
-    color: props.color,
+    color: resolveColor(),
     title: props.title,
     priceFormat: props.priceFormat as any,
   })
 
   histogramSeries.setData(props.data)
 }
+
+// 主题切换重绘:canvas 不认 CSS var,须重读 token 调 applyOptions(ADR-045)。
+const applyChartTheme = () => {
+  if (!chart) return
+  chart.applyOptions({
+    layout: {
+      background: { color: cssColor('--card') },
+      textColor: cssColor('--muted-foreground'),
+    },
+    grid: {
+      vertLines: { color: cssColor('--border') },
+      horzLines: { color: cssColor('--border') },
+    },
+  })
+  histogramSeries?.applyOptions({ color: resolveColor() })
+}
+watch(theme, applyChartTheme)
 
 const updateChart = () => {
   if (!histogramSeries) return

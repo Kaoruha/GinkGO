@@ -132,6 +132,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
+import { useChartTheme, cssColor } from '@/composables/useChartTheme'
 import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
 
@@ -159,7 +160,10 @@ const availableMetrics = ref<{ name: string; label: string }[]>([])
 const selectedMetrics = reactive(new Set<string>(['annualized_return', 'sharpe_ratio', 'max_drawdown', 'win_rate']))
 const metricsLoading = ref(false)
 
+// 分类色板:多指标折线需色相区分,固定调色板(D3 category10 / ECharts 默认同此做法),
+// 刻意不随主题变——主题只接管图表 chrome(背景/轴/网格/文字),系列色保持稳定便于辨识。
 const CHART_COLORS = ['#3b82f6', '#eab308', '#ef4444', '#22c55e', '#a855f7', '#f97316', '#06b6d4', '#ec4899']
+const { theme } = useChartTheme()
 
 const ANALYZER_LABELS: Record<string, string> = {
   net_value: '净值', ProfitAna: '每日盈亏', annualized_return: '年化收益',
@@ -292,7 +296,7 @@ const initOverviewChart = () => {
     name: metricLabel(m),
     nameTextStyle: { color: CHART_COLORS[i % CHART_COLORS.length], fontSize: 11 },
     axisLabel: { color: CHART_COLORS[i % CHART_COLORS.length] },
-    splitLine: i === 0 ? { lineStyle: { color: '#2a2a3e' } } : { show: false },
+    splitLine: i === 0 ? { lineStyle: { color: cssColor('--border') } } : { show: false },
     ...(i >= 2 ? { offset: 60 } : {}),
   }))
 
@@ -317,21 +321,21 @@ const initOverviewChart = () => {
   })
 
   overviewChart.setOption({
-    backgroundColor: '#1a1a2e',
+    backgroundColor: cssColor('--card'),
     tooltip: { trigger: 'axis' },
     legend: {
       data: metrics.map(m => metricLabel(m)),
-      textStyle: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
+      textStyle: { color: cssColor('--muted-foreground'), fontSize: 12 },
       top: 0,
     },
     grid: { top: 40, right: 120 + (yAxisDefs.length > 2 ? 60 : 0), bottom: 30, left: 60 },
     xAxis: {
       type: 'category',
       data: xData,
-      axisLabel: { color: 'rgba(255,255,255,0.6)' },
-      axisLine: { lineStyle: { color: '#2a2a3e' } },
+      axisLabel: { color: cssColor('--muted-foreground') },
+      axisLine: { lineStyle: { color: cssColor('--border') } },
     },
-    yAxis: yAxisDefs.length ? yAxisDefs : [{ type: 'value' as const, splitLine: { lineStyle: { color: '#2a2a3e' } } }],
+    yAxis: yAxisDefs.length ? yAxisDefs : [{ type: 'value' as const, splitLine: { lineStyle: { color: cssColor('--border') } } }],
     series,
   })
 }
@@ -364,7 +368,7 @@ const initDetailCharts = () => {
       name: metricLabel(m),
       nameTextStyle: { color: CHART_COLORS[i % CHART_COLORS.length], fontSize: 11 },
       axisLabel: { color: CHART_COLORS[i % CHART_COLORS.length] },
-      splitLine: i === 0 ? { lineStyle: { color: '#2a2a3e' } } : { show: false },
+      splitLine: i === 0 ? { lineStyle: { color: cssColor('--border') } } : { show: false },
     }))
 
     const series = metrics.map((m: string, i: number) => {
@@ -398,17 +402,17 @@ const initDetailCharts = () => {
       tooltip: { trigger: 'axis' },
       legend: {
         data: metrics.map((m: string) => metricLabel(m)),
-        textStyle: { color: 'rgba(255,255,255,0.6)', fontSize: 11 },
+        textStyle: { color: cssColor('--muted-foreground'), fontSize: 11 },
         top: 0,
       },
       grid: { top: 36, right: 60, bottom: 24, left: 50 },
       xAxis: {
         type: 'category',
         data: xData,
-        axisLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11 },
-        axisLine: { lineStyle: { color: '#2a2a3e' } },
+        axisLabel: { color: cssColor('--muted-foreground'), fontSize: 11 },
+        axisLine: { lineStyle: { color: cssColor('--border') } },
       },
-      yAxis: yAxisDefs.length ? yAxisDefs : [{ type: 'value' as const, splitLine: { lineStyle: { color: '#2a2a3e' } } }],
+      yAxis: yAxisDefs.length ? yAxisDefs : [{ type: 'value' as const, splitLine: { lineStyle: { color: cssColor('--border') } } }],
       series,
     })
   }
@@ -419,6 +423,14 @@ watch(() => config.taskId, () => {
 })
 
 watch(result, () => {
+  nextTick(() => {
+    initOverviewChart()
+    initDetailCharts()
+  })
+})
+
+// 主题切换:重建两套图表(dispose+reinit),chrome token 重读生效;分类系列色板保持稳定
+watch(theme, () => {
   nextTick(() => {
     initOverviewChart()
     initDetailCharts()
@@ -475,7 +487,7 @@ onUnmounted(() => {
   border: 1px solid hsl(var(--border));
   border-radius: 6px;
   background: hsl(var(--card));
-  color: rgba(255, 255, 255, 0.6);
+  color: hsl(var(--muted-foreground));
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -483,7 +495,7 @@ onUnmounted(() => {
 
 .segment-tag:hover {
   border-color: hsl(var(--secondary));
-  color: rgba(255, 255, 255, 0.9);
+  color: hsl(var(--foreground));
 }
 
 .segment-tag.active {
@@ -495,7 +507,7 @@ onUnmounted(() => {
 
 .segment-tag-add {
   border-style: dashed;
-  color: rgba(255, 255, 255, 0.35);
+  color: hsl(var(--muted-foreground) / 0.6);
 }
 
 .segment-tag-add:hover {
@@ -516,13 +528,13 @@ onUnmounted(() => {
 
 .metric-count {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: hsl(var(--muted-foreground) / 0.6);
   margin-left: 8px;
   font-weight: 400;
 }
 
 .metric-placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: hsl(var(--muted-foreground) / 0.6);
   font-size: 13px;
   padding: 6px 0;
 }
