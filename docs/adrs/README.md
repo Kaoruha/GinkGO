@@ -54,6 +54,10 @@
 | ADR-039 | [实盘走 ExecutionNode 分布式，移除 LiveEngine 迁移孤儿](ADR-039-liveengine-removal-distributed-live.md) | Accepted | 2026-07-29 |
 | ADR-040 | [BaseCRUD interface 诚实收口（授权 Base 类变更）](ADR-040-basecrud-interface-honest-cleanup.md) | Accepted | 2026-08-05 |
 | ADR-041 | [三链路 Portfolio 契约统一（回测/模拟/实盘同源成本模型）](ADR-041-portfolio-contract-unify-three-paths.md) | Accepted（D1；D2/D3 draft） | 2026-07-29 |
+| ADR-042 | [前端双形态架构（浏览器+Electron 共存）与 web-ui→frontend 重命名](ADR-042-dual-form-browser-electron-frontend-rename.md) | Accepted（待实现 PR1） | 2026-08-10 |
+| ADR-043 | [Electron 壳技术选型（electron-vite+app://+hash+未签名）](ADR-043-electron-shell-stack-electron-vite-app-protocol.md) | Accepted（待实现 PR3） | 2026-08-10 |
+| ADR-044 | [双形态认证架构（Electron auth proxy+safeStorage，浏览器退回 localStorage）](ADR-044-auth-proxy-safe-storage-transparent-injection.md) | Accepted（待实现 PR4） | 2026-08-10 |
+| ADR-045 | [视觉设计语言（Codex 中性灰·深色优先·Inter/JetBrains·紧凑·双主题登录页）](ADR-045-codex-visual-design-language-dark-first.md) | Accepted（待实现 PR5/PR6） | 2026-08-10 |
 
 ## 如何新增 / 修订
 
