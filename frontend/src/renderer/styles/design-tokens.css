@@ -1,86 +1,90 @@
 /**
  * shadcn-vue 设计令牌系统
- * 提供 CSS 变量用于组件样式，支持亮色和暗色主题
+ * Codex 中性灰视觉语言(ADR-045):去 Ant Design 蓝、深色优先、紧凑密度。
+ * 涨绿跌红语义色保留,仅用于数字/图表(克制使用)。
  */
 
 @layer base {
   :root {
-    /* 基础颜色 */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* 基础颜色(浅色:中性灰,非蓝) */
+    --background: 0 0% 98%;            /* 浅灰白 */
+    --foreground: 0 0% 10%;            /* 近黑 */
 
     /* 卡片 */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 10%;
 
-    /* 弹出层 */
+    /* 弹出层(语义对齐 card) */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 10%;
 
-    /* 主色调 (蓝色) */
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
+    /* 主色调(中性灰,去 Ant Design 蓝 221.2 83.2% 53.3%) */
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
 
-    /* 次要色调 */
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* 次要色调(语义对齐 card-foreground) */
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 10%;
 
     /* 静音/禁用 */
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 40%;
 
-    /* 强调色 */
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* 强调色(语义对齐 card-foreground) */
+    --accent: 0 0% 92%;
+    --accent-foreground: 0 0% 10%;
 
-    /* 危险/破坏性操作 */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* 危险/破坏性操作(语义对齐 primary-foreground) */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
 
     /* 边框和输入框 */
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 0 0% 9%;
 
-    /* 圆角 */
-    --radius: 0.5rem;
+    /* 圆角(ADR-045 §4 紧凑密度:6px) */
+    --radius: 0.375rem;
 
-    /* 状态颜色 */
-    --success: 142.1 76.2% 36.3%;
+    /* 状态颜色:涨绿跌红语义色保留(ADR-045),仅数字/图表使用 */
+    --success: 142 71% 45%;            /* 涨绿 */
     --warning: 38 92% 50%;
-    --error: 0 84.2% 60.2%;
-    --info: 221.2 83.2% 53.3%;
+    --error: 0 72% 51%;                /* 跌红 */
+    --info: 0 0% 40%;                  /* 去蓝,改中性 */
   }
 
   .dark {
-    /* 暗色主题 */
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* 暗色主题(Codex 近黑 #0d0d0d 类) */
+    --background: 0 0% 5%;
+    --foreground: 0 0% 93%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 93%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    /* 弹出层(语义对齐 card) */
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 93%;
 
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 0 0% 93%;
+    --primary-foreground: 0 0% 9%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 93%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 93%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 93%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 0 0% 70%;
+
+    /* 状态颜色同浅色(radiant/success/warning/error/info 由 :root 继承) */
   }
 }
 
