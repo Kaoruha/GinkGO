@@ -220,18 +220,6 @@ class ComponentLoader:
                     self._logger.DEBUG(f"Temp file created: {temp_file_path}")
 
                     try:
-                        # 为兼容性添加get_bars函数到模块的全局命名空间
-                        import sys
-                        from ginkgo.data.containers import container as data_container
-
-                        def get_bars_stub(*args, **kwargs):
-                            bar_service = data_container.bar_service()
-                            return bar_service.get(*args, **kwargs)
-
-                        sys.modules["ginkgo.data"] = type(sys)("ginkgo.data")
-                        sys.modules["ginkgo.data"].get_bars = get_bars_stub
-                        sys.modules["ginkgo.data"].container = data_container
-
                         # 动态导入模块
                         self._logger.DEBUG(f"Importing module from {temp_file_path}")
                         spec = importlib.util.spec_from_file_location("dynamic_component", temp_file_path)
