@@ -6,6 +6,7 @@
 
 import { message } from '@/utils/toast'
 import type { AxiosError } from 'axios'
+import { isElectron } from '@/utils/isElectron'
 
 /**
  * 错误码枚举
@@ -125,7 +126,11 @@ export function handleApiError(
 
     // 特殊处理：未授权跳转登录页
     if (code === ErrorCode.UNAUTHORIZED) {
-      localStorage.removeItem('access_token')
+      // Electron 形态:由主进程 onHeadersReceived 处理(清 safeStorage + 推 auth:unauthorized)
+      // 浏览器形态:渲染层清 localStorage
+      if (!isElectron) {
+        localStorage.removeItem('access_token')
+      }
       setTimeout(() => {
         window.location.href = '/login'
       }, 1000)
@@ -151,7 +156,10 @@ export function handleApiError(
         switch (status) {
           case 401:
             message.error('未授权，请先登录')
-            localStorage.removeItem('access_token')
+            // Electron 形态:由主进程 onHeadersReceived 处理;浏览器形态:渲染层清 localStorage
+            if (!isElectron) {
+              localStorage.removeItem('access_token')
+            }
             setTimeout(() => {
               window.location.href = '/login'
             }, 1000)

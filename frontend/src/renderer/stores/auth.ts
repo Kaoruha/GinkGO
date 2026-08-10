@@ -2,15 +2,36 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi, saveAuth, clearAuth, getStoredUser } from '@/api'
 import type { UserInfo, LoginRequest } from '@/api'
+import { isElectron } from '@/utils/isElectron'
+import { auth } from '@/composables/useAuth'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserInfo | null>(getStoredUser())
-  const token = ref<string | null>(localStorage.getItem('access_token'))
+  // Electron 形态:localStorage 无 token,启动时 init() 从 safeStorage 拉至内存 ref
+  // 浏览器形态:直接从 localStorage 初始化
+  const token = ref<string | null>(isElectron ? null : localStorage.getItem('access_token'))
   const loading = ref(false)
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const isAdmin = computed(() => user.value?.is_admin ?? false)
   const displayName = computed(() => user.value?.display_name || user.value?.username || '用户')
+
+  // Electron 形态:启动时一次性从 safeStorage 拉取 token 至内存 ref
+  // 浏览器形态:no-op(token ref 已从 localStorage 初始化)
+  // 必须在 app.mount 前完成,否则首次路由守卫看到 token=null 误判未登录
+  async function init() {
+    if (isElectron) {
+      token.value = await auth.getToken()
+      // 401 时主进程 push auth:unauthorized → 清 Pinia 状态(UI 一致性)
+      // 导航已由 request.ts 401 拦截器 window.location.hash = '#/login' 处理(双形态都跑),此处不重复
+      // disposer 不调可接受:init 是 app 生命周期单例,从不卸载
+      window.auth!.onUnauthorized(() => {
+        token.value = null
+        user.value = null
+        localStorage.removeItem('user_info')
+      })
+    }
+  }
 
   // 登录
   async function login(credentials: LoginRequest) {
@@ -20,7 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = (response as any).data !== undefined ? (response as any).data : response
       token.value = payload.token
       user.value = payload.user
-      saveAuth(payload)
+      await saveAuth(payload)
       return payload
     } catch (error) {
       console.error('Login failed:', error)
@@ -40,7 +61,7 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       token.value = null
       user.value = null
-      clearAuth()
+      await clearAuth()
       loading.value = false
     }
   }
@@ -55,14 +76,14 @@ export const useAuthStore = defineStore('auth', () => {
       if (!payload.valid) {
         token.value = null
         user.value = null
-        clearAuth()
+        await clearAuth()
         return false
       }
       return true
     } catch (error) {
       token.value = null
       user.value = null
-      clearAuth()
+      await clearAuth()
       return false
     }
   }
@@ -73,6 +94,7 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await authApi.getCurrentUser()
       const payload = (result as any).data !== undefined ? (result as any).data : result
       user.value = payload
+      // user_info 非敏感,双形态均写 localStorage
       localStorage.setItem('user_info', JSON.stringify(payload))
       return payload
     } catch (error) {
@@ -88,6 +110,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     isAdmin,
     displayName,
+    init,
     login,
     logout,
     verifyToken,

@@ -1,4 +1,5 @@
 import request from '../request'
+import { auth } from '@/composables/useAuth'
 
 export interface LoginRequest {
   username: string
@@ -62,12 +63,13 @@ export const authApi = {
   },
 }
 
-// 辅助函数 - 检查是否已登录
-export const isAuthenticated = (): boolean => {
-  return !!localStorage.getItem('access_token')
+// 辅助函数 - 检查是否已登录(异步化:Electron 形态需走 IPC 查 safeStorage)
+// 调用方(路由守卫)须 await
+export const isAuthenticated = (): Promise<boolean> => {
+  return auth.isAuthenticated()
 }
 
-// 辅助函数 - 获取存储的用户信息
+// 辅助函数 - 获取存储的用户信息(非敏感,双形态均 localStorage)
 export const getStoredUser = (): UserInfo | null => {
   const userStr = localStorage.getItem('user_info')
   if (userStr) {
@@ -80,14 +82,16 @@ export const getStoredUser = (): UserInfo | null => {
   return null
 }
 
-// 辅助函数 - 保存认证信息
-export const saveAuth = (response: LoginResponse) => {
-  localStorage.setItem('access_token', response.token)
+// 辅助函数 - 保存认证信息(写瓶颈)
+// token 经 useAuth 收口(Electron→safeStorage / 浏览器→localStorage)
+// user_info 非敏感,双形态均 localStorage
+export const saveAuth = async (response: LoginResponse): Promise<void> => {
+  await auth.login(response.token)
   localStorage.setItem('user_info', JSON.stringify(response.user))
 }
 
-// 辅助函数 - 清除认证信息
-export const clearAuth = () => {
-  localStorage.removeItem('access_token')
+// 辅助函数 - 清除认证信息(写瓶颈)
+export const clearAuth = async (): Promise<void> => {
+  await auth.logout()
   localStorage.removeItem('user_info')
 }

@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance, type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { message as toast } from '@/utils/toast'
+import { isElectron } from '@/utils/isElectron'
 
 // 双形态:Electron 形态优先 window.appConfig.apiBase,浏览器形态回退 VITE_API_BASE_URL
 const baseURL = window.appConfig?.apiBase || import.meta.env.VITE_API_BASE_URL || ''
@@ -10,9 +11,12 @@ const service: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
-// 请求拦截器 - 自动注入 JWT Token
+// 请求拦截器 - 浏览器形态注入 JWT
+// Electron 形态:由主进程 onBeforeSendHeaders 透明注入(见 src/main/auth.ts),
+// 渲染层不持 token,跳过拦截器避免双重注入
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    if (isElectron) return config
     const token = localStorage.getItem('access_token')
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`
@@ -49,8 +53,12 @@ service.interceptors.response.use(
         const errorMsg = responseData?.message || '用户名或密码错误'
         return Promise.reject(new Error(errorMsg))
       }
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('user_info')
+      // Electron 形态:由主进程 onHeadersReceived 处理(清 safeStorage + 推 auth:unauthorized)
+      // 浏览器形态:渲染层清 localStorage
+      if (!isElectron) {
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('user_info')
+      }
       // hash 路由下用 hash 跳转,避免 href 丢 hash
       window.location.hash = '#/login'
       return Promise.reject(error)

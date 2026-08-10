@@ -187,12 +187,14 @@ const router = createRouter({
 })
 
 // 路由守卫 - 认证检查
-router.beforeEach((to, _from, next) => {
+// isAuthenticated 已异步化(Electron 形态走 IPC),守卫须 await
+router.beforeEach(async (to, _from, next) => {
   document.title = `${to.meta?.title || 'Ginkgo'} - 量化交易平台`
   const requiresAuth = to.meta?.requiresAuth !== false
-  if (requiresAuth && !isAuthenticated()) {
+  const authed = await isAuthenticated()
+  if (requiresAuth && !authed) {
     next({ path: '/login', query: { redirect: to.fullPath } })
-  } else if (to.path === '/login' && isAuthenticated()) {
+  } else if (to.path === '/login' && authed) {
     next({ path: '/' })
   } else {
     next()
