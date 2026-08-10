@@ -16,6 +16,15 @@ let retryCount = 0
 const MAX_RETRIES = 3
 
 function getWebSocketUrl(): string {
+  const cfg = window.appConfig
+  if (cfg?.wsBase) {
+    // Electron 形态:用配置的 wsBase
+    const token = localStorage.getItem('access_token')  // Task 8 改 auth.getToken()
+    let url = `${cfg.wsBase}/ws/portfolio`
+    if (token) url += `?token=${encodeURIComponent(token)}`
+    return url
+  }
+  // 浏览器形态:原逻辑
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const token = localStorage.getItem('access_token')
   let url = `${protocol}//${window.location.host}/ws/portfolio`

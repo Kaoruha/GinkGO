@@ -1,7 +1,8 @@
 import axios, { type AxiosInstance, type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { message as toast } from '@/utils/toast'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || ''
+// 双形态:Electron 形态优先 window.appConfig.apiBase,浏览器形态回退 VITE_API_BASE_URL
+const baseURL = window.appConfig?.apiBase || import.meta.env.VITE_API_BASE_URL || ''
 
 const service: AxiosInstance = axios.create({
   baseURL,
@@ -50,7 +51,8 @@ service.interceptors.response.use(
       }
       localStorage.removeItem('access_token')
       localStorage.removeItem('user_info')
-      window.location.href = '/login'
+      // hash 路由下用 hash 跳转,避免 href 丢 hash
+      window.location.hash = '#/login'
       return Promise.reject(error)
     }
 

@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
 import { isAuthenticated } from '@/api'
 
 const routes: RouteRecordRaw[] = [
@@ -181,7 +181,8 @@ const routes: RouteRecordRaw[] = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  // hash 模式:Electron 下 file://app:// 直接刷新不 404;浏览器形态兼容
+  history: createWebHashHistory(),
   routes,
 })
 
