@@ -11,12 +11,12 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['src/composables/**', 'src/utils/**'],
+      include: ['src/renderer/composables/**', 'src/renderer/utils/**'],
     },
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': resolve(__dirname, 'src/renderer'),
     },
   },
 })

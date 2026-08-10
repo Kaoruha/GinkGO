@@ -6,6 +6,7 @@ yarn-error.log*
 pnpm-debug.log*
 dist/
 build/
+out/
 
 # Vue
 .nuxt/

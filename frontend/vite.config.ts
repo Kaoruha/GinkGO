@@ -2,11 +2,16 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
+// 浏览器形态配置(Electron 形态见 electron.vite.config.ts)
+// root 指向 src/renderer,与 electron-vite 三段式共享同一份 Vue 源码
 export default defineConfig({
+  root: 'src/renderer',
+  base: './',
+  publicDir: resolve(__dirname, 'public'),
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': resolve(__dirname, 'src/renderer'),
     },
   },
   server: {
