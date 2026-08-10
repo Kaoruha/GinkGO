@@ -126,7 +126,7 @@ onMounted(() => {
 <style scoped>
 .page-container {
   padding: 24px;
-  background: #0f0f1a;
+  background: hsl(var(--background));
   min-height: calc(100vh - 64px);
 }
 
@@ -137,13 +137,13 @@ onMounted(() => {
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0 0 8px 0;
 }
 
 .page-description {
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin: 0;
 }
 
@@ -159,11 +159,11 @@ onMounted(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .empty-state {
@@ -172,7 +172,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state svg {

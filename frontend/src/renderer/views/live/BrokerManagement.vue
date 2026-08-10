@@ -41,43 +41,43 @@ const stateConfig: Record<string, {
     label: '未初始化',
     variant: 'secondary',
     icon: Settings,
-    color: '#6b7280',
-    bgColor: 'rgba(107, 114, 128, 0.1)'
+    color: 'hsl(var(--muted-foreground))',
+    bgColor: 'hsl(var(--muted-foreground) / 0.1)'
   },
   initializing: {
     label: '初始化中',
     variant: 'outline',
     icon: Activity,
-    color: '#f59e0b',
-    bgColor: 'rgba(245, 158, 11, 0.1)'
+    color: 'hsl(var(--warning))',
+    bgColor: 'hsl(var(--warning) / 0.1)'
   },
   running: {
     label: '运行中',
     variant: 'success',
     icon: Activity,
-    color: '#10b981',
-    bgColor: 'rgba(16, 185, 129, 0.1)'
+    color: 'hsl(var(--success))',
+    bgColor: 'hsl(var(--success) / 0.1)'
   },
   paused: {
     label: '已暂停',
     variant: 'secondary',
     icon: Pause,
-    color: '#f59e0b',
-    bgColor: 'rgba(245, 158, 11, 0.1)'
+    color: 'hsl(var(--warning))',
+    bgColor: 'hsl(var(--warning) / 0.1)'
   },
   stopped: {
     label: '已停止',
     variant: 'secondary',
     icon: Square,
-    color: '#6b7280',
-    bgColor: 'rgba(107, 114, 128, 0.1)'
+    color: 'hsl(var(--muted-foreground))',
+    bgColor: 'hsl(var(--muted-foreground) / 0.1)'
   },
   error: {
     label: '错误',
     variant: 'destructive',
     icon: AlertTriangle,
-    color: '#ef4444',
-    bgColor: 'rgba(239, 68, 68, 0.1)'
+    color: 'hsl(var(--error))',
+    bgColor: 'hsl(var(--error) / 0.1)'
   }
 }
 
@@ -359,7 +359,7 @@ onMounted(() => {
 }
 
 .broker-card {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16162a 100%);
+  background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
@@ -383,12 +383,12 @@ onMounted(() => {
 .title {
   font-size: 24px;
   font-weight: 700;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin-bottom: 4px;
 }
 
 .description {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
 }
 
@@ -398,17 +398,17 @@ onMounted(() => {
 }
 
 .emergency-btn {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: linear-gradient(135deg, hsl(var(--error)) 0%, hsl(var(--error)) 100%);
   border: none;
 }
 
 .emergency-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  background: linear-gradient(135deg, hsl(var(--error)) 0%, hsl(var(--error)) 100%);
 }
 
 .refresh-btn {
   border-color: rgba(255, 255, 255, 0.2);
-  color: #a1a1aa;
+  color: hsl(var(--muted-foreground));
 }
 
 .refresh-btn:hover:not(:disabled) {
@@ -497,7 +497,7 @@ onMounted(() => {
 .broker-name {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0;
 }
 
@@ -518,7 +518,7 @@ onMounted(() => {
 
 .account-name {
   font-size: 14px;
-  color: #d1d5db;
+  color: hsl(var(--border));
   font-weight: 500;
 }
 
@@ -533,19 +533,19 @@ onMounted(() => {
 
 .exchange-badge {
   background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  color: hsl(var(--primary));
   border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .env-badge {
   background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  color: hsl(var(--success));
   border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .env-badge:deep(.destructive) {
   background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  color: hsl(var(--error));
   border-color: rgba(239, 68, 68, 0.2);
 }
 
@@ -553,7 +553,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
 }
 
@@ -567,17 +567,17 @@ onMounted(() => {
 }
 
 .start-btn {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(var(--success)) 100%);
   border: none;
 }
 
 .start-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  background: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(var(--success)) 100%);
 }
 
 .pause-btn {
   border-color: rgba(245, 158, 11, 0.3);
-  color: #f59e0b;
+  color: hsl(var(--warning));
 }
 
 .pause-btn:hover:not(:disabled) {
@@ -585,21 +585,21 @@ onMounted(() => {
 }
 
 .resume-btn {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
   border: none;
 }
 
 .resume-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
 }
 
 .stop-btn {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: linear-gradient(135deg, hsl(var(--error)) 0%, hsl(var(--error)) 100%);
   border: none;
 }
 
 .stop-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  background: linear-gradient(135deg, hsl(var(--error)) 0%, hsl(var(--error)) 100%);
 }
 
 .error-message {
@@ -608,7 +608,7 @@ onMounted(() => {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
-  color: #fca5a5;
+  color: hsl(var(--error));
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -626,7 +626,7 @@ onMounted(() => {
 
 .time-label {
   font-size: 12px;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 响应式 */
@@ -668,37 +668,37 @@ onMounted(() => {
 
 @media (prefers-color-scheme: light) {
   .broker-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
     border-color: rgba(0, 0, 0, 0.1);
   }
 
   .title {
-    color: #1a1a2e;
+    color: hsl(var(--card));
   }
 
   .description {
-    color: #64748b;
+    color: hsl(var(--muted-foreground));
   }
 
   .broker-item {
-    background: #ffffff;
+    background: hsl(var(--card));
     border-color: rgba(0, 0, 0, 0.08);
   }
 
   .broker-item:hover {
-    background: #f8fafc;
+    background: hsl(var(--muted));
   }
 
   .broker-name {
-    color: #1a1a2e;
+    color: hsl(var(--card));
   }
 
   .account-name {
-    color: #4b5563;
+    color: hsl(var(--muted-foreground));
   }
 
   .time-label {
-    color: #9ca3af;
+    color: hsl(var(--muted-foreground));
   }
 }
 </style>

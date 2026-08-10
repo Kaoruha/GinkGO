@@ -161,7 +161,7 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -169,22 +169,22 @@ onMounted(() => {
 
 .page-description {
   margin: 0;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .stat-danger {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .empty-state {
   text-align: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state p {

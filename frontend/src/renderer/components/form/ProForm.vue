@@ -109,16 +109,16 @@ defineExpose({
   justify-content: flex-end;
   gap: 12px;
   padding-top: 16px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
   margin-top: 16px;
 }
 
 .btn-primary {
   padding: 8px 16px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -126,7 +126,7 @@ defineExpose({
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .btn-primary:disabled {
@@ -137,16 +137,16 @@ defineExpose({
 .btn-secondary {
   padding: 8px 16px;
   background: transparent;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 </style>

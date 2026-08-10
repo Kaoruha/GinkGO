@@ -51,8 +51,8 @@ const isActive = (itemRoute: string) => {
 }
 .admin-sidebar {
   width: 180px;
-  background: #1a1a2e;
-  border-right: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border-right: 1px solid hsl(var(--border));
   padding: 16px 0;
   overflow-y: auto;
 }
@@ -79,9 +79,9 @@ const isActive = (itemRoute: string) => {
   background: rgba(255,255,255,0.05);
 }
 .admin-nav-item.active {
-  color: #3b82f6;
+  color: hsl(var(--primary));
   background: rgba(59,130,246,0.1);
-  border-right: 2px solid #3b82f6;
+  border-right: 2px solid hsl(var(--primary));
 }
 .admin-content {
   flex: 1;

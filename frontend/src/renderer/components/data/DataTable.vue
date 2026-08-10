@@ -201,7 +201,7 @@ function formatCellValue(val: any): string {
 .table-wrapper {
   overflow-x: auto;
   border-radius: 8px 8px 0 0;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
   border-bottom: none;
 }
 
@@ -210,7 +210,7 @@ function formatCellValue(val: any): string {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13px;
-  background: #1a1a2e;
+  background: hsl(var(--card));
 }
 
 .pro-table th {
@@ -220,16 +220,16 @@ function formatCellValue(val: any): string {
   padding: 12px;
   text-align: left;
   font-weight: 600;
-  color: #ffffff;
-  background: #2a2a3e;
-  border-bottom: 1px solid #3a3a4e;
+  color: hsl(var(--foreground));
+  background: hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--secondary));
   white-space: nowrap;
 }
 
 .pro-table td {
   padding: 12px;
-  color: #ffffff;
-  border-bottom: 1px solid #2a2a3e;
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .pro-table tbody tr {
@@ -237,7 +237,7 @@ function formatCellValue(val: any): string {
 }
 
 .pro-table tbody tr:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .pro-table tbody tr.clickable {
@@ -254,8 +254,8 @@ function formatCellValue(val: any): string {
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
+  border: 3px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -270,14 +270,14 @@ function formatCellValue(val: any): string {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 0 0 8px 8px;
 }
 
 .pagination-info {
   font-size: 13px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .pagination-controls {
@@ -288,18 +288,18 @@ function formatCellValue(val: any): string {
 
 .pagination-btn {
   padding: 4px 10px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background: #3a3a4e;
-  border-color: #1890ff;
+  background: hsl(var(--secondary));
+  border-color: hsl(var(--primary));
 }
 
 .pagination-btn:disabled {
@@ -310,31 +310,31 @@ function formatCellValue(val: any): string {
 .pagination-input {
   width: 50px;
   padding: 4px 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   text-align: center;
 }
 
 .pagination-input:focus {
   outline: none;
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .pagination-select {
   padding: 4px 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
 }
 
 .pagination-select:focus {
   outline: none;
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 </style>

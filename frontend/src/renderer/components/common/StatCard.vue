@@ -57,28 +57,28 @@ const computedSuffix = computed(() => {
 const valueStyle = computed(() => {
   if (props.color !== 'auto') {
     const colors: Record<string, string> = {
-      positive: '#cf1322',
-      negative: '#3f8600',
-      neutral: '#ffffff',
+      positive: 'hsl(var(--success))',
+      negative: 'hsl(var(--error))',
+      neutral: 'hsl(var(--foreground))',
     }
     return { color: colors[props.color] }
   }
 
-  // auto: 根据值判断颜色
+  // auto: 根据值判断颜色(ADR-045 §2 西式涨绿跌红)
   const n = typeof props.value === 'string' ? parseFloat(props.value) : props.value
   if (n === null || n === undefined || isNaN(n)) return {}
 
-  if (n > 0) return { color: '#cf1322' }
-  if (n < 0) return { color: '#3f8600' }
-  return { color: '#ffffff' }
+  if (n > 0) return { color: 'hsl(var(--success))' }
+  if (n < 0) return { color: 'hsl(var(--error))' }
+  return { color: 'hsl(var(--foreground))' }
 })
 </script>
 
 <style scoped>
 .stat-card {
-  background: #1a1a2e;
+  background: hsl(var(--card));
   border-radius: 8px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
   padding: 20px;
   height: 100%;
 }
@@ -94,7 +94,7 @@ const valueStyle = computed(() => {
 
 .stat-title {
   font-size: 13px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 12px;
 }
 
@@ -116,6 +116,6 @@ const valueStyle = computed(() => {
 
 .stat-suffix {
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 </style>

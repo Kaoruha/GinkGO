@@ -220,34 +220,34 @@ onUnmounted(() => {
 
 <style scoped>
 .task-link {
-  color: #1890ff;
+  color: hsl(var(--primary));
   font-weight: 500;
   text-decoration: none;
 }
 .task-link:hover { text-decoration: underline; }
 
 .portfolio-link {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   text-decoration: none;
   font-size: 12px;
 }
-.portfolio-link:hover { color: #1890ff; }
+.portfolio-link:hover { color: hsl(var(--primary)); }
 
-.val-green { color: #52c41a; font-weight: 500; }
-.val-red { color: #f5222d; font-weight: 500; }
-.val-muted { color: #8a8a9a; }
-.val-divider { color: #3a3a4e; margin: 0 2px; }
+.val-green { color: hsl(var(--success)); font-weight: 500; }
+.val-red { color: hsl(var(--error)); font-weight: 500; }
+.val-muted { color: hsl(var(--muted-foreground)); }
+.val-divider { color: hsl(var(--secondary)); margin: 0 2px; }
 
 .filter-select {
   padding: 6px 12px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: #1890ff; }
+.filter-select:focus { outline: none; border-color: hsl(var(--primary)); }
 
 .load-more-trigger {
   display: flex;
@@ -258,8 +258,8 @@ onUnmounted(() => {
 .spinner-small {
   width: 20px;
   height: 20px;
-  border: 2px solid #2a2a3e;
-  border-top-color: #1890ff;
+  border: 2px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -267,7 +267,7 @@ onUnmounted(() => {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .no-more {
-  color: #5a5a6e;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
 }
 

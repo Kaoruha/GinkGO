@@ -489,8 +489,8 @@ onMounted(() => {
 }
 
 .modal-content, .modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -512,7 +512,7 @@ onMounted(() => {
 .page-title {
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -522,7 +522,7 @@ onMounted(() => {
 .tabs-header {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .tab-button {
@@ -530,7 +530,7 @@ onMounted(() => {
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -538,12 +538,12 @@ onMounted(() => {
 }
 
 .tab-button:hover {
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .tab-button.active {
-  color: #1890ff;
-  border-bottom-color: #1890ff;
+  color: hsl(var(--primary));
+  border-bottom-color: hsl(var(--primary));
 }
 
 .tab-content {
@@ -575,23 +575,23 @@ onMounted(() => {
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 13px;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
 }
 
 .data-table tr:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .action-links {
@@ -600,7 +600,7 @@ onMounted(() => {
 }
 
 .link {
-  color: #1890ff;
+  color: hsl(var(--primary));
   cursor: pointer;
   text-decoration: none;
 }
@@ -610,7 +610,7 @@ onMounted(() => {
 }
 
 .text-red {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 /* Switch组件 */
@@ -628,7 +628,7 @@ onMounted(() => {
   position: relative;
   width: 44px;
   height: 22px;
-  background: #3a3a4e;
+  background: hsl(var(--secondary));
   border-radius: 11px;
   cursor: pointer;
   transition: background 0.2s;
@@ -641,13 +641,13 @@ onMounted(() => {
   left: 2px;
   width: 18px;
   height: 18px;
-  background: #ffffff;
+  background: hsl(var(--card));
   border-radius: 50%;
   transition: transform 0.2s;
 }
 
 .switch-input:checked + .switch-label {
-  background: #1890ff;
+  background: hsl(var(--primary));
 }
 
 .switch-input:checked + .switch-label::after {
@@ -659,7 +659,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
 }
 
@@ -670,12 +670,12 @@ onMounted(() => {
 }
 
 .required {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .empty-state {
   text-align: center;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   padding: 32px !important;
 }
 </style>

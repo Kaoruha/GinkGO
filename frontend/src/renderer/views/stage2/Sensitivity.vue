@@ -75,7 +75,7 @@
               <tr v-for="(record, i) in result.data_points" :key="`point-${i}`">
                 <td>{{ record.param_value }}</td>
                 <td>
-                  <span :style="{ color: record.return >= 0 ? '#cf1322' : '#3f8600' }">
+                  <span :style="{ color: record.return >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
                     {{ (record.return * 100).toFixed(2) }}%
                   </span>
                 </td>
@@ -155,7 +155,7 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -163,12 +163,12 @@ onMounted(() => {
 
 .page-description {
   margin: 0;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .stats-grid-three {
@@ -191,25 +191,25 @@ onMounted(() => {
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 13px;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
 }
 
 .empty-state {
   text-align: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state p {

@@ -313,7 +313,7 @@ function formatValue(val: any): string {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #fff;
+  color: hsl(var(--foreground));
 }
 
 .header-right {
@@ -335,37 +335,37 @@ function formatValue(val: any): string {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   padding: 6px 12px;
   width: 220px;
 }
 
-.search-box svg { color: #8a8a9a; flex-shrink: 0; }
+.search-box svg { color: hsl(var(--muted-foreground)); flex-shrink: 0; }
 
 .search-input {
   flex: 1;
   background: transparent;
   border: none;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   outline: none;
 }
 
-.search-input::placeholder { color: #8a8a9a; }
+.search-input::placeholder { color: hsl(var(--muted-foreground)); }
 
 .clear-btn {
   padding: 2px;
   background: transparent;
   border: none;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   cursor: pointer;
   display: flex;
   align-items: center;
 }
 
-.clear-btn:hover { color: #fff; }
+.clear-btn:hover { color: hsl(var(--foreground)); }
 
 /* Buttons */
 .btn-primary {
@@ -373,16 +373,16 @@ function formatValue(val: any): string {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
-.btn-primary:hover { background: #40a9ff; }
+.btn-primary:hover { background: hsl(var(--primary)); }
 
 /* Content */
 .list-content {
@@ -400,8 +400,8 @@ function formatValue(val: any): string {
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
+  border: 3px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -413,7 +413,7 @@ function formatValue(val: any): string {
   flex-direction: column;
   align-items: center;
   padding: 60px 20px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state svg { opacity: 0.3; margin-bottom: 16px; }
@@ -421,8 +421,8 @@ function formatValue(val: any): string {
 
 /* Table */
 .table-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   overflow: hidden;
 }
@@ -433,14 +433,14 @@ function formatValue(val: any): string {
   font-size: 13px;
 }
 
-.pro-table thead { background: #2a2a3e; }
+.pro-table thead { background: hsl(var(--border)); }
 
 .pro-table th {
   padding: 12px;
   text-align: left;
   font-weight: 600;
-  color: #fff;
-  border-bottom: 1px solid #3a3a4e;
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--secondary));
   white-space: nowrap;
 }
 
@@ -450,7 +450,7 @@ function formatValue(val: any): string {
 }
 
 .pro-table th.sortable:hover {
-  color: #1890ff;
+  color: hsl(var(--primary));
 }
 
 .sort-icon {
@@ -461,12 +461,12 @@ function formatValue(val: any): string {
 
 .pro-table td {
   padding: 12px;
-  color: #fff;
-  border-bottom: 1px solid #2a2a3e;
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .pro-table tbody tr { transition: background 0.2s; }
-.pro-table tbody tr:hover { background: #22223a; }
+.pro-table tbody tr:hover { background: hsl(var(--secondary)); }
 .pro-table tbody tr.clickable { cursor: pointer; }
 
 /* Pagination */
@@ -475,10 +475,10 @@ function formatValue(val: any): string {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
 }
 
-.pagination-info { font-size: 13px; color: #8a8a9a; }
+.pagination-info { font-size: 13px; color: hsl(var(--muted-foreground)); }
 
 .pagination-controls {
   display: flex;
@@ -490,10 +490,10 @@ function formatValue(val: any): string {
   min-width: 28px;
   height: 28px;
   padding: 0 6px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -502,22 +502,22 @@ function formatValue(val: any): string {
   justify-content: center;
 }
 
-.pg-btn:hover:not(:disabled):not(.active) { background: #3a3a4e; border-color: #1890ff; }
+.pg-btn:hover:not(:disabled):not(.active) { background: hsl(var(--secondary)); border-color: hsl(var(--primary)); }
 .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.pg-btn.active { background: #1890ff; border-color: #1890ff; }
+.pg-btn.active { background: hsl(var(--primary)); border-color: hsl(var(--primary)); }
 
-.pg-ellipsis { padding: 0 4px; color: #8a8a9a; font-size: 12px; }
+.pg-ellipsis { padding: 0 4px; color: hsl(var(--muted-foreground)); font-size: 12px; }
 
 .pg-size {
   margin-left: 8px;
   padding: 4px 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
 }
 
-.pg-size:focus { outline: none; border-color: #1890ff; }
+.pg-size:focus { outline: none; border-color: hsl(var(--primary)); }
 </style>

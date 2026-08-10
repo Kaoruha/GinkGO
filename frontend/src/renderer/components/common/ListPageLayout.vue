@@ -160,13 +160,13 @@ const searchModel = computed({
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0 0 4px 0;
 }
 
 .page-description {
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin: 0;
 }
 
@@ -175,15 +175,15 @@ const searchModel = computed({
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   padding: 6px 12px;
   width: 200px;
 }
 
 .search-input-wrapper svg {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   flex-shrink: 0;
 }
 
@@ -191,21 +191,21 @@ const searchModel = computed({
   flex: 1;
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   padding: 0;
   outline: none;
 }
 
 .search-input::placeholder {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .clear-btn {
   padding: 2px;
   background: transparent;
   border: none;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -214,8 +214,8 @@ const searchModel = computed({
 }
 
 .clear-btn:hover {
-  color: #ffffff;
-  background: #2a2a3e;
+  color: hsl(var(--foreground));
+  background: hsl(var(--border));
 }
 
 /* Button */
@@ -230,7 +230,7 @@ const searchModel = computed({
   justify-content: center;
   padding: 60px 20px;
   text-align: center;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state svg {

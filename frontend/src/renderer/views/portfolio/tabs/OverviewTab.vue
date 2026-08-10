@@ -12,8 +12,8 @@
 
 <style scoped>
 .stats-row { display: flex; gap: 16px; margin-bottom: 24px; }
-.stat-card { flex: 1; background: #1a1a2e; border-radius: 8px; padding: 16px; }
+.stat-card { flex: 1; background: hsl(var(--card)); border-radius: 8px; padding: 16px; }
 .stat-label { font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 4px; }
-.stat-value { font-size: 20px; font-weight: 700; color: #fff; }
+.stat-value { font-size: 20px; font-weight: 700; color: hsl(var(--foreground)); }
 .empty-hint { color: rgba(255,255,255,0.4); font-size: 13px; padding: 32px 0; text-align: center; }
 </style>

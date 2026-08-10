@@ -263,11 +263,11 @@ onMounted(() => {
   gap: 12px;
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 /* 统计卡片 */
@@ -281,10 +281,10 @@ onMounted(() => {
   height: 3px;
 }
 
-.stat-card.stat-blue::before { background: #1890ff; }
-.stat-card.stat-green::before { background: #52c41a; }
-.stat-card.stat-orange::before { background: #fa8c16; }
-.stat-card.stat-purple::before { background: #722ed1; }
+.stat-card.stat-blue::before { background: hsl(var(--primary)); }
+.stat-card.stat-green::before { background: hsl(var(--success)); }
+.stat-card.stat-orange::before { background: hsl(var(--warning)); }
+.stat-card.stat-purple::before { background: hsl(var(--secondary-foreground)); }
 
 .stat-icon {
   display: flex;
@@ -296,15 +296,15 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
-.stat-blue .stat-icon { background: rgba(24, 144, 255, 0.1); color: #1890ff; }
-.stat-green .stat-icon { background: rgba(82, 196, 26, 0.1); color: #52c41a; }
-.stat-orange .stat-icon { background: rgba(250, 140, 22, 0.1); color: #fa8c16; }
-.stat-purple .stat-icon { background: rgba(114, 46, 209, 0.1); color: #722ed1; }
+.stat-blue .stat-icon { background: rgba(24, 144, 255, 0.1); color: hsl(var(--primary)); }
+.stat-green .stat-icon { background: rgba(82, 196, 26, 0.1); color: hsl(var(--success)); }
+.stat-orange .stat-icon { background: rgba(250, 140, 22, 0.1); color: hsl(var(--warning)); }
+.stat-purple .stat-icon { background: rgba(114, 46, 209, 0.1); color: hsl(var(--secondary-foreground)); }
 
 .stat-footer {
   margin-top: 12px;
   font-size: 12px;
-  color: #1890ff;
+  color: hsl(var(--primary));
 }
 
 /* 卡片 */
@@ -312,7 +312,7 @@ onMounted(() => {
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0 0 16px 0;
 }
 
@@ -330,17 +330,17 @@ onMounted(() => {
   gap: 8px;
   padding: 12px;
   background: transparent;
-  border: 1px dashed #4a4a5e;
+  border: 1px dashed hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .action-btn:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 /* 两列网格 */
@@ -363,7 +363,7 @@ onMounted(() => {
   top: 8px;
   bottom: 8px;
   width: 2px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .timeline-item {
@@ -382,23 +382,23 @@ onMounted(() => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid #1a1a2e;
+  border: 2px solid hsl(var(--card));
 }
 
 .timeline-dot.success {
-  background: #52c41a;
+  background: hsl(var(--success));
 }
 
 .timeline-dot.running {
-  background: #faad14;
+  background: hsl(var(--warning));
 }
 
 .timeline-dot.partial {
-  background: #faad14;
+  background: hsl(var(--warning));
 }
 
 .timeline-dot.error {
-  background: #f5222d;
+  background: hsl(var(--error));
 }
 
 .timeline-content {
@@ -407,13 +407,13 @@ onMounted(() => {
 
 .timeline-title {
   font-size: 14px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin-bottom: 4px;
 }
 
 .timeline-time {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 空状态 */
@@ -423,7 +423,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state svg {
@@ -447,7 +447,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 4px;
 }
 
@@ -457,13 +457,13 @@ onMounted(() => {
 
 .source-name {
   font-size: 14px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin-bottom: 4px;
 }
 
 .source-desc {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .status-tag {
@@ -475,11 +475,11 @@ onMounted(() => {
 
 .status-tag.online {
   background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .status-tag.offline {
   background: rgba(245, 34, 45, 0.2);
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 </style>

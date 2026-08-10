@@ -187,7 +187,7 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
 
 .portfolio-id {
   font-size: 12px;
-  color: #6a6a7a;
+  color: hsl(var(--muted-foreground));
   font-family: monospace;
   user-select: all;
 }
@@ -195,7 +195,7 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
 .page-title {
   font-size: 20px;
   font-weight: 600;
-  color: #fff;
+  color: hsl(var(--foreground));
   margin: 0;
 }
 
@@ -205,13 +205,13 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
   font-size: 12px;
   font-weight: 500;
 }
-.status-tag.live { background: rgba(34,197,94,0.15); color: #22c55e; }
-.status-tag.paper { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.status-tag.live { background: rgba(34,197,94,0.15); color: hsl(var(--success)); }
+.status-tag.paper { background: rgba(59,130,246,0.15); color: hsl(var(--primary)); }
 .status-tag.idle { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
 
 .deploy-source {
   font-size: 11px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   background: rgba(255,255,255,0.05);
   padding: 2px 8px;
   border-radius: 4px;
@@ -225,55 +225,55 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
 
 .btn-primary {
   padding: 8px 16px;
-  background: #3b82f6;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 6px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
-.btn-primary:hover { background: #2563eb; }
+.btn-primary:hover { background: hsl(var(--primary)); }
 
 .btn-secondary {
   padding: 8px 16px;
   background: transparent;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 6px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
-.btn-secondary:hover { border-color: #3b82f6; }
+.btn-secondary:hover { border-color: hsl(var(--primary)); }
 
 .btn-deploy {
   padding: 8px 16px;
   background: transparent;
-  border: 1px solid #52c41a;
+  border: 1px solid hsl(var(--success));
   border-radius: 6px;
-  color: #52c41a;
+  color: hsl(var(--success));
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn-deploy:hover { background: #52c41a; color: #fff; }
+.btn-deploy:hover { background: hsl(var(--success)); color: hsl(var(--foreground)); }
 
 .btn-stop {
   padding: 8px 16px;
   border-radius: 6px;
-  border: 1px solid #faad14;
-  background: #fffbe6;
-  color: #d48806;
+  border: 1px solid hsl(var(--warning));
+  background: hsl(var(--muted));
+  color: hsl(var(--warning));
   cursor: pointer;
   font-size: 13px;
 }
 .btn-stop:hover {
-  background: #fff1b8;
+  background: hsl(var(--muted));
 }
 
 .tab-bar {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
   flex-shrink: 0;
 }
 
@@ -291,8 +291,8 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
 }
 
 .tab-item.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
+  color: hsl(var(--primary));
+  border-bottom-color: hsl(var(--primary));
   font-weight: 600;
 }
 

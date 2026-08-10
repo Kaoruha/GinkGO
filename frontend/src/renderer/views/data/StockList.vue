@@ -299,7 +299,7 @@ onMounted(() => {
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -312,46 +312,46 @@ onMounted(() => {
 }
 
 .tag-st {
-  background: #f5222d;
-  color: #ffffff;
+  background: hsl(var(--error));
+  color: hsl(var(--foreground));
   margin-left: 4px;
 }
 
 .tag-sh {
-  background: #1890ff;
-  color: #ffffff;
+  background: hsl(var(--primary));
+  color: hsl(var(--foreground));
 }
 
 .tag-sz {
-  background: #52c41a;
-  color: #ffffff;
+  background: hsl(var(--success));
+  color: hsl(var(--foreground));
 }
 
 .search-input {
   padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   width: 200px;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .btn-success {
   padding: 8px 20px;
-  background: #52c41a;
+  background: hsl(var(--success));
   border: none;
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -359,7 +359,7 @@ onMounted(() => {
 }
 
 .btn-success:hover {
-  background: #73d13d;
+  background: hsl(var(--success));
 }
 
 .stats-grid-three {
@@ -382,19 +382,19 @@ onMounted(() => {
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 13px;
   white-space: nowrap;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
 }
 
@@ -404,11 +404,11 @@ onMounted(() => {
 }
 
 .data-table tbody tr:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .data-table .link {
-  color: #1890ff;
+  color: hsl(var(--primary));
   text-decoration: none;
 }
 
@@ -418,7 +418,7 @@ onMounted(() => {
 
 .text-center {
   text-align: center;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   padding: 20px;
 }
 
@@ -433,13 +433,13 @@ onMounted(() => {
 }
 
 .pagination-info {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 13px;
 }
 
 .btn-small:hover:not(:disabled) {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 .btn-small:disabled {
@@ -449,10 +449,10 @@ onMounted(() => {
 
 .page-size-select {
   padding: 4px 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
 }
@@ -474,8 +474,8 @@ onMounted(() => {
   top: 0;
   bottom: 0;
   width: 400px;
-  background: #1a1a2e;
-  border-left: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border-left: 1px solid hsl(var(--border));
   display: flex;
   flex-direction: column;
 }
@@ -485,13 +485,13 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .drawer-header h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0;
 }
 
@@ -515,12 +515,12 @@ onMounted(() => {
 
 .detail-label {
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .detail-value {
   font-size: 14px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-weight: 500;
 }
 
@@ -528,6 +528,6 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   padding: 20px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
 }
 </style>

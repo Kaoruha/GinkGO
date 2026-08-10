@@ -29,12 +29,12 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .placeholder-text {
   margin: 0;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
 }
 </style>

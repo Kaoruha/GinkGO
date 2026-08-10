@@ -17,22 +17,22 @@ defineProps<{
 
 <style scoped>
 .config-card {
-  background: #1a1a2e;
+  background: hsl(var(--card));
   border-radius: 8px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
   margin-bottom: 16px;
 }
 
 .config-card-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .config-card-header h4 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .config-card-body {

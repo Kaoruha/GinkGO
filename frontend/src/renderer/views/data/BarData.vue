@@ -423,7 +423,7 @@ onUnmounted(() => {
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -433,7 +433,7 @@ onUnmounted(() => {
 
 .last-sync-hint {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   white-space: nowrap;
 }
 
@@ -445,7 +445,7 @@ onUnmounted(() => {
   background: rgba(82, 196, 26, 0.15);
   border: 1px solid rgba(82, 196, 26, 0.3);
   border-radius: 6px;
-  color: #52c41a;
+  color: hsl(var(--success));
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
@@ -454,7 +454,7 @@ onUnmounted(() => {
 
 .btn-sync:hover:not(:disabled) {
   background: rgba(82, 196, 26, 0.25);
-  border-color: #52c41a;
+  border-color: hsl(var(--success));
 }
 
 .btn-sync:disabled {
@@ -474,15 +474,15 @@ onUnmounted(() => {
 
 .back-btn {
   background: none;
-  border: 1px solid #2a2a3e;
-  color: #8a8a9a;
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
   font-size: 16px;
   padding: 4px 10px;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.back-btn:hover { border-color: #1890ff; color: #1890ff; }
+.back-btn:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
 
 .chart-header {
   display: flex;
@@ -493,11 +493,11 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.card-title { font-size: 16px; font-weight: 600; color: #ffffff; margin: 0 0 16px 0; }
+.card-title { font-size: 16px; font-weight: 600; color: hsl(var(--foreground)); margin: 0 0 16px 0; }
 .chart-header .card-title { margin: 0; }
 
-.stats-inline { display: flex; gap: 16px; font-size: 13px; color: #8a8a9a; }
-.stats-inline strong { color: #ffffff; }
+.stats-inline { display: flex; gap: 16px; font-size: 13px; color: hsl(var(--muted-foreground)); }
+.stats-inline strong { color: hsl(var(--foreground)); }
 .stat-item { white-space: nowrap; }
 
 .chart-wrapper { position: relative; }
@@ -509,9 +509,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   z-index: 10;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .loading-more-indicator {
@@ -532,13 +532,13 @@ onUnmounted(() => {
 .no-more-data {
   text-align: center;
   padding: 8px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
-  background: #2a2a3e;
-  border-top: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border-top: 1px solid hsl(var(--secondary));
   margin-top: 8px;
 }
 
-.text-up { color: #ef5350 !important; }
-.text-down { color: #26a69a !important; }
+.text-up { color: hsl(var(--success)) !important; }
+.text-down { color: hsl(var(--error)) !important; }
 </style>

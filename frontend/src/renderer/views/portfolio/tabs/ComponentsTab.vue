@@ -71,7 +71,7 @@ onMounted(async () => {
 .component-cards { display: flex; flex-wrap: wrap; gap: 8px; }
 .component-card {
   background: rgba(255,255,255,0.04);
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   padding: 10px 14px;
   min-width: 200px;
@@ -79,7 +79,7 @@ onMounted(async () => {
 .comp-name {
   font-size: 14px;
   font-weight: 500;
-  color: #fff;
+  color: hsl(var(--foreground));
   margin-bottom: 4px;
 }
 .comp-config { margin-top: 6px; }
@@ -95,8 +95,8 @@ onMounted(async () => {
 .loading-center { display: flex; justify-content: center; padding: 40px; }
 .spinner {
   width: 24px; height: 24px;
-  border: 2px solid #2a2a3e;
-  border-top-color: #3b82f6;
+  border: 2px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }

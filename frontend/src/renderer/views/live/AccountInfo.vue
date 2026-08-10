@@ -558,7 +558,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
   border-radius: 12px;
   color: white;
 }
@@ -566,24 +566,24 @@ onUnmounted(() => {
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin: 4px 0 0 0;
 }
 
 .refresh-button {
-  border-color: #2a2a3e;
-  color: #8a8a9a;
+  border-color: hsl(var(--border));
+  color: hsl(var(--muted-foreground));
 }
 
 .refresh-button:hover:not(:disabled) {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 /* 加载状态 */
@@ -595,7 +595,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-text {
@@ -605,7 +605,7 @@ onUnmounted(() => {
 
 .empty-hint {
   font-size: 14px;
-  color: #666;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 账户内容 */
@@ -626,28 +626,28 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 10px;
-  color: #667eea;
+  color: hsl(var(--primary));
 }
 
 .stat-card.primary .stat-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
   color: white;
 }
 
 .stat-card.success .stat-icon {
-  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+  background: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(var(--success)) 100%);
   color: white;
 }
 
 .stat-card.info .stat-icon {
-  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
   color: white;
 }
 
 .stat-card.neutral .stat-icon {
-  background: linear-gradient(135deg, #8a8a9a 0%, #5a5a6a 100%);
+  background: linear-gradient(135deg, hsl(var(--muted-foreground)) 0%, hsl(var(--muted-foreground) / 0.8) 100%);
   color: white;
 }
 
@@ -663,15 +663,15 @@ onUnmounted(() => {
 }
 
 .account-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
 }
 
 .account-card:hover {
-  border-color: #2a2a3e;
+  border-color: hsl(var(--border));
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -694,7 +694,7 @@ onUnmounted(() => {
 .account-name h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0;
 }
 
@@ -709,11 +709,11 @@ onUnmounted(() => {
 }
 
 .card-refresh {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .card-refresh:hover {
-  color: #667eea;
+  color: hsl(var(--primary));
 }
 
 /* 错误提示 */
@@ -724,15 +724,15 @@ onUnmounted(() => {
   margin: 0 20px;
   padding: 12px;
   background: rgba(255, 77, 79, 0.1);
-  border-left: 3px solid #ff4d4f;
-  color: #ff4d4f;
+  border-left: 3px solid hsl(var(--error));
+  color: hsl(var(--error));
   font-size: 14px;
 }
 
 /* 余额部分 */
 .balance-section {
   padding: 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .balance-grid {
@@ -743,39 +743,39 @@ onUnmounted(() => {
 }
 
 .balance-item {
-  background: #121226;
+  background: hsl(var(--card));
   border-radius: 10px;
   padding: 16px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
   transition: all 0.2s ease;
 }
 
 .balance-item:hover {
-  border-color: #667eea;
+  border-color: hsl(var(--primary));
 }
 
 .balance-label {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 8px;
 }
 
 .balance-value {
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .balance-value.primary {
-  color: #667eea;
+  color: hsl(var(--primary));
 }
 
 .balance-value.success {
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .balance-value.warning {
-  color: #faad14;
+  color: hsl(var(--warning));
 }
 
 /* 币种余额 */
@@ -790,33 +790,33 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: #121226;
+  background: hsl(var(--card));
   border-radius: 8px;
   font-size: 14px;
 }
 
 .currency-name {
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .currency-amount {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .currency-amount .available {
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .currency-amount .frozen {
-  color: #faad14;
+  color: hsl(var(--warning));
   font-size: 12px;
 }
 
 /* 持仓部分 */
 .positions-section {
   padding: 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .section-title {
@@ -825,7 +825,7 @@ onUnmounted(() => {
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 16px;
 }
 
@@ -836,16 +836,16 @@ onUnmounted(() => {
 }
 
 .position-item {
-  background: #121226;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 10px;
   padding: 16px;
   transition: all 0.2s ease;
 }
 
 .position-item:hover {
-  border-color: #2a2a3e;
-  background: #1a1a30;
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
 }
 
 .position-header {
@@ -864,7 +864,7 @@ onUnmounted(() => {
 .position-symbol {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .position-details {
@@ -881,13 +881,13 @@ onUnmounted(() => {
 
 .position-stat .stat-label {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .position-stat .stat-value {
   font-size: 14px;
   font-weight: 500;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .position-stat.pnl .stat-value {
@@ -907,7 +907,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  color: #666;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
 }
 
@@ -915,7 +915,7 @@ onUnmounted(() => {
 
 .update-time {
   font-size: 12px;
-  color: #666;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 骨架屏加载样式 */
@@ -927,14 +927,14 @@ onUnmounted(() => {
 }
 
 .skeleton-item {
-  background: #121226;
+  background: hsl(var(--card));
   border-radius: 10px;
   padding: 16px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
 }
 
 .skeleton-line {
-  background: linear-gradient(90deg, #2a2a3e 25%, #3a3a4e 50%, #2a2a3e 75%);
+  background: linear-gradient(90deg, hsl(var(--border)) 25%, hsl(var(--secondary)) 50%, hsl(var(--border)) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 4px;
@@ -958,8 +958,8 @@ onUnmounted(() => {
 }
 
 .skeleton-position {
-  background: #121226;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 10px;
   padding: 16px;
 }

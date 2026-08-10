@@ -108,11 +108,11 @@ const loadingMessage = computed(() => {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   padding: 24px;
-  background: #1a1a2e;
+  background: hsl(var(--card));
   border-radius: 8px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -124,7 +124,7 @@ const loadingMessage = computed(() => {
 
 .spinner-icon {
   animation: spin 1s linear infinite;
-  color: #1890ff;
+  color: hsl(var(--primary));
 }
 
 @keyframes spin {
@@ -144,7 +144,7 @@ const loadingMessage = computed(() => {
 .loading-count {
   font-size: 12px;
   opacity: 0.8;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 过渡动画 */

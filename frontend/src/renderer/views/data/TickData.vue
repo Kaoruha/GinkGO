@@ -407,28 +407,28 @@ onUnmounted(() => {
 .page-header { margin-bottom: 24px; }
 
 .page-title {
-  font-size: 24px; font-weight: 600; color: #ffffff;
+  font-size: 24px; font-weight: 600; color: hsl(var(--foreground));
   display: flex; align-items: center; gap: 12px;
 }
 
 .back-btn {
-  background: none; border: 1px solid #2a2a3e; color: #8a8a9a;
+  background: none; border: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground));
   font-size: 16px; padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
 }
-.back-btn:hover { border-color: #1890ff; color: #1890ff; }
+.back-btn:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
 
 .control-input {
-  padding: 7px 12px; background: #2a2a3e; border: 1px solid #3a3a4e;
-  border-radius: 4px; color: #fff; font-size: 13px; width: 140px;
+  padding: 7px 12px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary));
+  border-radius: 4px; color: hsl(var(--foreground)); font-size: 13px; width: 140px;
 }
-.control-input:focus { outline: none; border-color: #1890ff; }
+.control-input:focus { outline: none; border-color: hsl(var(--primary)); }
 
 .btn-query {
   display: inline-flex; align-items: center; padding: 7px 16px;
-  background: #1890ff; border: none; border-radius: 4px; color: #fff;
+  background: hsl(var(--primary)); border: none; border-radius: 4px; color: hsl(var(--foreground));
   font-size: 13px; cursor: pointer; transition: all 0.2s;
 }
-.btn-query:hover:not(:disabled) { background: #40a9ff; }
+.btn-query:hover:not(:disabled) { background: hsl(var(--primary)); }
 .btn-query:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .chart-header {
@@ -436,33 +436,33 @@ onUnmounted(() => {
   margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
 }
 
-.card-title { font-size: 16px; font-weight: 600; color: #ffffff; margin: 0 0 16px 0; }
+.card-title { font-size: 16px; font-weight: 600; color: hsl(var(--foreground)); margin: 0 0 16px 0; }
 
-.stats-inline { display: flex; gap: 16px; font-size: 13px; color: #8a8a9a; }
-.stats-inline strong { color: #ffffff; }
+.stats-inline { display: flex; gap: 16px; font-size: 13px; color: hsl(var(--muted-foreground)); }
+.stats-inline strong { color: hsl(var(--foreground)); }
 .stat-item { white-space: nowrap; }
 
 .bucket-selector { display: flex; gap: 4px; }
 .bucket-btn {
-  padding: 4px 10px; background: #2a2a3e; border: 1px solid #3a3a4e;
-  border-radius: 4px; color: #8a8a9a; font-size: 12px; cursor: pointer; transition: all 0.2s;
+  padding: 4px 10px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary));
+  border-radius: 4px; color: hsl(var(--muted-foreground)); font-size: 12px; cursor: pointer; transition: all 0.2s;
 }
-.bucket-btn:hover { border-color: #1890ff; color: #1890ff; }
-.bucket-btn.active { background: #1890ff; border-color: #1890ff; color: #fff; }
+.bucket-btn:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
+.bucket-btn.active { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--foreground)); }
 
 .chart-wrapper { position: relative; }
 .chart-container { width: 100%; height: 420px; }
 
 .empty-state {
-  padding: 40px 16px; text-align: center; color: #6a6a7a;
-  font-size: 13px; border-top: 1px solid #2a2a3e;
+  padding: 40px 16px; text-align: center; color: hsl(var(--muted-foreground));
+  font-size: 13px; border-top: 1px solid hsl(var(--border));
 }
 
-.text-up { color: #52c41a !important; }
-.text-down { color: #f5222d !important; }
-.text-neutral { color: #8a8a9a; }
+.text-up { color: hsl(var(--success)) !important; }
+.text-down { color: hsl(var(--error)) !important; }
+.text-neutral { color: hsl(var(--muted-foreground)); }
 
 .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-.tag-orange { background: rgba(250,173,20,0.15); color: #faad14; }
-.tag-blue { background: rgba(24,144,255,0.15); color: #1890ff; }
+.tag-orange { background: rgba(250,173,20,0.15); color: hsl(var(--warning)); }
+.tag-blue { background: rgba(24,144,255,0.15); color: hsl(var(--primary)); }
 </style>

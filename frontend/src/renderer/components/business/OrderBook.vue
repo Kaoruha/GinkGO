@@ -83,21 +83,21 @@ const orders = ref<Order[]>([
 }
 
 .card {
-  background: #1a1a2e;
+  background: hsl(var(--card));
   border-radius: 8px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
 }
 
 .card-header {
   padding: 12px 16px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .card-header h4 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .card-body {
@@ -109,7 +109,7 @@ const orders = ref<Order[]>([
   justify-content: center;
   align-items: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state p {
@@ -131,21 +131,21 @@ const orders = ref<Order[]>([
 .data-table td {
   padding: 10px 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .data-table tbody tr:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .tag {
@@ -156,8 +156,8 @@ const orders = ref<Order[]>([
   font-weight: 500;
 }
 
-.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
-.tag-red { background: rgba(245, 34, 45, 0.2); color: #f5222d; }
+.tag-green { background: rgba(82, 196, 26, 0.2); color: hsl(var(--success)); }
+.tag-red { background: rgba(245, 34, 45, 0.2); color: hsl(var(--error)); }
 
 .status-badge {
   display: inline-block;
@@ -167,7 +167,7 @@ const orders = ref<Order[]>([
   font-weight: 500;
 }
 
-.status-pending { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
-.status-filled { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
-.status-cancelled { background: rgba(140, 140, 140, 0.2); color: #8a8a9a; }
+.status-pending { background: rgba(24, 144, 255, 0.2); color: hsl(var(--primary)); }
+.status-filled { background: rgba(82, 196, 26, 0.2); color: hsl(var(--success)); }
+.status-cancelled { background: rgba(140, 140, 140, 0.2); color: hsl(var(--muted-foreground)); }
 </style>

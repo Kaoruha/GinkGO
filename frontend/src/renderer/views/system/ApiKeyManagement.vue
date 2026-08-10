@@ -365,8 +365,8 @@ onMounted(() => {
 }
 
 .modal-content, .modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -392,7 +392,7 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -406,7 +406,7 @@ onMounted(() => {
 /* 统计卡片 */
 
 .stat-danger {
-  color: #f87171;
+  color: hsl(var(--error));
 }
 
 /* 卡片 */
@@ -417,11 +417,11 @@ onMounted(() => {
 }
 
 .filter-select {
-  background: #12121a;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
   padding: 6px 12px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
 }
 
@@ -432,7 +432,7 @@ onMounted(() => {
 }
 
 .data-table thead {
-  background: #12121a;
+  background: hsl(var(--card));
 }
 
 .data-table th {
@@ -440,19 +440,19 @@ onMounted(() => {
   padding: 12px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   text-transform: uppercase;
 }
 
 .data-table td {
   padding: 12px 16px;
-  border-top: 1px solid #3a3a4e;
+  border-top: 1px solid hsl(var(--secondary));
   font-size: 14px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .data-table tr:hover {
-  background: #12121a;
+  background: hsl(var(--card));
 }
 
 .key-name {
@@ -461,16 +461,16 @@ onMounted(() => {
 
 .key-desc {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-left: 8px;
 }
 
 .key-prefix {
-  background: #12121a;
+  background: hsl(var(--card));
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
-  color: #4ade80;
+  color: hsl(var(--success));
 }
 
 .permission-tags {
@@ -487,18 +487,18 @@ onMounted(() => {
 }
 
 .perm-read {
-  background: #3b82f6;
-  color: #ffffff;
+  background: hsl(var(--primary));
+  color: hsl(var(--foreground));
 }
 
 .perm-trade {
-  background: #f59e0b;
-  color: #ffffff;
+  background: hsl(var(--warning));
+  color: hsl(var(--foreground));
 }
 
 .perm-admin {
-  background: #ef4444;
-  color: #ffffff;
+  background: hsl(var(--error));
+  color: hsl(var(--foreground));
 }
 
 .status-badge {
@@ -511,17 +511,17 @@ onMounted(() => {
 
 .status-active {
   background: rgba(74, 222, 128, 0.2);
-  color: #4ade80;
+  color: hsl(var(--success));
 }
 
 .status-inactive {
   background: rgba(138, 138, 154, 0.2);
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .status-expired {
   background: rgba(248, 113, 113, 0.2);
-  color: #f87171;
+  color: hsl(var(--error));
 }
 
 .actions-cell {
@@ -535,12 +535,12 @@ onMounted(() => {
 }
 
 .btn-icon.btn-danger:hover {
-  color: #f87171;
+  color: hsl(var(--error));
 }
 
 .empty-state {
   text-align: center;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   padding: 32px !important;
 }
 
@@ -558,7 +558,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   cursor: pointer;
   padding: 4px 0;
 }
@@ -589,31 +589,31 @@ onMounted(() => {
 
 .key-display code {
   flex: 1;
-  background: #12121a;
+  background: hsl(var(--card));
   padding: 8px 12px;
   border-radius: 4px;
   font-size: 12px;
-  color: #4ade80;
+  color: hsl(var(--success));
   word-break: break-all;
 }
 
 .btn-copy {
-  background: #6366f1;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
   padding: 8px 16px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
 
 .btn-copy:hover {
-  background: #4f46e5;
+  background: hsl(var(--primary));
 }
 
 .help-text {
   font-size: 12px;
-  color: #fbbf24;
+  color: hsl(var(--warning));
   margin: 8px 0 0 0;
 }
 

@@ -446,8 +446,8 @@ onMounted(() => {
 }
 
 .modal-content, .modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -478,12 +478,12 @@ onMounted(() => {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .page-subtitle {
   margin: 4px 0 0 0;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
 }
 
@@ -491,18 +491,18 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 16px;
   font-weight: 600;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .btn-small:hover:not(:disabled) {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 .btn-small:disabled {
@@ -510,7 +510,7 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.tag-yellow { background: rgba(250, 173, 20, 0.2); color: #faad14; }
+.tag-yellow { background: rgba(250, 173, 20, 0.2); color: hsl(var(--warning)); }
 
 .account-name {
   display: flex;
@@ -518,7 +518,7 @@ onMounted(() => {
 }
 
 .text-muted {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .table-wrapper {
@@ -534,18 +534,18 @@ onMounted(() => {
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 13px;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
 }
 
@@ -567,24 +567,24 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   cursor: pointer;
 }
 
 .form-divider {
   margin: 20px 0;
   padding-top: 20px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
   font-size: 14px;
   font-weight: 500;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .form-tip {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #faad14;
+  color: hsl(var(--warning));
   font-size: 12px;
   margin-top: 8px;
 }
@@ -612,11 +612,11 @@ onMounted(() => {
 }
 
 .alert-error .alert-icon {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .alert-success .alert-icon {
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .alert-content {
@@ -625,13 +625,13 @@ onMounted(() => {
 
 .alert-message {
   font-size: 14px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin-bottom: 4px;
 }
 
 .alert-description {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .form-actions {

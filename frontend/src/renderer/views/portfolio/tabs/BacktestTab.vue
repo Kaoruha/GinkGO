@@ -245,7 +245,7 @@
             </div>
             <div class="metric-card">
               <div class="metric-label">年化收益</div>
-              <div class="metric-value" :style="{ color: (currentTask.annual_return ?? 0) >= 0 ? '#52c41a' : '#f5222d' }">
+              <div class="metric-value" :style="{ color: (currentTask.annual_return ?? 0) >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
                 {{ ((currentTask.annual_return ?? 0) * 100).toFixed(2) }}%
               </div>
             </div>
@@ -255,37 +255,37 @@
             </div>
             <div class="metric-card">
               <div class="metric-label">最大回撤</div>
-              <div class="metric-value" :style="{ color: (currentTask.max_drawdown ?? 0) <= 0.1 ? '#52c41a' : '#f5222d' }">
+              <div class="metric-value" :style="{ color: (currentTask.max_drawdown ?? 0) <= 0.1 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
                 {{ ((currentTask.max_drawdown ?? 0) * 100).toFixed(2) }}%
               </div>
             </div>
             <div class="metric-card">
               <div class="metric-label">交易胜率</div>
-              <div class="metric-value" :style="{ color: tradeWinRate !== null ? ((tradeWinRate ?? 0) >= 0.5 ? '#52c41a' : '#f5222d') : '' }">
+              <div class="metric-value" :style="{ color: tradeWinRate !== null ? ((tradeWinRate ?? 0) >= 0.5 ? 'hsl(var(--success))' : 'hsl(var(--error))') : '' }">
                 {{ tradeWinRate !== null ? ((tradeWinRate) * 100).toFixed(1) + '%' : '-' }}
               </div>
             </div>
             <div class="metric-card">
               <div class="metric-label">日胜率</div>
-              <div class="metric-value" :style="{ color: dailyWinRate !== null ? ((dailyWinRate ?? 0) >= 0.5 ? '#52c41a' : '#f5222d') : '' }">
+              <div class="metric-value" :style="{ color: dailyWinRate !== null ? ((dailyWinRate ?? 0) >= 0.5 ? 'hsl(var(--success))' : 'hsl(var(--error))') : '' }">
                 {{ dailyWinRate !== null ? ((dailyWinRate) * 100).toFixed(1) + '%' : '-' }}
               </div>
             </div>
             <div class="metric-card">
               <div class="metric-label">盈亏比</div>
-              <div class="metric-value" :style="{ color: profitFactor !== null ? ((profitFactor ?? 0) >= 1 ? '#52c41a' : '#f5222d') : '' }">
+              <div class="metric-value" :style="{ color: profitFactor !== null ? ((profitFactor ?? 0) >= 1 ? 'hsl(var(--success))' : 'hsl(var(--error))') : '' }">
                 {{ profitFactor !== null ? (profitFactor).toFixed(2) : '-' }}
               </div>
             </div>
             <div class="metric-card">
               <div class="metric-label">平均盈亏比</div>
-              <div class="metric-value" :style="{ color: avgWinLoss !== null ? ((avgWinLoss ?? 0) >= 1 ? '#52c41a' : '#f5222d') : '' }">
+              <div class="metric-value" :style="{ color: avgWinLoss !== null ? ((avgWinLoss ?? 0) >= 1 ? 'hsl(var(--success))' : 'hsl(var(--error))') : '' }">
                 {{ avgWinLoss !== null ? (avgWinLoss).toFixed(2) : '-' }}
               </div>
             </div>
             <div class="metric-card">
               <div class="metric-label">最大连续亏损</div>
-              <div class="metric-value" :style="{ color: maxConsLosses !== null && maxConsLosses > 5 ? '#f5222d' : '' }">
+              <div class="metric-value" :style="{ color: maxConsLosses !== null && maxConsLosses > 5 ? 'hsl(var(--error))' : '' }">
                 {{ maxConsLosses !== null ? Math.round(maxConsLosses) + ' 笔' : '-' }}
               </div>
             </div>
@@ -318,7 +318,7 @@
                   <td><span class="tag tag-blue">{{ a.name }}</span></td>
                   <td :style="{ color: getAnalyzerColor(a.name, a.latest_value) }">{{ fmtAnalyzer(a.name, a.latest_value) }}</td>
                   <td>{{ a.stats?.count || 0 }}</td>
-                  <td :style="{ color: (a.stats?.change || 0) >= 0 ? '#52c41a' : '#f5222d' }">
+                  <td :style="{ color: (a.stats?.change || 0) >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
                     {{ (a.stats?.change || 0) >= 0 ? '↑' : '↓' }} {{ fmtAnalyzer(a.name, Math.abs(a.stats?.change || 0)) }}
                   </td>
                 </tr>
@@ -428,8 +428,8 @@
                   <td>{{ p.volume }}</td>
                   <td>{{ p.cost }}</td>
                   <td>{{ p.market_value }}</td>
-                  <td :style="{ color: p.profit >= 0 ? '#52c41a' : '#f5222d' }">{{ p.profit }}</td>
-                  <td :style="{ color: p.profit_pct >= 0 ? '#52c41a' : '#f5222d' }">{{ (p.profit_pct * 100).toFixed(2) }}%</td>
+                  <td :style="{ color: p.profit >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ p.profit }}</td>
+                  <td :style="{ color: p.profit_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ (p.profit_pct * 100).toFixed(2) }}%</td>
                 </tr>
               </tbody>
             </table>
@@ -539,7 +539,7 @@
                 <span v-else-if="log.event_type === 'CAPITALUPDATE'" class="log-detail">
                   <span class="log-kv">NAV={{ log.net_value || log.total_value }}</span>
                   <span class="log-kv">cash={{ log.available_cash }}</span>
-                  <span v-if="log.pnl" :style="{ color: log.pnl >= 0 ? '#52c41a' : '#f5222d' }">PnL={{ log.pnl }}</span>
+                  <span v-if="log.pnl" :style="{ color: log.pnl >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">PnL={{ log.pnl }}</span>
                   <span v-if="log.drawdown" class="log-kv dim">DD={{ log.drawdown }}</span>
                   <span class="log-kv dim">{{ log.message }}</span>
                 </span>
@@ -1067,17 +1067,18 @@ const formatPercent = (val: string | number) => {
 
 const getPnLColor = (val: string | number) => {
   const n = typeof val === 'number' ? val : parseFloat(String(val))
-  return isNaN(n) ? '#8a8a9a' : n >= 0 ? '#cf1322' : '#3f8600'
+  // ADR-045 §2 西式涨绿跌红(原中式 #cf1322=红涨/#3f8600=绿跌 → 反转)
+  return isNaN(n) ? 'hsl(var(--muted-foreground))' : n >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
 }
 
 const getSharpeColor = (val: string | number) => {
   const n = typeof val === 'number' ? val : parseFloat(String(val))
-  return isNaN(n) ? '#8a8a9a' : n >= 1 ? '#52c41a' : '#faad14'
+  return isNaN(n) ? 'hsl(var(--muted-foreground))' : n >= 1 ? 'hsl(var(--success))' : 'hsl(var(--warning))'
 }
 
 const getDrawdownColor = (val: string | number) => {
   const n = typeof val === 'number' ? val : parseFloat(String(val))
-  return isNaN(n) ? '#8a8a9a' : n <= 0.1 ? '#52c41a' : '#f5222d'
+  return isNaN(n) ? 'hsl(var(--muted-foreground))' : n <= 0.1 ? 'hsl(var(--success))' : 'hsl(var(--error))'
 }
 
 const DIR_MAP: Record<number, string> = { 1: 'LONG', 2: 'SHORT' }
@@ -1090,7 +1091,7 @@ const formatMoney = (val: number) => {
 
 const pnlColor = computed(() => {
   const v = currentTask.value?.total_pnl ?? 0
-  return v >= 0 ? '#52c41a' : '#f5222d'
+  return v >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
 })
 
 const fmtAnalyzer = (name: string, value: number | null): string => {
@@ -1140,13 +1141,13 @@ const DIR_LABEL_MAP: Record<string, string> = { '1': 'LONG', '2': 'SHORT', 'LONG
 const dirLabel = (d: string | number | null) => DIR_LABEL_MAP[String(d)] || String(d ?? '')
 
 const getAnalyzerColor = (name: string, value: number | null): string => {
-  if (value === null || value === undefined) return '#666'
+  if (value === null || value === undefined) return 'hsl(var(--muted-foreground))'
   const nl = name.toLowerCase()
-  if (nl.includes('drawdown')) return value <= 0.1 ? '#52c41a' : value <= 0.2 ? '#faad14' : '#f5222d'
-  if (nl.includes('return') || nl.includes('win_rate')) return value >= 0 ? '#52c41a' : '#f5222d'
-  if (nl.includes('sharpe') || nl.includes('sortino')) return value >= 1 ? '#52c41a' : value >= 0 ? '#faad14' : '#f5222d'
-  if (nl.includes('profit') || nl.includes('pnl')) return value >= 0 ? '#52c41a' : '#f5222d'
-  return '#666'
+  if (nl.includes('drawdown')) return value <= 0.1 ? 'hsl(var(--success))' : value <= 0.2 ? 'hsl(var(--warning))' : 'hsl(var(--error))'
+  if (nl.includes('return') || nl.includes('win_rate')) return value >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
+  if (nl.includes('sharpe') || nl.includes('sortino')) return value >= 1 ? 'hsl(var(--success))' : value >= 0 ? 'hsl(var(--warning))' : 'hsl(var(--error))'
+  if (nl.includes('profit') || nl.includes('pnl')) return value >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
+  return 'hsl(var(--muted-foreground))'
 }
 
 // ========== WebSocket ==========
@@ -1217,7 +1218,7 @@ onUnmounted(() => {
 
 .radio-group {
   display: inline-flex;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 4px;
   padding: 2px;
 }
@@ -1227,69 +1228,69 @@ onUnmounted(() => {
   background: transparent;
   border: none;
   border-radius: 2px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.radio-button:hover { color: #fff; }
-.radio-button.active { background: #1890ff; color: #fff; }
+.radio-button:hover { color: hsl(var(--foreground)); }
+.radio-button.active { background: hsl(var(--primary)); color: hsl(var(--foreground)); }
 
 .search-input {
   padding: 5px 10px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   width: 160px;
 }
 
-.search-input:focus { border-color: #1890ff; outline: none; }
+.search-input:focus { border-color: hsl(var(--primary)); outline: none; }
 
 /* Buttons */
 .btn-primary {
   padding: 6px 14px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
 
-.btn-primary:hover { background: #40a9ff; }
+.btn-primary:hover { background: hsl(var(--primary)); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-secondary {
   padding: 6px 14px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
 
 .btn-danger {
   padding: 6px 14px;
-  background: #f5222d;
+  background: hsl(var(--error));
   border: none;
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
 
-.btn-danger:hover { background: #ff4d4f; }
+.btn-danger:hover { background: hsl(var(--error)); }
 
 .btn-danger-outline {
   padding: 6px 14px;
   background: transparent;
-  border: 1px solid #f5222d;
+  border: 1px solid hsl(var(--error));
   border-radius: 4px;
-  color: #f5222d;
+  color: hsl(var(--error));
   font-size: 13px;
   cursor: pointer;
 }
@@ -1297,50 +1298,50 @@ onUnmounted(() => {
 .btn-back {
   background: none;
   border: none;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   cursor: pointer;
   font-size: 13px;
   padding: 0;
 }
 
-.btn-back:hover { color: #fff; }
+.btn-back:hover { color: hsl(var(--foreground)); }
 
 .btn-sm {
   padding: 4px 10px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
 }
 
 .btn-sm:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-close { background: none; border: none; color: #8a8a9a; font-size: 18px; cursor: pointer; }
-.btn-close:hover { color: #fff; }
+.btn-close { background: none; border: none; color: hsl(var(--muted-foreground)); font-size: 18px; cursor: pointer; }
+.btn-close:hover { color: hsl(var(--foreground)); }
 
 /* Link button */
 .link-btn {
   background: none;
   border: none;
-  color: #1890ff;
+  color: hsl(var(--primary));
   cursor: pointer;
   font-size: 12px;
   padding: 2px 6px;
 }
 
-.link-btn:hover { color: #40a9ff; }
-.link-btn.link-danger { color: #f5222d; }
-.link-btn.link-danger:hover { color: #ff4d4f; }
+.link-btn:hover { color: hsl(var(--primary)); }
+.link-btn.link-danger { color: hsl(var(--error)); }
+.link-btn.link-danger:hover { color: hsl(var(--error)); }
 
 .form-select {
   width: 100%; padding: 8px 12px;
-  background: #1a1a2e; border: 1px solid #2a2a3e;
-  border-radius: 6px; color: #fff; font-size: 14px;
+  background: hsl(var(--card)); border: 1px solid hsl(var(--border));
+  border-radius: 6px; color: hsl(var(--foreground)); font-size: 14px;
 }
-.form-select:focus { outline: none; border-color: #1890ff; }
-.form-hint { margin: 6px 0 0; font-size: 12px; color: #8a8a9a; }
+.form-select:focus { outline: none; border-color: hsl(var(--primary)); }
+.form-hint { margin: 6px 0 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
 
 /* Task list */
 .task-list {
@@ -1356,21 +1357,21 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.task-card:hover { border-color: #3a3a4e; background: #1e1e32; }
+.task-card:hover { border-color: hsl(var(--secondary)); background: hsl(var(--card)); }
 
 .task-card-main { flex: 1; min-width: 0; }
 
 .task-name {
   font-size: 14px;
   font-weight: 500;
-  color: #fff;
+  color: hsl(var(--foreground));
   margin-bottom: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1379,7 +1380,7 @@ onUnmounted(() => {
 
 .task-uuid {
   font-size: 11px;
-  color: #6a6a7a;
+  color: hsl(var(--muted-foreground));
   font-family: monospace;
   margin-left: 6px;
   user-select: all;
@@ -1392,10 +1393,10 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.meta-item { font-size: 12px; color: #8a8a9a; }
+.meta-item { font-size: 12px; color: hsl(var(--muted-foreground)); }
 .task-date-range {
   font-size: 12px;
-  color: #a0aec0;
+  color: hsl(var(--muted-foreground));
   margin-top: 2px;
   margin-bottom: 4px;
   font-variant-numeric: tabular-nums;
@@ -1411,7 +1412,7 @@ onUnmounted(() => {
   margin-left: 16px;
 }
 
-.task-date { font-size: 11px; color: #6a6a7a; }
+.task-date { font-size: 11px; color: hsl(var(--muted-foreground)); }
 
 .task-actions { display: flex; gap: 4px; }
 
@@ -1421,16 +1422,16 @@ onUnmounted(() => {
 .progress-bar-sm {
   width: 60px;
   height: 4px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 2px;
   overflow: hidden;
 }
 
-.progress-text { font-size: 11px; color: #8a8a9a; }
+.progress-text { font-size: 11px; color: hsl(var(--muted-foreground)); }
 
 .progress-bar-lg {
   height: 6px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 3px;
   overflow: hidden;
   margin-top: 8px;
@@ -1438,13 +1439,13 @@ onUnmounted(() => {
 
 .progress-fill {
   height: 100%;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border-radius: 3px;
   transition: width 0.3s;
 }
 
 .progress-fill.active {
-  background: linear-gradient(90deg, #1890ff, #40a9ff);
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary)));
   animation: pulse 2s ease-in-out infinite;
 }
 
@@ -1462,15 +1463,15 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.tag-blue { background: rgba(24,144,255,0.15); color: #69c0ff; }
-.tag-green { background: rgba(82,196,26,0.15); color: #95de64; }
-.tag-orange { background: rgba(250,173,20,0.15); color: #ffc53d; }
-.tag-red { background: rgba(245,34,45,0.15); color: #ff7875; }
-.tag-gray { background: rgba(255,255,255,0.08); color: #8a8a9a; }
-.tag-processing { background: rgba(24,144,255,0.15); color: #69c0ff; }
+.tag-blue { background: rgba(24,144,255,0.15); color: hsl(var(--primary)); }
+.tag-green { background: rgba(82,196,26,0.15); color: hsl(var(--success)); }
+.tag-orange { background: rgba(250,173,20,0.15); color: hsl(var(--warning)); }
+.tag-red { background: rgba(245,34,45,0.15); color: hsl(var(--error)); }
+.tag-gray { background: rgba(255,255,255,0.08); color: hsl(var(--muted-foreground)); }
+.tag-processing { background: rgba(24,144,255,0.15); color: hsl(var(--primary)); }
 
-.text-green { color: #52c41a; }
-.text-red { color: #f5222d; }
+.text-green { color: hsl(var(--success)); }
+.text-red { color: hsl(var(--error)); }
 
 /* Pagination */
 .pagination {
@@ -1482,7 +1483,7 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.page-info { font-size: 12px; color: #8a8a9a; }
+.page-info { font-size: 12px; color: hsl(var(--muted-foreground)); }
 
 /* Modal */
 .modal-overlay {
@@ -1496,8 +1497,8 @@ onUnmounted(() => {
 }
 
 .modal-box {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   width: 480px;
   max-height: 90vh;
@@ -1511,10 +1512,10 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
-.modal-header h3 { margin: 0; color: #fff; font-size: 16px; }
+.modal-header h3 { margin: 0; color: hsl(var(--foreground)); font-size: 16px; }
 
 .modal-body { padding: 20px; overflow: visible; }
 
@@ -1523,24 +1524,24 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 10px;
   padding: 12px 20px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
 }
 
 /* Form */
 .form-item { margin-bottom: 14px; }
-.form-item label { display: block; font-size: 12px; color: #8a8a9a; margin-bottom: 4px; }
+.form-item label { display: block; font-size: 12px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; }
 
 .form-input, .form-select {
   width: 100%;
   padding: 7px 10px;
-  background: #0f0f1a;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
 }
 
-.form-input:focus, .form-select:focus { border-color: #1890ff; outline: none; }
+.form-input:focus, .form-select:focus { border-color: hsl(var(--primary)); outline: none; }
 
 .form-row { display: flex; gap: 12px; }
 .form-row .form-item { flex: 1; }
@@ -1551,18 +1552,18 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 8px 14px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   margin-bottom: 12px;
 }
 .date-range-label {
   font-size: 12px;
-  color: #6a6a7a;
+  color: hsl(var(--muted-foreground));
 }
 .date-range-value {
   font-size: 13px;
-  color: #ccc;
+  color: hsl(var(--border));
   font-family: monospace;
 }
 
@@ -1589,7 +1590,7 @@ onUnmounted(() => {
 .task-name-label {
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: hsl(var(--foreground));
 }
 
 .detail-actions { display: flex; gap: 8px; }
@@ -1599,14 +1600,14 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* Inner tabs */
 .inner-tabs {
   display: flex;
   gap: 2px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
   margin-bottom: 16px;
 }
 
@@ -1615,13 +1616,13 @@ onUnmounted(() => {
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 13px;
   cursor: pointer;
 }
 
-.inner-tab:hover { color: #fff; }
-.inner-tab.active { color: #1890ff; border-bottom-color: #1890ff; }
+.inner-tab:hover { color: hsl(var(--foreground)); }
+.inner-tab.active { color: hsl(var(--primary)); border-bottom-color: hsl(var(--primary)); }
 
 .tab-panel { flex: 1; }
 
@@ -1634,19 +1635,19 @@ onUnmounted(() => {
 }
 
 .metric-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   padding: 12px;
 }
 
-.metric-label { font-size: 11px; color: #6a6a7a; margin-bottom: 4px; }
-.metric-value { font-size: 18px; font-weight: 600; color: #fff; }
+.metric-label { font-size: 11px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; }
+.metric-value { font-size: 18px; font-weight: 600; color: hsl(var(--foreground)); }
 
 /* Card */
 .card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   padding: 14px;
   margin-bottom: 12px;
@@ -1655,12 +1656,12 @@ onUnmounted(() => {
 .card h4 {
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: hsl(var(--foreground));
   margin: 0 0 10px 0;
 }
 
 .card-error pre {
-  color: #ff7875;
+  color: hsl(var(--error));
   font-size: 12px;
   white-space: pre-wrap;
   margin: 0;
@@ -1673,17 +1674,17 @@ onUnmounted(() => {
   display: flex;
   gap: 24px;
   font-size: 13px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
-.exec-stats strong { color: #fff; }
+.exec-stats strong { color: hsl(var(--foreground)); }
 
 /* Stats row */
 .stats-row {
   display: flex;
   gap: 16px;
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
@@ -1705,14 +1706,14 @@ onUnmounted(() => {
 .data-table th {
   text-align: left;
   padding: 6px 8px;
-  color: #6a6a7a;
+  color: hsl(var(--muted-foreground));
   font-weight: 500;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table td {
   padding: 6px 8px;
-  color: #ccc;
+  color: hsl(var(--border));
   border-bottom: 1px solid rgba(255,255,255,0.03);
 }
 
@@ -1728,8 +1729,8 @@ onUnmounted(() => {
 .spinner {
   width: 28px;
   height: 28px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
+  border: 3px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -1748,7 +1749,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   gap: 12px;
 }
 
@@ -1766,11 +1767,11 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  color: #fff;
+  color: hsl(var(--foreground));
 }
 
-.date-field .placeholder { color: #6a6a7a; }
-.date-field svg { color: #6a6a7a; flex-shrink: 0; }
+.date-field .placeholder { color: hsl(var(--muted-foreground)); }
+.date-field svg { color: hsl(var(--muted-foreground)); flex-shrink: 0; }
 
 /* Picker panel */
 .picker-panel {
@@ -1778,8 +1779,8 @@ onUnmounted(() => {
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   padding: 10px;
   z-index: 1100;
@@ -1797,20 +1798,20 @@ onUnmounted(() => {
 .picker-title {
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: hsl(var(--foreground));
 }
 
 .picker-nav {
   background: none;
   border: none;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 16px;
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 4px;
 }
 
-.picker-nav:hover { color: #fff; background: #2a2a3e; }
+.picker-nav:hover { color: hsl(var(--foreground)); background: hsl(var(--border)); }
 
 .picker-weekdays {
   display: grid;
@@ -1822,7 +1823,7 @@ onUnmounted(() => {
 .picker-wd {
   text-align: center;
   font-size: 11px;
-  color: #6a6a7a;
+  color: hsl(var(--muted-foreground));
   font-weight: 500;
   height: 24px;
   line-height: 24px;
@@ -1842,25 +1843,25 @@ onUnmounted(() => {
   justify-content: center;
   border-radius: 4px;
   font-size: 12px;
-  color: #ccc;
+  color: hsl(var(--border));
   background: transparent;
   border: none;
   cursor: pointer;
   margin: 1px auto;
 }
 
-.picker-day:hover:not(:disabled) { background: #2a2a3e; color: #fff; }
+.picker-day:hover:not(:disabled) { background: hsl(var(--border)); color: hsl(var(--foreground)); }
 .picker-day:disabled { visibility: hidden; }
-.picker-day.selected { background: #1890ff; color: #fff; }
-.picker-day.today { font-weight: 700; color: #1890ff; }
-.picker-day.today.selected { color: #fff; }
+.picker-day.selected { background: hsl(var(--primary)); color: hsl(var(--foreground)); }
+.picker-day.today { font-weight: 700; color: hsl(var(--primary)); }
+.picker-day.today.selected { color: hsl(var(--foreground)); }
 
 /* Logs */
 .logs-filter { margin-bottom: 8px; }
 .filter-row { display: flex; align-items: center; gap: 8px; }
 .filter-select { width: auto; min-width: 100px; }
 .filter-date { width: 140px; font-size: 12px; }
-.filter-sep { color: #6a6a7a; font-size: 12px; }
+.filter-sep { color: hsl(var(--muted-foreground)); font-size: 12px; }
 
 .logs-container {
   max-height: 500px;
@@ -1882,8 +1883,8 @@ onUnmounted(() => {
 .log-entry:hover { background: rgba(255,255,255,0.02); }
 
 .log-time-col { display: inline-flex; flex-direction: column; flex-shrink: 0; line-height: 1.3; }
-.log-bt { color: #b0b0c0; font-size: 11px; white-space: nowrap; }
-.log-wt { color: #555; font-size: 9px; white-space: nowrap; }
+.log-bt { color: hsl(var(--muted-foreground)); font-size: 11px; white-space: nowrap; }
+.log-wt { color: hsl(var(--muted-foreground)); font-size: 9px; white-space: nowrap; }
 .log-level {
   flex-shrink: 0;
   padding: 1px 5px;
@@ -1895,10 +1896,10 @@ onUnmounted(() => {
   min-width: 52px;
   text-align: center;
 }
-.level-debug { background: rgba(255,255,255,0.06); color: #8a8a9a; }
-.level-info { background: rgba(24,144,255,0.15); color: #69c0ff; }
-.level-warning { background: rgba(250,173,20,0.15); color: #ffc53d; }
-.level-error { background: rgba(245,34,45,0.15); color: #ff7875; }
+.level-debug { background: rgba(255,255,255,0.06); color: hsl(var(--muted-foreground)); }
+.level-info { background: rgba(24,144,255,0.15); color: hsl(var(--primary)); }
+.level-warning { background: rgba(250,173,20,0.15); color: hsl(var(--warning)); }
+.level-error { background: rgba(245,34,45,0.15); color: hsl(var(--error)); }
 .log-event {
   flex-shrink: 0;
   padding: 1px 5px;
@@ -1910,22 +1911,22 @@ onUnmounted(() => {
   width: 110px;
   text-align: center;
 }
-.event-signal { background: rgba(179,127,235,0.15); color: #b37feb; }
+.event-signal { background: rgba(179,127,235,0.15); color: hsl(var(--secondary-foreground)); }
 .event-order { background: rgba(54,207,201,0.15); color: #36cfc9; }
-.event-position { background: rgba(250,173,20,0.15); color: #ffc53d; }
-.event-capital { background: rgba(115,209,61,0.15); color: #73d13d; }
-.event-engine { background: rgba(24,144,255,0.15); color: #69c0ff; }
-.event-risk { background: rgba(245,34,45,0.15); color: #ff7875; }
-.event-price { background: rgba(255,255,255,0.06); color: #8a8a9a; }
-.event-t1 { background: rgba(250,140,22,0.15); color: #fa8c16; }
-.text-orange { color: #fa8c16; }
-.log-detail { color: #ccc; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
-.log-symbol { color: #fff; font-weight: 600; }
-.log-kv { color: #8a8a9a; }
-.log-kv.dim { color: #888; }
-.log-reason { color: #bbb; font-style: italic; }
-.log-msg { color: #ccc; word-break: break-all; }
-.logs-end { text-align: center; font-size: 11px; color: #6a6a7a; padding: 10px 0; }
+.event-position { background: rgba(250,173,20,0.15); color: hsl(var(--warning)); }
+.event-capital { background: rgba(115,209,61,0.15); color: hsl(var(--success)); }
+.event-engine { background: rgba(24,144,255,0.15); color: hsl(var(--primary)); }
+.event-risk { background: rgba(245,34,45,0.15); color: hsl(var(--error)); }
+.event-price { background: rgba(255,255,255,0.06); color: hsl(var(--muted-foreground)); }
+.event-t1 { background: rgba(250,140,22,0.15); color: hsl(var(--warning)); }
+.text-orange { color: hsl(var(--warning)); }
+.log-detail { color: hsl(var(--border)); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.log-symbol { color: hsl(var(--foreground)); font-weight: 600; }
+.log-kv { color: hsl(var(--muted-foreground)); }
+.log-kv.dim { color: hsl(var(--muted-foreground)); }
+.log-reason { color: hsl(var(--border)); font-style: italic; }
+.log-msg { color: hsl(var(--border)); word-break: break-all; }
+.logs-end { text-align: center; font-size: 11px; color: hsl(var(--muted-foreground)); padding: 10px 0; }
 
 /* Responsive */
 @media (max-width: 768px) {

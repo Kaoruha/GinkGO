@@ -238,7 +238,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .page-actions {
@@ -261,7 +261,7 @@ onUnmounted(() => {
   width: 40px;
   height: 20px;
   appearance: none;
-  background: #3a3a4e;
+  background: hsl(var(--secondary));
   border-radius: 20px;
   outline: none;
   cursor: pointer;
@@ -275,13 +275,13 @@ onUnmounted(() => {
   left: 2px;
   width: 16px;
   height: 16px;
-  background: #ffffff;
+  background: hsl(var(--card));
   border-radius: 50%;
   transition: transform 0.3s;
 }
 
 .switch-input:checked {
-  background: #1890ff;
+  background: hsl(var(--primary));
 }
 
 .switch-input:checked::after {
@@ -290,7 +290,7 @@ onUnmounted(() => {
 
 .switch-text {
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 统计卡片 */
@@ -301,9 +301,9 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
-.stat-success { color: #52c41a; }
-.stat-danger { color: #f5222d; }
-.stat-muted { color: #8a8a9a; }
+.stat-success { color: hsl(var(--success)); }
+.stat-danger { color: hsl(var(--error)); }
+.stat-muted { color: hsl(var(--muted-foreground)); }
 
 /* 卡片 */
 .card-header {
@@ -311,29 +311,29 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .card-header h3 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .filter-select {
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
   padding: 6px 12px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
 }
 
 /* 标签 */
 .tag-magenta {
   background: rgba(235, 47, 150, 0.2);
-  color: #eb2f96;
+  color: hsl(var(--error));
 }
 
 /* 表格 */
@@ -351,19 +351,19 @@ onUnmounted(() => {
 .data-table td {
   padding: 10px 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 12px;
   white-space: nowrap;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 12px;
 }
 
@@ -374,7 +374,7 @@ onUnmounted(() => {
 
 .detail-text {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 操作按钮 */
@@ -397,7 +397,7 @@ onUnmounted(() => {
 
 .btn-start {
   background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .btn-start:hover {
@@ -406,7 +406,7 @@ onUnmounted(() => {
 
 .btn-stop {
   background: rgba(245, 34, 45, 0.2);
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .btn-stop:hover {
@@ -419,7 +419,7 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state p {

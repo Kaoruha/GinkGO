@@ -226,7 +226,7 @@ onMounted(() => {
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 /* 两列网格 */
@@ -242,7 +242,7 @@ onMounted(() => {
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0;
 }
 
@@ -258,7 +258,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   cursor: pointer;
   margin-right: 16px;
 }
@@ -266,7 +266,7 @@ onMounted(() => {
 .checkbox {
   width: 16px;
   height: 16px;
-  accent-color: #1890ff;
+  accent-color: hsl(var(--primary));
 }
 
 /* 按钮 */
@@ -277,11 +277,11 @@ onMounted(() => {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .btn-small:hover {
-  border-color: #5a5a6e;
+  border-color: hsl(var(--muted-foreground));
 }
 
 /* 时间线 */
@@ -297,7 +297,7 @@ onMounted(() => {
   top: 8px;
   bottom: 8px;
   width: 2px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .timeline-item {
@@ -316,15 +316,15 @@ onMounted(() => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid #1a1a2e;
+  border: 2px solid hsl(var(--card));
 }
 
 .timeline-dot.success {
-  background: #52c41a;
+  background: hsl(var(--success));
 }
 
 .timeline-dot.error {
-  background: #f5222d;
+  background: hsl(var(--error));
 }
 
 .timeline-content {
@@ -334,19 +334,19 @@ onMounted(() => {
 .timeline-title {
   font-size: 14px;
   font-weight: 500;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin-bottom: 4px;
 }
 
 .timeline-time {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 4px;
 }
 
 .timeline-codes {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 4px;
 }
 
@@ -355,11 +355,11 @@ onMounted(() => {
 }
 
 .timeline-status.success {
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .timeline-status.error {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 /* 空状态 */
@@ -369,7 +369,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state svg {

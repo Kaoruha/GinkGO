@@ -19,7 +19,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0a0f;
+  background: hsl(var(--background));
 }
 
 .not-found-content {
@@ -29,7 +29,7 @@
 
 .error-code {
   font-size: 72px;
-  color: #00ff88;
+  color: hsl(var(--success));
   margin: 0 0 16px 0;
   font-family: 'Silkscreen', monospace;
   text-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
@@ -37,16 +37,16 @@
 
 .error-message {
   font-size: 18px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin: 0 0 32px 0;
 }
 
 .back-button {
   padding: 12px 32px;
-  background: linear-gradient(135deg, #00ff88, #00cc6a);
+  background: linear-gradient(135deg, hsl(var(--success)), hsl(var(--success)));
   border: none;
   border-radius: 4px;
-  color: #0a0a0f;
+  color: hsl(var(--background));
   font-family: 'Silkscreen', monospace;
   font-size: 14px;
   font-weight: 700;
@@ -56,7 +56,7 @@
 }
 
 .back-button:hover {
-  background: linear-gradient(135deg, #00cc6a, #00aa55);
+  background: linear-gradient(135deg, hsl(var(--success)), hsl(var(--success)));
   transform: translateY(-1px);
   box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
 }

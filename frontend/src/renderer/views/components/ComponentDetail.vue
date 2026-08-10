@@ -244,7 +244,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #1e1e1e;
+  background: hsl(var(--card));
 }
 
 .toolbar {
@@ -252,8 +252,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 10px 16px;
-  background: #2d2d2d;
-  border-bottom: 1px solid #404040;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
   flex-shrink: 0;
 }
 
@@ -272,7 +272,7 @@ onUnmounted(() => {
 .toolbar-divider {
   width: 1px;
   height: 20px;
-  background: #555;
+  background: hsl(var(--muted-foreground));
 }
 
 .btn-back {
@@ -281,31 +281,31 @@ onUnmounted(() => {
   gap: 6px;
   padding: 6px 12px;
   background: transparent;
-  border: 1px solid #555;
+  border: 1px solid hsl(var(--muted-foreground));
   border-radius: 4px;
-  color: #e0e0e0;
+  color: hsl(var(--border));
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-back:hover {
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
   background: rgba(24, 144, 255, 0.1);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
   background: rgba(24, 144, 255, 0.1);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
-  border-color: #40a9ff;
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
 }
 
 .file-info {
-  color: #e0e0e0;
+  color: hsl(var(--border));
   display: flex;
   align-items: center;
   gap: 8px;
@@ -314,14 +314,14 @@ onUnmounted(() => {
 .file-name {
   font-size: 14px;
   font-weight: 500;
-  color: #fff;
+  color: hsl(var(--foreground));
 }
 
 .unsaved-badge {
   margin-left: 8px;
   padding: 2px 8px;
-  background: #faad14;
-  color: #000;
+  background: hsl(var(--warning));
+  color: hsl(var(--foreground));
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
@@ -330,7 +330,7 @@ onUnmounted(() => {
 .editor-container {
   flex: 1;
   overflow: hidden;
-  background: #1e1e1e;
+  background: hsl(var(--card));
 }
 
 .editor-loading {
@@ -339,8 +339,8 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #1e1e1e;
-  color: #8a8a9a;
+  background: hsl(var(--card));
+  color: hsl(var(--muted-foreground));
 }
 
 .editor-loading p {
@@ -352,8 +352,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 4px 16px;
-  background: #007acc;
-  color: #fff;
+  background: hsl(var(--primary));
+  color: hsl(var(--foreground));
   font-size: 12px;
   flex-shrink: 0;
 }

@@ -244,7 +244,7 @@ onMounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -257,15 +257,15 @@ onMounted(() => {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .btn-link-danger {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .btn-link-danger:hover {
-  color: #ff4d4f;
+  color: hsl(var(--error));
 }
 
 .table-wrapper {
@@ -281,30 +281,30 @@ onMounted(() => {
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 13px;
   white-space: nowrap;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
 }
 
 .data-table tbody tr:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .empty-state {
   text-align: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state p {
@@ -316,13 +316,13 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
   flex-wrap: wrap;
   gap: 16px;
 }
 
 .pagination-info {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
 }
 
@@ -336,17 +336,17 @@ onMounted(() => {
 .pagination-btn {
   padding: 4px 12px;
   background: transparent;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 .pagination-btn:disabled {
@@ -355,17 +355,17 @@ onMounted(() => {
 }
 
 .pagination-current {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
   padding: 0 8px;
 }
 
 .pagination-size {
   padding: 4px 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
 }

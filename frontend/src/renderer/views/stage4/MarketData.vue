@@ -716,7 +716,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -739,7 +739,7 @@ onUnmounted(() => {
 /* 统计卡片 */
 
 .stat-primary {
-  color: #1890ff;
+  color: hsl(var(--primary));
 }
 
 /* 内容网格 */
@@ -757,31 +757,31 @@ onUnmounted(() => {
 
 .filter-select {
   padding: 6px 12px;
-  background: #0f0f1a;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   outline: none;
   cursor: pointer;
 }
 
 .filter-select:focus {
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .search-input {
   padding: 6px 12px;
-  background: #0f0f1a;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   outline: none;
 }
 
 .search-input:focus {
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 /* 交易对列表 */
@@ -796,13 +796,13 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: #0f0f1a;
+  background: hsl(var(--background));
   border-radius: 4px;
   transition: all 0.2s;
 }
 
 .pair-item:hover {
-  background: #1a1a2e;
+  background: hsl(var(--card));
 }
 
 .pair-item.subscribed {
@@ -819,12 +819,12 @@ onUnmounted(() => {
 .pair-symbol {
   font-size: 14px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .pair-state {
   font-size: 12px;
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .pair-price {
@@ -837,7 +837,7 @@ onUnmounted(() => {
 }
 
 .price-label, .volume-label {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .price-value {
@@ -846,7 +846,7 @@ onUnmounted(() => {
 }
 
 .volume-value {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 数据类型按钮 */
@@ -864,25 +864,25 @@ onUnmounted(() => {
 
 .ws-toggle-btn {
   padding: 6px 12px;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
   background: transparent;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .ws-toggle-btn.connected {
-  border-color: #52c41a;
+  border-color: hsl(var(--success));
   background: rgba(82, 196, 26, 0.1);
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .ws-toggle-btn.disconnected {
-  border-color: #f5222d;
+  border-color: hsl(var(--error));
   background: rgba(245, 34, 45, 0.1);
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .ws-toggle-btn:hover {
@@ -892,23 +892,23 @@ onUnmounted(() => {
 .type-btn {
   padding: 4px 12px;
   background: transparent;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .type-btn:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 .type-btn.active {
-  background: #1890ff;
-  border-color: #1890ff;
-  color: #ffffff;
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--foreground));
 }
 
 /* 表格 */
@@ -921,32 +921,32 @@ onUnmounted(() => {
   text-align: left;
   padding: 8px;
   font-size: 12px;
-  color: #8a8a9a;
-  border-bottom: 1px solid #2a2a3e;
+  color: hsl(var(--muted-foreground));
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .ticker-table td {
   padding: 8px;
   font-size: 13px;
-  color: #ffffff;
-  border-bottom: 1px solid #1a1a2e;
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--card));
 }
 
 /* 优先级：价格颜色类覆盖表格默认颜色 */
 .ticker-table td.text-success {
-  color: #52c41a !important;
+  color: hsl(var(--success)) !important;
 }
 
 .ticker-table td.text-danger {
-  color: #f5222d !important;
+  color: hsl(var(--error)) !important;
 }
 
 .text-success {
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .text-danger {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 /* 价格闪烁动画 */
@@ -984,7 +984,7 @@ onUnmounted(() => {
 .loading, .disconnected, .empty {
   text-align: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 响应式 */

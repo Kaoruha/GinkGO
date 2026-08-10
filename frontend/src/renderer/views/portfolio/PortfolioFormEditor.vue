@@ -914,7 +914,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #0f0f1a;
+  background: hsl(var(--background));
 }
 
 .portfolio-form-editor.modal-mode .form-layout {
@@ -923,7 +923,7 @@ onMounted(() => {
 
 .portfolio-form-editor.modal-mode .page-header {
   padding: 12px 16px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .page-header {
@@ -931,8 +931,8 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
-  background: #1a1a2e;
-  border-bottom: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
   flex-shrink: 0;
 }
 
@@ -946,13 +946,13 @@ onMounted(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .title-section p {
   margin: 0;
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .header-actions {
@@ -961,7 +961,7 @@ onMounted(() => {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .form-layout {
@@ -996,14 +996,14 @@ onMounted(() => {
 
 .card-header-sm {
   padding: 12px 16px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .card-header-sm h4 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .card-body-sm {
@@ -1023,15 +1023,15 @@ onMounted(() => {
 }
 
 .required {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .input-group {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
 }
 
@@ -1053,7 +1053,7 @@ onMounted(() => {
   gap: 6px;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .type-btn {
@@ -1061,25 +1061,25 @@ onMounted(() => {
   min-width: 0;
   padding: 6px 8px;
   font-size: 12px;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   background: transparent;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
   line-height: 1.2;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .type-btn:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 .type-btn.active {
-  background: #1890ff;
-  border-color: #1890ff;
-  color: #fff;
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--foreground));
 }
 
 .component-selector {
@@ -1100,7 +1100,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 6px 8px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 4px;
   margin-bottom: 8px;
 }
@@ -1108,7 +1108,7 @@ onMounted(() => {
 .section-title {
   font-size: 13px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .config-list {
@@ -1118,7 +1118,7 @@ onMounted(() => {
 }
 
 .config-item {
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   overflow: hidden;
 }
@@ -1128,7 +1128,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: #1a1a2e;
+  background: hsl(var(--card));
 }
 
 .item-info {
@@ -1141,15 +1141,15 @@ onMounted(() => {
 .item-name {
   font-size: 13px;
   font-weight: 500;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .version-select {
   padding: 4px 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
 }
@@ -1163,23 +1163,23 @@ onMounted(() => {
 .weight-input {
   width: 60px;
   padding: 4px 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   text-align: center;
 }
 
 .item-actions .unit {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .item-params {
   padding: 8px 12px;
-  background: #2a2a3e;
-  border-top: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border-top: 1px solid hsl(var(--secondary));
 }
 
 .param-row {
@@ -1195,7 +1195,7 @@ onMounted(() => {
 
 .param-label {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   min-width: 80px;
 }
 
@@ -1203,17 +1203,17 @@ onMounted(() => {
 .param-select {
   flex: 1;
   padding: 4px 8px;
-  background: #1a1a2e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
 }
 
 .param-input:focus,
 .param-select:focus {
   outline: none;
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 /* Switch */
@@ -1231,7 +1231,7 @@ onMounted(() => {
   position: relative;
   width: 36px;
   height: 18px;
-  background: #3a3a4e;
+  background: hsl(var(--secondary));
   border-radius: 9px;
   cursor: pointer;
   transition: background 0.2s;
@@ -1244,13 +1244,13 @@ onMounted(() => {
   left: 2px;
   width: 14px;
   height: 14px;
-  background: #ffffff;
+  background: hsl(var(--card));
   border-radius: 50%;
   transition: transform 0.2s;
 }
 
 .switch-input:checked + .switch-label {
-  background: #1890ff;
+  background: hsl(var(--primary));
 }
 
 .switch-input:checked + .switch-label::after {
@@ -1264,7 +1264,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state svg {

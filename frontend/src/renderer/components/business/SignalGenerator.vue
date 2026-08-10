@@ -109,21 +109,21 @@ const generateSignal = () => {
 }
 
 .card {
-  background: #1a1a2e;
+  background: hsl(var(--card));
   border-radius: 8px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
 }
 
 .card-header {
   padding: 12px 16px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .card-header h4 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .card-body {
@@ -144,7 +144,7 @@ const generateSignal = () => {
 .form-label {
   display: block;
   font-size: 13px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-weight: 500;
   margin-bottom: 6px;
 }
@@ -153,10 +153,10 @@ const generateSignal = () => {
 .form-select {
   width: 100%;
   padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   box-sizing: border-box;
 }
@@ -164,12 +164,12 @@ const generateSignal = () => {
 .form-input:focus,
 .form-select:focus {
   outline: none;
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .divider {
   height: 1px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   margin: 16px 0;
 }
 
@@ -181,23 +181,23 @@ const generateSignal = () => {
 
 .radio-button {
   padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .radio-button:hover {
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .radio-button.active {
-  background: #1890ff;
-  border-color: #1890ff;
-  color: #ffffff;
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--foreground));
 }
 
 .form-actions {
@@ -206,16 +206,16 @@ const generateSignal = () => {
 
 .btn-primary {
   padding: 8px 16px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .btn-primary:hover {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 </style>

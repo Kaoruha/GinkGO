@@ -97,12 +97,12 @@ const color = '#26a69a'
 }
 
 .label {
-  color: #666;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
 }
 
 .value {
   font-weight: 600;
-  color: #333;
+  color: hsl(var(--foreground));
 }
 </style>

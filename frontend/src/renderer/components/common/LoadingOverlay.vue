@@ -51,7 +51,7 @@ const handleMaskClick = () => {
   width: 40px;
   height: 40px;
   border: 4px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #1890ff;
+  border-top-color: hsl(var(--primary));
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -61,7 +61,7 @@ const handleMaskClick = () => {
 }
 
 .loading-text {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
 }
 </style>

@@ -144,7 +144,7 @@ watch(() => route.params.type, () => loadFiles(), { immediate: true })
 
 <style scoped>
 .file-link {
-  color: #1890ff;
+  color: hsl(var(--primary));
   font-weight: 500;
   text-decoration: none;
 }
@@ -153,15 +153,15 @@ watch(() => route.params.type, () => loadFiles(), { immediate: true })
 .act-link {
   background: none;
   border: none;
-  color: #1890ff;
+  color: hsl(var(--primary));
   font-size: 13px;
   cursor: pointer;
   padding: 0;
   text-decoration: none;
 }
-.act-link:hover { color: #40a9ff; }
-.act-link.danger { color: #f5222d; }
-.act-link.danger:hover { color: #ff4d4f; }
+.act-link:hover { color: hsl(var(--primary)); }
+.act-link.danger { color: hsl(var(--error)); }
+.act-link.danger:hover { color: hsl(var(--error)); }
 
 .modal-overlay {
   position: fixed;
@@ -174,8 +174,8 @@ watch(() => route.params.type, () => loadFiles(), { immediate: true })
 }
 
 .modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   min-width: 400px;
   max-height: 90vh;

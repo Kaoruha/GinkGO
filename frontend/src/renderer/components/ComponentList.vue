@@ -374,7 +374,7 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0f0f1a;
+  background: hsl(var(--background));
 }
 
 .page-header {
@@ -387,7 +387,7 @@ onMounted(() => {
 .page-title {
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .header-actions {
@@ -399,8 +399,8 @@ onMounted(() => {
 .search-box {
   display: flex;
   align-items: center;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 4px;
   padding: 8px 12px;
 }
@@ -419,7 +419,7 @@ onMounted(() => {
 }
 
 .search-box svg {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .btn-primary {
@@ -427,10 +427,10 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -438,7 +438,7 @@ onMounted(() => {
 }
 
 .btn-primary:hover {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .content-layout {
@@ -451,8 +451,8 @@ onMounted(() => {
 .file-list-panel {
   width: 400px;
   flex-shrink: 0;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   overflow: auto;
 }
@@ -471,19 +471,19 @@ onMounted(() => {
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   position: sticky;
   top: 0;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .data-table tbody tr {
@@ -492,7 +492,7 @@ onMounted(() => {
 }
 
 .data-table tbody tr:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .data-table tbody tr.active {
@@ -500,11 +500,11 @@ onMounted(() => {
 }
 
 .file-name {
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .file-name.active {
-  color: #1890ff;
+  color: hsl(var(--primary));
   font-weight: 500;
 }
 
@@ -512,7 +512,7 @@ onMounted(() => {
   padding: 0;
   background: transparent;
   border: none;
-  color: #1890ff;
+  color: hsl(var(--primary));
   cursor: pointer;
   font-size: 13px;
 }
@@ -522,13 +522,13 @@ onMounted(() => {
 }
 
 .btn-link.text-red {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .editor-panel {
   flex: 1;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   overflow: hidden;
   display: flex;
@@ -547,7 +547,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state svg {
@@ -574,8 +574,8 @@ onMounted(() => {
 }
 
 .modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   width: 90%;
   max-width: 400px;
@@ -590,21 +590,21 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .modal-close {
   padding: 4px 8px;
   background: transparent;
   border: none;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 20px;
   cursor: pointer;
   border-radius: 4px;
@@ -612,8 +612,8 @@ onMounted(() => {
 }
 
 .modal-close:hover {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
 }
 
 .modal-body {
@@ -627,29 +627,29 @@ onMounted(() => {
 .form-label {
   display: block;
   font-size: 13px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-weight: 500;
   margin-bottom: 8px;
 }
 
 .required {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .form-input {
   width: 100%;
   padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   box-sizing: border-box;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .modal-actions {
@@ -661,16 +661,16 @@ onMounted(() => {
 .btn-secondary {
   padding: 8px 16px;
   background: transparent;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 </style>

@@ -461,9 +461,9 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.stat-warning { color: #eab308; }
-.stat-success { color: #22c55e; }
-.stat-danger { color: #ef4444; }
+.stat-warning { color: hsl(var(--warning)); }
+.stat-success { color: hsl(var(--success)); }
+.stat-danger { color: hsl(var(--error)); }
 
 .segment-tags {
   display: flex;
@@ -474,9 +474,9 @@ onUnmounted(() => {
 
 .segment-tag {
   padding: 6px 14px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
-  background: #1a1a2e;
+  background: hsl(var(--card));
   color: rgba(255, 255, 255, 0.6);
   font-size: 13px;
   cursor: pointer;
@@ -484,14 +484,14 @@ onUnmounted(() => {
 }
 
 .segment-tag:hover {
-  border-color: #3a3a5e;
+  border-color: hsl(var(--secondary));
   color: rgba(255, 255, 255, 0.9);
 }
 
 .segment-tag.active {
   background: rgba(59, 130, 246, 0.15);
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
   font-weight: 600;
 }
 
@@ -501,17 +501,17 @@ onUnmounted(() => {
 }
 
 .segment-tag-add:hover {
-  color: #3b82f6;
-  border-color: #3b82f6;
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
 }
 
 .segment-tag-input {
   width: 64px;
   padding: 6px 10px;
-  border: 1px solid #3b82f6;
+  border: 1px solid hsl(var(--primary));
   border-radius: 6px;
-  background: #1a1a2e;
-  color: #fff;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
   font-size: 13px;
   outline: none;
 }

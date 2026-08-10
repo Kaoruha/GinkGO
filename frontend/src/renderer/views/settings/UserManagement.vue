@@ -303,8 +303,8 @@ onMounted(() => {
 }
 
 .modal-content, .modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -329,7 +329,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 /* Filter Row */
@@ -343,8 +343,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
   padding: 6px 12px;
   flex: 1;
@@ -352,7 +352,7 @@ onMounted(() => {
 }
 
 .search-input-wrapper svg {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   flex-shrink: 0;
 }
 
@@ -360,7 +360,7 @@ onMounted(() => {
   flex: 1;
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   padding: 0;
 }
@@ -371,10 +371,10 @@ onMounted(() => {
 
 .search-btn {
   padding: 4px 12px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
@@ -394,21 +394,21 @@ onMounted(() => {
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .data-table tbody tr:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 /* Action Links */
@@ -418,7 +418,7 @@ onMounted(() => {
 }
 
 .action-links a {
-  color: #1890ff;
+  color: hsl(var(--primary));
   cursor: pointer;
   font-size: 13px;
 }
@@ -428,11 +428,11 @@ onMounted(() => {
 }
 
 .danger-link {
-  color: #f5222d !important;
+  color: hsl(var(--error)) !important;
 }
 
 .required {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 /* Switch */
@@ -448,14 +448,14 @@ onMounted(() => {
   width: 44px;
   height: 22px;
   appearance: none;
-  background: #3a3a4e;
+  background: hsl(var(--secondary));
   border-radius: 11px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .switch-input:checked {
-  background: #1890ff;
+  background: hsl(var(--primary));
 }
 
 .switch-input::before {
@@ -465,7 +465,7 @@ onMounted(() => {
   left: 2px;
   width: 18px;
   height: 18px;
-  background: #ffffff;
+  background: hsl(var(--card));
   border-radius: 50%;
   transition: transform 0.2s;
 }
@@ -476,12 +476,12 @@ onMounted(() => {
 
 .switch-text {
   font-size: 13px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .empty-state {
   text-align: center;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   padding: 32px !important;
 }
 </style>

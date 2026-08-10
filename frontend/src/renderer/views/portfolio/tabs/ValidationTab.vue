@@ -51,7 +51,7 @@ const subTabs = [
 .sub-tab-bar {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
   margin-bottom: 16px;
   flex-shrink: 0;
 }
@@ -72,8 +72,8 @@ const subTabs = [
 }
 
 .sub-tab-item.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
+  color: hsl(var(--primary));
+  border-bottom-color: hsl(var(--primary));
   font-weight: 600;
 }
 

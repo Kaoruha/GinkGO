@@ -360,7 +360,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .page-actions {
@@ -383,7 +383,7 @@ onUnmounted(() => {
   width: 40px;
   height: 20px;
   appearance: none;
-  background: #3a3a4e;
+  background: hsl(var(--secondary));
   border-radius: 20px;
   outline: none;
   cursor: pointer;
@@ -397,13 +397,13 @@ onUnmounted(() => {
   left: 2px;
   width: 16px;
   height: 16px;
-  background: #ffffff;
+  background: hsl(var(--card));
   border-radius: 50%;
   transition: transform 0.3s;
 }
 
 .switch-input:checked {
-  background: #1890ff;
+  background: hsl(var(--primary));
 }
 
 .switch-input:checked::after {
@@ -412,7 +412,7 @@ onUnmounted(() => {
 
 .switch-text {
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 按钮 */
@@ -443,7 +443,7 @@ onUnmounted(() => {
 
 .stat-error {
   background: rgba(245, 34, 45, 0.2);
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .stat-value-with-tag {
@@ -459,7 +459,7 @@ onUnmounted(() => {
 
 .stat-unit {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-weight: normal;
 }
 
@@ -474,7 +474,7 @@ onUnmounted(() => {
 }
 
 .infra-card {
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 6px;
   padding: 12px;
 }
@@ -489,19 +489,19 @@ onUnmounted(() => {
 .infra-name {
   font-size: 13px;
   font-weight: 500;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   text-transform: capitalize;
 }
 
 .infra-error,
 .infra-info {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-top: 4px;
 }
 
 .infra-error {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 /* 组件统计 */
@@ -513,7 +513,7 @@ onUnmounted(() => {
 }
 
 .component-stat-card {
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 6px;
   padding: 12px;
   text-align: center;
@@ -521,7 +521,7 @@ onUnmounted(() => {
 
 .component-stat-label {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 4px;
 }
 
@@ -532,14 +532,14 @@ onUnmounted(() => {
 
 .component-stat-total {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 标签 */
 
 .tag-magenta {
   background: rgba(235, 47, 150, 0.2);
-  color: #eb2f96;
+  color: hsl(var(--error));
 }
 
 /* 表格 */
@@ -557,19 +557,19 @@ onUnmounted(() => {
 .data-table td {
   padding: 10px 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 12px;
   white-space: nowrap;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 12px;
 }
 
@@ -580,7 +580,7 @@ onUnmounted(() => {
 
 .detail-text {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 /* 空状态 */
@@ -589,7 +589,7 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state p {

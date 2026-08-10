@@ -115,8 +115,8 @@ const handleDeploy = async () => {
   z-index: 1000;
 }
 .modal-box {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   width: 480px;
   max-height: 90vh;
@@ -128,35 +128,35 @@ const handleDeploy = async () => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
-.modal-header h3 { margin: 0; color: #fff; font-size: 16px; }
-.btn-close { background: none; border: none; color: #8a8a9a; font-size: 18px; cursor: pointer; }
-.btn-close:hover { color: #fff; }
+.modal-header h3 { margin: 0; color: hsl(var(--foreground)); font-size: 16px; }
+.btn-close { background: none; border: none; color: hsl(var(--muted-foreground)); font-size: 18px; cursor: pointer; }
+.btn-close:hover { color: hsl(var(--foreground)); }
 .modal-body { padding: 20px; }
 .modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   padding: 12px 20px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
 }
 .form-item { margin-bottom: 14px; }
-.form-item label { display: block; font-size: 12px; color: #8a8a9a; margin-bottom: 4px; }
+.form-item label { display: block; font-size: 12px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; }
 .form-input, .form-select {
   width: 100%;
   padding: 7px 10px;
-  background: #0f0f1a;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
 }
-.form-input:focus, .form-select:focus { border-color: #1890ff; outline: none; }
-.form-hint { margin: 6px 0 0; font-size: 12px; color: #8a8a9a; }
+.form-input:focus, .form-select:focus { border-color: hsl(var(--primary)); outline: none; }
+.form-hint { margin: 6px 0 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
 .radio-group {
   display: inline-flex;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 4px;
   padding: 2px;
 }
@@ -165,32 +165,32 @@ const handleDeploy = async () => {
   background: transparent;
   border: none;
   border-radius: 2px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.radio-button:hover { color: #fff; }
-.radio-button.active { background: #1890ff; color: #fff; }
+.radio-button:hover { color: hsl(var(--foreground)); }
+.radio-button.active { background: hsl(var(--primary)); color: hsl(var(--foreground)); }
 .btn-primary {
   padding: 6px 14px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
-.btn-primary:hover { background: #40a9ff; }
+.btn-primary:hover { background: hsl(var(--primary)); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-secondary {
   padding: 6px 14px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
-.btn-secondary:hover { background: #3a3a4e; }
+.btn-secondary:hover { background: hsl(var(--secondary)); }
 </style>

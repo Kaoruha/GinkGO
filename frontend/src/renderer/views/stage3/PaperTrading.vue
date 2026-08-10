@@ -72,21 +72,21 @@ onMounted(() => fetchPortfolios())
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .page-description {
   margin: 0;
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .table-container {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   padding: 16px;
 }
@@ -100,24 +100,24 @@ onMounted(() => fetchPortfolios())
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 13px;
   white-space: nowrap;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
 }
 
 .data-table tbody tr:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .empty-state {
@@ -125,11 +125,11 @@ onMounted(() => fetchPortfolios())
   justify-content: center;
   align-items: center;
   padding: 60px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .link {
-  color: #3b82f6;
+  color: hsl(var(--primary));
   text-decoration: none;
 }
 

@@ -90,8 +90,8 @@ const handleSelect = () => {
 
 <style scoped>
 .strategy-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   padding: 16px;
   cursor: pointer;
@@ -101,7 +101,7 @@ const handleSelect = () => {
 .strategy-card:hover {
   box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
   transform: translateY(-4px);
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .card-header {
@@ -116,7 +116,7 @@ const handleSelect = () => {
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .card-meta {
@@ -128,7 +128,7 @@ const handleSelect = () => {
 
 .card-description {
   font-size: 13px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .card-stats {
@@ -138,7 +138,7 @@ const handleSelect = () => {
 
 .card-stats span {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .card-body {
@@ -155,18 +155,18 @@ const handleSelect = () => {
   display: flex;
   justify-content: space-between;
   padding: 8px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 4px;
 }
 
 .param-name {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .param-value {
   font-size: 12px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-weight: 500;
 }
 
@@ -178,33 +178,33 @@ const handleSelect = () => {
 
 .btn-primary {
   padding: 6px 12px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .btn-primary:hover {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .btn-secondary {
   padding: 6px 12px;
   background: transparent;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 /* Tag */
@@ -216,9 +216,9 @@ const handleSelect = () => {
   font-weight: 500;
 }
 
-.tag-blue { background: rgba(24, 144, 255, 0.2); color: #1890ff; }
-.tag-green { background: rgba(82, 196, 26, 0.2); color: #52c41a; }
-.tag-orange { background: rgba(250, 173, 20, 0.2); color: #faad14; }
-.tag-purple { background: rgba(114, 46, 209, 0.2); color: #722ed1; }
-.tag-gray { background: #2a2a3e; color: #8a8a9a; }
+.tag-blue { background: rgba(24, 144, 255, 0.2); color: hsl(var(--primary)); }
+.tag-green { background: rgba(82, 196, 26, 0.2); color: hsl(var(--success)); }
+.tag-orange { background: rgba(250, 173, 20, 0.2); color: hsl(var(--warning)); }
+.tag-purple { background: rgba(114, 46, 209, 0.2); color: hsl(var(--secondary-foreground)); }
+.tag-gray { background: hsl(var(--border)); color: hsl(var(--muted-foreground)); }
 </style>

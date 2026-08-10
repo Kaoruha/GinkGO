@@ -124,7 +124,7 @@
             <tr v-for="r in records" :key="r.uuid">
               <td>{{ formatTime(r.create_at) }}</td>
               <td>{{ methodLabel(r.method) }}</td>
-              <td style="font-family: monospace; font-size: 12px; color: #8a8a9a;">{{ r.task_id?.slice(0, 8) }}</td>
+              <td style="font-family: monospace; font-size: 12px; color: hsl(var(--muted-foreground));">{{ r.task_id?.slice(0, 8) }}</td>
               <td>{{ r.score != null ? (r.score * 100).toFixed(1) + '%' : '-' }}</td>
               <td>{{ r.status === 1 ? '完成' : r.status === 0 ? '运行中' : '失败' }}</td>
             </tr>
@@ -230,18 +230,18 @@ onMounted(() => {
 .tab-btn {
   padding: 8px 20px;
   background: transparent;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.tab-btn:hover { color: #fff; border-color: #3a3a4e; }
+.tab-btn:hover { color: hsl(var(--foreground)); border-color: hsl(var(--secondary)); }
 .tab-btn.active {
-  background: #1890ff;
-  border-color: #1890ff;
-  color: #fff;
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--foreground));
 }
 .tab-btn.sm {
   padding: 4px 12px;
@@ -252,11 +252,11 @@ onMounted(() => {
 .result-section {
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
 }
 .result-title {
   margin: 0 0 12px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 14px;
 }
 
@@ -266,16 +266,16 @@ onMounted(() => {
   gap: 12px;
 }
 .stat-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   padding: 12px;
   text-align: center;
 }
-.stat-value { font-size: 18px; font-weight: 600; color: #fff; }
-.stat-label { font-size: 12px; color: #8a8a9a; margin-top: 4px; }
+.stat-value { font-size: 18px; font-weight: 600; color: hsl(var(--foreground)); }
+.stat-label { font-size: 12px; color: hsl(var(--muted-foreground)); margin-top: 4px; }
 
-.text-green { color: #22c55e; }
-.text-red { color: #ef4444; }
-.text-yellow { color: #eab308; }
+.text-green { color: hsl(var(--success)); }
+.text-red { color: hsl(var(--error)); }
+.text-yellow { color: hsl(var(--warning)); }
 </style>

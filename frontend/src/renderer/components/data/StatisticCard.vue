@@ -72,7 +72,7 @@ const props = withDefaults(defineProps<Props>(), {
   hoverable: true,
   bordered: false,
   loading: false,
-  iconColor: '#1890ff',
+  iconColor: 'hsl(var(--primary))',
   spin: false
 })
 
@@ -102,23 +102,23 @@ const formatValue = (val: number | string) => {
 }
 
 .card-primary {
-  border-left: 4px solid #1890ff;
+  border-left: 4px solid hsl(var(--primary));
 }
 
 .card-success {
-  border-left: 4px solid #52c41a;
+  border-left: 4px solid hsl(var(--success));
 }
 
 .card-warning {
-  border-left: 4px solid #faad14;
+  border-left: 4px solid hsl(var(--warning));
 }
 
 .card-danger {
-  border-left: 4px solid #f5222d;
+  border-left: 4px solid hsl(var(--error));
 }
 
 .card-info {
-  border-left: 4px solid #13c2c2;
+  border-left: 4px solid hsl(var(--success));
 }
 
 .stat-header {
@@ -153,13 +153,13 @@ const formatValue = (val: number | string) => {
 
 .stat-title {
   font-size: 14px;
-  color: #8c8c8c;
+  color: hsl(var(--muted-foreground));
   font-weight: 500;
 }
 
 .stat-extra {
   font-size: 12px;
-  color: #8c8c8c;
+  color: hsl(var(--muted-foreground));
 }
 
 .stat-content {
@@ -182,19 +182,19 @@ const formatValue = (val: number | string) => {
 
 .value-number {
   font-weight: 600;
-  color: #1a1a1a;
+  color: hsl(var(--background));
 }
 
 .value-prefix {
   margin-right: 4px;
   font-size: 14px;
-  color: #8c8c8c;
+  color: hsl(var(--muted-foreground));
 }
 
 .value-suffix {
   margin-left: 4px;
   font-size: 14px;
-  color: #8c8c8c;
+  color: hsl(var(--muted-foreground));
 }
 
 .stat-trend {
@@ -205,15 +205,15 @@ const formatValue = (val: number | string) => {
 }
 
 .trend-up .trend-value {
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .trend-down .trend-value {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .trend-flat .trend-value {
-  color: #8c8c8c;
+  color: hsl(var(--muted-foreground));
 }
 
 .trend-icon {

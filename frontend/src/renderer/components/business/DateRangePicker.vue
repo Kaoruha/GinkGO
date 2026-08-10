@@ -144,21 +144,21 @@ const handleCancel = () => {
 }
 
 .card {
-  background: #1a1a2e;
+  background: hsl(var(--card));
   border-radius: 8px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
 }
 
 .card-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .card-header h4 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .card-body {
@@ -173,23 +173,23 @@ const handleCancel = () => {
 
 .btn-small {
   padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-small:hover {
-  background: #3a3a4e;
-  border-color: #1890ff;
+  background: hsl(var(--secondary));
+  border-color: hsl(var(--primary));
 }
 
 .divider {
   height: 1px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   margin: 16px 0;
 }
 
@@ -206,24 +206,24 @@ const handleCancel = () => {
 .form-label {
   display: block;
   font-size: 13px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 6px;
 }
 
 .form-input {
   width: 100%;
   padding: 8px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   box-sizing: border-box;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .form-actions {
@@ -233,17 +233,17 @@ const handleCancel = () => {
 
 .btn-primary {
   padding: 8px 16px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .btn-primary:disabled {
@@ -254,17 +254,17 @@ const handleCancel = () => {
 .btn-secondary {
   padding: 8px 16px;
   background: transparent;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-secondary:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 .range-stats {
@@ -272,7 +272,7 @@ const handleCancel = () => {
   gap: 24px;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
 }
 
 .stat-item {
@@ -282,7 +282,7 @@ const handleCancel = () => {
 .stat-label {
   display: block;
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 4px;
 }
 
@@ -290,6 +290,6 @@ const handleCancel = () => {
   display: block;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 </style>

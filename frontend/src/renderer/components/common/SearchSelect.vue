@@ -173,25 +173,25 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 .search-input {
   width: 100%;
   padding: 8px 12px 8px 32px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #fff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
 }
-.search-input:focus { border-color: #1890ff; }
-.search-input::placeholder { color: #6a6a7a; }
+.search-input:focus { border-color: hsl(var(--primary)); }
+.search-input::placeholder { color: hsl(var(--muted-foreground)); }
 .search-icon {
   position: absolute;
   left: 10px;
-  color: #6a6a7a;
+  color: hsl(var(--muted-foreground));
   pointer-events: none;
 }
 .search-select-dropdown {
-  background: #1a1a2e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
   max-height: 240px;
   overflow-y: auto;
@@ -201,7 +201,7 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 .dropdown-loading {
   padding: 12px;
   text-align: center;
-  color: #6a6a7a;
+  color: hsl(var(--muted-foreground));
   font-size: 13px;
 }
 .dropdown-item {
@@ -211,15 +211,15 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   padding: 8px 12px;
   cursor: pointer;
   font-size: 13px;
-  color: #fff;
+  color: hsl(var(--foreground));
   transition: background 0.1s;
 }
-.dropdown-item.highlighted { background: #2a2a3e; }
+.dropdown-item.highlighted { background: hsl(var(--border)); }
 .dropdown-item.disabled {
-  color: #5a5a6a;
+  color: hsl(var(--muted-foreground));
   cursor: default;
   background: none;
 }
 .item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.item-check { color: #52c41a; flex-shrink: 0; }
+.item-check { color: hsl(var(--success)); flex-shrink: 0; }
 </style>

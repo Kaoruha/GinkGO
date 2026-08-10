@@ -183,9 +183,9 @@ const toggleFactor = (name: string) => {
 }
 
 .card {
-  background: #1a1a2e;
+  background: hsl(var(--card));
   border-radius: 8px;
-  border: 1px solid #2a2a3e;
+  border: 1px solid hsl(var(--border));
 }
 
 .card-header {
@@ -193,28 +193,28 @@ const toggleFactor = (name: string) => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .card-header h4 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .search-box {
   display: flex;
   align-items: center;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
   padding: 6px 12px;
   width: 200px;
 }
 
 .search-box svg {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   flex-shrink: 0;
 }
 
@@ -222,7 +222,7 @@ const toggleFactor = (name: string) => {
   flex: 1;
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   padding: 0;
   margin-left: 8px;
@@ -239,14 +239,14 @@ const toggleFactor = (name: string) => {
 .tabs-header {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .tab-button {
   padding: 12px 16px;
   background: transparent;
   border: none;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 13px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -254,12 +254,12 @@ const toggleFactor = (name: string) => {
 }
 
 .tab-button:hover {
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .tab-button.active {
-  color: #1890ff;
-  border-bottom-color: #1890ff;
+  color: hsl(var(--primary));
+  border-bottom-color: hsl(var(--primary));
 }
 
 .tab-content {
@@ -282,28 +282,28 @@ const toggleFactor = (name: string) => {
 }
 
 .factor-item:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .factor-item.selected {
   background: rgba(24, 144, 255, 0.1);
-  border: 1px solid #1890ff;
+  border: 1px solid hsl(var(--primary));
 }
 
 .factor-name {
   font-size: 13px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .factor-category {
   font-size: 11px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state p {

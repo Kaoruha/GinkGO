@@ -152,22 +152,22 @@ function handleReset() {
   justify-content: space-between;
   align-items: center;
   padding: 12px 0;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .filename-input {
   padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   width: 200px;
 }
 
 .filename-input:focus {
   outline: none;
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .filename-input:disabled {
@@ -185,10 +185,10 @@ function handleReset() {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -196,7 +196,7 @@ function handleReset() {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 
 .btn-primary:disabled {
@@ -210,17 +210,17 @@ function handleReset() {
   gap: 6px;
   padding: 6px 12px;
   background: transparent;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
 }
 
 .btn-secondary:disabled {
@@ -241,20 +241,20 @@ function handleReset() {
   font-size: 14px;
   line-height: 1.5;
   padding: 12px;
-  border: 1px solid #3a3a4e;
+  border: 1px solid hsl(var(--secondary));
   border-radius: 6px;
   resize: none;
   outline: none;
-  background: #1a1a2e;
-  color: #ffffff;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
   box-sizing: border-box;
 }
 
 .code-textarea:focus {
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .code-textarea::placeholder {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 </style>

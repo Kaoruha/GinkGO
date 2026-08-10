@@ -14,7 +14,7 @@
         :data="benchmarkChartData"
         :height="height"
         :line-width="1"
-        color="#999"
+        color="hsl(var(--muted-foreground))"
         title="基准"
       />
     </div>

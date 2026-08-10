@@ -106,7 +106,7 @@ const handleConfirm = (action: TableAction) => {
 }
 
 .action-link {
-  color: #1890ff;
+  color: hsl(var(--primary));
   cursor: pointer;
   font-size: 13px;
   white-space: nowrap;
@@ -117,7 +117,7 @@ const handleConfirm = (action: TableAction) => {
 }
 
 .action-danger {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .action-danger:hover {

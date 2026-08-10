@@ -43,7 +43,7 @@ const handleAction = () => {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-state.has-action {
@@ -56,7 +56,7 @@ const handleAction = () => {
 }
 
 .empty-icon svg {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .empty-image {
@@ -75,10 +75,10 @@ const handleAction = () => {
 
 .btn-primary {
   padding: 8px 16px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -86,6 +86,6 @@ const handleAction = () => {
 }
 
 .btn-primary:hover {
-  background: #40a9ff;
+  background: hsl(var(--primary));
 }
 </style>

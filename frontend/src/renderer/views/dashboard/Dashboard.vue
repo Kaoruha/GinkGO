@@ -273,7 +273,7 @@ onMounted(fetchDashboardData)
 .page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .page-content {
@@ -290,13 +290,13 @@ onMounted(fetchDashboardData)
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   border-radius: 8px;
-  color: #00ff88;
+  color: hsl(var(--success));
 }
 
 .stat-icon.success {
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .stat-content {
@@ -305,12 +305,12 @@ onMounted(fetchDashboardData)
 
 .stat-suffix {
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-weight: 400;
 }
 
 .text-success {
-  color: #52c41a !important;
+  color: hsl(var(--success)) !important;
 }
 
 /* 阶段卡片网格 */
@@ -321,8 +321,8 @@ onMounted(fetchDashboardData)
 }
 
 .stage-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   padding: 20px;
   transition: all 0.2s;
@@ -334,25 +334,25 @@ onMounted(fetchDashboardData)
 }
 
 .stage-card.stage-1 {
-  border-top: 3px solid #1890ff;
+  border-top: 3px solid hsl(var(--primary));
 }
 
 .stage-card.stage-2 {
-  border-top: 3px solid #52c41a;
+  border-top: 3px solid hsl(var(--success));
 }
 
 .stage-card.stage-3 {
-  border-top: 3px solid #fa8c16;
+  border-top: 3px solid hsl(var(--warning));
 }
 
 .stage-card.stage-4 {
-  border-top: 3px solid #f5222d;
+  border-top: 3px solid hsl(var(--error));
 }
 
 .stage-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0 0 16px 0;
 }
 
@@ -371,13 +371,13 @@ onMounted(fetchDashboardData)
 
 .stage-stat .stat-label {
   font-size: 12px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .stage-stat .stat-number {
   font-size: 18px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .stage-link {
@@ -385,7 +385,7 @@ onMounted(fetchDashboardData)
   padding: 8px 16px;
   background: transparent;
   border: none;
-  color: #1890ff;
+  color: hsl(var(--primary));
   font-size: 14px;
   cursor: pointer;
   text-align: left;
@@ -393,14 +393,14 @@ onMounted(fetchDashboardData)
 }
 
 .stage-link:hover {
-  color: #40a9ff;
+  color: hsl(var(--primary));
   text-decoration: underline;
 }
 
 /* 活动卡片 */
 .activity-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   padding: 20px;
 }
@@ -408,19 +408,19 @@ onMounted(fetchDashboardData)
 .activity-card h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0 0 16px 0;
 }
 
 .activity-card p {
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   margin: 0;
 }
 
 /* Portfolio 列表 */
 .portfolio-list-card {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   padding: 20px;
 }
@@ -435,14 +435,14 @@ onMounted(fetchDashboardData)
 .list-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   margin: 0;
 }
 
 .list-link {
   background: transparent;
   border: none;
-  color: #1890ff;
+  color: hsl(var(--primary));
   font-size: 14px;
   cursor: pointer;
 }
@@ -460,7 +460,7 @@ onMounted(fetchDashboardData)
   display: flex;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -475,7 +475,7 @@ onMounted(fetchDashboardData)
 
 .table-header-row {
   cursor: default;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
@@ -488,7 +488,7 @@ onMounted(fetchDashboardData)
 
 .col-name {
   flex: 2;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -497,7 +497,7 @@ onMounted(fetchDashboardData)
 
 .col-mode {
   flex: 1;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 13px;
 }
 
@@ -508,7 +508,7 @@ onMounted(fetchDashboardData)
 .col-netvalue {
   flex: 1;
   text-align: right;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
@@ -524,33 +524,33 @@ onMounted(fetchDashboardData)
 
 .badge-running {
   background: rgba(82, 196, 26, 0.15);
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .badge-paused {
   background: rgba(250, 140, 22, 0.15);
-  color: #fa8c16;
+  color: hsl(var(--warning));
 }
 
 .badge-stopped {
   background: rgba(255, 255, 255, 0.08);
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .badge-completed {
   background: rgba(24, 144, 255, 0.15);
-  color: #1890ff;
+  color: hsl(var(--primary));
 }
 
 .badge-error {
   background: rgba(245, 34, 45, 0.15);
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .inline-link {
   background: transparent;
   border: none;
-  color: #1890ff;
+  color: hsl(var(--primary));
   cursor: pointer;
   font-size: inherit;
   padding: 0;

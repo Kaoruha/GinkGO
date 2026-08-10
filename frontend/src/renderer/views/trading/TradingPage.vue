@@ -39,7 +39,7 @@ const isActive = (key: string) => route.path.includes(key)
 .tab-bar {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
   padding: 0 24px;
 }
 .tab-item {
@@ -54,8 +54,8 @@ const isActive = (key: string) => route.path.includes(key)
   color: rgba(255,255,255,0.9);
 }
 .tab-item.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
+  color: hsl(var(--primary));
+  border-bottom-color: hsl(var(--primary));
   font-weight: 600;
 }
 .tab-content {

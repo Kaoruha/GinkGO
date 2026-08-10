@@ -254,8 +254,8 @@ onMounted(() => {
 }
 
 .modal-content, .modal {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -277,7 +277,7 @@ onMounted(() => {
 .page-title {
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -296,23 +296,23 @@ onMounted(() => {
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .data-table th {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-size: 13px;
 }
 
 .data-table td {
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 14px;
 }
 
 .data-table tr:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .tags-wrapper {
@@ -333,7 +333,7 @@ onMounted(() => {
 
 .badge-success {
   background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
+  color: hsl(var(--success));
 }
 
 .action-links {
@@ -342,7 +342,7 @@ onMounted(() => {
 }
 
 .link {
-  color: #1890ff;
+  color: hsl(var(--primary));
   cursor: pointer;
   text-decoration: none;
 }
@@ -352,11 +352,11 @@ onMounted(() => {
 }
 
 .text-red {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .required {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .multi-select {
@@ -370,10 +370,10 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--secondary));
   border-radius: 4px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
   user-select: none;
@@ -381,11 +381,11 @@ onMounted(() => {
 }
 
 .checkbox-label:hover {
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
 }
 
 .checkbox-label.selected {
-  border-color: #1890ff;
+  border-color: hsl(var(--primary));
   background: rgba(24, 144, 255, 0.1);
 }
 
@@ -395,7 +395,7 @@ onMounted(() => {
 
 .empty-state {
   text-align: center;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   padding: 32px !important;
 }
 </style>
