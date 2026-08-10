@@ -4,6 +4,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { registerAppProtocol, registerAppProtocolHandler } from './protocol'
+import { registerAuthIpc, installAuthInterceptor } from './auth'
 
 // app.ready 前 注册特权 scheme(registerSchemesAsPrivileged 仅 app.ready 之前生效)
 registerAppProtocol()
@@ -44,6 +45,9 @@ function createWindow(): void {
 app.whenReady().then(() => {
   // app.ready 后 安装 file handler(protocol.handle 需要 ready)
   registerAppProtocolHandler()
+  // auth:IPC + 透明注入(createWindow 前,确保首批出站请求即带 Authorization)
+  registerAuthIpc()
+  installAuthInterceptor()
   createWindow()
 })
 
