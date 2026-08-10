@@ -17,7 +17,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-/lib/      # 锚定仓库根：仅忽略 Python 构建产物，勿误伤 web-ui/src/lib（shadcn-vue 源码）
+/lib/      # 锚定仓库根：仅忽略 Python 构建产物，勿误伤 frontend/src/lib（shadcn-vue 源码）
 /lib64/
 parts/
 sdist/
@@ -235,10 +235,10 @@ scripts/**/*.pyc
 
 # Node.js / Web UI dependencies
 node_modules/
-web-ui/node_modules/
+frontend/node_modules/
 
 # Web UI build output
-web-ui/dist/
+frontend/dist/
 
 # graphify knowledge graph output
 graphify-out/
