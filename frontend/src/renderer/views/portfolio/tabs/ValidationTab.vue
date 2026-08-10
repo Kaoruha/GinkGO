@@ -26,8 +26,8 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import SegmentStability from '@/views/portfolio/validation/SegmentStability.vue'
 import MonteCarlo from '@/views/portfolio/validation/MonteCarlo.vue'
-import WalkForward from '@/views/stage2/WalkForward.vue'
-import Sensitivity from '@/views/stage2/Sensitivity.vue'
+import WalkForward from '@/views/portfolio/validation/WalkForward.vue'
+import Sensitivity from '@/views/portfolio/validation/Sensitivity.vue'
 
 const route = useRoute()
 const portfolioId = route.params.id as string
