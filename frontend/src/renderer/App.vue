@@ -281,15 +281,15 @@ const handleLogout = async () => {
 .app-layout {
   height: 100vh;
   overflow: hidden;
-  background: #0f0f1a;
+  background: hsl(var(--background));
   display: flex;
 }
 
 /* Sider */
 .sider {
   width: 220px;
-  background: #1a1a2e;
-  border-right: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border-right: 1px solid hsl(var(--border));
   display: flex;
   flex-direction: column;
   transition: width 0.2s;
@@ -308,8 +308,8 @@ const handleLogout = async () => {
   gap: 8px;
   font-size: 18px;
   font-weight: bold;
-  color: #1890ff;
-  border-bottom: 1px solid #2a2a3e;
+  color: hsl(var(--primary));
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .logo img {
@@ -336,7 +336,7 @@ const handleLogout = async () => {
   display: flex;
   align-items: center;
   padding: 10px 16px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   cursor: pointer;
   transition: all 0.2s;
   text-decoration: none;
@@ -344,13 +344,13 @@ const handleLogout = async () => {
 }
 
 .menu-item:hover {
-  background: #2a2a3e;
-  color: #ffffff;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
 }
 
 .menu-item.selected {
   background: rgba(24, 144, 255, 0.1);
-  color: #1890ff;
+  color: hsl(var(--primary));
 }
 
 .menu-item-content {
@@ -394,8 +394,8 @@ const handleLogout = async () => {
 /* Header */
 .header {
   height: 64px;
-  background: #1a1a2e;
-  border-bottom: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
   padding: 0 24px;
   display: flex;
   align-items: center;
@@ -416,27 +416,27 @@ const handleLogout = async () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   border-radius: 4px;
   transition: all 0.2s;
 }
 
 .trigger:hover {
-  background: #2a2a3e;
-  color: #1890ff;
+  background: hsl(var(--border));
+  color: hsl(var(--primary));
 }
 
 .breadcrumb {
   display: flex;
   gap: 8px;
   font-size: 14px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .breadcrumb-item:not(:last-child)::after {
   content: '/';
   margin-left: 8px;
-  color: #3a3a4e;
+  color: hsl(var(--secondary));
 }
 
 .header-right {
@@ -450,7 +450,7 @@ const handleLogout = async () => {
   border: none;
   padding: 0;
   cursor: pointer;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 .notification-badge {
@@ -465,8 +465,8 @@ const handleLogout = async () => {
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  background: #f5222d;
-  color: #ffffff;
+  background: hsl(var(--error));
+  color: hsl(var(--foreground));
   font-size: 10px;
   line-height: 16px;
   text-align: center;
@@ -476,14 +476,14 @@ const handleLogout = async () => {
 .avatar-btn {
   width: 32px;
   height: 32px;
-  background: #1890ff;
+  background: hsl(var(--primary));
   border: none;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #ffffff;
+  color: hsl(var(--foreground));
 }
 
 .user-dropdown {
@@ -495,8 +495,8 @@ const handleLogout = async () => {
   top: 100%;
   right: 0;
   margin-top: 8px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 6px;
   min-width: 160px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -513,7 +513,7 @@ const handleLogout = async () => {
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  color: #ffffff;
+  color: hsl(var(--foreground));
   font-size: 13px;
   background: none;
   border: none;
@@ -524,7 +524,7 @@ const handleLogout = async () => {
 }
 
 .dropdown-item:hover {
-  background: #2a2a3e;
+  background: hsl(var(--border));
 }
 
 .dropdown-item.user-info {
@@ -532,19 +532,19 @@ const handleLogout = async () => {
 }
 
 .dropdown-item.text-danger {
-  color: #f5222d;
+  color: hsl(var(--error));
 }
 
 .dropdown-divider {
   height: 1px;
-  background: #2a2a3e;
+  background: hsl(var(--border));
   margin: 4px 0;
 }
 
 /* Content */
 .content {
   padding: 24px;
-  background: #0f0f1a;
+  background: hsl(var(--background));
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;

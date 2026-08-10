@@ -21,8 +21,8 @@
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #2a2a3e;
-  border-top-color: #1890ff;
+  border: 3px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -40,7 +40,7 @@
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
+  border-top-color: hsl(var(--border));
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -49,7 +49,7 @@
 .loading-state {
   text-align: center;
   padding: 40px;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
 }
 
 // Inline loading (within content area)

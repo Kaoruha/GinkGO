@@ -85,7 +85,7 @@ function showToast(message: string, type: ToastType = 'info'): void {
     toast.id = `toast-${id}`
     toast.className = `toast-notification toast-${type}`
 
-    const bgColor = type === 'success' ? '#52c41a' : type === 'error' ? '#f5222d' : type === 'warning' ? '#faad14' : '#1890ff'
+    const bgColor = type === 'success' ? 'hsl(var(--success))' : type === 'error' ? 'hsl(var(--error))' : type === 'warning' ? 'hsl(var(--warning))' : 'hsl(var(--primary))'
 
     toast.style.cssText = `
       padding: 12px 16px;

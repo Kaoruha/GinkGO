@@ -28,8 +28,8 @@
 
 .modal,
 .modal-content {
-  background: #1a1a2e;
-  border: 1px solid #2a2a3e;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   width: 90%;
   max-width: 500px;
@@ -54,7 +54,7 @@
 
 .modal-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a3e;
+  border-bottom: 1px solid hsl(var(--border));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -62,7 +62,7 @@
   h3 {
     font-size: 16px;
     font-weight: 600;
-    color: #ffffff;
+    color: hsl(var(--foreground));
     margin: 0;
   }
 }
@@ -70,7 +70,7 @@
 .modal-close {
   background: none;
   border: none;
-  color: #8a8a9a;
+  color: hsl(var(--muted-foreground));
   font-size: 24px;
   cursor: pointer;
   padding: 4px 8px;
@@ -84,8 +84,8 @@
   height: 32px;
 
   &:hover {
-    color: #ffffff;
-    background: #2a2a3e;
+    color: hsl(var(--foreground));
+    background: hsl(var(--border));
   }
 }
 
@@ -101,5 +101,5 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 12px 20px;
-  border-top: 1px solid #2a2a3e;
+  border-top: 1px solid hsl(var(--border));
 }
