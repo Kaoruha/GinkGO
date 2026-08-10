@@ -61,9 +61,9 @@ x-worker-common: &worker-common
     - ${HOME}/.ginkgo:/home/ginkgo/.ginkgo:ro
 
 services:
-  webui:
-    image: ginkgo/webui:latest
-    container_name: ginkgo-web-ui
+  web:
+    image: ginkgo/web:latest
+    container_name: ginkgo-frontend
     restart: always
     logging:
       driver: "json-file"

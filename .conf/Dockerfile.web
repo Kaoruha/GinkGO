@@ -7,13 +7,13 @@ WORKDIR /app
 RUN npm install -g pnpm
 
 # Copy package files first for better caching
-COPY web-ui/package.json web-ui/pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
 
 # Install dependencies using pnpm
 RUN pnpm install --frozen-lockfile
 
 # Copy source code
-COPY web-ui/ ./
+COPY frontend/ ./
 
 # Build the Vue app (output goes to dist/)
 RUN pnpm build
