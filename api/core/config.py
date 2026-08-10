@@ -37,7 +37,8 @@ class Settings(BaseSettings):
             "http://localhost:5173",
             "http://localhost:3000",
             "http://192.168.50.12:5173",
-            "http://192.168.50.12:3000"
+            "http://192.168.50.12:3000",
+            "app://",   # ADR-044 Electron 双形态（自定义协议 origin）
         ],
         description="允许的跨域来源"
     )

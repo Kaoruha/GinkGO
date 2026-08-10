@@ -8,6 +8,7 @@ import asyncio
 
 from websocket.manager import connection_manager
 from middleware.auth import verify_token
+from websocket.handlers._auth import _extract_ws_token
 from core.logging import logger
 
 
@@ -19,10 +20,11 @@ class PortfolioHandler:
     async def websocket_endpoint(self, websocket: WebSocket):
         """Portfolio数据推送端点
 
-        token 通过 query param 传入: /ws/portfolio?token=xxx&portfolio_uuid=xxx
+        token 通过 Authorization header(优先)或 query param 传入:
+        /ws/portfolio?token=xxx&portfolio_uuid=xxx（ADR-044 §5 双形态）
         """
         # 统一 token 校验（与中间件使用同一个 verify_token）
-        token = websocket.query_params.get("token")
+        token = _extract_ws_token(websocket)
         if not token:
             await websocket.close(code=1008, reason="Missing token")
             return
