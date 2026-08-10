@@ -62,7 +62,7 @@ echo ""
 
 # 检查前端 API 模块
 echo "3. 检查前端 API 模块路径..."
-FRONTEND_API_DIR="../frontend/src/api/modules"
+FRONTEND_API_DIR="../frontend/src/renderer/api/modules"
 
 if [ -d "$FRONTEND_API_DIR" ]; then
     echo "   ✓ 前端 API 目录存在"

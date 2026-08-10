@@ -2,7 +2,7 @@
 export default {
   darkMode: ['class'],
   content: [
-    './index.html',
+    './src/renderer/index.html',
     './src/**/*.{vue,js,ts,jsx,tsx}',
     './src/components/**/*.{vue,js,ts,jsx,tsx}',
   ],

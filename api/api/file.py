@@ -1,6 +1,6 @@
 """文件管理 flat 适配路由 (#5659)
 
-前端 frontend/src/api/modules/file.ts 调用的 /api/v1/file_list、/api/v1/file、
+前端 frontend/src/renderer/api/modules/file.ts 调用的 /api/v1/file_list、/api/v1/file、
 /api/v1/update_file、/api/v1/file/{id} 等 flat 端点在后端无对应路由（全 404）。
 FileService 能力完整，但只通过 /components（组件视角）、
 /node-graphs/{uuid}/files（portfolio 绑定视角）暴露。本 router 提供面向
