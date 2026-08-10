@@ -187,7 +187,6 @@ const menuItems: MenuItem[] = [
   { key: 'dashboard', label: '工作台', icon: icons.dashboard },
   { key: 'portfolios', label: '组合', icon: icons.wallet },
   { key: 'backtests', label: '回测', icon: icons.linechart },
-  { key: 'validation', label: '验证', icon: icons.filesearch },
   { key: 'components', label: '组件', icon: icons.puzzle },
   { key: 'research', label: '研究', icon: icons.filesearch },
   { key: 'trading', label: '交易', icon: icons.linechart },
@@ -211,7 +210,6 @@ const routeToKeyMap: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/portfolios': 'portfolios',
   '/backtests': 'backtests',
-  '/validation': 'validation',
   '/components': 'components',
   '/research': 'research',
   '/trading': 'trading',
@@ -225,8 +223,6 @@ watch(() => route.path, (path) => {
   if (!key) {
     if (path.startsWith('/backtests')) {
       key = 'backtests'
-    } else if (path.startsWith('/validation')) {
-      key = 'validation'
     } else if (path.startsWith('/portfolios/')) {
       key = 'portfolios'
     } else if (path.startsWith('/components/')) {
@@ -258,7 +254,6 @@ const getRouteForKey = (key: string): string => {
     'dashboard': '/dashboard',
     'portfolios': '/portfolios',
     'backtests': '/backtests',
-    'validation': '/validation',
     'components': '/components',
     'research': '/research',
     'trading': '/trading',

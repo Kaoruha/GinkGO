@@ -68,9 +68,6 @@ const routes: RouteRecordRaw[] = [
   // ===== 回测中心 =====
   { path: '/backtests', name: 'BacktestCenter', component: () => import('@/views/backtest/BacktestListPage.vue'), meta: { title: '回测中心' } },
 
-  // ===== 验证 =====
-  { path: '/validation', name: 'ValidationCenter', component: () => import('@/views/validation/ValidationListPage.vue'), meta: { title: '策略验证' } },
-
   // ===== 交易 =====
   {
     path: '/trading',
