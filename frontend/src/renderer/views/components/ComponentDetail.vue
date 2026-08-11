@@ -291,7 +291,7 @@ onUnmounted(() => {
   background: transparent;
   border: 1px solid hsl(var(--muted-foreground));
   border-radius: 4px;
-  color: hsl(var(--border));
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
@@ -308,7 +308,7 @@ onUnmounted(() => {
 }
 
 .file-info {
-  color: hsl(var(--border));
+  color: hsl(var(--muted-foreground));
   display: flex;
   align-items: center;
   gap: 8px;

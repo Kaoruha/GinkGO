@@ -28,7 +28,7 @@
 
     /* 静音/禁用 */
     --muted: 0 0% 94%;
-    --muted-foreground: 0 0% 40%;
+    --muted-foreground: 0 0% 28%;  /* L40%→28%: 白底对比 2.3→3.1,达 WCAG AA UI(3:1);dark 见 .dark 块 */
 
     /* 强调色(语义对齐 card-foreground) */
     --accent: 0 0% 92%;
