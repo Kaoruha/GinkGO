@@ -1,66 +1,16 @@
 <template>
-  <div class="research-page">
-    <div class="tab-bar">
-      <router-link
-        v-for="tab in tabs"
-        :key="tab.key"
-        :to="tab.route"
-        class="tab-item"
-        :class="{ active: isActive(tab.key) }"
-      >
-        {{ tab.label }}
-      </router-link>
-    </div>
-    <div class="tab-content">
-      <router-view />
-    </div>
-  </div>
+  <!-- 研究(2 项,≤4 → 顶部 tab):因子分析/参数优化 -->
+  <SubNavLayout :items="items" padded>
+    <router-view />
+  </SubNavLayout>
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import SubNavLayout from '@/components/common/SubNavLayout.vue'
+import type { SubNavItem } from '@/components/common/SubNavLayout.vue'
 
-const route = useRoute()
-
-const tabs = [
-  { key: 'factor', label: '因子分析', route: '/research/factor' },
-  { key: 'optimization', label: '参数优化', route: '/research/optimization' },
+const items: SubNavItem[] = [
+  { label: '因子分析', route: '/research/factor' },
+  { label: '参数优化', route: '/research/optimization' },
 ]
-
-const isActive = (key: string) => route.path.includes(key)
 </script>
-
-<style scoped>
-.research-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.tab-bar {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid hsl(var(--border));
-  padding: 0 24px;
-}
-.tab-item {
-  padding: 10px 16px;
-  color: rgba(255,255,255,0.6);
-  text-decoration: none;
-  font-size: 14px;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-.tab-item:hover {
-  color: rgba(255,255,255,0.9);
-}
-.tab-item.active {
-  color: hsl(var(--primary));
-  border-bottom-color: hsl(var(--primary));
-  font-weight: 600;
-}
-.tab-content {
-  flex: 1;
-  overflow: auto;
-  padding: 24px;
-}
-</style>

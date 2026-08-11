@@ -1,65 +1,16 @@
 <template>
-  <div class="trading-page">
-    <div class="tab-bar">
-      <router-link
-        v-for="tab in tabs"
-        :key="tab.key"
-        :to="tab.route"
-        class="tab-item"
-        :class="{ active: isActive(tab.key) }"
-      >
-        {{ tab.label }}
-      </router-link>
-    </div>
-    <div class="tab-content">
-      <router-view />
-    </div>
-  </div>
+  <!-- 交易(2 项,≤4 → 顶部 tab):模拟盘/实盘。实盘进子页时保持高亮(前缀匹配) -->
+  <SubNavLayout :items="items">
+    <router-view />
+  </SubNavLayout>
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import SubNavLayout from '@/components/common/SubNavLayout.vue'
+import type { SubNavItem } from '@/components/common/SubNavLayout.vue'
 
-const route = useRoute()
-
-const tabs = [
-  { key: 'paper', label: '模拟盘', route: '/trading/paper' },
-  { key: 'live', label: '实盘', route: '/trading/live' },
+const items: SubNavItem[] = [
+  { label: '模拟盘', route: '/trading/paper' },
+  { label: '实盘', route: '/trading/live' },
 ]
-
-const isActive = (key: string) => route.path.includes(key)
 </script>
-
-<style scoped>
-.trading-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.tab-bar {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid hsl(var(--border));
-  padding: 0 24px;
-}
-.tab-item {
-  padding: 10px 16px;
-  color: rgba(255,255,255,0.6);
-  text-decoration: none;
-  font-size: 14px;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-.tab-item:hover {
-  color: rgba(255,255,255,0.9);
-}
-.tab-item.active {
-  color: hsl(var(--primary));
-  border-bottom-color: hsl(var(--primary));
-  font-weight: 600;
-}
-.tab-content {
-  flex: 1;
-  overflow: auto;
-}
-</style>

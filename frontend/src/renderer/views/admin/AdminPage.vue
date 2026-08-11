@@ -1,31 +1,15 @@
 <template>
-  <div class="admin-page">
-    <div class="admin-sidebar">
-      <div class="admin-nav-group">
-        <div class="admin-nav-title">组件库</div>
-        <router-link
-          v-for="item in componentItems"
-          :key="item.route"
-          :to="item.route"
-          class="admin-nav-item"
-          :class="{ active: isActive(item.route) }"
-        >
-          {{ item.label }}
-        </router-link>
-      </div>
-    </div>
-    <div class="admin-content">
-      <router-view />
-    </div>
-  </div>
+  <!-- 组件库(6 项,≥5 → 侧栏):策略/风控/仓位/选股器/分析器/事件处理器 -->
+  <SubNavLayout :items="items" title="组件库" padded>
+    <router-view />
+  </SubNavLayout>
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import SubNavLayout from '@/components/common/SubNavLayout.vue'
+import type { SubNavItem } from '@/components/common/SubNavLayout.vue'
 
-const route = useRoute()
-
-const componentItems = [
+const items: SubNavItem[] = [
   { label: '策略组件', route: '/components/strategies' },
   { label: '风控组件', route: '/components/risks' },
   { label: '仓位组件', route: '/components/sizers' },
@@ -33,54 +17,4 @@ const componentItems = [
   { label: '分析器', route: '/components/analyzers' },
   { label: '事件处理器', route: '/components/handlers' },
 ]
-
-const isActive = (itemRoute: string) => {
-  return route.path.startsWith(itemRoute)
-}
 </script>
-
-<style scoped>
-.admin-page {
-  display: flex;
-  height: 100%;
-}
-.admin-sidebar {
-  width: 180px;
-  background: hsl(var(--card));
-  border-right: 1px solid hsl(var(--border));
-  padding: 16px 0;
-  overflow-y: auto;
-}
-.admin-nav-group {
-  margin-bottom: 16px;
-}
-.admin-nav-title {
-  padding: 6px 20px;
-  font-size: 11px;
-  text-transform: uppercase;
-  color: hsl(var(--muted-foreground));
-  letter-spacing: 0.5px;
-}
-.admin-nav-item {
-  display: block;
-  padding: 8px 20px;
-  color: hsl(var(--muted-foreground));
-  text-decoration: none;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-.admin-nav-item:hover {
-  color: hsl(var(--foreground));
-  background: hsl(var(--accent));
-}
-.admin-nav-item.active {
-  color: hsl(var(--primary));
-  background: hsl(var(--primary) / 0.1);
-  border-right: 2px solid hsl(var(--primary));
-}
-.admin-content {
-  flex: 1;
-  overflow: auto;
-  padding: 24px;
-}
-</style>
