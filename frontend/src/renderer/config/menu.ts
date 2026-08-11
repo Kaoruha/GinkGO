@@ -8,7 +8,26 @@ import {
  * 菜单单一配置源。
  * 原先 menuItems / routeToKeyMap / getRouteForKey 三份冗余配置合并于此。
  * menuConfigs 既描述菜单项(供 AppSider 渲染),又派生路径↔key 映射。
+ * 两级导航:有 children 的模块在最左栏就地展开(宽态手风琴)/ hover 弹出(折叠态 flyout),
+ * 内层不再有二级菜单壳。
  */
+
+/** 可点的二级菜单项 */
+export interface MenuChild {
+  label: string
+  route: string
+  /** 精确高亮(模块根路由,如 /admin、/trading/live,避免在所有子页都亮) */
+  exact?: boolean
+}
+
+/** 不可点的分组分隔标签(如「实盘」,区分模拟盘/实盘又不占独立层级) */
+export interface MenuGroup {
+  group: true
+  label: string
+}
+
+export type MenuItem = MenuChild | MenuGroup
+
 export interface MenuConfig {
   key: string
   label: string
@@ -17,17 +36,63 @@ export interface MenuConfig {
   route: string
   /** 额外的高亮匹配前缀(子路由高亮,如 /portfolios/:id) */
   matchPrefixes?: string[]
+  /** 二级菜单项;有 children 的模块走两级导航,无则一级直达 */
+  children?: MenuItem[]
+}
+
+function isGroup(m: MenuItem): m is MenuGroup {
+  return (m as MenuGroup).group === true
 }
 
 export const menuConfigs: MenuConfig[] = [
   { key: 'dashboard', label: '工作台', icon: LayoutDashboard, route: '/dashboard' },
   { key: 'portfolios', label: '组合', icon: Wallet, route: '/portfolios', matchPrefixes: ['/portfolios/'] },
   { key: 'backtests', label: '回测', icon: TrendingUp, route: '/backtests' },
-  { key: 'components', label: '组件', icon: Puzzle, route: '/components', matchPrefixes: ['/components/'] },
-  { key: 'research', label: '研究', icon: FileSearch, route: '/research', matchPrefixes: ['/research/'] },
-  { key: 'trading', label: '交易', icon: TrendingUp, route: '/trading', matchPrefixes: ['/trading/'] },
+  {
+    key: 'components', label: '组件', icon: Puzzle, route: '/components', matchPrefixes: ['/components/'],
+    children: [
+      { label: '策略组件', route: '/components/strategies' },
+      { label: '风控组件', route: '/components/risks' },
+      { label: '仓位组件', route: '/components/sizers' },
+      { label: '选股器', route: '/components/selectors' },
+      { label: '分析器', route: '/components/analyzers' },
+      { label: '事件处理器', route: '/components/handlers' },
+    ],
+  },
+  {
+    key: 'research', label: '研究', icon: FileSearch, route: '/research', matchPrefixes: ['/research/'],
+    children: [
+      { label: '因子分析', route: '/research/factor' },
+      { label: '参数优化', route: '/research/optimization' },
+    ],
+  },
+  {
+    key: 'trading', label: '交易', icon: TrendingUp, route: '/trading', matchPrefixes: ['/trading/'],
+    children: [
+      { label: '模拟盘', route: '/trading/paper' },
+      { group: true, label: '实盘' },
+      { label: '概览', route: '/trading/live', exact: true },
+      { label: '账号配置', route: '/trading/live/accounts' },
+      { label: '账户监控', route: '/trading/live/monitor' },
+      { label: 'Broker', route: '/trading/live/brokers' },
+      { label: '行情', route: '/trading/live/market' },
+      { label: '交易历史', route: '/trading/live/history' },
+    ],
+  },
   { key: 'data', label: '数据', icon: Database, route: '/data' },
-  { key: 'admin', label: '管理', icon: Wrench, route: '/admin', matchPrefixes: ['/admin/'] },
+  {
+    key: 'admin', label: '管理', icon: Wrench, route: '/admin', matchPrefixes: ['/admin/'],
+    children: [
+      { label: '系统状态', route: '/admin', exact: true },
+      { label: 'Worker 管理', route: '/admin/workers' },
+      { label: 'API Key', route: '/admin/api-keys' },
+      { label: '用户管理', route: '/admin/users' },
+      { label: '用户组', route: '/admin/groups' },
+      { label: '通知管理', route: '/admin/notifications' },
+      { label: '告警中心', route: '/admin/alerts' },
+      { label: '定时任务', route: '/admin/task-timer' },
+    ],
+  },
 ]
 
 /** key → 路由(菜单点击跳转) */
@@ -50,3 +115,5 @@ export function keyForPath(path: string): string | undefined {
 export function routeForKey(key: string): string {
   return routeByKey[key] || '/'
 }
+
+export { isGroup }

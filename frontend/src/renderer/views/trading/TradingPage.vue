@@ -1,16 +1,4 @@
+<!-- 交易:二级菜单(模拟盘/实盘各页)已并入最左 AppSider 两级导航,此处仅作路由出口 -->
 <template>
-  <!-- 交易(2 项,≤4 → 顶部 tab):模拟盘/实盘。实盘进子页时保持高亮(前缀匹配) -->
-  <SubNavLayout :items="items">
-    <router-view />
-  </SubNavLayout>
+  <router-view />
 </template>
-
-<script setup lang="ts">
-import SubNavLayout from '@/components/common/SubNavLayout.vue'
-import type { SubNavItem } from '@/components/common/SubNavLayout.vue'
-
-const items: SubNavItem[] = [
-  { label: '模拟盘', route: '/trading/paper' },
-  { label: '实盘', route: '/trading/live' },
-]
-</script>
