@@ -186,11 +186,15 @@ const updateAccountDetails = async (account: AccountData) => {
 
     // 清除加载状态
     setAccountLoading(accountId, false, false)
-  } catch (e) {
-    console.error(`Failed to load info for ${accountId}:`, e)
-    // 更新错误状态
-    replaceAccount(accountId, { error: '加载失败' })
-    // 加载失败时也清除加载状态
+  } catch (e: any) {
+    // 透传后端真实错误(如 "API key doesn't exist")让用户知晓配置问题;
+    // 用 warn 替代 error,避免每 10s 轮询在 console 刷红(账户配置问题非代码故障)
+    const backendMsg = e?.response?.data?.message as string | undefined
+    const friendly = backendMsg?.includes('API key')
+      ? '账户 API key 未配置或无效,请在「账号配置」中设置'
+      : (backendMsg || e?.message || '加载失败')
+    console.warn(`[${accountId}] 账户信息加载失败:`, friendly)
+    replaceAccount(accountId, { error: friendly })
     setAccountLoading(accountId, false, false)
   }
 }
