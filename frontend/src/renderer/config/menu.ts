@@ -56,7 +56,6 @@ export const menuConfigs: MenuConfig[] = [
       { label: '仓位组件', route: '/components/sizers' },
       { label: '选股器', route: '/components/selectors' },
       { label: '分析器', route: '/components/analyzers' },
-      { label: '事件处理器', route: '/components/handlers' },
     ],
   },
   {
