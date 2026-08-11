@@ -302,7 +302,8 @@ function formatValue(val: any): string {
 .header-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  /* flex-start:对齐 PageLayout,header-right(search+按钮)高度变化不撑漂标题 Y */
+  align-items: flex-start;
   gap: 16px;
 }
 

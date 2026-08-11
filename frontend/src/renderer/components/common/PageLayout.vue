@@ -46,7 +46,10 @@
 .page-layout-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  /* flex-start 非 center:各页 #actions 内容高度不同(2 按钮 / select+3 按钮 / 无),
+     center 时 header 高度=max(标题,actions),标题 Y 随 actions 撑高而垂直居中漂移
+     (探证实测 16px 抖动);flex-start 让标题恒贴 header 顶,relY 恒 0 不抖 */
+  align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
   margin-bottom: 24px;
