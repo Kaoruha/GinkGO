@@ -13,7 +13,7 @@
         @mouseleave="onLeave"
       >
         <router-link
-          :to="item.route"
+          :to="firstChildRoute(item)"
           class="menu-item"
           :class="{ selected: selectedKeys.includes(item.key) }"
           :data-testid="`nav-${item.key}`"
@@ -108,11 +108,18 @@ const isChildActive = (child: MenuChild) => {
   return route.path === child.route || route.path.startsWith(child.route + '/')
 }
 
+/** 一级项跳转目标:有 children 的模块落到第一个真实子项(跳过分隔分组),无则主路由 */
+const firstChildRoute = (item: MenuConfig): string => {
+  if (!item.children?.length) return item.route
+  const first = item.children.find(c => !isGroup(c)) as MenuChild | undefined
+  return first ? first.route : item.route
+}
+
 const onSelect = (item: MenuConfig) => {
   emit('select', item.key)
-  // 有 children 的模块:切换展开/收起(手风琴);无 children 一级直达
+  // 点击一级 = 展开该模块;导航到子项后 watch(currentModuleKey) 保持展开
   if (item.children?.length) {
-    expandedKey.value = expandedKey.value === item.key ? null : item.key
+    expandedKey.value = item.key
   }
 }
 
