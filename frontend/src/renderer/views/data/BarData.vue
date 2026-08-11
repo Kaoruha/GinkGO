@@ -275,6 +275,12 @@ const convertToChartData = (data: any[]) => {
   return { candles, volumes }
 }
 
+// 去重(按 time) + 升序;lightweight-charts setData 要求时间严格升序,否则断言失败
+// time 为 'YYYY-MM-DD' 字符串(ISO 格式字典序=时间序),String() 兜底防 Time 类型漂移
+const dedupAndSort = <T extends { time: any }>(arr: T[]): T[] =>
+  [...new Map(arr.map(d => [d.time, d])).values()]
+    .sort((a, b) => String(a.time).localeCompare(String(b.time)))
+
 const updateChartDataPrepend = (_newData: any[], visibleTimeRange: { from: Time; to: Time } | null) => {
   if (!candlestickSeries || !volumeSeries || barData.value.length === 0) return
 
@@ -282,8 +288,7 @@ const updateChartDataPrepend = (_newData: any[], visibleTimeRange: { from: Time;
   const { candles, volumes } = convertToChartData(barData.value)
 
   // 去重 + 升序排列
-  const deduped = (arr: any[]) => [...new Map(arr.map(d => [d.time, d])).values()]
-    .sort((a, b) => (a.time as any).localeCompare?.(b.time as any) || 0)
+  const deduped = dedupAndSort
 
   cachedCandleData = deduped(candles).slice(-MAX_DATA_POINTS)
   cachedVolumeData = deduped(volumes).slice(-MAX_DATA_POINTS)
@@ -300,8 +305,8 @@ const updateChartDataPrepend = (_newData: any[], visibleTimeRange: { from: Time;
 const updateChartData = () => {
   if (!candlestickSeries || !volumeSeries || barData.value.length === 0) return
   const { candles, volumes } = convertToChartData(barData.value)
-  cachedCandleData = candles
-  cachedVolumeData = volumes
+  cachedCandleData = dedupAndSort(candles)
+  cachedVolumeData = dedupAndSort(volumes)
   candlestickSeries.setData(cachedCandleData)
   volumeSeries.setData(cachedVolumeData)
   if (chart) chart.timeScale().scrollToRealTime()
