@@ -98,10 +98,10 @@
               @click="$emit('rowClick', record)"
             >
               <td v-for="col in resolvedColumns" :key="col.key">
-                <!-- 操作列 -->
-                <template v-if="col.key === '__actions'">
+                <!-- 操作列:flex 容器给按钮间距,避免多按钮紧贴 -->
+                <div v-if="col.key === '__actions'" class="actions-cell">
                   <slot name="actions" :record="record" :index="idx" />
-                </template>
+                </div>
                 <!-- 自定义列 -->
                 <template v-else-if="$slots[col.key]">
                   <slot :name="col.key" :record="record" :index="idx" />
@@ -452,6 +452,13 @@ function formatValue(val: any): string {
   padding: 12px;
   color: hsl(var(--foreground));
   border-bottom: 1px solid hsl(var(--border));
+}
+
+/* 操作列:多按钮水平排列 + 间距,避免紧贴不可点 */
+.actions-cell {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .pro-table tbody tr { transition: background 0.2s; }

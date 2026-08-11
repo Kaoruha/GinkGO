@@ -77,6 +77,7 @@
               <td>{{ key.expires_at ? formatDate(key.expires_at) : '永不过期' }}</td>
               <td>{{ key.last_used_at ? formatDateTime(key.last_used_at) : '从未使用' }}</td>
               <td class="actions-cell">
+                <div class="action-group">
                 <button class="btn-icon" @click="copyApiKey(key)" title="复制 API Key">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -97,6 +98,7 @@
                     <line x1="14" y1="11" x2="14" y2="17"></line>
                   </svg>
                 </button>
+                </div>
               </td>
             </tr>
             <tr v-if="apiKeys.length === 0">
@@ -496,6 +498,13 @@ onMounted(() => {
 
 .actions-cell {
   white-space: nowrap;
+}
+
+/* 操作列:3 个图标按钮水平排列 + 间距(td 为 table-cell 无法直接 flex,故内层包一层) */
+.action-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .btn-icon svg {
