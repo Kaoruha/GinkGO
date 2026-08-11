@@ -2,13 +2,12 @@
   <div class="portfolio-form-editor" :class="{ 'modal-mode': isModalMode }">
     <PageLayout>
       <template #title>
-        <button v-if="!isModalMode" class="btn-text" @click="goBack">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-          返回
-        </button>
-        <span>{{ isEditMode ? '编辑投资组合' : '创建投资组合' }}</span>
+        <PageTitle
+          :title="isEditMode ? '编辑投资组合' : '创建投资组合'"
+          :back-action="!isModalMode"
+          back-label="返回"
+          @back="goBack"
+        />
       </template>
       <template v-if="!isModalMode" #description>配置交易策略、选股器、仓位管理和风控规则</template>
       <template #actions>
@@ -427,6 +426,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import PageTitle from '@/components/common/PageTitle.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { portfolioApi } from '@/api/modules/portfolio'
 import { componentsApi } from '@/api/modules/components'

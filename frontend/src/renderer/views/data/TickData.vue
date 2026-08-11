@@ -1,9 +1,16 @@
 <template>
   <PageLayout>
     <template #title>
-      <button class="back-btn" @click="$router.push('/data')">←</button>
-      <span class="tag tag-orange">Tick</span>
-      Tick 数据
+      <PageTitle
+        title="Tick 数据"
+        back-action
+        back-label="数据"
+        @back="$router.push('/data')"
+      >
+        <template #prefix><span class="tag tag-orange">Tick</span></template>
+      </PageTitle>
+    </template>
+    <template #meta>
       <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
     </template>
     <template #actions>
@@ -81,6 +88,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import PageTitle from '@/components/common/PageTitle.vue'
 import { useRoute } from 'vue-router'
 import DataTable from '@/components/data/DataTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
@@ -407,12 +415,6 @@ onUnmounted(() => {
 
 <style scoped>
 :deep(.card) { overflow: visible; }
-
-.back-btn {
-  background: none; border: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground));
-  font-size: 16px; padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
-}
-.back-btn:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
 
 .control-input {
   padding: 7px 12px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary));

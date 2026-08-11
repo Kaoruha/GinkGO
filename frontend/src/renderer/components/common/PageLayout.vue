@@ -12,10 +12,21 @@
       </div>
     </header>
 
+    <!-- 标题下元信息副行(可选):id / 状态 / 来源等。负 margin 上拉贴标题,
+         与 #description 互斥(详情页用 meta,列表/功能页用 description) -->
+    <div v-if="$slots.meta" class="page-layout-meta">
+      <slot name="meta" />
+    </div>
+
     <!-- 标题下描述(可选,仅 PaperTrading 等用):负 margin 上拉贴标题 -->
     <div v-if="$slots.description" class="page-layout-description">
       <slot name="description" />
     </div>
+
+    <!-- 标准 tab 行(可选):概况 / 回测 / 组件。详情页统一槽,不再 body 内各自自写 -->
+    <nav v-if="$slots.tabs" class="page-layout-tabs">
+      <slot name="tabs" />
+    </nav>
 
     <!-- 筛选/统计条(可选,header 下方) -->
     <div v-if="$slots.filters" class="page-layout-filters">
@@ -75,11 +86,33 @@
   flex-wrap: wrap;
 }
 
+.page-layout-meta {
+  /* 上拉抵消 header margin-bottom:24,贴标题下方;留 16 给后续 tab/内容。
+     与 #description 同模式负 margin,详情页(id/状态/来源)用 */
+  margin: -20px 0 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+
 .page-layout-description {
   /* 上拉抵消 header 的 margin-bottom:24,贴到标题下方 4px */
   margin: -20px 0 24px;
   font-size: 14px;
   color: hsl(var(--muted-foreground));
+}
+
+.page-layout-tabs {
+  /* 标准 tab 行容器:详情页(概况/回测/组件)统一 #tabs 槽,不再各页 body 内自写。
+     tab-item 文字样式仍由各页 scoped 提供(slot 内容归属定义页组件) */
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid hsl(var(--border));
+  margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 .page-layout-filters {

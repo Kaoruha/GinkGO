@@ -1,8 +1,9 @@
 <template>
   <PageLayout>
     <template #title>
-      <router-link to="/portfolios" class="back-link">&larr; 组合列表</router-link>
-      <span>{{ portfolioName }}</span>
+      <PageTitle :title="portfolioName" back-to="/portfolios" back-label="组合列表" />
+    </template>
+    <template #meta>
       <span class="portfolio-id">{{ portfolioId }}</span>
       <span v-if="portfolioStatus" class="status-tag" :class="portfolioStatus">{{ statusLabel }}</span>
       <span v-if="deploymentSource" class="deploy-source">
@@ -16,8 +17,8 @@
       <button v-if="portfolioStatus === 'idle'" class="btn-primary" @click="startBacktest">新建回测</button>
     </template>
 
-    <!-- Tab navigation -->
-    <div class="tab-bar">
+    <!-- Tab navigation(标准 #tabs 槽,容器由 PageLayout 提供) -->
+    <template #tabs>
       <router-link
         v-for="tab in tabs"
         :key="tab.key"
@@ -27,7 +28,7 @@
       >
         {{ tab.label }}
       </router-link>
-    </div>
+    </template>
 
     <!-- Tab content -->
     <div class="tab-content">
@@ -46,6 +47,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import PageTitle from '@/components/common/PageTitle.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { portfolioApi, deploymentApi } from '@/api'
 import { message } from '@/utils/toast'
@@ -153,16 +155,6 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
 </script>
 
 <style scoped>
-.back-link {
-  color: rgba(255,255,255,0.5);
-  text-decoration: none;
-  font-size: 14px;
-}
-
-.back-link:hover {
-  color: rgba(255,255,255,0.8);
-}
-
 .portfolio-id {
   font-size: 12px;
   color: hsl(var(--muted-foreground));
@@ -224,13 +216,6 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
 }
 .btn-stop:hover {
   background: hsl(var(--muted));
-}
-
-.tab-bar {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid hsl(var(--border));
-  flex-shrink: 0;
 }
 
 .tab-item {
