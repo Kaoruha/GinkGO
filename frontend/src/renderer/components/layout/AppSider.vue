@@ -89,7 +89,11 @@ const currentModuleKey = computed(() => {
   for (const c of menuConfigs) {
     if (route.path === c.route) return c.key
     if (c.matchPrefixes?.some(p => route.path.startsWith(p))) return c.key
-    if (c.children?.some(ch => !isGroup(ch) && isChildActive(ch))) return c.key
+    // 内联 isChildActive 逻辑(避免引用在后方声明的函数触发 TDZ)
+    if (c.children?.some(ch => {
+      if (isGroup(ch)) return false
+      return ch.exact ? route.path === ch.route : route.path === ch.route || route.path.startsWith(ch.route + '/')
+    })) return c.key
   }
   return undefined
 })
