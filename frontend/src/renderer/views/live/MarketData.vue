@@ -1,17 +1,15 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">
-        <span class="tag tag-blue">市场数据</span>
-        交易对订阅管理
-      </h1>
-      <div class="page-actions">
-        <button class="btn-primary" @click="refreshPairs">刷新交易对</button>
-        <button class="btn-secondary" @click="toggleWebSocket">
-          {{ wsConnected ? '已连接' : '连接' }}
-        </button>
-      </div>
-    </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-blue">市场数据</span>
+      交易对订阅管理
+    </template>
+    <template #actions>
+      <button class="btn-primary" @click="refreshPairs">刷新交易对</button>
+      <button class="btn-secondary" @click="toggleWebSocket">
+        {{ wsConnected ? '已连接' : '连接' }}
+      </button>
+    </template>
 
     <!-- 订阅统计 -->
     <div class="stats-grid">
@@ -170,11 +168,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { marketApi, type TradingPair, type MarketSubscription, DataType } from '@/api/modules/market'
 
 // 数据类型标签
@@ -693,26 +692,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-
-.page-actions {
-  display: flex;
-  gap: 12px;
-}
-
 /* 按钮 */
 
 .btn-sm {
@@ -987,15 +966,6 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .stats-grid {
     grid-template-columns: 1fr;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .page-actions {
-    width: 100%;
   }
 }
 </style>

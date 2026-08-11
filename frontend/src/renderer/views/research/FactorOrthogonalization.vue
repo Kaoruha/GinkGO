@@ -1,9 +1,7 @@
 <template>
-  <div class="page-container">
-    <div class="page-header-section">
-      <h1 class="page-title">因子正交化</h1>
-      <p class="page-description">消除多因子之间的相关性，避免信息重复。正交化后因子相互独立，组合效果更好。</p>
-    </div>
+  <PageLayout>
+    <template #title>因子正交化</template>
+    <template #description>消除多因子之间的相关性，避免信息重复。正交化后因子相互独立，组合效果更好。</template>
 
     <div class="card config-card">
       <div class="card-header">
@@ -60,11 +58,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 
 // 简化的通知函数
 const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
@@ -124,23 +123,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 24px;
-  background: hsl(var(--background));
-  min-height: calc(100vh - 64px);
-}
-
-.page-header-section {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  font-size: 14px;
-  color: hsl(var(--muted-foreground));
-  margin: 0;
-}
-
 .config-card {
   margin-bottom: 16px;
 }

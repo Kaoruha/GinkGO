@@ -1,24 +1,24 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">系统状态</h1>
-      <div class="page-actions">
-        <label class="switch-label">
-          <input type="checkbox" v-model="autoRefreshModel" @change="toggleAutoRefresh" class="switch-input" />
-          <span class="switch-slider"></span>
-          <span class="switch-text">自动刷新</span>
-        </label>
-        <button class="btn-secondary" @click="fetchStatus">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-            <path d="M3 3v5h5"></path>
-            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
-            <path d="M16 21h5v-5"></path>
-          </svg>
-          刷新
-        </button>
-      </div>
-    </div>
+  <PageLayout>
+    <template #title>
+      系统状态
+    </template>
+    <template #actions>
+      <label class="switch-label">
+        <input type="checkbox" v-model="autoRefreshModel" @change="toggleAutoRefresh" class="switch-input" />
+        <span class="switch-slider"></span>
+        <span class="switch-text">自动刷新</span>
+      </label>
+      <button class="btn-secondary" @click="fetchStatus">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v5h5"></path>
+          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+          <path d="M16 21h5v-5"></path>
+        </svg>
+        刷新
+      </button>
+    </template>
 
     <!-- 系统概览 -->
     <div class="stats-grid-six">
@@ -166,11 +166,12 @@
         <p>暂无组件</p>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { useSystemStore } from '@/stores'
 
 // ========== Store ==========
@@ -343,28 +344,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-
-.page-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
 /* 开关 */
 .switch-label {
   display: flex;

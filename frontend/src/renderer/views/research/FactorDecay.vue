@@ -1,9 +1,7 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">因子衰减</h1>
-      <p class="page-description">测量因子信号随时间的有效性衰减。半衰期短需高频调仓，半衰期长可降低换手率。</p>
-    </div>
+  <PageLayout>
+    <template #title>因子衰减</template>
+    <template #description>测量因子信号随时间的有效性衰减。半衰期短需高频调仓，半衰期长可降低换手率。</template>
 
     <!-- 配置卡片 -->
     <div class="card">
@@ -74,11 +72,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])
@@ -113,22 +112,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  margin: 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .table-wrapper {
   overflow-x: auto;
 }

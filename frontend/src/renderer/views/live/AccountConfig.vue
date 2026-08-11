@@ -1,22 +1,16 @@
 <template>
-  <div class="account-config-page">
-    <div class="page-header">
-      <div class="header-left">
-        <div class="title-section">
-          <h1 class="page-title">实盘账号配置</h1>
-          <p class="page-subtitle">管理交易所API凭证，配置实盘交易账号</p>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="btn-primary" @click="showAddModal">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          添加账号
-        </button>
-      </div>
-    </div>
+  <PageLayout>
+    <template #title>实盘账号配置</template>
+    <template #description>管理交易所API凭证，配置实盘交易账号</template>
+    <template #actions>
+      <button class="btn-primary" @click="showAddModal">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        添加账号
+      </button>
+    </template>
 
     <!-- 账号列表 -->
     <div class="card account-list-card">
@@ -214,11 +208,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { liveAccountApi } from '@/api'
 
 // 状态
@@ -454,32 +449,6 @@ onMounted(() => {
   max-height: 90vh;
 }
 
-.account-config-page {
-  padding: 24px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-
-.page-subtitle {
-  margin: 4px 0 0 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .card-title {
   display: flex;
   align-items: center;
@@ -631,11 +600,6 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .data-table {
     font-size: 12px;
   }

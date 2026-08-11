@@ -1,15 +1,13 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">
-        <span class="tag tag-purple">复权</span>
-        复权因子
-      </div>
-      <div class="header-controls">
-        <input v-model="selectedCode" type="text" placeholder="股票代码 (可选)" class="control-input" />
-        <button class="btn-primary" @click="loadData" :disabled="loading">查询</button>
-      </div>
-    </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-purple">复权</span>
+      复权因子
+    </template>
+    <template #actions>
+      <input v-model="selectedCode" type="text" placeholder="股票代码 (可选)" class="control-input" />
+      <button class="btn-primary" @click="loadData" :disabled="loading">查询</button>
+    </template>
 
     <!-- 统计卡片 -->
     <div class="stats-grid" v-if="factors.length > 0">
@@ -73,11 +71,12 @@
     </div>
 
     <div v-if="loading" class="loading-overlay"><div class="spinner"></div></div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { useRoute } from 'vue-router'
 import { dataApi } from '@/api/modules/data'
 import type { AdjustFactorData } from '@/api/modules/data'
@@ -140,9 +139,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container { position: relative; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-.header-controls { display: flex; gap: 10px; align-items: center; }
 .control-input { padding: 6px 12px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 4px; color: hsl(var(--foreground)); font-size: 13px; }
 .control-input:focus { outline: none; border-color: hsl(var(--primary)); }
 .control-input[type="date"] { width: 140px; }
@@ -182,6 +178,5 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .header-controls { flex-wrap: wrap; }
 }
 </style>

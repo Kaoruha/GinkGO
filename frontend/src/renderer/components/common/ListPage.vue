@@ -293,7 +293,10 @@ function formatValue(val: any): string {
 
 .list-header {
   flex-shrink: 0;
-  margin-bottom: 16px;
+  /* 对齐 PageLayout .page-layout-header 的 margin-bottom:24px,
+     让 ListPage 页(Backtest/Component/Portfolio 列表)与其他页 header 下间距一致,
+     跨页切换不漂移抖动 */
+  margin-bottom: 24px;
 }
 
 .header-row {

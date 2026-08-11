@@ -1,9 +1,7 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">遗传算法优化</h1>
-      <p class="page-description">模拟生物进化进行参数搜索，适合高维参数空间。可能陷入局部最优。</p>
-    </div>
+  <PageLayout>
+    <template #title>遗传算法优化</template>
+    <template #description>模拟生物进化进行参数搜索，适合高维参数空间。可能陷入局部最优。</template>
 
     <!-- 配置卡片 -->
     <div class="card">
@@ -94,11 +92,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 
 const loading = ref(false)
 const strategyList = ref<any[]>([])
@@ -133,22 +132,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  margin: 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .stat-small {
   font-size: 14px;
 }

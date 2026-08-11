@@ -1,25 +1,22 @@
 <template>
   <div class="portfolio-form-editor" :class="{ 'modal-mode': isModalMode }">
-    <div class="page-header">
-      <div class="header-left">
+    <PageLayout>
+      <template #title>
         <button v-if="!isModalMode" class="btn-text" @click="goBack">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
           返回
         </button>
-        <div class="title-section">
-          <h1 class="page-title">{{ isEditMode ? '编辑投资组合' : '创建投资组合' }}</h1>
-          <p v-if="!isModalMode" class="page-subtitle">配置交易策略、选股器、仓位管理和风控规则</p>
-        </div>
-      </div>
-      <div class="header-actions">
+        <span>{{ isEditMode ? '编辑投资组合' : '创建投资组合' }}</span>
+      </template>
+      <template v-if="!isModalMode" #description>配置交易策略、选股器、仓位管理和风控规则</template>
+      <template #actions>
         <button class="btn-secondary" data-testid="btn-cancel-form" @click="goBack">取消</button>
         <button class="btn-primary" data-testid="btn-save-portfolio" :disabled="saving" @click="savePortfolio">
           {{ isEditMode ? '保存' : '创建' }}
         </button>
-      </div>
-    </div>
+      </template>
 
     <div class="form-layout">
       <!-- 左侧面板 -->
@@ -423,11 +420,13 @@
         </div>
       </div>
     </div>
+    </PageLayout>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { portfolioApi } from '@/api/modules/portfolio'
 import { componentsApi } from '@/api/modules/components'
@@ -865,43 +864,10 @@ onMounted(() => {
   padding: 0;
 }
 
-.portfolio-form-editor.modal-mode .page-header {
+.portfolio-form-editor.modal-mode :deep(.page-layout-header) {
   padding: 12px 16px;
   border-bottom: 1px solid hsl(var(--border));
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
-  background: hsl(var(--card));
-  border-bottom: 1px solid hsl(var(--border));
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.title-section h1 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
-
-.title-section p {
-  margin: 0;
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
+  margin-bottom: 0;
 }
 
 .form-layout {

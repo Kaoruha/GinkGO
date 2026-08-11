@@ -1,23 +1,20 @@
 <template>
-  <div class="portfolio-detail">
-    <!-- Header with portfolio name and action buttons -->
-    <div class="detail-header">
-      <div class="header-left">
-        <router-link to="/portfolios" class="back-link">&larr; 组合列表</router-link>
-        <h1 class="page-title">{{ portfolioName }}</h1>
-        <span class="portfolio-id">{{ portfolioId }}</span>
-        <span v-if="portfolioStatus" class="status-tag" :class="portfolioStatus">{{ statusLabel }}</span>
-        <span v-if="deploymentSource" class="deploy-source">
-          来源：{{ deploymentSource.source_task_id?.slice(0, 8) }}
-        </span>
-      </div>
-      <div class="header-actions">
-        <button class="btn-secondary" @click="$router.push(`/portfolios/${portfolioId}/edit`)">编辑</button>
-        <button v-if="portfolioStatus === 'idle'" class="btn-deploy" @click="openDeploy">部署</button>
-        <button v-if="portfolioStatus === 'paper' || portfolioStatus === 'live'" class="btn-stop" @click="handleStop">停止</button>
-        <button v-if="portfolioStatus === 'idle'" class="btn-primary" @click="startBacktest">新建回测</button>
-      </div>
-    </div>
+  <PageLayout>
+    <template #title>
+      <router-link to="/portfolios" class="back-link">&larr; 组合列表</router-link>
+      <span>{{ portfolioName }}</span>
+      <span class="portfolio-id">{{ portfolioId }}</span>
+      <span v-if="portfolioStatus" class="status-tag" :class="portfolioStatus">{{ statusLabel }}</span>
+      <span v-if="deploymentSource" class="deploy-source">
+        来源：{{ deploymentSource.source_task_id?.slice(0, 8) }}
+      </span>
+    </template>
+    <template #actions>
+      <button class="btn-secondary" @click="$router.push(`/portfolios/${portfolioId}/edit`)">编辑</button>
+      <button v-if="portfolioStatus === 'idle'" class="btn-deploy" @click="openDeploy">部署</button>
+      <button v-if="portfolioStatus === 'paper' || portfolioStatus === 'live'" class="btn-stop" @click="handleStop">停止</button>
+      <button v-if="portfolioStatus === 'idle'" class="btn-primary" @click="startBacktest">新建回测</button>
+    </template>
 
     <!-- Tab navigation -->
     <div class="tab-bar">
@@ -43,11 +40,12 @@
       :portfolio-id="portfolioId"
       @success="onDeploySuccess"
     />
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { portfolioApi, deploymentApi } from '@/api'
 import { message } from '@/utils/toast'
@@ -155,26 +153,6 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
 </script>
 
 <style scoped>
-.portfolio-detail {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 0;
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .back-link {
   color: rgba(255,255,255,0.5);
   text-decoration: none;
@@ -210,11 +188,6 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
   padding: 2px 8px;
   border-radius: 4px;
   font-family: monospace;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .btn-secondary {

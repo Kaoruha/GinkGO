@@ -1,9 +1,7 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">贝叶斯优化</h1>
-      <p class="page-description">基于概率模型的智能搜索，利用已有结果推断下一组参数。计算效率最高。</p>
-    </div>
+  <PageLayout>
+    <template #title>贝叶斯优化</template>
+    <template #description>基于概率模型的智能搜索，利用已有结果推断下一组参数。计算效率最高。</template>
 
     <!-- 配置卡片 -->
     <div class="card">
@@ -86,11 +84,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 
 const loading = ref(false)
 const strategyList = ref<any[]>([])
@@ -125,22 +124,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  margin: 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .stat-small {
   font-size: 14px;
 }

@@ -1,12 +1,12 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">
-        <span class="tag tag-blue">系统</span>
-        通知管理
-      </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-blue">系统</span>
+      通知管理
+    </template>
+    <template #actions>
       <button class="btn-primary" @click="openTemplateModal">新建通知模板</button>
-    </div>
+    </template>
 
     <div class="card">
       <div class="tabs-header">
@@ -233,11 +233,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { notificationsApi, type NotificationTemplate, type NotificationHistory, type NotificationRecipient } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
 
@@ -495,18 +496,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   max-height: 90vh;
-}
-
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
 }
 
 

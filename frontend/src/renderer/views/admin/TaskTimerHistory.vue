@@ -1,8 +1,8 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">定时任务</h1>
-    </div>
+  <PageLayout>
+    <template #title>
+      定时任务
+    </template>
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
@@ -114,11 +114,12 @@
     </div>
 
     <div v-if="loading" class="loading-overlay"><div class="spinner"></div></div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { taskTimerApi } from '@/api/modules/taskTimer'
 import type { TaskTimerExecution, TaskTimerJob, ExecutionSummary } from '@/api/modules/taskTimer'
 import dayjs from 'dayjs'
@@ -195,9 +196,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container { position: relative; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
 .stat-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 16px; }
 .stat-label { font-size: 12px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; }

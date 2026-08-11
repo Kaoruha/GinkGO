@@ -1,12 +1,10 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">
-        <span class="tag tag-green">验证</span>
-        分段稳定性
-      </h1>
-      <p class="page-description">将回测区间等分为多段，对比各段表现是否一致</p>
-    </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-green">验证</span>
+      分段稳定性
+    </template>
+    <template #description>将回测区间等分为多段，对比各段表现是否一致</template>
 
     <div class="page-content">
     <div class="card">
@@ -126,11 +124,12 @@
       <div class="empty-state">选择回测任务并点击分析</div>
     </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import * as echarts from 'echarts'
 import { useChartTheme, cssColor } from '@/composables/useChartTheme'
 import { validationApi } from '@/api/modules/validation'

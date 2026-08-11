@@ -1,8 +1,6 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">概览</div>
-    </div>
+  <PageLayout>
+    <template #title>概览</template>
 
     <div class="page-content">
       <!-- 系统状态卡片 -->
@@ -181,11 +179,12 @@
         <p v-else>暂无 Portfolio，<button @click="$router.push('/portfolio')" class="inline-link">创建一个 →</button></p>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { portfolioApi } from '@/api'
 import type { Portfolio } from '@/api'
 
@@ -261,16 +260,6 @@ onMounted(fetchDashboardData)
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
 .page-content {
   display: flex;
   flex-direction: column;

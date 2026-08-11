@@ -1,21 +1,19 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">
-        <span class="tag tag-blue">API</span>
-        API Key 管理
-      </h1>
-      <div class="page-actions">
-        <button class="btn-primary" @click="showCreateModal = true">
-          <i class="icon-plus"></i>
-          创建 API Key
-        </button>
-        <button class="btn-secondary" @click="loadApiKeys">
-          <i class="icon-refresh"></i>
-          刷新
-        </button>
-      </div>
-    </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-blue">API</span>
+      API Key 管理
+    </template>
+    <template #actions>
+      <button class="btn-primary" @click="showCreateModal = true">
+        <i class="icon-plus"></i>
+        创建 API Key
+      </button>
+      <button class="btn-secondary" @click="loadApiKeys">
+        <i class="icon-refresh"></i>
+        刷新
+      </button>
+    </template>
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
@@ -175,11 +173,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { apiKeyApi, type ApiKey, type CreateApiKeyRequest, type UpdateApiKeyRequest, PermissionType } from '@/api/modules/apiKey'
 
 const apiKeys = ref<ApiKey[]>([])
@@ -373,26 +372,6 @@ onMounted(() => {
   max-height: 90vh;
 }
 
-
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-
-.page-actions {
-  display: flex;
-  gap: 12px;
-}
 
 /* 统计卡片 */
 

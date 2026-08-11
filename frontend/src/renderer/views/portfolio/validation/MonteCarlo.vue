@@ -1,12 +1,10 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">
-        <span class="tag tag-green">验证</span>
-        蒙特卡洛模拟
-      </h1>
-      <p class="page-description">基于历史收益统计特征随机模拟，评估策略风险分布和极端损失概率。</p>
-    </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-green">验证</span>
+      蒙特卡洛模拟
+    </template>
+    <template #description>基于历史收益统计特征随机模拟，评估策略风险分布和极端损失概率。</template>
 
     <!-- 配置卡片 -->
     <div class="card">
@@ -103,11 +101,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
 
@@ -165,22 +164,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  margin: 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .stat-danger {
   color: hsl(var(--error));
 }

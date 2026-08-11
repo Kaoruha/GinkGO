@@ -1,16 +1,15 @@
 <template>
-  <div class="page-container">
-    <div class="page-header" style="flex-direction: row !important; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <div class="page-title" style="margin-bottom: 0;">
-        <button class="back-btn" @click="$router.push('/data')">←</button>
-        <span class="tag tag-green">K线</span>
-        K线数据
-        <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
-        <span v-if="isLoadingMore" class="tag tag-blue" style="margin-left: 8px">
-          <span class="spin">↻</span> 加载中...
-        </span>
-      </div>
-      <span style="flex: 1;"></span>
+  <PageLayout>
+    <template #title>
+      <button class="back-btn" @click="$router.push('/data')">←</button>
+      <span class="tag tag-green">K线</span>
+      K线数据
+      <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
+      <span v-if="isLoadingMore" class="tag tag-blue" style="margin-left: 8px">
+        <span class="spin">↻</span> 加载中...
+      </span>
+    </template>
+    <template #actions>
       <span v-if="lastSyncTime" class="last-sync-hint">{{ lastSyncTime }}</span>
       <button class="btn-sync" :disabled="!selectedCode || syncing" @click="handleSync">
         <span v-if="syncing" class="spin">↻</span>
@@ -22,7 +21,7 @@
         style="width: 200px;"
         @select="handleSelectStock"
       />
-    </div>
+    </template>
 
     <!-- K线图表 + 行内统计 -->
     <div class="card">
@@ -81,11 +80,12 @@
         <template #colAmount="{ record }">{{ formatCompact(record.amount) }}</template>
       </DataTable>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { useRoute } from 'vue-router'
 import DataTable from '@/components/data/DataTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
@@ -432,15 +432,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.page-container { padding: 0; background: transparent; }
-.page-container :deep(.card) { overflow: visible; }
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.header-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+:deep(.card) { overflow: visible; }
 
 .last-sync-hint {
   font-size: 12px;

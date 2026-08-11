@@ -1,12 +1,10 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">
-        <span class="tag tag-green">验证</span>
-        敏感性分析
-      </h1>
-      <p class="page-description">评估策略对参数变化的敏感程度。敏感性低说明参数选择更稳健，不易过拟合。</p>
-    </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-green">验证</span>
+      敏感性分析
+    </template>
+    <template #description>评估策略对参数变化的敏感程度。敏感性低说明参数选择更稳健，不易过拟合。</template>
 
     <!-- 配置卡片 -->
     <div class="card">
@@ -93,11 +91,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])
@@ -142,22 +141,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  margin: 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .stats-grid-three {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

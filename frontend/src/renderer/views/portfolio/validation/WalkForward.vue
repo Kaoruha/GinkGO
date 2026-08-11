@@ -1,12 +1,10 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">
-        <span class="tag tag-green">验证</span>
-        走步验证
-      </h1>
-      <p class="page-description">时间序列交叉验证，评估策略样本外表现。退化程度大说明过拟合风险高。</p>
-    </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-green">验证</span>
+      走步验证
+    </template>
+    <template #description>时间序列交叉验证，评估策略样本外表现。退化程度大说明过拟合风险高。</template>
 
     <!-- 配置卡片 -->
     <div class="card">
@@ -124,11 +122,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])
@@ -170,22 +169,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  margin: 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .form-slider {
   width: 150px;
   accent-color: hsl(var(--primary));

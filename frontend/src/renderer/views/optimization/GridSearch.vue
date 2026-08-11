@@ -1,9 +1,7 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">网格搜索</h1>
-      <p class="page-description">穷举所有参数组合，保证找到全局最优。适合2-3个参数，计算量较大。</p>
-    </div>
+  <PageLayout>
+    <template #title>网格搜索</template>
+    <template #description>穷举所有参数组合，保证找到全局最优。适合2-3个参数，计算量较大。</template>
 
     <!-- 配置卡片 -->
     <div class="card">
@@ -82,11 +80,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 
 const loading = ref(false)
 const strategyList = ref<any[]>([])
@@ -121,22 +120,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  margin: 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .stat-small {
   font-size: 14px;
 }

@@ -1,26 +1,24 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">
-        <span class="tag tag-blue">股票</span>
-        股票信息
-      </div>
-      <div class="header-controls">
-        <input
-          v-model="searchKeyword"
-          type="search"
-          placeholder="搜索代码或名称"
-          class="search-input"
-          @keyup.enter="loadStocks"
-        />
-        <button class="btn-primary" :disabled="loading" @click="loadStocks">
-          刷新
-        </button>
-        <button class="btn-success" @click="syncStockInfo">
-          同步数据
-        </button>
-      </div>
-    </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-blue">股票</span>
+      股票信息
+    </template>
+    <template #actions>
+      <input
+        v-model="searchKeyword"
+        type="search"
+        placeholder="搜索代码或名称"
+        class="search-input"
+        @keyup.enter="loadStocks"
+      />
+      <button class="btn-primary" :disabled="loading" @click="loadStocks">
+        刷新
+      </button>
+      <button class="btn-success" @click="syncStockInfo">
+        同步数据
+      </button>
+    </template>
 
     <!-- 统计 -->
     <div class="stats-grid-three">
@@ -154,11 +152,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -282,27 +281,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-
-.header-controls {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
 .tag-st {
   background: hsl(var(--error));
   color: hsl(var(--foreground));

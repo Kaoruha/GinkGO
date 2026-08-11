@@ -1,13 +1,12 @@
 <template>
-  <div class="page-container">
-    <div class="page-header" style="flex-direction: row !important; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <div class="page-title" style="margin-bottom: 0;">
-        <button class="back-btn" @click="$router.push('/data')">←</button>
-        <span class="tag tag-orange">Tick</span>
-        Tick 数据
-        <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
-      </div>
-      <span style="flex: 1;"></span>
+  <PageLayout>
+    <template #title>
+      <button class="back-btn" @click="$router.push('/data')">←</button>
+      <span class="tag tag-orange">Tick</span>
+      Tick 数据
+      <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
+    </template>
+    <template #actions>
       <input v-model="startDate" type="date" class="control-input" />
       <input v-model="endDate" type="date" class="control-input" />
       <button class="btn-query" :disabled="!selectedCode || loading" @click="loadData">
@@ -19,7 +18,7 @@
         style="width: 200px;"
         @select="handleSelectStock"
       />
-    </div>
+    </template>
 
     <!-- K线图 + 成交量 -->
     <div class="card" v-if="tickData.length > 0">
@@ -76,11 +75,12 @@
         请搜索并选择一只股票
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { useRoute } from 'vue-router'
 import DataTable from '@/components/data/DataTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
@@ -406,11 +406,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.page-container { padding: 0; background: transparent; }
-.page-container :deep(.card) { overflow: visible; }
-
-.page-header { margin-bottom: 24px; }
-
+:deep(.card) { overflow: visible; }
 
 .back-btn {
   background: none; border: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground));

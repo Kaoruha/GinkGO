@@ -1,9 +1,7 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">因子分层</h1>
-      <p class="page-description">将股票按因子值分组，验证因子的选股效果。理想因子各组收益应单调递减，多空收益越高越好。</p>
-    </div>
+  <PageLayout>
+    <template #title>因子分层</template>
+    <template #description>将股票按因子值分组，验证因子的选股效果。理想因子各组收益应单调递减，多空收益越高越好。</template>
 
     <!-- 配置卡片 -->
     <div class="card">
@@ -86,11 +84,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])
@@ -125,22 +124,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  margin: 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .stat-danger {
   color: hsl(var(--error));
 }

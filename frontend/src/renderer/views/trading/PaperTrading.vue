@@ -1,9 +1,7 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">模拟盘</h1>
-      <p class="page-description">所有模拟盘运行实例</p>
-    </div>
+  <PageLayout>
+    <template #title>模拟盘</template>
+    <template #description>所有模拟盘运行实例</template>
 
     <div class="table-container">
       <table v-if="portfolios.length" class="data-table">
@@ -30,11 +28,12 @@
       </table>
       <div v-else class="empty-state">暂无模拟盘实例</div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { portfolioApi } from '@/api/modules/portfolio'
 
 const portfolios = ref<any[]>([])
@@ -50,31 +49,6 @@ onMounted(() => fetchPortfolios())
 </script>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 24px;
-  background: transparent;
-  overflow: hidden;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-
-.page-description {
-  margin: 0;
-  font-size: 14px;
-  color: hsl(var(--muted-foreground));
-}
-
 .table-container {
   flex: 1;
   min-height: 0;

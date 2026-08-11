@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { RefreshCw, Download, Filter } from 'lucide-vue-next'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { tradeHistoryApi, liveAccountApi } from '@/api'
 import {
   DialogRoot,
@@ -200,41 +201,35 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="trade-history">
-    <Card>
-      <CardHeader>
-        <div class="flex justify-between items-center">
-          <div>
-            <CardTitle>交易历史</CardTitle>
-            <CardDescription>查看实盘交易记录和统计数据</CardDescription>
-          </div>
-          <div class="flex gap-2 items-center">
-            <select
-              v-model="selectedAccount"
-              @change="onAccountChange"
-              class="px-3 py-1.5 border rounded-md text-sm bg-background"
-            >
-              <option :value="null" disabled>选择账户</option>
-              <option v-for="acc in accounts" :key="acc.uuid" :value="acc.uuid">
-                {{ acc.name }} ({{ acc.exchange.toUpperCase() }})
-              </option>
-            </select>
-            <Button variant="outline" size="sm" @click="showFilterDialog = true">
-              <Filter class="w-4 h-4 mr-2" />
-              筛选
-            </Button>
-            <Button variant="outline" size="sm" @click="exportCSV" :disabled="!selectedAccount">
-              <Download class="w-4 h-4 mr-2" />
-              导出CSV
-            </Button>
-            <Button variant="outline" size="sm" @click="loadTrades" :disabled="!selectedAccount">
-              <RefreshCw class="w-4 h-4 mr-2" />
-              刷新
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
+  <PageLayout>
+    <template #title>交易历史</template>
+    <template #description>查看实盘交易记录和统计数据</template>
+    <template #actions>
+      <select
+        v-model="selectedAccount"
+        @change="onAccountChange"
+        class="px-3 py-1.5 border rounded-md text-sm bg-background"
+      >
+        <option :value="null" disabled>选择账户</option>
+        <option v-for="acc in accounts" :key="acc.uuid" :value="acc.uuid">
+          {{ acc.name }} ({{ acc.exchange.toUpperCase() }})
+        </option>
+      </select>
+      <Button variant="outline" size="sm" @click="showFilterDialog = true">
+        <Filter class="w-4 h-4 mr-2" />
+        筛选
+      </Button>
+      <Button variant="outline" size="sm" @click="exportCSV" :disabled="!selectedAccount">
+        <Download class="w-4 h-4 mr-2" />
+        导出CSV
+      </Button>
+      <Button variant="outline" size="sm" @click="loadTrades" :disabled="!selectedAccount">
+        <RefreshCw class="w-4 h-4 mr-2" />
+        刷新
+      </Button>
+    </template>
 
+    <Card>
       <CardContent>
         <!-- 统计卡片 -->
         <div v-if="statistics" class="grid grid-cols-5 gap-4 mb-6">
@@ -377,13 +372,8 @@ onMounted(() => {
         </DialogContent>
       </DialogPortal>
     </DialogRoot>
-  </div>
+  </PageLayout>
 </template>
 
 <style scoped>
-.trade-history {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
 </style>

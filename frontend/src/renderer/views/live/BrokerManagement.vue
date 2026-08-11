@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Play, Pause, Square, AlertTriangle, Activity, Clock, Settings } from 'lucide-vue-next'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { brokerApi } from '@/api'
 
 // Types
@@ -178,38 +179,32 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="broker-management">
-    <Card class="broker-card">
-      <CardHeader class="broker-header">
-        <div class="header-content">
-          <div class="header-left">
-            <CardTitle class="title">Broker 管理</CardTitle>
-            <CardDescription class="description">管理实盘 Broker 实例的生命周期</CardDescription>
-          </div>
-          <div class="header-actions">
-            <Button
-              variant="destructive"
-              size="sm"
-              class="emergency-btn"
-              @click="emergencyStopAll"
-            >
-              <Square class="w-4 h-4 mr-2" />
-              紧急停止全部
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              class="refresh-btn"
-              :disabled="loading"
-              @click="loadBrokers"
-            >
-              <RefreshCw :class="['w-4 h-4 mr-2', loading && 'animate-spin']" />
-              刷新
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
+  <PageLayout>
+    <template #title>Broker 管理</template>
+    <template #description>管理实盘 Broker 实例的生命周期</template>
+    <template #actions>
+      <Button
+        variant="destructive"
+        size="sm"
+        class="emergency-btn"
+        @click="emergencyStopAll"
+      >
+        <Square class="w-4 h-4 mr-2" />
+        紧急停止全部
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        class="refresh-btn"
+        :disabled="loading"
+        @click="loadBrokers"
+      >
+        <RefreshCw :class="['w-4 h-4 mr-2', loading && 'animate-spin']" />
+        刷新
+      </Button>
+    </template>
 
+    <Card class="broker-card">
       <CardContent class="broker-content">
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-state">
@@ -348,53 +343,14 @@ onMounted(() => {
         </div>
       </CardContent>
     </Card>
-  </div>
+  </PageLayout>
 </template>
 
 <style scoped>
-.broker-management {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px;
-}
-
 .broker-card {
   background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%);
   border: 1px solid hsl(var(--border));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-
-.broker-header {
-  border-bottom: 1px solid hsl(var(--border));
-  padding-bottom: 16px;
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-}
-
-.header-left {
-  flex: 1;
-}
-
-.title {
-  font-size: 24px;
-  font-weight: 700;
-  color: hsl(var(--foreground));
-  margin-bottom: 4px;
-}
-
-.description {
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
 }
 
 .emergency-btn {
@@ -631,20 +587,6 @@ onMounted(() => {
 
 /* 响应式 */
 @media (max-width: 768px) {
-  .broker-management {
-    padding: 16px;
-  }
-
-  .header-content {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
-  }
-
-  .header-actions {
-    flex-direction: column;
-  }
-
   .broker-main {
     flex-direction: column;
     gap: 16px;

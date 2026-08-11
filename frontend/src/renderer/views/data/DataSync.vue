@@ -1,8 +1,8 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">数据同步</div>
-    </div>
+  <PageLayout>
+    <template #title>
+      数据同步
+    </template>
 
     <div class="two-column-grid">
       <!-- 发送命令 -->
@@ -101,11 +101,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { dataApi } from '@/api'
 import { extractSyncFailed } from '@/utils/syncResult'
 
@@ -214,16 +215,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
 /* 两列网格 */
 .two-column-grid {
   display: grid;

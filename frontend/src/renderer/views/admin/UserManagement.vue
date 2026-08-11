@@ -1,12 +1,12 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">
-        <span class="tag tag-blue">系统</span>
-        用户管理
-      </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-blue">系统</span>
+      用户管理
+    </template>
+    <template #actions>
       <button class="btn btn-primary" @click="openCreateModal">添加用户</button>
-    </div>
+    </template>
 
     <div class="card">
       <div class="filter-row">
@@ -148,11 +148,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { usersApi, type UserInfo } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
 
@@ -310,19 +311,6 @@ onMounted(() => {
   flex-direction: column;
   max-height: 90vh;
 }
-
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
 
 /* Filter Row */
 .filter-row {

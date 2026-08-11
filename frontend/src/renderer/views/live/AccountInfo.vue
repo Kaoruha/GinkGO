@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Wallet, TrendingUp, TrendingDown, AlertCircle, DollarSign, Coins, Clock, Activity } from 'lucide-vue-next'
@@ -261,31 +262,26 @@ usePolling(refreshAll, 10000)
 </script>
 
 <template>
-  <div class="account-info-page">
-    <!-- 页面头部 -->
-    <div class="page-header">
-      <div class="header-content">
-        <div class="title-section">
-          <div class="page-icon">
-            <Wallet class="w-6 h-6" />
-          </div>
-          <div>
-            <h1 class="page-title">实盘账户信息</h1>
-            <p class="page-subtitle">实时监控账户余额与持仓</p>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          :disabled="refreshing"
-          @click="refreshAll"
-          class="refresh-button"
-        >
-          <RefreshCw :class="['w-4 h-4 mr-2', refreshing && 'animate-spin']" />
-          刷新
-        </Button>
+  <PageLayout>
+    <template #title>
+      <div class="page-icon">
+        <Wallet class="w-6 h-6" />
       </div>
-    </div>
+      实盘账户信息
+    </template>
+    <template #description>实时监控账户余额与持仓</template>
+    <template #actions>
+      <Button
+        variant="outline"
+        size="sm"
+        :disabled="refreshing"
+        @click="refreshAll"
+        class="refresh-button"
+      >
+        <RefreshCw :class="['w-4 h-4 mr-2', refreshing && 'animate-spin']" />
+        刷新
+      </Button>
+    </template>
 
     <!-- 加载状态：仅首次加载且无账户时显示 -->
     <div v-if="loading && accounts.length === 0" class="loading-state">
@@ -519,32 +515,10 @@ usePolling(refreshAll, 10000)
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <style scoped>
-.account-info-page {
-  padding: 0;
-  background: transparent;
-}
-
-/* 页面头部 */
-.page-header {
-  margin-bottom: 24px;
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.title-section {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
 .page-icon {
   width: 48px;
   height: 48px;
@@ -556,12 +530,6 @@ usePolling(refreshAll, 10000)
   color: white;
 }
 
-
-.page-subtitle {
-  font-size: 14px;
-  color: hsl(var(--muted-foreground));
-  margin: 4px 0 0 0;
-}
 
 .refresh-button {
   border-color: hsl(var(--border));
@@ -994,12 +962,6 @@ usePolling(refreshAll, 10000)
 
   .position-details {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .header-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
   }
 }
 </style>

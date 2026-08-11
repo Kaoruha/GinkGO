@@ -1,10 +1,10 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">
-        <span class="tag tag-cyan">数据</span>
-        数据概览
-      </div>
+  <PageLayout>
+    <template #title>
+      <span class="tag tag-cyan">数据</span>
+      数据概览
+    </template>
+    <template #actions>
       <button class="btn-primary" :disabled="refreshing" @click="refreshStats">
         <svg v-if="!refreshing" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 2v6h-6"/>
@@ -17,7 +17,7 @@
         </svg>
         {{ refreshing ? '刷新中...' : '刷新统计' }}
       </button>
-    </div>
+    </template>
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
@@ -134,11 +134,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 import { useRouter } from 'vue-router'
 import { dataApi } from '@/api'
 
@@ -245,19 +246,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-
 /* 统计卡片 */
 
 .stat-card::before {

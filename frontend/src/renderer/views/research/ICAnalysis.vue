@@ -1,9 +1,7 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">IC 分析</h1>
-      <p class="page-description">评估因子对未来收益的预测能力。IC均值>0.05为强因子，ICIR>0.5为优秀因子。</p>
-    </div>
+  <PageLayout>
+    <template #title>IC 分析</template>
+    <template #description>评估因子对未来收益的预测能力。IC均值>0.05为强因子，ICIR>0.5为优秀因子。</template>
 
     <!-- 配置卡片 -->
     <div class="card">
@@ -87,11 +85,12 @@
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import PageLayout from '@/components/common/PageLayout.vue'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])
@@ -130,22 +129,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-  background: transparent;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-
-.page-description {
-  margin: 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-}
-
 .table-wrapper {
   overflow-x: auto;
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <PageLayout>
     <div class="not-found-content">
       <h1 class="error-code">404</h1>
       <p class="error-message">页面未找到</p>
@@ -7,24 +7,23 @@
         返回首页
       </button>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
+import PageLayout from '@/components/common/PageLayout.vue'
 </script>
 
 <style scoped>
-.page-container {
-  min-height: 100vh;
+.not-found-content {
+  flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: hsl(var(--background));
-}
-
-.not-found-content {
   text-align: center;
   padding: 100px 0;
+  background: hsl(var(--background));
 }
 
 .error-code {
