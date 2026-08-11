@@ -243,8 +243,10 @@ function extractItems(res: any): { items: any[]; total: number } {
   return { items, total }
 }
 
-/** 加载全量 tick（大批次供图表聚合 + 表格客户端分页） */
-const CHART_PAGE_SIZE = 10000
+/** 加载 tick 供图表聚合 + 表格客户端分页。
+ *  后端 page_size 上限 le=500 (core.pagination.DEFAULT_MAX_PAGE_SIZE),超出 422。
+ *  取上限拉满;若业务需更多历史,改后端上限或前端循环分页聚合。 */
+const CHART_PAGE_SIZE = 500
 
 async function loadData() {
   if (!selectedCode.value) return

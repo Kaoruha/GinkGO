@@ -23,10 +23,30 @@ import { useTheme } from './useTheme'
  * @param varName  token 名,如 '--card' / '--success-fg'
  * @param alpha    0~1 透明度,给出则拼 hsl(H S% L% / alpha)
  */
+const _colorCache = new Map<string, string>()
+
 export function cssColor(varName: string, alpha?: number): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim()
   if (!v) return '' // token 缺失,调用方回退
-  return alpha != null ? `hsl(${v} / ${alpha})` : `hsl(${v})`
+  // canvas 图表库(lightweight-charts/ECharts)的颜色解析器只认 rgb()/hex,
+  // 不认 hsl 的任何语法(空格/逗号都抛 "Cannot parse color")。
+  // 借浏览器原生 hsl→rgb 转换最可靠;按主题 attr 缓存,切换主题自动失效重算。
+  const themeAttr = document.documentElement.getAttribute('data-theme') || ''
+  const key = `${themeAttr}|${varName}|${alpha ?? ''}`
+  const cached = _colorCache.get(key)
+  if (cached) return cached
+  const el = document.createElement('div')
+  el.style.color = `hsl(${v})`
+  el.style.display = 'none'
+  document.body.appendChild(el)
+  const rgb = getComputedStyle(el).color // "rgb(r, g, b)"
+  el.remove()
+  let out = rgb
+  if (alpha != null && rgb.startsWith('rgb(')) {
+    out = rgb.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`)
+  }
+  _colorCache.set(key, out)
+  return out
 }
 
 /** 涨色:ADR-045 西方语义 绿涨 */
