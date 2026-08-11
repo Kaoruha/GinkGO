@@ -3,6 +3,13 @@
     <template #title>IC 分析</template>
     <template #description>评估因子对未来收益的预测能力。IC均值>0.05为强因子，ICIR>0.5为优秀因子。</template>
 
+    <!-- 功能开发中:研究/优化/验证后端 API 未实现(记忆 arch_parameter_optimization_unwired / arch_factor_subsystem_dormant_75pct);
+         此为占位骨架,配置后不会产出真实结果,加横幅以免用户误判可用(#4652 静默失败纪律) -->
+    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius:6px;color:hsl(var(--foreground));font-size:13px;">
+      <span aria-hidden="true">🚧</span>
+      <span>该功能后端接口开发中，当前为预览骨架，暂不可用。</span>
+    </div>
+
     <!-- 配置卡片 -->
     <div class="card">
       <div class="card-header">
