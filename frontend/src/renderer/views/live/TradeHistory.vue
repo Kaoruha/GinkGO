@@ -61,6 +61,7 @@ const trades = ref<TradeRecord[]>([])
 const statistics = ref<TradeStatistics | null>(null)
 const dailySummary = ref<DailySummary[]>([])
 const loading = ref(false)
+const loadError = ref(false)  // 成交查询后端接口不可用(404=功能未实现)
 const selectedAccount = ref<string | null>(null)
 const accounts = ref<Array<{ uuid: string; name: string; exchange: string }>>([])
 const dateFilter = reactive({
@@ -122,6 +123,7 @@ const loadTrades = async () => {
 
   loading.value = true
   try {
+    loadError.value = false
     const params: Record<string, string> = {}
     if (dateFilter.start_date) params.start_date = dateFilter.start_date
     if (dateFilter.end_date) params.end_date = dateFilter.end_date
@@ -133,7 +135,9 @@ const loadTrades = async () => {
     await loadStatistics()
     await loadDailySummary()
   } catch (error) {
-    console.error('Failed to load trades:', error)
+    // 后端 /accounts/{id}/trades 待实现(实盘 stub 阶段),诚实标注
+    loadError.value = true
+    console.warn('成交历史加载失败(后端接口待实现):', error)
   } finally {
     loading.value = false
   }
@@ -279,6 +283,11 @@ onMounted(() => {
         <!-- 未选择账户 -->
         <div v-else-if="!selectedAccount" class="text-center py-8">
           <p class="text-muted-foreground">{{ accounts.length === 0 ? '暂无交易账户，请先在账号配置中添加' : '请选择一个交易账户' }}</p>
+        </div>
+
+        <!-- 成交查询功能未实现(后端接口 404) -->
+        <div v-else-if="loadError" class="text-center py-8">
+          <p class="text-muted-foreground">成交查询功能开发中(实盘引擎就绪后启用)</p>
         </div>
 
         <!-- 交易记录表格 -->

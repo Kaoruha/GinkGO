@@ -29,6 +29,7 @@ interface BrokerInfo {
 const brokers = ref<BrokerInfo[]>([])
 const loading = ref(true)
 const actionLoading = ref<string | null>(null)
+const loadError = ref(false)  // 后端 /accounts/brokers 接口不可用(404=功能未实现)
 
 // 状态配置
 const stateConfig: Record<string, {
@@ -86,10 +87,13 @@ const stateConfig: Record<string, {
 const loadBrokers = async () => {
   loading.value = true
   try {
+    loadError.value = false
     const result = await brokerApi.list()
     brokers.value = (result as any)?.data || []
   } catch (error) {
-    console.error('Failed to load brokers:', error)
+    // 后端 /accounts/brokers 待实现(实盘 broker stub 阶段),诚实标注而非笼统"加载失败"
+    loadError.value = true
+    console.warn('Broker 实例加载失败(后端接口待实现):', error)
   } finally {
     loading.value = false
   }
@@ -210,6 +214,13 @@ onMounted(() => {
         <div v-if="loading" class="loading-state">
           <RefreshCw class="w-8 h-8 animate-spin text-muted-foreground" />
           <p class="text-muted-foreground">加载中...</p>
+        </div>
+
+        <!-- 功能未实现(后端接口 404) -->
+        <div v-else-if="loadError" class="empty-state">
+          <AlertTriangle class="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <p class="text-lg font-medium text-muted-foreground">实盘 Broker 管理功能开发中</p>
+          <p class="text-sm text-muted-foreground mt-2">实盘引擎就绪后启用(后端接口待实现)</p>
         </div>
 
         <!-- 空状态 -->
