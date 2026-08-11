@@ -34,7 +34,7 @@
           </span>
           <span class="stat-item">高 {{ priceStats.high.toFixed(2) }}</span>
           <span class="stat-item">低 {{ priceStats.low.toFixed(2) }}</span>
-          <span class="stat-item">量 {{ formatNumber(priceStats.totalVolume) }}</span>
+          <span class="stat-item">量 {{ formatCompact(priceStats.totalVolume) }}</span>
           <span class="stat-item">{{ barData.length }} 条</span>
         </div>
       </div>
@@ -77,8 +77,8 @@
             {{ record.change >= 0 ? '+' : '' }}{{ record.change?.toFixed(2) }}%
           </span>
         </template>
-        <template #colVolume="{ record }">{{ formatNumber(record.volume) }}</template>
-        <template #colAmount="{ record }">{{ formatNumber(record.amount) }}</template>
+        <template #colVolume="{ record }">{{ formatCompact(record.volume) }}</template>
+        <template #colAmount="{ record }">{{ formatCompact(record.amount) }}</template>
       </DataTable>
     </div>
   </div>
@@ -91,6 +91,7 @@ import DataTable from '@/components/data/DataTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
 import dayjs, { Dayjs } from 'dayjs'
 import { dataApi } from '@/api'
+import { formatCompact } from '@/utils/format'
 import {
   createChart,
   IChartApi,
@@ -162,12 +163,6 @@ const priceStats = computed(() => {
 })
 
 const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD')
-const formatNumber = (num: number): string => {
-  if (!num) return '-'
-  if (num >= 100000000) return (num / 100000000).toFixed(2) + '亿'
-  if (num >= 10000) return (num / 10000).toFixed(2) + '万'
-  return num.toString()
-}
 
 const fetchBarsFromAPI = async (code: string, startDate: Dayjs, pageSize: number, endDate?: Dayjs): Promise<any[]> => {
   const res: any = await dataApi.getBars({

@@ -140,29 +140,29 @@
               <thead>
                 <tr>
                   <th>交易对</th>
-                  <th>最新价</th>
-                  <th>买一价</th>
-                  <th>卖一价</th>
-                  <th>24H涨跌</th>
-                  <th>24H成交量</th>
+                  <th class="num">最新价</th>
+                  <th class="num">买一价</th>
+                  <th class="num">卖一价</th>
+                  <th class="num">24H涨跌</th>
+                  <th class="num">24H成交量</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="sub in subscriptions" :key="sub.symbol">
                   <td>{{ sub.symbol }}</td>
-                  <td class="price-cell" :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]">
+                  <td class="price-cell num" :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]">
                     {{ tickerDataForTemplate[sub.symbol]?.price ? tickerDataForTemplate[sub.symbol].price.toFixed(3) : '-' }}
                   </td>
-                  <td class="price-cell" :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]">
+                  <td class="price-cell num" :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]">
                     {{ tickerDataForTemplate[sub.symbol]?.bid_price ? tickerDataForTemplate[sub.symbol].bid_price.toFixed(3) : '-' }}
                   </td>
-                  <td class="price-cell" :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]">
+                  <td class="price-cell num" :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]">
                     {{ tickerDataForTemplate[sub.symbol]?.ask_price ? tickerDataForTemplate[sub.symbol].ask_price.toFixed(3) : '-' }}
                   </td>
-                  <td class="change-cell" :class="get24hChangeClass(sub.symbol)">
+                  <td class="change-cell num" :class="get24hChangeClass(sub.symbol)">
                     {{ format24hChange(tickerDataForTemplate[sub.symbol]) }}
                   </td>
-                  <td>{{ formatTickerVolume(tickerDataForTemplate[sub.symbol]?.volume_24h) }}</td>
+                  <td class="num">{{ formatTickerVolume(tickerDataForTemplate[sub.symbol]?.volume_24h) }}</td>
                 </tr>
               </tbody>
             </table>

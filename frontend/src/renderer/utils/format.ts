@@ -52,6 +52,21 @@ export function formatPercent(val: number | string | null | undefined, decimals 
 }
 
 /**
+ * 格式化大数字为中文缩写(万/亿),用于资金·成交量·市值等大额场景。
+ * 例:formatCompact(1234567) → "123.46万",formatCompact(1.23e8) → "1.23亿"
+ * 小于万的数走千分位,与 formatNumber 一致,保持列内对齐。
+ */
+export function formatCompact(num: number | string | null | undefined, decimals = 2): string {
+  if (num === null || num === undefined) return '-'
+  const n = typeof num === 'string' ? parseFloat(num) : num
+  if (isNaN(n)) return '-'
+  const abs = Math.abs(n)
+  if (abs >= 1e8) return (n / 1e8).toFixed(decimals) + '亿'
+  if (abs >= 1e4) return (n / 1e4).toFixed(decimals) + '万'
+  return n.toLocaleString('zh-CN')
+}
+
+/**
  * 格式化持续时间
  */
 export function formatDuration(seconds?: number): string {

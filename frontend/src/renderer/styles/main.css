@@ -65,4 +65,13 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--accent-foreground));
   }
+
+  /* 数字单元格:右对齐 + 等宽数字(P0 数据专业度)
+     用法:<td class="num"> / <th class="num"> / <span class="num">
+     让金额/数量/百分比列纵向对齐,扫读不再参差 */
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
 }
