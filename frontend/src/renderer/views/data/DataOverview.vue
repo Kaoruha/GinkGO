@@ -257,14 +257,6 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-.page-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 24px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
 
 /* 统计卡片 */
 

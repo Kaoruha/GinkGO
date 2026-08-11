@@ -556,12 +556,6 @@ usePolling(refreshAll, 10000)
   color: white;
 }
 
-.page-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  margin: 0;
-}
 
 .page-subtitle {
   font-size: 14px;

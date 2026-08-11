@@ -192,12 +192,6 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
   user-select: all;
 }
 
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  margin: 0;
-}
 
 .status-tag {
   padding: 2px 10px;

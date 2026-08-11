@@ -707,15 +707,6 @@ onUnmounted(() => {
   gap: 16px;
 }
 
-.page-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 
 .page-actions {
   display: flex;

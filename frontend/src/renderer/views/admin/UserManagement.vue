@@ -323,14 +323,6 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: hsl(var(--foreground));
-}
 
 /* Filter Row */
 .filter-row {

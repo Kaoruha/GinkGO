@@ -142,7 +142,6 @@ onMounted(() => {
 <style scoped>
 .page-container { position: relative; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-.page-title { font-size: 20px; font-weight: 600; color: hsl(var(--foreground)); display: flex; align-items: center; gap: 8px; }
 .header-controls { display: flex; gap: 10px; align-items: center; }
 .control-input { padding: 6px 12px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 4px; color: hsl(var(--foreground)); font-size: 13px; }
 .control-input:focus { outline: none; border-color: hsl(var(--primary)); }

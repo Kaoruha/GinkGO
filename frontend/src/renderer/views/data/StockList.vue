@@ -296,14 +296,6 @@ onMounted(() => {
   gap: 16px;
 }
 
-.page-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 
 .header-controls {
   display: flex;

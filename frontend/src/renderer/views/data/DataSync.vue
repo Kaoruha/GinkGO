@@ -223,11 +223,6 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-.page-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
 
 /* 两列网格 */
 .two-column-grid {

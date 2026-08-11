@@ -134,12 +134,6 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-.page-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  margin: 0 0 8px 0;
-}
 
 .page-description {
   font-size: 14px;

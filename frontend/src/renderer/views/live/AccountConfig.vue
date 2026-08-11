@@ -473,12 +473,6 @@ onMounted(() => {
   gap: 16px;
 }
 
-.page-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
 
 .page-subtitle {
   margin: 4px 0 0 0;

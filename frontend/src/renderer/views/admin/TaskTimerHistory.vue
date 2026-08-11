@@ -197,7 +197,6 @@ onMounted(() => {
 <style scoped>
 .page-container { position: relative; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.page-title { margin: 0; font-size: 20px; font-weight: 600; color: hsl(var(--foreground)); }
 
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
 .stat-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 16px; }

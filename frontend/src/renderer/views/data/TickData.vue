@@ -411,10 +411,6 @@ onUnmounted(() => {
 
 .page-header { margin-bottom: 24px; }
 
-.page-title {
-  font-size: 24px; font-weight: 600; color: hsl(var(--foreground));
-  display: flex; align-items: center; gap: 12px;
-}
 
 .back-btn {
   background: none; border: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground));

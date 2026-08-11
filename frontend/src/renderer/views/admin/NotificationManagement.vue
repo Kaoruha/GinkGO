@@ -509,14 +509,6 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 
 /* Tabs样式 */
 .tabs-header {

@@ -25,12 +25,6 @@
   margin-bottom: 16px;
 }
 
-.page-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
 
 .placeholder-text {
   margin: 0;

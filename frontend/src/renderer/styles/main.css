@@ -44,6 +44,21 @@
   .text-body {
     @apply text-base text-gray-600;
   }
+
+  /* 页面主标题:统一字号/字重/外边距 + flex 布局(P0 标题一致)
+     <h1>/<div class="page-title"> 均走此定义,不再各自 scoped 复制
+     (此前 35 页漂移:20/24px 并存、margin 三派、flex 各自重复声明)
+     flex 对纯文本标题无副作用,让复合标题(back-btn+tag+文字)统一横排 */
+  .page-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: hsl(var(--foreground));
+    margin: 0;
+  }
 }
 
 @layer utilities {
