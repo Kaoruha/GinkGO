@@ -82,9 +82,7 @@
             </table>
           </div>
         </div>
-        <div v-else class="empty-state">
-          <p>请配置参数并开始搜索</p>
-        </div>
+        <EmptyState v-else description="请配置参数并开始搜索" />
       </div>
     </div>
   </PageLayout>
@@ -93,6 +91,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const loading = ref(false)
 const strategyList = ref<any[]>([])
@@ -161,16 +160,6 @@ onMounted(() => {
 .data-table td {
   color: hsl(var(--foreground));
   font-size: 14px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state p {
-  margin: 0;
 }
 
 @media (max-width: 768px) {

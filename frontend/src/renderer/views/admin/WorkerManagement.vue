@@ -128,9 +128,7 @@
           </tbody>
         </table>
       </div>
-      <div v-else class="empty-state">
-        <p>暂无 Worker</p>
-      </div>
+      <EmptyState v-else description="暂无 Worker" />
     </div>
   </PageLayout>
 </template>
@@ -138,6 +136,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import { useSystemStore } from '@/stores'
 import type { WorkerInfo } from '@/api'
 import { message as toast } from '@/utils/toast'
@@ -378,19 +377,6 @@ onUnmounted(() => {
 
 .btn-stop:hover {
   background: hsl(var(--error) / 0.3);
-}
-
-/* 空状态 */
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state p {
-  margin: 0;
 }
 
 /* 响应式 */

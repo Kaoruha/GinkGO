@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Play, Pause, Square, AlertTriangle, Activity, Clock, Settings } from 'lucide-vue-next'
 import PageLayout from '@/components/common/PageLayout.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import { brokerApi } from '@/api'
 
 // Types
@@ -217,18 +218,22 @@ onMounted(() => {
         </div>
 
         <!-- 功能未实现(后端接口 404) -->
-        <div v-else-if="loadError" class="empty-state">
-          <AlertTriangle class="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <p class="text-lg font-medium text-muted-foreground">实盘 Broker 管理功能开发中</p>
-          <p class="text-sm text-muted-foreground mt-2">实盘引擎就绪后启用(后端接口待实现)</p>
-        </div>
+        <EmptyState
+          v-else-if="loadError"
+          title="实盘 Broker 管理功能开发中"
+          description="实盘引擎就绪后启用(后端接口待实现)"
+        >
+          <template #icon><AlertTriangle class="w-16 h-16" /></template>
+        </EmptyState>
 
         <!-- 空状态 -->
-        <div v-else-if="brokers.length === 0" class="empty-state">
-          <Settings class="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <p class="text-lg font-medium text-muted-foreground">暂无 Broker 实例</p>
-          <p class="text-sm text-muted-foreground mt-2">Broker 实例会在创建实盘组合后自动创建</p>
-        </div>
+        <EmptyState
+          v-else-if="brokers.length === 0"
+          title="暂无 Broker 实例"
+          description="Broker 实例会在创建实盘组合后自动创建"
+        >
+          <template #icon><Settings class="w-16 h-16" /></template>
+        </EmptyState>
 
         <!-- Broker 列表 -->
         <div v-else class="broker-list">
