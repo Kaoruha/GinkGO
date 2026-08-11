@@ -33,30 +33,26 @@
 
         <!-- 宽态:就地展开二级(手风琴,一次只展开一个模块) -->
         <div v-if="!collapsed && item.children && isExpanded(item)" class="submenu">
-          <template v-for="(child, i) in item.children" :key="i">
-            <div v-if="isGroup(child)" class="submenu-group">{{ child.label }}</div>
-            <router-link
-              v-else
-              :to="child.route"
-              class="submenu-item"
-              :class="{ active: isChildActive(child) }"
-            >{{ child.label }}</router-link>
-          </template>
+          <router-link
+            v-for="(child, i) in item.children"
+            :key="i"
+            :to="child.route"
+            class="submenu-item"
+            :class="{ active: isChildActive(child) }"
+          >{{ child.label }}</router-link>
         </div>
 
         <!-- 折叠态:hover 弹出二级 flyout -->
         <div v-if="collapsed && item.children && hoverKey === item.key" class="flyout">
           <div class="flyout-title">{{ item.label }}</div>
-          <template v-for="(child, i) in item.children" :key="i">
-            <div v-if="isGroup(child)" class="flyout-group">{{ child.label }}</div>
-            <router-link
-              v-else
-              :to="child.route"
-              class="flyout-item"
-              :class="{ active: isChildActive(child) }"
-              @click="onSelect(item)"
-            >{{ child.label }}</router-link>
-          </template>
+          <router-link
+            v-for="(child, i) in item.children"
+            :key="i"
+            :to="child.route"
+            class="flyout-item"
+            :class="{ active: isChildActive(child) }"
+            @click="onSelect(item)"
+          >{{ child.label }}</router-link>
         </div>
       </div>
     </nav>
@@ -67,7 +63,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ChevronRight } from 'lucide-vue-next'
-import { menuConfigs, isGroup, type MenuConfig, type MenuChild } from '@/config/menu'
+import { menuConfigs, type MenuConfig, type MenuChild } from '@/config/menu'
 
 const props = defineProps<{
   collapsed: boolean
@@ -90,10 +86,7 @@ const currentModuleKey = computed(() => {
     if (route.path === c.route) return c.key
     if (c.matchPrefixes?.some(p => route.path.startsWith(p))) return c.key
     // 内联 isChildActive 逻辑(避免引用在后方声明的函数触发 TDZ)
-    if (c.children?.some(ch => {
-      if (isGroup(ch)) return false
-      return ch.exact ? route.path === ch.route : route.path === ch.route || route.path.startsWith(ch.route + '/')
-    })) return c.key
+    if (c.children?.some(ch => ch.exact ? route.path === ch.route : route.path === ch.route || route.path.startsWith(ch.route + '/'))) return c.key
   }
   return undefined
 })
@@ -108,11 +101,10 @@ const isChildActive = (child: MenuChild) => {
   return route.path === child.route || route.path.startsWith(child.route + '/')
 }
 
-/** 一级项跳转目标:有 children 的模块落到第一个真实子项(跳过分隔分组),无则主路由 */
+/** 一级项跳转目标:有 children 的模块落到第一个子项,无则主路由 */
 const firstChildRoute = (item: MenuConfig): string => {
   if (!item.children?.length) return item.route
-  const first = item.children.find(c => !isGroup(c)) as MenuChild | undefined
-  return first ? first.route : item.route
+  return item.children[0].route
 }
 
 const onSelect = (item: MenuConfig) => {
@@ -281,15 +273,6 @@ const onLeave = () => { hoverKey.value = null }
   font-weight: 500;
 }
 
-.submenu-group {
-  padding: 8px 16px 4px 40px;
-  font-size: 11px;
-  font-weight: 600;
-  color: hsl(var(--muted-foreground));
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
 /* 折叠态:hover flyout */
 .flyout {
   position: absolute;
@@ -333,13 +316,5 @@ const onLeave = () => { hoverKey.value = null }
   color: hsl(var(--primary));
   background: hsl(var(--primary) / 0.1);
   font-weight: 500;
-}
-
-.flyout-group {
-  padding: 8px 10px 4px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  color: hsl(var(--muted-foreground));
-  letter-spacing: 0.5px;
 }
 </style>

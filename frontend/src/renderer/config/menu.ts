@@ -20,14 +20,6 @@ export interface MenuChild {
   exact?: boolean
 }
 
-/** 不可点的分组分隔标签(如「实盘」,区分模拟盘/实盘又不占独立层级) */
-export interface MenuGroup {
-  group: true
-  label: string
-}
-
-export type MenuItem = MenuChild | MenuGroup
-
 export interface MenuConfig {
   key: string
   label: string
@@ -37,11 +29,7 @@ export interface MenuConfig {
   /** 额外的高亮匹配前缀(子路由高亮,如 /portfolios/:id) */
   matchPrefixes?: string[]
   /** 二级菜单项;有 children 的模块走两级导航,无则一级直达 */
-  children?: MenuItem[]
-}
-
-function isGroup(m: MenuItem): m is MenuGroup {
-  return (m as MenuGroup).group === true
+  children?: MenuChild[]
 }
 
 export const menuConfigs: MenuConfig[] = [
@@ -69,7 +57,6 @@ export const menuConfigs: MenuConfig[] = [
     key: 'trading', label: '交易', icon: TrendingUp, route: '/trading', matchPrefixes: ['/trading/'],
     children: [
       { label: '模拟盘', route: '/trading/paper' },
-      { group: true, label: '实盘' },
       { label: '概览', route: '/trading/live', exact: true },
       { label: '账号配置', route: '/trading/live/accounts' },
       { label: '账户监控', route: '/trading/live/monitor' },
@@ -114,5 +101,3 @@ export function keyForPath(path: string): string | undefined {
 export function routeForKey(key: string): string {
   return routeByKey[key] || '/'
 }
-
-export { isGroup }
