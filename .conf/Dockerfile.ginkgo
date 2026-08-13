@@ -20,6 +20,7 @@ RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debia
         libpq-dev \
         ca-certificates \
         curl \
+        gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 uv（极快的 Python 包管理器）
@@ -44,12 +45,18 @@ COPY src/ ./src/
 # task_timer.yml 不再 bake 进镜像，由 worker-common 的 ~/.ginkgo volume 提供（PR 统一图式）
 RUN chown -R ginkgo:ginkgo /ginkgo /var/log/ginkgo /home/ginkgo
 
+# entrypoint 降权(#6651 根治): named volume ginkgo-logs 首次由历史 root worker 写成
+# root:root, ginkgo 无写权限致 GLOG PermissionError。entrypoint 以 root 入口幂等 chown
+# volume → gosu 降权 ginkgo 跑主进程。删 Dockerfile USER ginkgo(否则 ginkgo 无权 chown)。
+COPY .conf/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/ginkgo/src
 ENV HOME=/home/ginkgo
 
-USER ginkgo
-
 # 默认命令（显示帮助，实际命令由 docker-compose 覆盖）
+# entrypoint 以 root 启动(chown volume)后 gosu 降权 ginkgo 执行 CMD
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["python", "main.py", "--help"]

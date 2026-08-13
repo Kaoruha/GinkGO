@@ -1,5 +1,5 @@
 # Ginkgo API Server Docker Image
-FROM python:3.12.8-slim
+FROM python:3.12.11-slim-bookworm
 
 RUN groupadd --system --gid 10001 ginkgo \
     && useradd --system --uid 10001 --gid ginkgo --home-dir /home/ginkgo --create-home ginkgo
@@ -11,6 +11,7 @@ RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debia
     && apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 uv（极快的 Python 包管理器，对齐 Dockerfile.ginkgo）
@@ -41,6 +42,11 @@ COPY pyproject.toml /app/
 
 RUN chown -R ginkgo:ginkgo /app /home/ginkgo
 
+# entrypoint 降权(#6651 根治, 对齐 Dockerfile.ginkgo): root 入口 chown ginkgo-logs volume
+# → gosu 降权 ginkgo 跑主进程。删 USER ginkgo(否则 ginkgo 无权 chown root volume)
+COPY .conf/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # 设置环境变量
 ENV PYTHONPATH=/app:/app/src
 ENV API_HOST=0.0.0.0
@@ -50,7 +56,7 @@ ENV HOME=/home/ginkgo
 # 暴露端口
 EXPOSE 8000
 
-USER ginkgo
-
 # 启动命令（api/main.py 定义 FastAPI app；与 ginkgo serve api 的 app_dir=api/ 同构）
+# entrypoint 以 root 启动(chown volume)后 gosu 降权 ginkgo 执行 CMD
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["python", "main.py"]
