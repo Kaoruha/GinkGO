@@ -456,6 +456,7 @@ class BacktestWorker:
     def _start_cleanup_thread(self):
         """启动清理线程"""
         def cleanup():
+            last_reap = 0.0
             while not self.should_stop:
                 try:
                     time.sleep(1)
@@ -471,6 +472,24 @@ class BacktestWorker:
                         GLOG.DEBUG(f"[Cleanup] Task {uuid[:8]} thread exited, removing...")
                         self._remove_task(uuid)
                         GLOG.DEBUG(f"[Cleanup] Task {uuid[:8]} removed, slot available")
+
+                    # 周期 reaper：60s 清一次 DB 孤儿 running 任务（worker crash 遗留 / Redis
+                    # 未就绪致 start() 那次 cleanup_orphan_tasks skipped 的兜底）。标 failed 幂等，
+                    # 多 worker 代跑无副作用。沿用本线程"回收死资源"同质职责，不新增线程。
+                    now = time.time()
+                    if now - last_reap > 60:
+                        last_reap = now
+                        try:
+                            from ginkgo import services
+                            reap = services.data.backtest_task_service().cleanup_orphan_tasks()
+                            data = reap.data if reap.is_success() and isinstance(reap.data, dict) else {}
+                            if data.get("cleaned"):
+                                GLOG.INFO(
+                                    f"[Reaper] Marked {data.get('cleaned')} orphan task(s) failed "
+                                    f"(total running scanned: {data.get('total_running', 0)})"
+                                )
+                        except Exception as reap_err:
+                            GLOG.ERROR(f"[Reaper] cleanup_orphan_tasks failed: {reap_err}")
                 except Exception as e:
                     GLOG.ERROR(f"Error in cleanup: {e}")
 
