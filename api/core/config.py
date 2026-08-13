@@ -39,6 +39,7 @@ class Settings(BaseSettings):
             "http://192.168.50.12:5173",
             "http://192.168.50.12:3000",
             "app://",   # ADR-044 Electron 双形态（自定义协议 origin）
+            "app://.",  # Electron standard scheme 实际 Origin（app://./index.html → host='.'）
         ],
         description="允许的跨域来源"
     )

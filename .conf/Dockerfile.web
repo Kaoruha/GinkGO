@@ -22,7 +22,8 @@ RUN pnpm build
 FROM nginx:1.27.0-alpine AS vue_runtime
 
 # Copy the built Vue app from the builder stage
-COPY --from=vue_builder /app/dist /usr/share/nginx/html
+# vite root=src/renderer + outDir=dist → 产物在 /app/src/renderer/dist
+COPY --from=vue_builder /app/src/renderer/dist /usr/share/nginx/html
 
 # Copy custom nginx config if exists (build context is .., so .conf/ is correct)
 COPY .conf/nginx.conf /etc/nginx/nginx.conf
