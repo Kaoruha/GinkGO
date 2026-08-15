@@ -27,6 +27,7 @@ _CLEANUP_KWARGS = [
     "signal_crud", "order_crud", "position_crud", "position_record_crud",
     "analyzer_record_crud", "order_record_crud", "transfer_record_crud",
     "transfer_crud", "signal_tracker_crud",
+    "backtest_log_crud", "component_log_crud", "performance_log_crud",
 ]
 
 
@@ -192,6 +193,7 @@ class TestRerunCleanupAtomicity:
     CLICK_CRUD_NAMES = (
         "signal_crud", "position_record_crud", "analyzer_record_crud",
         "order_record_crud", "transfer_record_crud",
+        "backtest_log_crud", "component_log_crud", "performance_log_crud",
     )
 
     @staticmethod
@@ -257,3 +259,61 @@ class TestRerunCleanupAtomicity:
                 f"{name} (CH) 不应参与 MySQL 事务"
         assert stats["committed"] == 1, "MySQL 组应单事务 commit 一次"
         assert stats["rolled_back"] == 0
+
+
+class TestRerunGuardsAndResets:
+    """重跑守卫与重置的补充契约（CH 日志三表清理 / pending 拒绝 / performance 归零）"""
+
+    @pytest.mark.unit
+    def test_pending_task_cannot_start(self):
+        """status=pending 的任务不可再 start——防止连续两次重跑时
+        第二次清理块删掉第一轮正在写入的数据 + 双 Kafka 派发。"""
+        svc, cruds = _make_service_with_cruds()
+        TestRerunCleanupAtomicity._wire_mysql_transaction(cruds)
+        svc._crud_repo.get_by_uuid.return_value = _make_task(status="pending")
+
+        with _mock_kafka_and_container() as producer:
+            result = svc.start_task(uuid="uuid-1234")
+
+        assert result.is_success() is False, "pending 状态应被守卫拒绝"
+        assert "pending" in result.error, f"错误信息应说明状态不可启动: {result.error}"
+        assert producer.send.called is False, "被拒后不应发 Kafka"
+        for name in _CLEANUP_KWARGS:
+            crud = cruds[name]
+            if crud is not None:
+                assert not crud.remove.called, f"{name} 不应执行清理（任务被拒）"
+
+    @pytest.mark.unit
+    def test_portfolio_performance_reset_on_rerun(self):
+        """重跑置 pending 时应同步将 portfolio.performance 全零重置，
+        防止重跑期间列表页仍展示上一次运行的成绩。"""
+        svc, cruds = _make_service_with_cruds()
+        TestRerunCleanupAtomicity._wire_mysql_transaction(cruds)
+        mock_portfolio_service = MagicMock()
+        svc._portfolio_service = mock_portfolio_service
+
+        with _mock_kafka_and_container():
+            result = svc.start_task(uuid="uuid-1234")
+
+        assert result.is_success() is True
+        mock_portfolio_service.update_performance.assert_called_once()
+        _, kwargs = mock_portfolio_service.update_performance.call_args
+        assert kwargs.get("portfolio_id") == "portfolio-001" or \
+            mock_portfolio_service.update_performance.call_args[0][0] == "portfolio-001"
+        assert kwargs.get("annual_return") == 0.0
+        assert kwargs.get("total_trades") == 0
+
+    @pytest.mark.unit
+    def test_performance_reset_failure_does_not_abort(self):
+        """performance 重置失败仅告警不阻断——尽力而为，不挡任务启动。"""
+        svc, cruds = _make_service_with_cruds()
+        TestRerunCleanupAtomicity._wire_mysql_transaction(cruds)
+        mock_portfolio_service = MagicMock()
+        mock_portfolio_service.update_performance.side_effect = RuntimeError("portfolio 表锁")
+        svc._portfolio_service = mock_portfolio_service
+
+        with _mock_kafka_and_container() as producer:
+            result = svc.start_task(uuid="uuid-1234")
+
+        assert result.is_success() is True, "performance 重置失败不应阻断启动"
+        assert producer.send.called

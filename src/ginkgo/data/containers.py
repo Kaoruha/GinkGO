@@ -151,6 +151,9 @@ class Container(containers.DeclarativeContainer):
     kafka_crud = providers.Singleton(get_crud, "kafka")
     factor_crud = providers.Singleton(get_crud, "factor")
     analyzer_record_crud = providers.Singleton(get_crud, "analyzer_record")
+    backtest_log_crud = providers.Singleton(get_crud, "backtest_log")
+    component_log_crud = providers.Singleton(get_crud, "component_log")
+    performance_log_crud = providers.Singleton(get_crud, "performance_log")
     backtest_task_crud = providers.Singleton(get_crud, "backtest_task")
 
     # User management CRUDs
@@ -316,6 +319,9 @@ class Container(containers.DeclarativeContainer):
         transfer_record_crud=transfer_record_crud,
         transfer_crud=transfer_crud,
         signal_tracker_crud=signal_tracker_crud,
+        backtest_log_crud=backtest_log_crud,
+        component_log_crud=component_log_crud,
+        performance_log_crud=performance_log_crud,
     )
 
     # User management services

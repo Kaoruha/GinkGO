@@ -39,7 +39,9 @@ class BacktestTaskService(BaseService):
                  signal_crud=None, order_crud=None, position_crud=None,
                  position_record_crud=None, analyzer_record_crud=None,
                  order_record_crud=None, transfer_record_crud=None,
-                 transfer_crud=None, signal_tracker_crud=None):
+                 transfer_crud=None, signal_tracker_crud=None,
+                 backtest_log_crud=None, component_log_crud=None,
+                 performance_log_crud=None):
         """
         初始化服务
 
@@ -49,6 +51,7 @@ class BacktestTaskService(BaseService):
             engine_service: 引擎服务（可选，用于关联引擎）
             portfolio_service: 投资组合服务（可选，用于关联投资组合）
             signal_crud ~ signal_tracker_crud: 重跑清理用的 CRUD（可选，由容器注入）
+            backtest_log_crud ~ performance_log_crud: CH 日志三表 CRUD（重跑清理用，可选）
         """
         super().__init__(
             crud_repo=crud_repo,
@@ -64,6 +67,9 @@ class BacktestTaskService(BaseService):
             transfer_record_crud=transfer_record_crud,
             transfer_crud=transfer_crud,
             signal_tracker_crud=signal_tracker_crud,
+            backtest_log_crud=backtest_log_crud,
+            component_log_crud=component_log_crud,
+            performance_log_crud=performance_log_crud,
         )
         GLOG.set_log_category("component")
 
@@ -735,8 +741,11 @@ class BacktestTaskService(BaseService):
             if not task:
                 return ServiceResult.error("Backtest task not found")
 
-            # 状态机检查：新任务(created/pending)可直接启动，旧任务(completed/stopped/failed)可重新运行
-            startable_states = ["created", "pending", "completed", "stopped", "failed"]
+            # 状态机检查：新任务 created 可直接启动，旧任务(completed/stopped/failed)可重新运行。
+            # pending 不可再 start：pending 意味着上一轮重跑已通过守卫、清理块已执行、Kafka
+            # 已派发——此时若再次通过守卫会重复执行清理块，删掉第一轮正在写入的数据并发出
+            # 第二条派发消息（双引擎同 task_id 并发写入）。
+            startable_states = ["created", "completed", "stopped", "failed"]
             if task.status not in startable_states:
                 return ServiceResult.error(
                     f"Cannot start task with status '{task.status}'. "
@@ -805,10 +814,19 @@ class BacktestTaskService(BaseService):
                 ("analyzer_record", self._analyzer_record_crud),
                 ("order_record",    self._order_record_crud),
                 ("transfer_record", self._transfer_record_crud),
+                # CH 日志三表：worker 经 vector 写入 ginkgo_logs_*，重跑不清理会致
+                # 同 task_id 新旧 run 日志混排（"日志混乱"主因）。查询走 LogService 不变。
+                ("backtest_log",    self._backtest_log_crud),
+                ("component_log",   self._component_log_crud),
+                ("performance_log", self._performance_log_crud),
             ]
 
-            # ClickHouse 无事务：尽力删除，失败告警不阻断（CH 固有限制，无回滚能力）
+            # ClickHouse 无事务：尽力删除，失败告警不阻断（CH 固有限制，无回滚能力）。
+            # None（未注入）显式告警跳过——与 MySQL 侧同纪律，静默跳过会掩盖清理缺口。
             for name, crud in _click_cleanups:
+                if crud is None:
+                    GLOG.WARN(f"Failed to delete {name} (clickhouse): CRUD not injected")
+                    continue
                 try:
                     crud.remove(filters={"task_id": task_id})
                     GLOG.DEBUG(f"Deleted old {name} (clickhouse)")
@@ -844,12 +862,46 @@ class BacktestTaskService(BaseService):
             # snapshot_config / start_date / end_date 已在守卫前解析完成（见上方），
             # 此处直接用于组装 Kafka config 与状态更新。
 
-            # 先更新状态为 pending，确保 Worker 查询时能看到正确的状态
-            status_result = self.update_status(real_uuid, status="pending")
+            # 先更新状态为 pending，确保 Worker 查询时能看到正确的状态。
+            # 重跑摘要归零：上方清理块只删 9 表记录，backtest_task 行自身的摘要列
+            # （pnl/sharpe/回撤等）不在删除范围——须同步重置，否则重跑运行中/
+            # 失败期间详情页仍展示上一次运行的成功数值（曲线已清空、摘要残留）。
+            _run_summary_reset = {
+                "progress": 0,
+                "total_orders": 0,
+                "total_signals": 0,
+                "total_positions": 0,
+                "total_events": 0,
+                "duration_seconds": None,
+                "start_time": None,
+                "end_time": None,
+                "final_portfolio_value": 0.0,
+                "total_pnl": 0.0,
+                "max_drawdown": 0.0,
+                "sharpe_ratio": 0.0,
+                "annual_return": 0.0,
+                "win_rate": 0.0,
+            }
+            status_result = self.update_status(
+                real_uuid, status="pending", error_message="", **_run_summary_reset
+            )
             if not status_result.is_success():
                 return ServiceResult.error(f"Failed to update task status to pending: {status_result.error}")
 
             GLOG.DEBUG(f"Updated task {real_uuid} status to pending")
+
+            # portfolio.performance 同步归零：任务行摘要已重置，但 portfolio 表的
+            # 绩效快照（annual_return/sharpe 等）不在其中——不重置则列表页在重跑
+            # 期间仍展示上一次运行的成绩。尽力而为，失败告警不阻断启动。
+            if self._portfolio_service is not None:
+                try:
+                    self._portfolio_service.update_performance(
+                        task.portfolio_id,
+                        annual_return=0.0, sharpe_ratio=0.0, max_drawdown=0.0,
+                        win_rate=0.0, total_trades=0, winning_trades=0,
+                    )
+                except Exception as e:
+                    GLOG.WARN(f"Failed to reset portfolio performance: {e}")
 
             # 构建 Kafka config：从 config_snapshot 恢复，显式参数覆盖
             kafka_config = {}
@@ -1191,6 +1243,81 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"list_summaries failed: {e}")
             return ServiceResult.error(f"Failed to list summaries: {e}")
 
+    def get_portfolio_stats(self, portfolio_id: str) -> ServiceResult:
+        """
+        聚合某 Portfolio 全部已完成回测的统计指标。
+
+        指标列直接取自 MBacktestTask（回测完成时写入），无需逐任务拉 analyzer。
+        净值 = final_portfolio_value / config_snapshot.initial_cash（缺初始资金时跳过该样本）。
+        """
+        try:
+            # page_size=0 → 全量（ADR-021 "0=all"）
+            result = self.list(page=0, page_size=0, portfolio_id=portfolio_id)
+            if not result.is_success():
+                return result
+
+            tasks = (result.data or {}).get("data", []) or []
+            total = len(tasks)
+
+            navs: list[float] = []
+            drawdowns: list[float] = []
+            sharpes: list[float] = []
+            annual_returns: list[float] = []
+            win_rates: list[float] = []
+            latest_completed = None  # create_at 最近的已完成任务摘要
+
+            for t in tasks:
+                if (getattr(t, "status", "") or "") != "completed":
+                    continue
+                final_value = float(getattr(t, "final_portfolio_value", 0) or 0)
+                config_str = getattr(t, "config_snapshot", "{}") or "{}"
+                config = json.loads(config_str) if isinstance(config_str, str) else (config_str or {})
+                initial_cash = float(config.get("initial_cash") or 0)
+                if initial_cash > 0 and final_value > 0:
+                    navs.append(final_value / initial_cash)
+
+                drawdowns.append(float(getattr(t, "max_drawdown", 0) or 0))
+                sharpes.append(float(getattr(t, "sharpe_ratio", 0) or 0))
+                annual_returns.append(float(getattr(t, "annual_return", 0) or 0))
+                win_rates.append(float(getattr(t, "win_rate", 0) or 0))
+
+                created = getattr(t, "create_at", None)
+                if latest_completed is None or (created or "") > (latest_completed["created_at"] or ""):
+                    latest_completed = {
+                        "uuid": getattr(t, "uuid", ""),
+                        "name": getattr(t, "name", ""),
+                        "created_at": self._format_dt(created) or "",
+                        "nav": navs[-1] if (initial_cash > 0 and final_value > 0) else None,
+                        "max_drawdown": drawdowns[-1],
+                        "sharpe_ratio": sharpes[-1],
+                        "annual_return": annual_returns[-1],
+                        "win_rate": win_rates[-1],
+                    }
+
+            def _avg(vals: list[float]) -> Optional[float]:
+                return round(sum(vals) / len(vals), 6) if vals else None
+
+            stats = {
+                "portfolio_id": portfolio_id,
+                "total_backtests": total,
+                "completed_backtests": len(drawdowns),
+                "avg_nav": _avg(navs),
+                "best_nav": round(max(navs), 6) if navs else None,
+                "worst_nav": round(min(navs), 6) if navs else None,
+                "avg_max_drawdown": _avg(drawdowns),
+                "worst_max_drawdown": round(max(drawdowns), 6) if drawdowns else None,
+                "best_max_drawdown": round(min(drawdowns), 6) if drawdowns else None,
+                "avg_sharpe_ratio": _avg(sharpes),
+                "best_sharpe_ratio": round(max(sharpes), 6) if sharpes else None,
+                "avg_annual_return": _avg(annual_returns),
+                "avg_win_rate": _avg(win_rates),
+                "latest_completed": latest_completed,
+            }
+            return ServiceResult.success(stats, "Portfolio backtest stats retrieved")
+        except Exception as e:
+            GLOG.ERROR(f"get_portfolio_stats failed: {e}")
+            return ServiceResult.error(f"Failed to get portfolio stats: {e}")
+
     def get_detail(self, uuid: str) -> "ServiceResult":
         """
         获取回测任务详情，返回 BacktestTaskDetail。
@@ -1258,7 +1385,13 @@ class BacktestTaskService(BaseService):
         return task_id, portfolio_id, None
 
     def list_signals(self, uuid: str, page: int = 1, page_size: int = 100) -> "ServiceResult":
-        """获取回测信号列表，返回 list[BacktestSignalItem]"""
+        """获取回测信号列表，返回 list[BacktestSignalItem]
+
+        page 对外 1-based（与 API Query(1, ge=1) 对齐）；result_service.get_signals
+        是 0-based（page 直通 crud find 作 offset 基数），此处下推前转换。
+        原样透传时 page=1 → offset=page_size，跳过前 page_size 条——总量不足一页的
+        回测（如仅 4 条信号）直接返回空列表，前端信号 tab 显示"暂无信号记录"。
+        """
         from ginkgo.data.services.backtest_task_schemas import BacktestSignalItem
 
         try:
@@ -1268,7 +1401,11 @@ class BacktestTaskService(BaseService):
 
             from ginkgo.data.containers import container
             result_service = container.result_service()
-            result = result_service.get_signals(task_id=task_id, page=page, page_size=page_size)
+            result = result_service.get_signals(
+                task_id=task_id,
+                page=max(page - 1, 0),
+                page_size=page_size,
+            )
             if not result.is_success():
                 return ServiceResult.success(data=[], message=result.error)
 
@@ -1284,6 +1421,7 @@ class BacktestTaskService(BaseService):
                     task_id=getattr(s, "task_id", ""),
                     code=getattr(s, "code", ""),
                     direction=str(getattr(s, "direction", "")) if getattr(s, "direction", None) is not None else None,
+                    weight=convert_to_float(getattr(s, "weight", 0)) or 0.0,
                     reason=getattr(s, "reason", ""),
                     timestamp=self._format_dt(getattr(s, "timestamp", None)),
                     source=str(getattr(s, "source", "")) if getattr(s, "source", None) is not None else None,
@@ -1482,17 +1620,33 @@ class BacktestTaskService(BaseService):
 
             items = []
             for p in positions:
+                cost = convert_to_float(getattr(p, "cost", 0))
+                volume = int(getattr(p, "volume", 0) or 0)
+                price = convert_to_float(getattr(p, "price", 0))
+                fee = convert_to_float(getattr(p, "fee", 0))
+                # cost 为每股加权均价（Position._cost 口径），派生市值/盈亏
+                # 公式对齐 Position 盈亏：total_position*(price-cost)-fee
+                market_value = price * volume
+                profit = (price - cost) * volume - fee
+                cost_basis = cost * volume
+                profit_pct = (profit / cost_basis) if cost_basis > 0 else 0.0
                 items.append(BacktestPositionItem(
                     uuid=getattr(p, "uuid", ""),
                     portfolio_id=getattr(p, "portfolio_id", ""),
                     engine_id=getattr(p, "engine_id", ""),
                     task_id=getattr(p, "task_id", ""),
                     code=getattr(p, "code", ""),
-                    cost=convert_to_float(getattr(p, "cost", 0)),
-                    volume=int(getattr(p, "volume", 0) or 0),
+                    cost=cost,
+                    volume=volume,
                     frozen_volume=int(getattr(p, "frozen_volume", 0) or 0),
-                    price=convert_to_float(getattr(p, "price", 0)),
-                    fee=convert_to_float(getattr(p, "fee", 0)),
+                    price=price,
+                    fee=fee,
+                    timestamp=self._format_dt(getattr(p, "timestamp", None)),
+                    # A股回测恒多头；volume<0 视为空头防御性派生
+                    direction=1 if volume >= 0 else 2,
+                    market_value=market_value,
+                    profit=profit,
+                    profit_pct=profit_pct,
                 ))
 
             sr = ServiceResult.success(data=items, message="Positions retrieved")
