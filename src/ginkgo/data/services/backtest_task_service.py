@@ -39,9 +39,7 @@ class BacktestTaskService(BaseService):
                  signal_crud=None, order_crud=None, position_crud=None,
                  position_record_crud=None, analyzer_record_crud=None,
                  order_record_crud=None, transfer_record_crud=None,
-                 transfer_crud=None, signal_tracker_crud=None,
-                 backtest_log_crud=None, component_log_crud=None,
-                 performance_log_crud=None):
+                 transfer_crud=None, signal_tracker_crud=None):
         """
         初始化服务
 
@@ -51,7 +49,6 @@ class BacktestTaskService(BaseService):
             engine_service: 引擎服务（可选，用于关联引擎）
             portfolio_service: 投资组合服务（可选，用于关联投资组合）
             signal_crud ~ signal_tracker_crud: 重跑清理用的 CRUD（可选，由容器注入）
-            backtest_log_crud ~ performance_log_crud: CH 日志三表 CRUD（重跑清理用，可选）
         """
         super().__init__(
             crud_repo=crud_repo,
@@ -67,9 +64,6 @@ class BacktestTaskService(BaseService):
             transfer_record_crud=transfer_record_crud,
             transfer_crud=transfer_crud,
             signal_tracker_crud=signal_tracker_crud,
-            backtest_log_crud=backtest_log_crud,
-            component_log_crud=component_log_crud,
-            performance_log_crud=performance_log_crud,
         )
         GLOG.set_log_category("component")
 
@@ -814,11 +808,6 @@ class BacktestTaskService(BaseService):
                 ("analyzer_record", self._analyzer_record_crud),
                 ("order_record",    self._order_record_crud),
                 ("transfer_record", self._transfer_record_crud),
-                # CH 日志三表：worker 经 vector 写入 ginkgo_logs_*，重跑不清理会致
-                # 同 task_id 新旧 run 日志混排（"日志混乱"主因）。查询走 LogService 不变。
-                ("backtest_log",    self._backtest_log_crud),
-                ("component_log",   self._component_log_crud),
-                ("performance_log", self._performance_log_crud),
             ]
 
             # ClickHouse 无事务：尽力删除，失败告警不阻断（CH 固有限制，无回滚能力）。
@@ -832,6 +821,19 @@ class BacktestTaskService(BaseService):
                     GLOG.DEBUG(f"Deleted old {name} (clickhouse)")
                 except Exception as e:
                     GLOG.WARN(f"Failed to delete {name} (clickhouse, no rollback): {e}")
+
+            # CH 日志三表（ginkgo_logs_backtest/component/performance）：日志域数据
+            # 统一走 LogService（查询与删除同入口），不经 CRUD 层。worker 经 vector
+            # 写入这三张表，重跑不清理会致同 task_id 新旧 run 日志混排（"日志混乱"
+            # 主因）。best-effort：失败告警不阻断，与上方 CH 组同纪律。
+            try:
+                from ginkgo.services.logging import LogService
+                _log_del = LogService().delete_logs_by_task_id(task_id)
+                for _table, _ok in _log_del.items():
+                    if not _ok:
+                        GLOG.WARN(f"Failed to delete {_table} logs (clickhouse, no rollback)")
+            except Exception as e:
+                GLOG.WARN(f"Failed to delete ginkgo_logs_* (clickhouse, no rollback): {e}")
 
             # MySQL 4 个：None 告警跳过，其余共享单事务（任一失败全 rollback）
             # （清理路径缺注必须大声告警，否则旧数据残留致回测静默污染）

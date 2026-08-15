@@ -27,7 +27,6 @@ _CLEANUP_KWARGS = [
     "signal_crud", "order_crud", "position_crud", "position_record_crud",
     "analyzer_record_crud", "order_record_crud", "transfer_record_crud",
     "transfer_crud", "signal_tracker_crud",
-    "backtest_log_crud", "component_log_crud", "performance_log_crud",
 ]
 
 
@@ -193,7 +192,6 @@ class TestRerunCleanupAtomicity:
     CLICK_CRUD_NAMES = (
         "signal_crud", "position_record_crud", "analyzer_record_crud",
         "order_record_crud", "transfer_record_crud",
-        "backtest_log_crud", "component_log_crud", "performance_log_crud",
     )
 
     @staticmethod
@@ -262,7 +260,44 @@ class TestRerunCleanupAtomicity:
 
 
 class TestRerunGuardsAndResets:
-    """重跑守卫与重置的补充契约（CH 日志三表清理 / pending 拒绝 / performance 归零）"""
+    """重跑守卫与重置的补充契约（CH 日志清理 / pending 拒绝 / performance 归零）"""
+
+    @pytest.mark.unit
+    def test_log_tables_cleaned_via_log_service(self):
+        """重跑应经 LogService.delete_logs_by_task_id 清理 CH 日志三表
+        （日志域数据统一走 LogService，查询与删除同入口，不经 CRUD 层）。"""
+        svc, cruds = _make_service_with_cruds()
+        TestRerunCleanupAtomicity._wire_mysql_transaction(cruds)
+        mock_log_service = MagicMock()
+        mock_log_service.delete_logs_by_task_id.return_value = {
+            "backtest": True, "component": True, "performance": True,
+        }
+
+        with _mock_kafka_and_container(), \
+             patch("ginkgo.services.logging.LogService",
+                   return_value=mock_log_service):
+            result = svc.start_task(uuid="uuid-1234")
+
+        assert result.is_success() is True
+        mock_log_service.delete_logs_by_task_id.assert_called_once_with("task-abc-001")
+
+    @pytest.mark.unit
+    def test_log_cleanup_failure_does_not_abort_start(self):
+        """日志三表清理失败 → best-effort 告警，不阻断启动（CH 无事务，同 #5562 纪律）。"""
+        svc, cruds = _make_service_with_cruds()
+        TestRerunCleanupAtomicity._wire_mysql_transaction(cruds)
+        mock_log_service = MagicMock()
+        mock_log_service.delete_logs_by_task_id.return_value = {
+            "backtest": False, "component": True, "performance": False,
+        }
+
+        with _mock_kafka_and_container() as producer, \
+             patch("ginkgo.services.logging.LogService",
+                   return_value=mock_log_service):
+            result = svc.start_task(uuid="uuid-1234")
+
+        assert result.is_success() is True, "日志清理失败应 best-effort，不阻断启动"
+        assert producer.send.called
 
     @pytest.mark.unit
     def test_pending_task_cannot_start(self):

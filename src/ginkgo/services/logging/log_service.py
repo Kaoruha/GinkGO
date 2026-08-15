@@ -341,7 +341,13 @@ class LogService(BaseService):
                 # 应用过滤条件
                 conditions = []
                 for key, value in filters.items():
-                    if value is not None and hasattr(model, key):
+                    if value is None or not hasattr(model, key):
+                        continue
+                    if key == "level":
+                        # ClickHouse level 列混大小写存储（arch_log_level_lowercase_storage），
+                        # 对齐 query_backtest_logs/search_logs 的双向 func.lower 归一
+                        conditions.append(func.lower(getattr(model, key)) == value.lower())
+                    else:
                         conditions.append(getattr(model, key) == value)
 
                 if conditions:
@@ -518,6 +524,43 @@ class LogService(BaseService):
                 "time_range_hours": hours,
                 "top_error_patterns": []
             }
+
+    @time_logger
+    def delete_logs_by_task_id(self, task_id: str) -> Dict[str, Any]:
+        """按 task_id 删除三张日志表的旧日志（重跑清理入口）。
+
+        CH 无事务（DELETE 为原生 SQL、异步生效），逐表 best-effort：
+        单表失败告警并继续，返回各表删除结果供调用方告警。
+
+        Args:
+            task_id: 回测运行会话 ID
+
+        Returns:
+            Dict: {"backtest": ok, "component": ok, "performance": ok}
+        """
+        if not task_id:
+            raise ValueError("task_id must not be empty")
+
+        results = {}
+        with self._engine.get_session() as session:
+            for name, model in (
+                ("backtest", MBacktestLog),
+                ("component", MComponentLog),
+                ("performance", MPerformanceLog),
+            ):
+                try:
+                    session.execute(
+                        text(
+                            f"DELETE FROM {model.__tablename__} "
+                            f"WHERE task_id = :task_id"
+                        ),
+                        {"task_id": task_id},
+                    )
+                    results[name] = True
+                except Exception as e:
+                    self._logger.ERROR(f"删除 {model.__tablename__} 失败: {e}")
+                    results[name] = False
+        return results
 
     @time_logger
     def join_with_backtest_results(
