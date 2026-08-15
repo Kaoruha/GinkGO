@@ -607,3 +607,51 @@ class TestRedisServiceIntegration:
 
         # 清理
         redis_service.delete_task_status(task_id)
+
+
+class TestBacktestWorkerStatusTaskUuids:
+    """get_backtest_worker_status 透传心跳 task_uuids（#6846 字段，Worker 下钻数据源）。"""
+
+    def test_task_uuids_passthrough(self):
+        """心跳含 task_uuids → worker 状态原样透传。"""
+        from unittest.mock import MagicMock
+
+        service = RedisService()
+        heartbeat = {
+            "worker_id": "bw_test_1",
+            "status": "running",
+            "running_tasks": 1,
+            "max_tasks": 5,
+            "last_heartbeat": "2026-08-15T10:00:00",
+            "task_uuids": ["uuid-a", "uuid-b"],
+        }
+        service._crud_repo = MagicMock()
+        service._crud_repo.keys.return_value = ["ginkgo:backtest_worker:bw_test_1"]
+        service._crud_repo.get.return_value = heartbeat
+
+        result = service.get_backtest_worker_status()
+
+        assert result.success
+        assert len(result.data) == 1
+        assert result.data[0]["task_uuids"] == ["uuid-a", "uuid-b"]
+
+    def test_task_uuids_missing_defaults_empty(self):
+        """旧格式心跳无 task_uuids → 默认 []（向后兼容）。"""
+        from unittest.mock import MagicMock
+
+        service = RedisService()
+        heartbeat = {
+            "worker_id": "bw_test_2",
+            "status": "running",
+            "running_tasks": 0,
+            "max_tasks": 5,
+            "last_heartbeat": "2026-08-15T10:00:00",
+        }
+        service._crud_repo = MagicMock()
+        service._crud_repo.keys.return_value = ["ginkgo:backtest_worker:bw_test_2"]
+        service._crud_repo.get.return_value = heartbeat
+
+        result = service.get_backtest_worker_status()
+
+        assert result.success
+        assert result.data[0]["task_uuids"] == []

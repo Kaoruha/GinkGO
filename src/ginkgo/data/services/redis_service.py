@@ -826,6 +826,7 @@ class RedisService(BaseService):
                             "active_tasks": heartbeat_data.get("running_tasks", 0),
                             "max_tasks": heartbeat_data.get("max_tasks", 0),
                             "last_heartbeat": heartbeat_data.get("last_heartbeat", ""),
+                            "task_uuids": heartbeat_data.get("task_uuids", []),
                         })
                 except Exception as e:
                     self._logger.WARN(f"Failed to parse heartbeat data for {key}: {e}")
