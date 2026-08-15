@@ -2,7 +2,7 @@
 
 **Status:** Accepted（设计定案，分阶段实现）
 **Date:** 2026-08-15
-**关联:** ADR-018（回测派发契约）· ADR-016（回测标识符边界）· #5562（MySQL 清理单事务）· #6846（cleanup_orphan_tasks reaper）· #6483（completed 硬编码）· #6543（StopAssignment no-op 委托 CancelAssignment）
+**关联:** ADR-018（回测派发契约）· ADR-016（回测标识符边界）· #5562（MySQL 清理单事务）· #6846（cleanup_orphan_tasks reaper）· #6483（超时静默标completed）· #6543（stop支持created/pending状态）
 
 ## Context
 
