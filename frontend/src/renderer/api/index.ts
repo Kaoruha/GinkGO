@@ -21,7 +21,7 @@ export { componentsApi } from './modules/components'
 
 // 系统模块
 export { systemApi } from './modules/system'
-export type { SystemStatusResponse, WorkersResponse, WorkerInfo, ComponentCounts, InfrastructureStatus } from './modules/system'
+export type { SystemStatusResponse, WorkersResponse, WorkerInfo, WorkerTaskInfo, WorkerTasksResponse, ComponentCounts, InfrastructureStatus } from './modules/system'
 
 // 验证模块 (Stage2)
 export { validationApi } from './modules/validation'

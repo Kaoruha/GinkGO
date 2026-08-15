@@ -36,6 +36,7 @@ export interface WorkerInfo {
   jobs_count?: number
   running_tasks?: number
   pending_tasks?: number
+  task_uuids?: string[]
   last_heartbeat: string
 }
 
@@ -51,6 +52,20 @@ export interface ComponentCounts {
 export interface WorkersResponse {
   data: WorkerInfo[]
   components: ComponentCounts
+}
+
+export interface WorkerTaskInfo {
+  task_id: string
+  name: string
+  status: string
+  progress: number
+  portfolio_id: string
+}
+
+export interface WorkerTasksResponse {
+  worker_id: string
+  found: boolean
+  tasks: WorkerTaskInfo[]
 }
 
 // ===== API 模块 =====
@@ -106,17 +121,10 @@ export const systemApi = {
   },
 
   /**
-   * 启动 Worker
+   * 回测 Worker 活跃任务下钻（行内展开懒加载）
    */
-  startWorker(workerId: string): Promise<{ message: string }> {
-    return request.post(`/api/v1/system/workers/${workerId}/start`)
-  },
-
-  /**
-   * 停止 Worker
-   */
-  stopWorker(workerId: string): Promise<{ message: string }> {
-    return request.post(`/api/v1/system/workers/${workerId}/stop`)
+  getWorkerTasks(workerId: string): Promise<WorkerTasksResponse> {
+    return request.get(`/api/v1/system/workers/${workerId}/tasks`)
   },
 
   /**

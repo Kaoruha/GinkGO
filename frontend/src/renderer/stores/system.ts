@@ -160,42 +160,6 @@ export const useSystemStore = defineStore('system', () => {
   }
 
   /**
-   * 启动 Worker
-   */
-  async function startWorker(workerId: string) {
-    try {
-      const result = await systemApi.startWorker(workerId)
-      // 更新本地状态
-      const worker = workers.value.find(w => w.id === workerId)
-      if (worker) {
-        worker.status = 'running'
-      }
-      return result
-    } catch (error) {
-      console.error('Failed to start worker:', error)
-      throw error
-    }
-  }
-
-  /**
-   * 停止 Worker
-   */
-  async function stopWorker(workerId: string) {
-    try {
-      const result = await systemApi.stopWorker(workerId)
-      // 更新本地状态
-      const worker = workers.value.find(w => w.id === workerId)
-      if (worker) {
-        worker.status = 'stopped'
-      }
-      return result
-    } catch (error) {
-      console.error('Failed to stop worker:', error)
-      throw error
-    }
-  }
-
-  /**
    * 设置 WebSocket 连接状态
    */
   function setWsConnected(connected: boolean) {
@@ -279,8 +243,6 @@ export const useSystemStore = defineStore('system', () => {
     // Actions
     fetchStatus,
     fetchWorkers,
-    startWorker,
-    stopWorker,
     setWsConnected,
     enableAutoRefresh,
     disableAutoRefresh,
