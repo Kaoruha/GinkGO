@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios'
 import request from '../request'
 
 // ===== 类型定义 =====
@@ -68,6 +69,10 @@ export interface WorkerTasksResponse {
   tasks: WorkerTaskInfo[]
 }
 
+// 任务下钻失败由页内联降级态+页内 toast 交代,opt-out 全局 toast 避免双 toast(request.ts 拦截器读取,
+// 类型上以交集声明;market.ts SILENT_READ 同款语义)
+const SILENT_TASKS: AxiosRequestConfig & { skipErrorToast?: boolean } = { skipErrorToast: true }
+
 // ===== API 模块 =====
 
 export const systemApi = {
@@ -124,7 +129,7 @@ export const systemApi = {
    * 回测 Worker 活跃任务下钻（行内展开懒加载）
    */
   getWorkerTasks(workerId: string): Promise<WorkerTasksResponse> {
-    return request.get(`/api/v1/system/workers/${workerId}/tasks`)
+    return request.get(`/api/v1/system/workers/${workerId}/tasks`, SILENT_TASKS)
   },
 
   /**

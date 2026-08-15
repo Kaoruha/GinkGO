@@ -114,7 +114,7 @@
                     <tr v-for="t in expandedTasks[record.id]" :key="t.task_id">
                       <td class="monospace">{{ t.name || t.task_id }}</td>
                       <td>
-                        <StatusTag type="worker" :status="t.status" />
+                        <StatusTag type="backtest" :status="t.status" />
                       </td>
                       <td>
                         <div class="progress-bar">
@@ -367,6 +367,8 @@ onUnmounted(() => {
 /* 心跳 stale 预警 */
 .stale-1 { color: hsl(var(--warning)); }
 .stale-2 { color: hsl(var(--error)); font-weight: 600; }
+.stale-1 :deep(.status-tag) { color: hsl(var(--warning)); }
+.stale-2 :deep(.status-tag) { color: hsl(var(--error)); }
 
 /* 下钻展开 */
 .cell-id { display: flex; align-items: center; gap: 6px; }
