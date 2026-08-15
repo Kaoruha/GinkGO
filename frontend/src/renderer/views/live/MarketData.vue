@@ -11,6 +11,11 @@
       </button>
     </template>
 
+    <!-- 行情服务不可用:后端 market 模块缺失,已停自动轮询/重连,手动刷新可重试 -->
+    <div v-if="serviceUnavailable" class="service-unavailable">
+      行情服务不可用：后端尚未提供 market 接口（/api/v1/market/* 404）。已停止自动轮询与实时连接，可点"刷新交易对"重试。
+    </div>
+
     <!-- 订阅统计 -->
     <div class="stats-grid">
       <div class="stat-card">
@@ -211,6 +216,9 @@ const priceAnimation = ref<Record<string, string>>({})
 let allTickersTimer: number | null = null
 // 强制刷新计数器
 const refreshKey = ref(0)
+// 行情服务不可用(后端 market 模块缺失,接口 404):
+// 停止 5s 轮询与 WS 重连,避免无谓重试刷屏;手动"刷新交易对"成功后自动恢复
+const serviceUnavailable = ref(false)
 
 // tickerData 的计数器用于强制刷新
 const tickerDataCount = ref(0)
@@ -332,6 +340,17 @@ const refreshPairs = async () => {
   await loadPairs()
 }
 
+// 404 = 后端无 market 模块,标记不可用并停掉轮询/WS 重连
+const markUnavailableIf404 = (error: any): boolean => {
+  if (error?.response?.status === 404) {
+    serviceUnavailable.value = true
+    stopAllTickersPolling()
+    disconnectWebSocket()
+    return true
+  }
+  return false
+}
+
 const loadPairs = async () => {
   loadingPairs.value = true
   try {
@@ -342,12 +361,13 @@ const loadPairs = async () => {
     if (selectedQuoteCurrency.value) {
       params.quote_ccy = selectedQuoteCurrency.value
     }
-    const response: any = await marketApi.getTradingPairs(params)
-    if (response.code === 0) {
-      pairs.value = response.data?.pairs || []
-    }
+    // 拦截器已拆信封:resolve 即 {pairs} payload
+    const response = await marketApi.getTradingPairs(params)
+    pairs.value = response?.pairs || []
+    // 后端恢复(手动刷新成功)则解除降级
+    serviceUnavailable.value = false
   } catch (error) {
-    console.error('加载交易对失败:', error)
+    if (!markUnavailableIf404(error)) console.error('加载交易对失败:', error)
   } finally {
     loadingPairs.value = false
   }
@@ -355,14 +375,13 @@ const loadPairs = async () => {
 
 const loadSubscriptions = async () => {
   try {
-    const response: any = await marketApi.getSubscriptions()
-    if (response.code === 0) {
-      subscriptions.value = response.data?.subscriptions || []
-      console.log('[MarketData] 订阅列表加载成功:', subscriptions.value.length, '个订阅')
-      console.log('[MarketData] 订阅列表:', subscriptions.value.map(s => s.symbol))
-    }
+    // 拦截器已拆信封:resolve 即 {subscriptions} payload
+    const response = await marketApi.getSubscriptions()
+    subscriptions.value = response?.subscriptions || []
+    console.log('[MarketData] 订阅列表加载成功:', subscriptions.value.length, '个订阅')
+    console.log('[MarketData] 订阅列表:', subscriptions.value.map(s => s.symbol))
   } catch (error) {
-    console.error('加载订阅失败:', error)
+    if (!markUnavailableIf404(error)) console.error('加载订阅失败:', error)
   }
 }
 
@@ -372,28 +391,28 @@ const loadAllTickers = async () => {
       exchange: 'okx',
       environment: 'production'
     })
-    if (response.code === 0) {
-      const newTickers = response.data?.tickers || {}
+    // 拦截器已拆信封:resolve 即 {tickers} payload
+    const newTickers = response?.tickers || {}
 
-      // 检测价格变化
-      Object.keys(newTickers).forEach(symbol => {
-        const ticker = newTickers[symbol]
-        const newPrice = parseFloat(ticker.last_price || 0)
-        const oldPrice = lastPrices.value[symbol]
+    // 检测价格变化
+    Object.keys(newTickers).forEach(symbol => {
+      const ticker = newTickers[symbol]
+      const newPrice = parseFloat(ticker.last_price || 0)
+      const oldPrice = lastPrices.value[symbol]
 
-        if (oldPrice && newPrice !== oldPrice && newPrice > 0) {
-          priceDirection.value[symbol] = newPrice > oldPrice ? 'up' : 'down'
-        }
+      if (oldPrice && newPrice !== oldPrice && newPrice > 0) {
+        priceDirection.value[symbol] = newPrice > oldPrice ? 'up' : 'down'
+      }
 
-        if (newPrice > 0) {
-          lastPrices.value[symbol] = newPrice
-        }
-      })
+      if (newPrice > 0) {
+        lastPrices.value[symbol] = newPrice
+      }
+    })
 
-      allTickers.value = newTickers
-    }
+    allTickers.value = newTickers
   } catch (error) {
-    console.error('加载所有 ticker 失败:', error)
+    // 404 已停轮询;其他错误静默(轮询读接口,toast 会刷屏)
+    if (!markUnavailableIf404(error)) console.error('加载所有 ticker 失败:', error)
   }
 }
 
@@ -515,8 +534,8 @@ const connectWebSocket = () => {
     wsConnected.value = false
     console.log('[WS] WebSocket 已断开，5秒后重连...')
     setTimeout(() => {
-      // 只有在应该重连且未连接时才重连
-      if (shouldReconnect.value && !wsConnected.value) {
+      // 只有在应该重连且未连接时才重连(服务不可用时不再无限重试 403)
+      if (shouldReconnect.value && !wsConnected.value && !serviceUnavailable.value) {
         connectWebSocket()
       }
     }, 5000)
@@ -681,6 +700,8 @@ watch(activeTickers, (newTickers) => {
 onMounted(async () => {
   await loadPairs()
   await loadSubscriptions()
+  // 后端 market 模块缺失(404)时不再起 WS 重连循环与 5s 轮询
+  if (serviceUnavailable.value) return
   connectWebSocket()
   startAllTickersPolling()
 })
@@ -692,6 +713,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* 行情服务不可用降级提示 */
+.service-unavailable {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid hsl(var(--warning-border, hsl(var(--border))));
+  border-left: 3px solid hsl(var(--primary));
+  border-radius: var(--radius-sm);
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  font-size: 13px;
+}
+
 /* 按钮 */
 
 .btn-sm {
@@ -724,7 +757,7 @@ onUnmounted(() => {
   padding: 6px 12px;
   background: hsl(var(--background));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   outline: none;
@@ -739,7 +772,7 @@ onUnmounted(() => {
   padding: 6px 12px;
   background: hsl(var(--background));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   outline: none;
@@ -762,7 +795,7 @@ onUnmounted(() => {
   align-items: center;
   padding: 12px;
   background: hsl(var(--background));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: all 0.2s;
 }
 
@@ -830,7 +863,7 @@ onUnmounted(() => {
 .ws-toggle-btn {
   padding: 6px 12px;
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: hsl(var(--foreground));
   font-size: 12px;
@@ -858,7 +891,7 @@ onUnmounted(() => {
   padding: 4px 12px;
   background: transparent;
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--muted-foreground));
   font-size: 12px;
   cursor: pointer;
@@ -883,6 +916,10 @@ onUnmounted(() => {
 }
 
 .ticker-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: hsl(var(--card));
   text-align: left;
   padding: 8px;
   font-size: 12px;

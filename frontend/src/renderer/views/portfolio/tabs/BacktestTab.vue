@@ -1,561 +1,186 @@
 <template>
   <div class="backtest-tab">
     <!-- ========== 列表视图 ========== -->
-    <template v-if="!backtestId">
-      <!-- 工具栏 -->
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <div class="radio-group">
-            <button
-              v-for="opt in statusOptions"
-              :key="opt.value"
-              class="radio-button"
-              :class="{ active: filterStatus === opt.value }"
-              @click="setFilter(opt.value)"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
-          <div class="search-box">
-            <input
-              v-model="searchKeyword"
-              type="search"
-              placeholder="搜索任务..."
-              class="search-input"
-              @keyup.enter="loadList"
-            />
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <SegmentedControl
+          :model-value="filterStatus"
+          :options="statusOptions"
+          @update:model-value="setFilter"
+        />
+        <div class="search-box">
+          <input
+            v-model="searchKeyword"
+            type="search"
+            placeholder="搜索任务..."
+            class="search-input"
+            @keyup.enter="loadList()"
+          />
+        </div>
+      </div>
+      <button class="btn-primary" @click="showCreateModal = true">新建回测</button>
+    </div>
+
+    <!-- 加载 -->
+    <div v-if="loading" class="loading-center"><div class="spinner"></div></div>
+
+    <!-- 空状态 -->
+    <EmptyState v-else-if="tasks.length === 0" description="暂无回测任务" action-text="创建第一个回测" :on-action="() => showCreateModal = true" />
+
+    <!-- 任务卡片列表 -->
+    <div v-else class="task-list">
+      <div
+        v-for="task in tasks"
+        :key="task.uuid"
+        class="task-card"
+        @click="viewDetail(task.uuid)"
+      >
+        <div class="task-card-main">
+          <div class="task-name">{{ task.name || '(未命名)' }} <span class="task-uuid">{{ task.uuid }}</span></div>
+          <div v-if="task.backtest_start_date" class="task-date-range">{{ formatShortDate(task.backtest_start_date) }} ~ {{ formatShortDate(task.backtest_end_date) }}</div>
+          <div class="task-meta">
+            <span class="tag" :class="statusTagClass(task.status)">{{ statusLabel(task.status) }}</span>
+            <span v-if="task.status === 'running' || task.status === 'pending'" class="progress-info">
+              <div class="progress-bar-sm"><div class="progress-fill" :style="{ width: (task.progress || 0) + '%' }"></div></div>
+              <span class="progress-text">{{ (task.progress || 0).toFixed(0) }}%</span>
+            </span>
+            <span class="meta-item" :style="{ color: getPnLColor(task.total_pnl) }">{{ formatDecimal(task.total_pnl) }} PnL</span>
+            <span class="meta-item" :style="{ color: getSharpeColor(task.sharpe_ratio) }">Sharpe {{ formatDecimal(task.sharpe_ratio) }}</span>
+            <span class="meta-item" :style="{ color: getDrawdownColor(task.max_drawdown) }">回撤 {{ formatPercent(task.max_drawdown) }}</span>
+            <span class="meta-item">年化 {{ formatPercent(task.annual_return) }}</span>
+            <span class="meta-item">胜率 {{ formatPercent(task.win_rate) }}</span>
+            <span class="meta-item">{{ task.total_orders || 0 }} 单</span>
+            <span class="meta-item">{{ task.total_signals || 0 }} 信号</span>
           </div>
         </div>
-        <button class="btn-primary" @click="showCreateModal = true">新建回测</button>
-      </div>
-
-      <!-- 加载 -->
-      <div v-if="loading" class="loading-center"><div class="spinner"></div></div>
-
-      <!-- 空状态 -->
-      <div v-else-if="tasks.length === 0" class="empty-state">
-        <p>暂无回测任务</p>
-        <button class="btn-primary" @click="showCreateModal = true">创建第一个回测</button>
-      </div>
-
-      <!-- 任务卡片列表 -->
-      <div v-else class="task-list">
-        <div
-          v-for="task in tasks"
-          :key="task.uuid"
-          class="task-card"
-          @click="viewDetail(task.uuid)"
-        >
-          <div class="task-card-main">
-            <div class="task-name">{{ task.name || '(未命名)' }} <span class="task-uuid">{{ task.uuid }}</span></div>
-            <div v-if="task.backtest_start_date" class="task-date-range">{{ formatShortDate(task.backtest_start_date) }} ~ {{ formatShortDate(task.backtest_end_date) }}</div>
-            <div class="task-meta">
-              <span class="tag" :class="statusTagClass(task.status)">{{ statusLabel(task.status) }}</span>
-              <span v-if="task.status === 'running' || task.status === 'pending'" class="progress-info">
-                <div class="progress-bar-sm"><div class="progress-fill" :style="{ width: (task.progress || 0) + '%' }"></div></div>
-                <span class="progress-text">{{ (task.progress || 0).toFixed(0) }}%</span>
-              </span>
-              <span class="meta-item" :style="{ color: getPnLColor(task.total_pnl) }">{{ formatDecimal(task.total_pnl) }} PnL</span>
-              <span class="meta-item" :style="{ color: getSharpeColor(task.sharpe_ratio) }">Sharpe {{ formatDecimal(task.sharpe_ratio) }}</span>
-              <span class="meta-item" :style="{ color: getDrawdownColor(task.max_drawdown) }">回撤 {{ formatPercent(task.max_drawdown) }}</span>
-              <span class="meta-item">年化 {{ formatPercent(task.annual_return) }}</span>
-              <span class="meta-item">胜率 {{ formatPercent(task.win_rate) }}</span>
-              <span class="meta-item">{{ task.total_orders || 0 }} 单</span>
-              <span class="meta-item">{{ task.total_signals || 0 }} 信号</span>
-            </div>
-          </div>
-          <div class="task-card-right">
-            <span class="task-date">{{ formatShortDate(task.created_at) }}</span>
-            <div class="task-actions" @click.stop>
-              <button v-if="canStartByState(task.status)" class="link-btn" @click="handleStart(task)">启动</button>
-              <button v-if="canStopByState(task.status)" class="link-btn link-danger" @click="handleStop(task)">停止</button>
-              <button v-if="canCancelByState(task.status)" class="link-btn" @click="handleCancel(task)">取消</button>
-            </div>
+        <div class="task-card-right">
+          <span class="task-date">{{ formatShortDate(task.created_at) }}</span>
+          <div class="task-actions" @click.stop>
+            <button v-if="canStartByState(task.status)" class="link-btn" @click="handleStart(task)">启动</button>
+            <button v-if="canStopByState(task.status)" class="link-btn link-danger" @click="handleStop(task)">停止</button>
+            <button v-if="canCancelByState(task.status)" class="link-btn" @click="handleCancel(task)">取消</button>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- 分页 -->
-      <div v-if="tasks.length > 0" class="pagination">
-        <button class="btn-sm" :disabled="page === 0" @click="page--; loadList()">上一页</button>
-        <span class="page-info">{{ page * size + 1 }}-{{ Math.min((page + 1) * size, total) }} / {{ total }}</span>
-        <button class="btn-sm" :disabled="(page + 1) * size >= total" @click="page++; loadList()">下一页</button>
-      </div>
+    <!-- 分页 -->
+    <div v-if="tasks.length > 0" class="pagination">
+      <button class="btn-sm" :disabled="page === 0" @click="page--; loadList()">上一页</button>
+      <span class="page-info">{{ page * size + 1 }}-{{ Math.min((page + 1) * size, total) }} / {{ total }}</span>
+      <button class="btn-sm" :disabled="(page + 1) * size >= total" @click="page++; loadList()">下一页</button>
+    </div>
 
-      <!-- 创建模态框 -->
-      <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
-        <div class="modal-box">
-          <div class="modal-header">
-            <h3>新建回测</h3>
-            <button class="btn-close" @click="showCreateModal = false">×</button>
+    <!-- 创建模态框 -->
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>新建回测</h3>
+          <button class="btn-close" @click="showCreateModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-item">
+            <label>任务名称</label>
+            <input v-model="createForm.name" type="text" placeholder="例如：沪深300回测" class="form-input" />
           </div>
-          <div class="modal-body">
+          <div class="form-row">
             <div class="form-item">
-              <label>任务名称</label>
-              <input v-model="createForm.name" type="text" placeholder="例如：沪深300回测" class="form-input" />
-            </div>
-            <div class="form-row">
-              <div class="form-item">
-                <label>开始日期</label>
-                <div class="date-field" @click="startPickerOpen = !startPickerOpen">
-                  <span :class="{ placeholder: !createForm.start_date }">{{ createForm.start_date || '选择日期' }}</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  <div v-if="startPickerOpen" class="picker-panel" @click.stop>
-                    <div class="picker-header">
-                      <button type="button" class="picker-nav" @click="startPickerMonth--">‹</button>
-                      <span class="picker-title">{{ startPickerYear }}年{{ startPickerMonth + 1 }}月</span>
-                      <button type="button" class="picker-nav" @click="startPickerMonth++">›</button>
-                    </div>
-                    <div class="picker-weekdays">
-                      <span v-for="d in ['一','二','三','四','五','六','日']" :key="d" class="picker-wd">{{ d }}</span>
-                    </div>
-                    <div class="picker-days">
-                      <button
-                        v-for="(day, i) in startPickerDays"
-                        :key="i"
-                        type="button"
-                        class="picker-day"
-                        :class="{
-                          empty: !day,
-                          selected: day && createForm.start_date === formatPickerDay(day, startPickerYear, startPickerMonth),
-                          today: day && isToday(day, startPickerYear, startPickerMonth)
-                        }"
-                        :disabled="!day"
-                        @click="if (day) { createForm.start_date = formatPickerDay(day, startPickerYear, startPickerMonth); startPickerOpen = false }"
-                      >{{ day || '' }}</button>
-                    </div>
+              <label>开始日期</label>
+              <div class="date-field" @click="startPickerOpen = !startPickerOpen">
+                <span :class="{ placeholder: !createForm.start_date }">{{ createForm.start_date || '选择日期' }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <div v-if="startPickerOpen" class="picker-panel" @click.stop>
+                  <div class="picker-header">
+                    <button type="button" class="picker-nav" @click="startPickerMonth--">‹</button>
+                    <span class="picker-title">{{ startPickerYear }}年{{ startPickerMonth + 1 }}月</span>
+                    <button type="button" class="picker-nav" @click="startPickerMonth++">›</button>
                   </div>
-                </div>
-              </div>
-              <div class="form-item">
-                <label>结束日期</label>
-                <div class="date-field" @click="endPickerOpen = !endPickerOpen">
-                  <span :class="{ placeholder: !createForm.end_date }">{{ createForm.end_date || '选择日期' }}</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  <div v-if="endPickerOpen" class="picker-panel" @click.stop>
-                    <div class="picker-header">
-                      <button type="button" class="picker-nav" @click="endPickerMonth--">‹</button>
-                      <span class="picker-title">{{ endPickerYear }}年{{ endPickerMonth + 1 }}月</span>
-                      <button type="button" class="picker-nav" @click="endPickerMonth++">›</button>
-                    </div>
-                    <div class="picker-weekdays">
-                      <span v-for="d in ['一','二','三','四','五','六','日']" :key="d" class="picker-wd">{{ d }}</span>
-                    </div>
-                    <div class="picker-days">
-                      <button
-                        v-for="(day, i) in endPickerDays"
-                        :key="i"
-                        type="button"
-                        class="picker-day"
-                        :class="{
-                          empty: !day,
-                          selected: day && createForm.end_date === formatPickerDay(day, endPickerYear, endPickerMonth),
-                          today: day && isToday(day, endPickerYear, endPickerMonth)
-                        }"
-                        :disabled="!day"
-                        @click="if (day) { createForm.end_date = formatPickerDay(day, endPickerYear, endPickerMonth); endPickerOpen = false }"
-                      >{{ day || '' }}</button>
-                    </div>
+                  <div class="picker-weekdays">
+                    <span v-for="d in ['一','二','三','四','五','六','日']" :key="d" class="picker-wd">{{ d }}</span>
+                  </div>
+                  <div class="picker-days">
+                    <button
+                      v-for="(day, i) in startPickerDays"
+                      :key="i"
+                      type="button"
+                      class="picker-day"
+                      :class="{
+                        empty: !day,
+                        selected: day && createForm.start_date === formatPickerDay(day, startPickerYear, startPickerMonth),
+                        today: day && isToday(day, startPickerYear, startPickerMonth)
+                      }"
+                      :disabled="!day"
+                      @click="if (day) { createForm.start_date = formatPickerDay(day, startPickerYear, startPickerMonth); startPickerOpen = false }"
+                    >{{ day || '' }}</button>
                   </div>
                 </div>
               </div>
             </div>
             <div class="form-item">
-              <label>初始资金</label>
-              <input :value="formatCash(createForm.initial_cash)" type="text" inputmode="numeric" class="form-input" placeholder="1,000,000" @input="onCashInput($event)" @blur="onCashBlur" />
+              <label>结束日期</label>
+              <div class="date-field" @click="endPickerOpen = !endPickerOpen">
+                <span :class="{ placeholder: !createForm.end_date }">{{ createForm.end_date || '选择日期' }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <div v-if="endPickerOpen" class="picker-panel" @click.stop>
+                  <div class="picker-header">
+                    <button type="button" class="picker-nav" @click="endPickerMonth--">‹</button>
+                    <span class="picker-title">{{ endPickerYear }}年{{ endPickerMonth + 1 }}月</span>
+                    <button type="button" class="picker-nav" @click="endPickerMonth++">›</button>
+                  </div>
+                  <div class="picker-weekdays">
+                    <span v-for="d in ['一','二','三','四','五','六','日']" :key="d" class="picker-wd">{{ d }}</span>
+                  </div>
+                  <div class="picker-days">
+                    <button
+                      v-for="(day, i) in endPickerDays"
+                      :key="i"
+                      type="button"
+                      class="picker-day"
+                      :class="{
+                        empty: !day,
+                        selected: day && createForm.end_date === formatPickerDay(day, endPickerYear, endPickerMonth),
+                        today: day && isToday(day, endPickerYear, endPickerMonth)
+                      }"
+                      :disabled="!day"
+                      @click="if (day) { createForm.end_date = formatPickerDay(day, endPickerYear, endPickerMonth); endPickerOpen = false }"
+                    >{{ day || '' }}</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="modal-footer">
-            <button class="btn-secondary" @click="showCreateModal = false">取消</button>
-            <button class="btn-primary" :disabled="creating" @click="handleCreate">
-              {{ creating ? '创建中...' : '创建并启动' }}
-            </button>
+          <div class="form-item">
+            <label>初始资金</label>
+            <input :value="formatCash(createForm.initial_cash)" type="text" inputmode="numeric" class="form-input" placeholder="1,000,000" @input="onCashInput($event)" @blur="onCashBlur" />
           </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showCreateModal = false">取消</button>
+          <button class="btn-primary" :disabled="creating" @click="handleCreate">
+            {{ creating ? '创建中...' : '创建并启动' }}
+          </button>
         </div>
       </div>
-
-    </template>
-
-    <!-- ========== 详情视图 ========== -->
-    <template v-else>
-      <!-- 加载 -->
-      <div v-if="detailLoading" class="loading-center"><div class="spinner"></div></div>
-
-      <!-- 详情内容 -->
-      <div v-else-if="currentTask" class="detail-content">
-        <!-- 详情头部 -->
-        <div class="detail-header">
-          <div class="detail-title">
-            <button class="btn-back" @click="goBack">← 返回列表</button>
-            <span class="tag" :class="statusTagClass(currentTask.status)">{{ statusLabel(currentTask.status) }}</span>
-            <span class="task-name-label">{{ currentTask.name || currentTask.uuid?.substring(0, 8) }}</span>
-            <span class="task-uuid">{{ currentTask.uuid }}</span>
-          </div>
-          <div class="detail-actions">
-            <button v-if="canStartByState(currentTask.status)" class="btn-primary" @click="handleReRun">重新运行</button>
-            <button v-if="canStopByState(currentTask.status)" class="btn-danger" @click="handleStopDetail">停止</button>
-            <button v-if="currentTask.status !== 'running'" class="btn-danger-outline" @click="handleDelete">删除</button>
-          </div>
-        </div>
-
-        <!-- 回测区间 -->
-        <div v-if="currentTask.backtest_start_date || currentTask.backtest_end_date" class="date-range-bar">
-          <span class="date-range-label">回测区间</span>
-          <span class="date-range-value">{{ formatShortDate(currentTask.backtest_start_date) }} ~ {{ formatShortDate(currentTask.backtest_end_date) }}</span>
-        </div>
-
-        <!-- 进度 -->
-        <div v-if="currentTask.status === 'running' || currentTask.status === 'pending'" class="card">
-          <div class="progress-section">
-            <span>{{ currentTask.current_stage || '处理中' }}</span>
-            <span>{{ (currentTask.progress || 0).toFixed(1) }}%</span>
-          </div>
-          <div class="progress-bar-lg"><div class="progress-fill active" :style="{ width: (currentTask.progress || 0) + '%' }"></div></div>
-        </div>
-
-        <!-- 详情 tab -->
-        <div class="inner-tabs">
-          <button
-            v-for="t in detailTabs"
-            :key="t.key"
-            class="inner-tab"
-            :class="{ active: activeDetailTab === t.key }"
-            @click="activeDetailTab = t.key"
-          >{{ t.label }}</button>
-        </div>
-
-        <!-- 概览 -->
-        <div v-if="activeDetailTab === 'overview'" class="tab-panel">
-          <!-- 净值曲线 -->
-          <div class="card">
-            <h4>净值曲线</h4>
-            <NetValueChart v-if="netValueData.length > 0" :data="netValueData" :benchmark-data="benchmarkData" :height="300" />
-            <p v-else class="empty-hint">暂无净值数据</p>
-          </div>
-
-          <!-- 指标 -->
-          <div class="metrics-grid">
-            <div v-for="m in metrics" :key="m.label" class="metric-card">
-              <div class="metric-label">{{ m.label }}</div>
-              <div class="metric-value" :style="m.color ? { color: m.color } : undefined">{{ m.value }}</div>
-            </div>
-          </div>
-
-          <!-- 执行统计 -->
-          <div class="card">
-            <h4>执行统计</h4>
-            <div class="exec-stats">
-              <span>订单 <strong>{{ currentTask.total_orders || 0 }}</strong></span>
-              <span>信号 <strong>{{ currentTask.total_signals || 0 }}</strong></span>
-              <span>持仓 <strong>{{ currentTask.total_positions || 0 }}</strong></span>
-              <span>事件 <strong>{{ currentTask.total_events || 0 }}</strong></span>
-            </div>
-          </div>
-
-          <!-- 分析器 -->
-          <div v-if="analyzers.length > 0" class="card">
-            <h4>分析器</h4>
-            <table class="data-table">
-              <thead><tr><th>名称</th><th>最新值</th><th>记录数</th><th>变化</th></tr></thead>
-              <tbody>
-                <tr v-for="a in analyzers" :key="a.name">
-                  <td><span class="tag tag-blue">{{ a.name }}</span></td>
-                  <td :style="{ color: getAnalyzerColor(a.name, a.latest_value) }">{{ fmtAnalyzer(a.name, a.latest_value) }}</td>
-                  <td>{{ a.stats?.count || 0 }}</td>
-                  <td :style="{ color: (a.stats?.change || 0) >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
-                    {{ (a.stats?.change || 0) >= 0 ? '↑' : '↓' }} {{ fmtAnalyzer(a.name, Math.abs(a.stats?.change || 0)) }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- 错误 -->
-          <div v-if="currentTask.error_message" class="card card-error">
-            <h4>错误信息</h4>
-            <pre>{{ currentTask.error_message }}</pre>
-          </div>
-        </div>
-
-        <!-- 分析器详情 -->
-        <div v-if="activeDetailTab === 'analyzers'" class="tab-panel">
-          <div class="card">
-            <div v-if="analyzerLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-            <template v-else-if="analyzerStats">
-              <NetValueChart v-if="analyzerChartData.length > 0" :data="analyzerChartData" :height="250" />
-              <div class="analyzer-header">
-                <select v-model="selectedAnalyzer" class="form-select" @change="loadAnalyzerData">
-                  <option v-for="a in analyzers" :key="a.name" :value="a.name">{{ a.name }}</option>
-                </select>
-              </div>
-              <div class="stats-row">
-                <span>Count: {{ analyzerStats.count }}</span>
-                <span>Min: {{ fmtAnalyzer(selectedAnalyzer, analyzerStats.min) }}</span>
-                <span>Max: {{ fmtAnalyzer(selectedAnalyzer, analyzerStats.max) }}</span>
-                <span>Avg: {{ fmtAnalyzer(selectedAnalyzer, analyzerStats.avg) }}</span>
-                <span>Change: {{ fmtAnalyzer(selectedAnalyzer, analyzerStats.change) }}</span>
-              </div>
-              <table v-if="analyzerTimeseries.length > 0" class="data-table">
-                <thead><tr><th>时间</th><th>值</th></tr></thead>
-                <tbody>
-                  <tr v-for="(row, i) in analyzerTimeseries.slice(-50)" :key="i">
-                    <td>{{ row.time }}</td>
-                    <td :style="{ color: getAnalyzerColor(selectedAnalyzer, row.value) }">{{ fmtAnalyzer(selectedAnalyzer, row.value) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p v-else class="empty-hint">暂无时序数据</p>
-            </template>
-            <p v-else class="empty-hint">请选择分析器</p>
-          </div>
-        </div>
-
-        <!-- 交易记录 -->
-        <div v-if="activeDetailTab === 'trades'" class="tab-panel">
-          <div class="inner-tabs">
-            <button
-              v-for="t in tradeSubTabs"
-              :key="t.key"
-              class="inner-tab"
-              :class="{ active: activeTradeTab === t.key }"
-              @click="activeTradeTab = t.key"
-            >{{ t.label }}</button>
-          </div>
-
-          <!-- 信号 -->
-          <div v-if="activeTradeTab === 'signals'" class="card">
-            <div v-if="signalsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-            <table v-else-if="signals.length > 0" class="data-table">
-              <thead><tr><th>代码</th><th>方向</th><th>权重</th><th>原因</th><th>时间</th></tr></thead>
-              <tbody>
-                <tr v-for="s in signals" :key="s.uuid">
-                  <td>{{ s.code }}</td>
-                  <td><span :class="directionColor(s.direction)">{{ directionLabel(s.direction) }}</span></td>
-                  <td>{{ (s.weight * 100).toFixed(1) }}%</td>
-                  <td>{{ s.reason || '-' }}</td>
-                  <td>{{ formatShortDate(s.timestamp) }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="empty-hint">暂无信号记录</p>
-          </div>
-
-          <!-- 订单 -->
-          <div v-if="activeTradeTab === 'orders'" class="card">
-            <div v-if="ordersLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-            <table v-else-if="orders.length > 0" class="data-table">
-              <thead><tr><th>代码</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>手续费</th><th>时间</th></tr></thead>
-              <tbody>
-                <tr v-for="o in orders" :key="o.uuid">
-                  <td>{{ o.code }}</td>
-                  <td><span :class="directionColor(o.direction)">{{ directionLabel(o.direction) }}</span></td>
-                  <td>{{ o.order_type }}</td>
-                  <td>{{ o.transaction_volume }}</td>
-                  <td>{{ o.transaction_price }}</td>
-                  <td>{{ o.fee }}</td>
-                  <td>{{ formatShortDate(o.timestamp) }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="empty-hint">暂无订单记录</p>
-          </div>
-
-          <!-- 持仓 -->
-          <div v-if="activeTradeTab === 'positions'" class="card">
-            <div v-if="positionsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-            <table v-else-if="positions.length > 0" class="data-table">
-              <thead><tr><th>代码</th><th>方向</th><th>数量</th><th>成本</th><th>市值</th><th>盈亏</th><th>盈亏%</th></tr></thead>
-              <tbody>
-                <tr v-for="p in positions" :key="p.uuid">
-                  <td>{{ p.code }}</td>
-                  <td><span :class="directionColor(p.direction)">{{ directionLabel(p.direction) }}</span></td>
-                  <td>{{ p.volume }}</td>
-                  <td>{{ p.cost }}</td>
-                  <td>{{ p.market_value }}</td>
-                  <td :style="{ color: p.profit >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ p.profit }}</td>
-                  <td :style="{ color: p.profit_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ (p.profit_pct * 100).toFixed(2) }}%</td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="empty-hint">暂无持仓记录</p>
-          </div>
-        </div>
-
-        <!-- 日志 -->
-        <div v-if="activeDetailTab === 'logs'" class="tab-panel">
-          <!-- 筛选栏 -->
-          <div class="card logs-filter">
-            <div class="filter-row">
-              <select v-model="logFilters.level" class="form-select filter-select" @change="loadLogs(true)">
-                <option value="">全部级别</option>
-                <option value="DEBUG">DEBUG</option>
-                <option value="INFO">INFO</option>
-                <option value="WARNING">WARNING</option>
-                <option value="ERROR">ERROR</option>
-                <option value="CRITICAL">CRITICAL</option>
-              </select>
-              <select v-model="logFilters.event_type" class="form-select filter-select" @change="loadLogs(true)">
-                <option value="">全部事件</option>
-                <option value="SIGNALGENERATION">信号</option>
-                <option value="ORDERSUBMITTED">订单提交</option>
-                <option value="ORDERFILLED">成交</option>
-                <option value="ORDERREJECTED">订单拒绝</option>
-                <option value="ORDERCANCELACK">订单取消</option>
-                <option value="ORDEREXPIRED">订单过期</option>
-                <option value="POSITIONUPDATE">持仓更新</option>
-                <option value="CAPITALUPDATE">资金更新</option>
-                <option value="RISKBREACH">风控触发</option>
-                <option value="ENGINESTART">引擎启动</option>
-                <option value="ENGINESTOP">引擎停止</option>
-                <option value="ENGINEERROR">引擎错误</option>
-                <option value="ENGINECOMPLETE">引擎完成</option>
-                <option value="T1SETTLEMENT">T+1结算</option>
-                <option value="T1DELAYDECISION">T+1延迟</option>
-                <option value="TIMEADVANCE">时间推进</option>
-                <option value="PRICERECEIVED">行情接收</option>
-                <option value="STRATEGYSIGNAL">策略信号</option>
-              </select>
-              <input v-model="logFilters.start_time" type="date" class="form-input filter-date" @change="loadLogs(true)" />
-              <span class="filter-sep">~</span>
-              <input v-model="logFilters.end_time" type="date" class="form-input filter-date" @change="loadLogs(true)" />
-            </div>
-          </div>
-
-          <!-- 日志列表 -->
-          <div class="logs-container" @scroll="onLogsScroll">
-            <div v-if="logsLoading && logs.length === 0" class="loading-center"><div class="spinner spinner-sm"></div></div>
-            <template v-else-if="logs.length > 0">
-              <div v-for="(log, i) in logs" :key="i" class="log-entry">
-                <span class="log-time-col">
-                  <span class="log-bt">{{ formatLogTime(log.business_timestamp) }}</span>
-                  <span class="log-wt">{{ formatLogTime(log.timestamp) }}</span>
-                </span>
-                <span class="log-level" :class="levelClass(log.level)">{{ log.level }}</span>
-                <span v-if="log.event_type" class="log-event" :class="eventClass(log.event_type)">{{ log.event_type }}</span>
-                <!-- 结构化事件展示 -->
-                <span v-if="log.event_type === 'SIGNALGENERATION'" class="log-detail">
-                  <span class="log-symbol">{{ log.symbol }}</span>
-                  <span :class="directionColor(log.direction)">{{ dirLabel(log.direction) }}</span>
-                  <span v-if="log.signal_volume" class="log-kv">vol={{ log.signal_volume }}</span>
-                  <span v-if="log.signal_reason" class="log-reason">{{ log.signal_reason }}</span>
-                  <span v-if="log.strategy_id" class="log-kv dim">strategy={{ log.strategy_id.substring(0, 8) }}</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'ORDERSUBMITTED'" class="log-detail">
-                  <span class="log-symbol">{{ log.symbol }}</span>
-                  <span class="log-kv">{{ log.order_type || 'MARKET' }}</span>
-                  <span v-if="log.limit_price" class="log-kv">price={{ log.limit_price }}</span>
-                  <span v-if="log.order_id" class="log-kv dim">{{ log.order_id }}</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'ORDERACK'" class="log-detail">
-                  <span class="log-symbol">{{ log.symbol }}</span>
-                  <span class="log-kv">accepted</span>
-                  <span v-if="log.broker_order_id" class="log-kv dim">{{ log.broker_order_id }}</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'ORDERFILLED'" class="log-detail">
-                  <span class="log-symbol">{{ log.symbol }}</span>
-                  <span :class="directionColor(log.direction)">{{ dirLabel(log.direction) }}</span>
-                  <span class="log-kv">{{ log.transaction_volume }}@{{ log.transaction_price }}</span>
-                  <span v-if="log.commission" class="log-kv dim">fee={{ log.commission }}</span>
-                  <span v-if="log.slippage" class="log-kv dim">slip={{ log.slippage }}</span>
-                  <span class="log-msg-inline">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'ORDERREJECTED'" class="log-detail">
-                  <span class="log-symbol">{{ log.symbol }}</span>
-                  <span class="log-kv text-red">REJECTED</span>
-                  <span v-if="log.reject_reason" class="log-reason">{{ log.reject_reason }}</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'ORDERCANCELACK'" class="log-detail">
-                  <span class="log-symbol">{{ log.symbol }}</span>
-                  <span class="log-kv dim">cancelled</span>
-                  <span v-if="log.cancel_reason" class="log-reason">{{ log.cancel_reason }}</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'POSITIONUPDATE'" class="log-detail">
-                  <span class="log-symbol">{{ log.position_code || log.symbol }}</span>
-                  <span class="log-kv">vol={{ log.position_volume }}</span>
-                  <span class="log-kv">cost={{ log.position_cost }}</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'CAPITALUPDATE'" class="log-detail">
-                  <span class="log-kv">NAV={{ log.net_value || log.total_value }}</span>
-                  <span class="log-kv">cash={{ log.available_cash }}</span>
-                  <span v-if="log.pnl" :style="{ color: log.pnl >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">PnL={{ log.pnl }}</span>
-                  <span v-if="log.drawdown" class="log-kv dim">DD={{ log.drawdown }}</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'ENGINESTART' || log.event_type === 'ENGINESTOP' || log.event_type === 'ENGINECOMPLETE'" class="log-detail">
-                  <span v-if="log.engine_status" class="log-kv">{{ log.engine_status }}</span>
-                  <span v-if="log.progress" class="log-kv">{{ (log.progress * 100).toFixed(0) }}%</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'ENGINEERROR'" class="log-detail">
-                  <span v-if="log.error_code" class="log-kv text-red">{{ log.error_code }}</span>
-                  <span class="log-reason">{{ log.error_message || log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'RISKBREACH'" class="log-detail">
-                  <span class="log-kv text-red">{{ log.risk_type }}</span>
-                  <span v-if="log.risk_reason" class="log-reason">{{ log.risk_reason }}</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'T1SETTLEMENT'" class="log-detail">
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'T1DELAYDECISION'" class="log-detail">
-                  <span v-if="log.symbol" class="log-kv">{{ log.symbol }}</span>
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'TIMEADVANCE'" class="log-detail">
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'PRICERECEIVED'" class="log-detail">
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <span v-else-if="log.event_type === 'STRATEGYSIGNAL'" class="log-detail">
-                  <span class="log-kv dim">{{ log.message }}</span>
-                </span>
-                <!-- 默认：纯文本 -->
-                <span v-else class="log-msg">{{ log.message }}</span>
-              </div>
-              <div v-if="logsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-              <div v-if="!logsHasMore" class="logs-end">已加载全部 {{ logsTotal }} 条日志</div>
-            </template>
-            <p v-else class="empty-hint">暂无日志数据</p>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- 任务不存在 -->
-      <div v-else class="empty-state">
-        <p>回测任务不存在</p>
-        <button class="btn-primary" @click="goBack">返回列表</button>
-      </div>
-    </template>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { backtestApi } from '@/api'
-import type { BacktestTask, AnalyzerInfo } from '@/api'
+import type { BacktestTask } from '@/api'
 import { useBacktestStore } from '@/stores'
 import { useBacktestStatus } from '@/composables'
 import { useWebSocket } from '@/composables'
 import { canStartByState, canStopByState, canCancelByState, BACKTEST_DEFAULT_RANGE_MONTHS } from '@/constants/backtest'
-import { NetValueChart } from '@/components/charts'
-import type { LineData } from 'lightweight-charts'
 import { message } from '@/utils/toast'
-import { formatPercent, formatMoney } from '@/utils/format'
-import dayjs from 'dayjs'
+import { formatPercent } from '@/utils/format'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import {
   formatShortDate, formatDecimal, getPnLColor, getSharpeColor, getDrawdownColor,
-  directionLabel, directionColor, dirLabel, fmtAnalyzer, getAnalyzerColor,
-  formatLogTime, levelClass, eventClass,
 } from '@/composables/useBacktestFormatters'
 
 const route = useRoute()
@@ -568,7 +193,6 @@ let disposed = false
 
 // ========== 路由参数 ==========
 const portfolioId = computed(() => route.params.id as string)
-const backtestId = computed(() => route.params.backtestId as string || '')
 
 // ========== 列表状态 ==========
 const tasks = ref<BacktestTask[]>([])
@@ -580,12 +204,12 @@ const filterStatus = ref('')
 const searchKeyword = ref('')
 
 const statusOptions = [
-  { value: '', label: '全部' },
-  { value: 'running', label: '进行中' },
-  { value: 'completed', label: '已完成' },
-  { value: 'stopped', label: '已停止' },
-  { value: 'failed', label: '失败' },
-  { value: 'pending', label: '排队中' },
+  { key: '', label: '全部' },
+  { key: 'running', label: '进行中' },
+  { key: 'completed', label: '已完成' },
+  { key: 'stopped', label: '已停止' },
+  { key: 'failed', label: '失败' },
+  { key: 'pending', label: '排队中' },
 ]
 
 // ========== 创建状态 ==========
@@ -673,84 +297,24 @@ const isToday = (day: number, year?: number, month?: number) => {
   return day === t.getDate() && mo === t.getMonth() && y === t.getFullYear()
 }
 
-// ========== 详情状态 ==========
-const currentTask = ref<BacktestTask | null>(null)
-const detailLoading = ref(false)
-const analyzers = ref<AnalyzerInfo[]>([])
-const netValueData = ref<LineData[]>([])
-const benchmarkData = ref<LineData[]>([])
-const activeDetailTab = ref('overview')
-
-// Analyzer value extraction
-const analyzerValue = (name: string): number | null => {
-  const a = analyzers.value.find(a => a.name === name)
-  return a?.latest_value ?? null
-}
-
-const tradeWinRate = computed(() => analyzerValue('trade_win_rate'))
-const dailyWinRate = computed(() => analyzerValue('win_rate'))
-const profitFactor = computed(() => analyzerValue('profit_factor'))
-const avgWinLoss = computed(() => analyzerValue('avg_win_loss_ratio'))
-const maxConsLosses = computed(() => analyzerValue('max_consecutive_losses'))
-const avgHoldPeriod = computed(() => analyzerValue('avg_holding_period'))
-watch(activeDetailTab, (tab) => {
-  if (tab === 'logs' && logs.value.length === 0) loadLogs(true)
-})
-const detailTabs = [
-  { key: 'overview', label: '概览' },
-  { key: 'analyzers', label: '分析器' },
-  { key: 'trades', label: '交易记录' },
-  { key: 'logs', label: '日志' },
-]
-
-// 日志状态
-const logs = ref<any[]>([])
-const logsLoading = ref(false)
-const logsTotal = ref(0)
-const logsHasMore = ref(true)
-const logsOffset = ref(0)
-const logsPageSize = 100
-const logFilters = ref({ level: '', event_type: '', start_time: '', end_time: '' })
-
-// 分析器详情
-const selectedAnalyzer = ref('')
-const analyzerLoading = ref(false)
-const analyzerStats = ref<any>(null)
-const analyzerTimeseries = ref<any[]>([])
-const analyzerChartData = computed<LineData[]>(() =>
-  analyzerTimeseries.value.map((r: any) => ({ time: String(r.time).substring(0, 10), value: Number(r.value) }))
-)
-
-// 交易记录
-const activeTradeTab = ref('signals')
-const tradeSubTabs = [
-  { key: 'signals', label: '信号' },
-  { key: 'orders', label: '订单' },
-  { key: 'positions', label: '持仓' },
-]
-const signals = ref<any[]>([])
-const orders = ref<any[]>([])
-const positions = ref<any[]>([])
-const signalsLoading = ref(false)
-const ordersLoading = ref(false)
-const positionsLoading = ref(false)
-
 // ========== 列表方法 ==========
-const loadList = async () => {
+const loadList = async (opts?: { silent?: boolean }) => {
   if (disposed) return
-  loading.value = true
+  if (!opts?.silent) loading.value = true
   try {
     const params: any = { page: page.value + 1, page_size: size.value, portfolio_id: portfolioId.value }
     if (filterStatus.value) params.status = filterStatus.value
     if (searchKeyword.value) params.keyword = searchKeyword.value
     const res = await backtestApi.list(params)
     if (disposed) return
-    tasks.value = res.data || []
+    tasks.value = res.items || []
     total.value = res.total || 0
   } catch (e) {
+    // 静默失败会让列表伪装成"暂无回测",须提示(轮询 silent 刷新不弹,避免刷屏)
     console.error('Failed to load backtests:', e)
+    if (!opts?.silent) message.error('回测列表加载失败，请稍后重试')
   } finally {
-    if (!disposed) loading.value = false
+    if (!disposed && !opts?.silent) loading.value = false
   }
 }
 
@@ -760,8 +324,9 @@ const setFilter = (val: string) => {
   loadList()
 }
 
+// 详情已独立为 /backtests/:uuid 页面(BacktestDetailPage)
 const viewDetail = (uuid: string) => {
-  router.push(`/portfolios/${portfolioId.value}/backtests/${uuid}`)
+  router.push(`/backtests/${uuid}`)
 }
 
 const handleStart = async (task: BacktestTask) => {
@@ -834,243 +399,38 @@ const handleCreate = async () => {
   }
 }
 
-// ========== 详情方法 ==========
-const loadDetail = async () => {
-  if (!backtestId.value || disposed) return
-  detailLoading.value = true
-  try {
-    const task = await backtestApi.get(backtestId.value)
-    if (disposed) return
-    currentTask.value = (task as any).data || task
-    // 日志筛选默认回测区间
-    const t = currentTask.value
-    if (t?.backtest_start_date) logFilters.value.start_time = dayjs(t.backtest_start_date).format('YYYY-MM-DD')
-    if (t?.backtest_end_date) logFilters.value.end_time = dayjs(t.backtest_end_date).format('YYYY-MM-DD')
-    // net value
-    try {
-      const nv = await backtestApi.getNetValue(backtestId.value)
-      if (disposed) return
-      const nvData = (nv as any).data || nv
-      netValueData.value = (nvData?.strategy || []).map((i: any) => ({ time: String(i.time).substring(0, 10), value: i.value }))
-      benchmarkData.value = (nvData?.benchmark || []).map((i: any) => ({ time: String(i.time).substring(0, 10), value: i.value }))
-    } catch { /* net value may not exist */ }
-    // analyzers
-    try {
-      const ar = await backtestApi.getAnalyzers(backtestId.value)
-      if (disposed) return
-      const arData = (ar as any).data || ar
-      analyzers.value = arData?.analyzers || []
-      if (analyzers.value.length > 0) {
-        selectedAnalyzer.value = analyzers.value[0].name
-        loadAnalyzerData()
-      }
-    } catch { /* analyzers may not exist */ }
-    // trades
-    loadTrades()
-  } catch (e) {
-    console.error('Failed to load detail:', e)
-    if (!disposed) currentTask.value = null
-  } finally {
-    if (!disposed) detailLoading.value = false
-  }
-}
-
-const loadTrades = async () => {
-  if (!backtestId.value || disposed) return
-  signalsLoading.value = true
-  ordersLoading.value = true
-  positionsLoading.value = true
-  try {
-    const [sigRes, ordRes, posRes] = await Promise.allSettled([
-      backtestApi.getSignals(backtestId.value),
-      backtestApi.getOrders(backtestId.value),
-      backtestApi.getPositions(backtestId.value),
-    ])
-    if (disposed) return
-    if (sigRes.status === 'fulfilled') { const d = (sigRes.value as any).data || sigRes.value; signals.value = d.data || d || [] }
-    if (ordRes.status === 'fulfilled') { const d = (ordRes.value as any).data || ordRes.value; orders.value = d.data || d || [] }
-    if (posRes.status === 'fulfilled') { const d = (posRes.value as any).data || posRes.value; positions.value = d.data || d || [] }
-  } finally {
-    if (!disposed) {
-      signalsLoading.value = false
-      ordersLoading.value = false
-      positionsLoading.value = false
-    }
-  }
-}
-
-const loadAnalyzerData = async () => {
-  if (!backtestId.value || !selectedAnalyzer.value) return
-  analyzerLoading.value = true
-  try {
-    const res = await backtestApi.getAnalyzerData(backtestId.value, selectedAnalyzer.value)
-    const d = (res as any).data !== undefined ? (res as any).data : res
-    analyzerStats.value = d.stats
-    analyzerTimeseries.value = d.data || []
-  } catch {
-    analyzerStats.value = null
-    analyzerTimeseries.value = []
-  } finally {
-    analyzerLoading.value = false
-  }
-}
-
-const loadLogs = async (reset = false) => {
-  if (!backtestId.value || disposed) return
-  if (reset) {
-    logsOffset.value = 0
-    logs.value = []
-    logsHasMore.value = true
-  }
-  if (!logsHasMore.value) return
-  logsLoading.value = true
-  try {
-    const params: any = { limit: logsPageSize, offset: logsOffset.value }
-    if (logFilters.value.level) params.level = logFilters.value.level
-    if (logFilters.value.event_type) params.event_type = logFilters.value.event_type
-    if (logFilters.value.start_time) params.start_time = logFilters.value.start_time
-    if (logFilters.value.end_time) params.end_time = logFilters.value.end_time
-    const res = await backtestApi.getLogs(backtestId.value, params)
-    if (disposed) return
-    const d = res.data || res
-    const newLogs = d.logs || []
-    logsTotal.value = d.total || 0
-    if (reset) {
-      logs.value = newLogs
-    } else {
-      logs.value.push(...newLogs)
-    }
-    logsOffset.value += newLogs.length
-    logsHasMore.value = logs.value.length < logsTotal.value
-  } catch {
-    logsHasMore.value = false
-  } finally {
-    if (!disposed) logsLoading.value = false
-  }
-}
-
-const onLogsScroll = (e: Event) => {
-  const el = e.target as HTMLElement
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50 && !logsLoading.value && logsHasMore.value) {
-    loadLogs()
-  }
-}
-
-const handleReRun = async () => {
-  if (!currentTask.value) return
-  try {
-    const result = await backtestStore.startTask(currentTask.value.uuid)
-    message.success('已重新启动回测')
-    if (result?.task_id) {
-      router.push(`/portfolios/${portfolioId.value}/backtests/${result.task_id}`)
-    } else {
-      loadDetail()
-    }
-  } catch (e: any) {
-    message.error(e.response?.data?.detail || '重新运行失败')
-  }
-}
-
-const handleStopDetail = async () => {
-  if (!currentTask.value?.uuid) return
-  if (!confirm('确定要停止此回测？')) return
-  try {
-    await backtestStore.stopTask(currentTask.value.uuid)
-    message.success('已停止')
-    loadDetail()
-  } catch (e: any) {
-    message.error(e.response?.data?.detail || '停止失败')
-  }
-}
-
-const handleDelete = async () => {
-  if (!currentTask.value?.uuid) return
-  if (!confirm('删除后不可恢复，确定要删除？')) return
-  try {
-    await backtestStore.deleteTask(currentTask.value.uuid)
-    message.success('已删除')
-    goBack()
-  } catch (e: any) {
-    message.error(e.response?.data?.detail || '删除失败')
-  }
-}
-
-const goBack = () => {
-  router.push(`/portfolios/${portfolioId.value}/backtests`)
-}
-
-const pnlColor = computed(() => {
-  const v = currentTask.value?.total_pnl ?? 0
-  return v >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
-})
-
-// 声明式指标卡片:label/value/color 数据驱动,取代 11 个散落 metric-card 块
-const metrics = computed<{ label: string; value: string; color?: string }[]>(() => {
-  const t = currentTask.value
-  const ar = t?.annual_return ?? 0
-  const md = t?.max_drawdown ?? 0
-  const twr = tradeWinRate.value
-  const dwr = dailyWinRate.value
-  const pf = profitFactor.value
-  const awl = avgWinLoss.value
-  const mcl = maxConsLosses.value
-  const ahp = avgHoldPeriod.value
-  const pos = 'hsl(var(--success))'
-  const neg = 'hsl(var(--error))'
-  return [
-    { label: '最终资产', value: formatMoney(t?.final_portfolio_value ?? 0) },
-    { label: '总盈亏', value: formatMoney(t?.total_pnl ?? 0), color: pnlColor.value },
-    { label: '年化收益', value: `${(ar * 100).toFixed(2)}%`, color: ar >= 0 ? pos : neg },
-    { label: '夏普比率', value: (t?.sharpe_ratio ?? 0).toFixed(2) },
-    { label: '最大回撤', value: `${(md * 100).toFixed(2)}%`, color: md <= 0.1 ? pos : neg },
-    { label: '交易胜率', value: twr !== null ? `${(twr * 100).toFixed(1)}%` : '-', color: twr !== null ? (twr >= 0.5 ? pos : neg) : '' },
-    { label: '日胜率', value: dwr !== null ? `${(dwr * 100).toFixed(1)}%` : '-', color: dwr !== null ? (dwr >= 0.5 ? pos : neg) : '' },
-    { label: '盈亏比', value: pf !== null ? pf.toFixed(2) : '-', color: pf !== null ? (pf >= 1 ? pos : neg) : '' },
-    { label: '平均盈亏比', value: awl !== null ? awl.toFixed(2) : '-', color: awl !== null ? (awl >= 1 ? pos : neg) : '' },
-    { label: '最大连续亏损', value: mcl !== null ? `${Math.round(mcl)} 笔` : '-', color: mcl !== null && mcl > 5 ? neg : '' },
-    { label: '平均持仓', value: ahp !== null ? `${ahp.toFixed(1)} 天` : '-' },
-  ]
-})
-
 // ========== WebSocket ==========
-const { subscribe } = useWebSocket()
+const { subscribe, isConnected } = useWebSocket()
 let unsubscribe: (() => void) | null = null
 
 onMounted(() => {
-  if (!backtestId.value) {
-    loadList()
-    if (route.query.action === 'create') {
-      showCreateModal.value = true
-      router.replace({ query: {} })
-    }
-  } else {
-    loadDetail()
+  loadList()
+  if (route.query.action === 'create') {
+    showCreateModal.value = true
+    router.replace({ query: {} })
   }
 
   unsubscribe = subscribe('*', (data) => {
     const taskId = data.task_id || data.task_uuid
     if (!taskId) return
-    if (backtestId.value && taskId === currentTask.value?.uuid) {
-      backtestStore.updateProgress({ task_id: taskId, status: data.type === 'progress' ? undefined : data.type, progress: data.progress })
-      loadDetail()
-    } else {
-      loadList()
-    }
+    loadList({ silent: true })
   })
-})
 
-watch(backtestId, (newVal) => {
-  if (newVal) {
-    loadDetail()
-  } else {
-    loadList()
-  }
+  // WS 断连时降级为轮询（store.startPolling），重连后恢复推送
+  watch(isConnected, (connected) => {
+    if (connected) {
+      backtestStore.onWebSocketConnected()
+    } else {
+      backtestStore.onWebSocketDisconnected()
+    }
+  }, { immediate: true })
 })
 
 onUnmounted(() => {
   disposed = true
-  backtestStore.clearCurrentTask()
   if (unsubscribe) unsubscribe()
+  // store 轮询随页面走:离开本页即停,否则定时器跨页存活变成全站后台轮询
+  backtestStore.stopPolling()
 })
 </script>
 
@@ -1098,31 +458,11 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-.radio-group {
-  display: inline-flex;
-  background: hsl(var(--border));
-  border-radius: 4px;
-  padding: 2px;
-}
-
-.radio-button {
-  padding: 5px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 2px;
-  color: hsl(var(--muted-foreground));
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.radio-button:hover { color: hsl(var(--foreground)); }
-
 .search-input {
   padding: 5px 10px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 12px;
   width: 160px;
@@ -1136,50 +476,17 @@ onUnmounted(() => {
   padding: 6px 14px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
 }
-
-.btn-danger {
-  padding: 6px 14px;
-  background: hsl(var(--error));
-  border: none;
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.btn-danger:hover { background: hsl(var(--error)); }
-
-.btn-danger-outline {
-  padding: 6px 14px;
-  background: transparent;
-  border: 1px solid hsl(var(--error));
-  border-radius: 4px;
-  color: hsl(var(--error));
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.btn-back {
-  background: none;
-  border: none;
-  color: hsl(var(--muted-foreground));
-  cursor: pointer;
-  font-size: 13px;
-  padding: 0;
-}
-
-.btn-back:hover { color: hsl(var(--foreground)); }
 
 .btn-sm {
   padding: 4px 10px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
@@ -1204,14 +511,6 @@ onUnmounted(() => {
 .link-btn.link-danger { color: hsl(var(--error)); }
 .link-btn.link-danger:hover { color: hsl(var(--error)); }
 
-.form-select {
-  width: 100%; padding: 8px 12px;
-  background: hsl(var(--card)); border: 1px solid hsl(var(--border));
-  border-radius: 6px; color: hsl(var(--foreground)); font-size: 14px;
-}
-.form-select:focus { outline: none; border-color: hsl(var(--primary)); }
-.form-hint { margin: 6px 0 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
-
 /* Task list */
 .task-list {
   flex: 1;
@@ -1228,7 +527,7 @@ onUnmounted(() => {
   padding: 12px 16px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1286,48 +585,30 @@ onUnmounted(() => {
 .task-actions { display: flex; gap: 4px; }
 
 /* Progress bar small */
-.progress-info { display: flex; align-items: center; gap: 6px; }
+.progress-info { display: flex; align-items: center; gap: 8px; }
 
 .progress-bar-sm {
   width: 60px;
   height: 4px;
   background: hsl(var(--border));
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
 .progress-text { font-size: 11px; color: hsl(var(--muted-foreground)); }
 
-.progress-bar-lg {
-  height: 6px;
-  background: hsl(var(--border));
-  border-radius: 3px;
-  overflow: hidden;
-  margin-top: 8px;
-}
-
 .progress-fill {
   height: 100%;
   background: hsl(var(--primary));
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   transition: width 0.3s;
-}
-
-.progress-fill.active {
-  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary)));
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
 }
 
 /* Tags */
 .tag {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 500;
 }
@@ -1363,7 +644,7 @@ onUnmounted(() => {
 .modal-box {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   width: 480px;
   max-height: 90vh;
   display: flex;
@@ -1386,7 +667,7 @@ onUnmounted(() => {
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
   padding: 12px 20px;
   border-top: 1px solid hsl(var(--border));
 }
@@ -1400,7 +681,7 @@ onUnmounted(() => {
   padding: 7px 10px;
   background: hsl(var(--background));
   border: 1px solid hsl(var(--border));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
 }
@@ -1409,179 +690,6 @@ onUnmounted(() => {
 
 .form-row { display: flex; gap: 12px; }
 .form-row .form-item { flex: 1; }
-
-/* Date range bar */
-.date-range-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  margin-bottom: 12px;
-}
-.date-range-label {
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-}
-.date-range-value {
-  font-size: 13px;
-  color: hsl(var(--border));
-  font-family: monospace;
-}
-
-/* Detail */
-.detail-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.detail-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.task-name-label {
-  font-size: 15px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
-
-.detail-actions { display: flex; gap: 8px; }
-
-/* Progress section */
-.progress-section {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: hsl(var(--muted-foreground));
-}
-
-/* Inner tabs */
-.inner-tabs {
-  display: flex;
-  gap: 2px;
-  border-bottom: 1px solid hsl(var(--border));
-  margin-bottom: 16px;
-}
-
-.inner-tab {
-  padding: 8px 16px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: hsl(var(--muted-foreground));
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.inner-tab:hover { color: hsl(var(--foreground)); }
-.inner-tab.active { color: hsl(var(--primary)); border-bottom-color: hsl(var(--primary)); }
-
-.tab-panel { flex: 1; }
-
-/* Metrics grid */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.metric-card {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  padding: 12px;
-}
-
-.metric-label { font-size: 11px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; }
-.metric-value { font-size: 18px; font-weight: 600; color: hsl(var(--foreground)); }
-
-/* Card */
-.card {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  padding: 14px;
-  margin-bottom: 12px;
-}
-
-.card h4 {
-  font-size: 13px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  margin: 0 0 10px 0;
-}
-
-.card-error pre {
-  color: hsl(var(--error));
-  font-size: 12px;
-  white-space: pre-wrap;
-  margin: 0;
-}
-
-.card-error { border-color: hsl(var(--error) / 0.3); }
-
-/* Exec stats */
-.exec-stats {
-  display: flex;
-  gap: 24px;
-  font-size: 13px;
-  color: hsl(var(--muted-foreground));
-}
-
-.exec-stats strong { color: hsl(var(--foreground)); }
-
-/* Stats row */
-.stats-row {
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-/* Analyzer header */
-.analyzer-header { margin-bottom: 12px; }
-
-.form-select {
-  appearance: auto;
-}
-
-/* Data table */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.data-table th {
-  text-align: left;
-  padding: 6px 8px;
-  color: hsl(var(--muted-foreground));
-  font-weight: 500;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.data-table td {
-  padding: 6px 8px;
-  color: hsl(var(--border));
-  border-bottom: 1px solid hsl(var(--foreground) / 0.03);
-}
-
-.data-table tr:hover td { background: hsl(var(--foreground) / 0.02); }
 
 /* Loading */
 .loading-center {
@@ -1599,32 +707,7 @@ onUnmounted(() => {
   animation: spin 1s linear infinite;
 }
 
-.spinner-sm {
-  width: 16px;
-  height: 16px;
-  border-width: 2px;
-}
-
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* Empty */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 40px;
-  color: hsl(var(--muted-foreground));
-  gap: 12px;
-}
-
-.empty-hint {
-  color: hsl(var(--muted-foreground));
-  opacity: 0.5;
-  font-size: 13px;
-  text-align: center;
-  padding: 20px 0;
-}
-
 /* Date field */
 .date-field {
   position: relative;
@@ -1646,10 +729,10 @@ onUnmounted(() => {
   margin-top: 4px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 10px;
   z-index: 1100;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-lg);
   width: 252px;
 }
 
@@ -1673,7 +756,7 @@ onUnmounted(() => {
   font-size: 16px;
   cursor: pointer;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .picker-nav:hover { color: hsl(var(--foreground)); background: hsl(var(--border)); }
@@ -1706,9 +789,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
-  color: hsl(var(--border));
+  color: hsl(var(--muted-foreground));
   background: transparent;
   border: none;
   cursor: pointer;
@@ -1721,81 +804,8 @@ onUnmounted(() => {
 .picker-day.today { font-weight: 700; color: hsl(var(--primary)); }
 .picker-day.today.selected { color: hsl(var(--primary-foreground)); }
 
-/* Logs */
-.logs-filter { margin-bottom: 8px; }
-.filter-row { display: flex; align-items: center; gap: 8px; }
-.filter-select { width: auto; min-width: 100px; }
-.filter-date { width: 140px; font-size: 12px; }
-.filter-sep { color: hsl(var(--muted-foreground)); font-size: 12px; }
-
-.logs-container {
-  max-height: 500px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.log-entry {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
-  border-radius: 2px;
-}
-.log-entry:hover { background: hsl(var(--foreground) / 0.02); }
-
-.log-time-col { display: inline-flex; flex-direction: column; flex-shrink: 0; line-height: 1.3; }
-.log-bt { color: hsl(var(--muted-foreground)); font-size: 11px; white-space: nowrap; }
-.log-wt { color: hsl(var(--muted-foreground)); font-size: 9px; white-space: nowrap; }
-.log-level {
-  flex-shrink: 0;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  display: inline-block;
-  min-width: 52px;
-  text-align: center;
-}
-.level-debug { background: hsl(var(--foreground) / 0.06); color: hsl(var(--muted-foreground)); }
-.level-info { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
-.level-warning { background: hsl(var(--warning) / 0.15); color: hsl(var(--warning)); }
-.level-error { background: hsl(var(--error) / 0.15); color: hsl(var(--error)); }
-.log-event {
-  flex-shrink: 0;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  display: inline-block;
-  width: 110px;
-  text-align: center;
-}
-.event-signal { background: hsl(var(--secondary-foreground) / 0.15); color: hsl(var(--secondary-foreground)); }
-.event-order { background: hsl(var(--success) / 0.15); color: hsl(var(--success)); }
-.event-position { background: hsl(var(--warning) / 0.15); color: hsl(var(--warning)); }
-.event-capital { background: hsl(var(--success) / 0.15); color: hsl(var(--success)); }
-.event-engine { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
-.event-risk { background: hsl(var(--error) / 0.15); color: hsl(var(--error)); }
-.event-price { background: hsl(var(--foreground) / 0.06); color: hsl(var(--muted-foreground)); }
-.event-t1 { background: hsl(var(--warning) / 0.15); color: hsl(var(--warning)); }
-.text-orange { color: hsl(var(--warning)); }
-.log-detail { color: hsl(var(--border)); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
-.log-symbol { color: hsl(var(--foreground)); font-weight: 600; }
-.log-kv { color: hsl(var(--muted-foreground)); }
-.log-kv.dim { color: hsl(var(--muted-foreground)); }
-.log-reason { color: hsl(var(--border)); font-style: italic; }
-.log-msg { color: hsl(var(--border)); word-break: break-all; }
-.logs-end { text-align: center; font-size: 11px; color: hsl(var(--muted-foreground)); padding: 10px 0; }
-
 /* Responsive */
 @media (max-width: 768px) {
-  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
   .toolbar { flex-wrap: wrap; }
 }
 </style>

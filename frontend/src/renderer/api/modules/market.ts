@@ -1,5 +1,8 @@
 import request from '../request'
-import type { APIResponse } from '@/types/api'
+
+// 行情读接口统一 skipErrorToast:后端 market 模块尚未实现(404),且 tickers 为 5s 轮询——
+// 全局 toast 会刷屏;由 MarketData 页内联降级态交代,写操作(订阅 CRUD)保留 toast
+const SILENT_READ = { skipErrorToast: true } as const
 
 // 交易所类型
 export type ExchangeType = 'okx' | 'binance'
@@ -97,10 +100,10 @@ export const marketApi = {
     environment?: EnvironmentType
     quote_ccy?: string
     search?: string
-  }) => {
-    return request.get<APIResponse<TradingPairsResponse>>(
+  }): Promise<TradingPairsResponse> => {
+    return request.get(
       '/api/v1/market/pairs',
-      { params }
+      { params, ...SILENT_READ }
     )
   },
 
@@ -111,25 +114,25 @@ export const marketApi = {
     exchange?: ExchangeType
     environment?: EnvironmentType
     active_only?: boolean
-  }) => {
-    return request.get<APIResponse<SubscriptionsResponse>>(
+  }): Promise<SubscriptionsResponse> => {
+    return request.get(
       '/api/v1/market/subscriptions',
-      { params }
+      { params, ...SILENT_READ }
     )
   },
 
   /**
    * 创建订阅
    */
-  createSubscription: (data: CreateSubscriptionRequest) => {
-    return request.post<APIResponse<MarketSubscription>>('/api/v1/market/subscriptions', data)
+  createSubscription: (data: CreateSubscriptionRequest): Promise<MarketSubscription> => {
+    return request.post('/api/v1/market/subscriptions', data)
   },
 
   /**
    * 更新订阅
    */
-  updateSubscription: (uuid: string, data: UpdateSubscriptionRequest) => {
-    return request.put<APIResponse<MarketSubscription>>(
+  updateSubscription: (uuid: string, data: UpdateSubscriptionRequest): Promise<MarketSubscription> => {
+    return request.put(
       `/api/v1/market/subscriptions/${uuid}`,
       data
     )
@@ -138,8 +141,8 @@ export const marketApi = {
   /**
    * 删除订阅
    */
-  deleteSubscription: (uuid: string) => {
-    return request.delete<APIResponse<void>>(`/api/v1/market/subscriptions/${uuid}`)
+  deleteSubscription: (uuid: string): Promise<void> => {
+    return request.delete(`/api/v1/market/subscriptions/${uuid}`)
   },
 
   /**
@@ -148,10 +151,10 @@ export const marketApi = {
   getTicker: (symbol: string, params?: {
     exchange?: ExchangeType
     environment?: EnvironmentType
-  }) => {
-    return request.get<APIResponse<TickerData>>(
+  }): Promise<TickerData> => {
+    return request.get(
       `/api/v1/market/ticker/${symbol}`,
-      { params }
+      { params, ...SILENT_READ }
     )
   },
 
@@ -162,10 +165,10 @@ export const marketApi = {
     exchange?: ExchangeType
     environment?: EnvironmentType
     inst_type?: string
-  }) => {
-    return request.get<APIResponse<{ tickers: Record<string, TickerData>, total: number }>>(
+  }): Promise<{ tickers: Record<string, TickerData>, total: number }> => {
+    return request.get(
       '/api/v1/market/tickers',
-      { params }
+      { params, ...SILENT_READ }
     )
   },
 
@@ -175,10 +178,10 @@ export const marketApi = {
   getOrderbook: (symbol: string, params?: {
     exchange?: ExchangeType
     depth?: number
-  }) => {
-    return request.get<APIResponse<OrderBookData>>(
+  }): Promise<OrderBookData> => {
+    return request.get(
       `/api/v1/market/orderbook/${symbol}`,
-      { params }
+      { params, ...SILENT_READ }
     )
   }
 }
