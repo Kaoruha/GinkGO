@@ -35,7 +35,7 @@ export interface MenuConfig {
 export const menuConfigs: MenuConfig[] = [
   { key: 'dashboard', label: '工作台', icon: LayoutDashboard, route: '/dashboard' },
   { key: 'portfolios', label: '组合', icon: Wallet, route: '/portfolios', matchPrefixes: ['/portfolios/'] },
-  { key: 'backtests', label: '回测', icon: TrendingUp, route: '/backtests' },
+  { key: 'backtests', label: '回测', icon: TrendingUp, route: '/backtests', matchPrefixes: ['/backtests/'] },
   {
     key: 'components', label: '组件', icon: Puzzle, route: '/components', matchPrefixes: ['/components/'],
     children: [
@@ -65,7 +65,17 @@ export const menuConfigs: MenuConfig[] = [
       { label: '交易历史', route: '/trading/live/history' },
     ],
   },
-  { key: 'data', label: '数据', icon: Database, route: '/data' },
+  {
+    key: 'data', label: '数据', icon: Database, route: '/data', matchPrefixes: ['/data/'],
+    children: [
+      { label: '数据概览', route: '/data', exact: true },
+      { label: '股票信息', route: '/data/stocks' },
+      { label: 'K线数据', route: '/data/bars' },
+      { label: 'Tick数据', route: '/data/ticks' },
+      { label: '复权因子', route: '/data/adjustfactors' },
+      { label: '数据同步', route: '/data/sync' },
+    ],
+  },
   {
     key: 'admin', label: '管理', icon: Wrench, route: '/admin', matchPrefixes: ['/admin/'],
     children: [

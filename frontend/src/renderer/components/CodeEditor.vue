@@ -159,7 +159,7 @@ function handleReset() {
   padding: 6px 12px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   width: 200px;
@@ -183,11 +183,11 @@ function handleReset() {
 .btn-secondary {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 12px;
   background: transparent;
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
@@ -218,7 +218,7 @@ function handleReset() {
   line-height: 1.5;
   padding: 12px;
   border: 1px solid hsl(var(--secondary));
-  border-radius: 6px;
+  border-radius: var(--radius);
   resize: none;
   outline: none;
   background: hsl(var(--card));

@@ -15,7 +15,7 @@
       <button class="btn-primary" :disabled="loading" @click="loadStocks">
         刷新
       </button>
-      <button class="btn-success" @click="syncStockInfo">
+      <button class="btn-success" :disabled="syncing" @click="syncStockInfo">
         同步数据
       </button>
     </template>
@@ -51,19 +51,17 @@
               <th @click="sortBy('exchange')" style="cursor: pointer">
                 交易所 {{ sortField === 'exchange' ? (sortAsc ? '↑' : '↓') : '' }}
               </th>
-              <th>类型</th>
               <th>行业</th>
-              <th @click="sortBy('list_date')" style="cursor: pointer">
-                上市日期 {{ sortField === 'list_date' ? (sortAsc ? '↑' : '↓') : '' }}
-              </th>
+              <th>状态</th>
             </tr>
           </thead>
           <tbody v-if="!loading && stockList.length > 0">
             <tr
               v-for="stock in paginatedStocks"
               :key="stock.code"
-              @click="viewStockDetail(stock)"
               class="clickable-row"
+              @click="viewStockDetail(stock)"
+              @contextmenu="openStockMenu($event, stock)"
             >
               <td class="link">{{ stock.code }}</td>
               <td>
@@ -75,9 +73,12 @@
                   {{ stock.exchange === 'SH' ? '沪市' : '深市' }}
                 </span>
               </td>
-              <td>{{ stock.type || '-' }}</td>
               <td>{{ stock.industry || '-' }}</td>
-              <td>{{ stock.list_date || '-' }}</td>
+              <td>
+                <span class="tag" :class="stock.is_active === false ? 'tag-st' : 'tag-sh'">
+                  {{ stock.is_active === false ? '退市' : '上市' }}
+                </span>
+              </td>
             </tr>
           </tbody>
           <tbody v-else-if="loading">
@@ -92,13 +93,13 @@
           </tbody>
         </table>
       </div>
-      <div v-if="stockList.length > 0" class="pagination">
+      <div v-if="filteredTotal > 0" class="pagination">
         <button @click="prevPage" :disabled="pagination.current === 1" class="btn-small">上一页</button>
         <span class="pagination-info">
           {{ (pagination.current - 1) * pagination.pageSize + 1 }} -
-          {{ Math.min(pagination.current * pagination.pageSize, pagination.total) }} / {{ pagination.total }}
+          {{ Math.min(pagination.current * pagination.pageSize, filteredTotal) }} / {{ filteredTotal }}
         </span>
-        <button @click="nextPage" :disabled="pagination.current * pagination.pageSize >= pagination.total" class="btn-small">下一页</button>
+        <button @click="nextPage" :disabled="pagination.current * pagination.pageSize >= filteredTotal" class="btn-small">下一页</button>
         <select v-model="pagination.pageSize" @change="onPageSizeChange" class="page-size-select">
           <option :value="20">20条/页</option>
           <option :value="50">50条/页</option>
@@ -129,20 +130,16 @@
               <span class="detail-value">{{ currentStock.exchange }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">类型</span>
-              <span class="detail-value">{{ currentStock.type || '-' }}</span>
-            </div>
-            <div class="detail-row">
               <span class="detail-label">行业</span>
               <span class="detail-value">{{ currentStock.industry || '-' }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">上市日期</span>
-              <span class="detail-value">{{ currentStock.list_date || '-' }}</span>
+              <span class="detail-label">状态</span>
+              <span class="detail-value">{{ currentStock.is_active === false ? '退市' : '上市' }}</span>
             </div>
           </div>
           <div class="drawer-actions">
-            <button class="btn-success" @click="syncSingleStock">
+            <button class="btn-success" :disabled="syncing" @click="syncSingleStock">
               同步K线数据
             </button>
             <button class="btn-primary" @click="viewBarData">
@@ -159,12 +156,16 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { useRouter } from 'vue-router'
+import { dataApi } from '@/api/modules/data'
+import message from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
 
 const router = useRouter()
 const loading = ref(false)
 const searchKeyword = ref('')
 const detailDrawerVisible = ref(false)
 const currentStock = ref<any>(null)
+const syncing = ref(false)
 
 const stockList = ref<any[]>([])
 const pagination = reactive({
@@ -181,10 +182,35 @@ const exchangeStats = reactive({
   sz: 0
 })
 
+// 后端 /api/v1/data/stockinfo 无 exchange 字段(market 是 CHINA/NASDAQ 粗粒度),
+// 交易所从代码后缀派生(.SH/.SZ),无后缀时回退 market
+const deriveExchange = (stock: any): string => {
+  const code = String(stock?.code || '')
+  if (code.endsWith('.SH')) return 'SH'
+  if (code.endsWith('.SZ')) return 'SZ'
+  if (code.endsWith('.BJ')) return 'BJ'
+  return stock?.market || '-'
+}
+
+// 搜索过滤(本地全量过滤,与分页解耦;分页显示口径用 filteredTotal)
+const filteredStocks = computed(() => {
+  let stocks = [...stockList.value]
+  if (searchKeyword.value) {
+    const keyword = searchKeyword.value.toLowerCase()
+    stocks = stocks.filter(s =>
+      s.code.toLowerCase().includes(keyword) ||
+      s.name?.toLowerCase().includes(keyword)
+    )
+  }
+  return stocks
+})
+
+const filteredTotal = computed(() => filteredStocks.value.length)
+
 const paginatedStocks = computed(() => {
   const start = (pagination.current - 1) * pagination.pageSize
   const end = start + pagination.pageSize
-  let stocks = [...stockList.value]
+  const stocks = [...filteredStocks.value]
 
   // 排序
   stocks.sort((a, b) => {
@@ -194,34 +220,34 @@ const paginatedStocks = computed(() => {
     return sortAsc.value ? cmp : -cmp
   })
 
-  // 搜索过滤
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
-    stocks = stocks.filter(s =>
-      s.code.toLowerCase().includes(keyword) ||
-      s.name?.toLowerCase().includes(keyword)
-    )
-  }
-
-  pagination.total = stocks.length
   return stocks.slice(start, end)
 })
 
+// 后端单页上限 500(DEFAULT_MAX_PAGE_SIZE),分页循环拉全量,
+// 本地排序/搜索/分页与沪深统计才有全量口径
 const loadStocks = async () => {
   loading.value = true
   try {
-    // TODO: 调用API获取股票列表
-    stockList.value = [
-      { code: '000001.SZ', name: '平安银行', exchange: 'SZ', type: 'A股', industry: '银行', list_date: '1991-04-03' },
-      { code: '000002.SZ', name: '万科A', exchange: 'SZ', type: 'A股', industry: '房地产', list_date: '1991-01-29' },
-      { code: '600000.SH', name: '浦发银行', exchange: 'SH', type: 'A股', industry: '银行', list_date: '1999-11-10' },
-      { code: '600519.SH', name: '贵州茅台', exchange: 'SH', type: 'A股', industry: '白酒', list_date: '2001-08-27' },
-    ]
-    pagination.total = stockList.value.length
-    exchangeStats.sh = stockList.value.filter(s => s.exchange === 'SH').length
-    exchangeStats.sz = stockList.value.filter(s => s.exchange === 'SZ').length
+    const pageSize = 500
+    const all: any[] = []
+    let page = 1
+    // 安全上限 40 页(2 万条),防异常数据量拖死页面
+    while (page <= 40) {
+      const res = await dataApi.listStocks({ page, page_size: pageSize })
+      const items = res?.items ?? []
+      all.push(...items.map((s: any) => ({ ...s, exchange: deriveExchange(s) })))
+      const total = res?.total ?? all.length
+      if (all.length >= total || items.length === 0) break
+      page++
+    }
+    stockList.value = all
+    pagination.total = all.length
+    pagination.current = 1
+    exchangeStats.sh = all.filter(s => s.exchange === 'SH').length
+    exchangeStats.sz = all.filter(s => s.exchange === 'SZ').length
   } catch (error: any) {
-    console.error(`加载失败: ${error.message}`)
+    console.error('加载股票列表失败:', error)
+    message.error(error?.message || '加载股票列表失败')
   } finally {
     loading.value = false
   }
@@ -234,7 +260,7 @@ const prevPage = () => {
 }
 
 const nextPage = () => {
-  if (pagination.current * pagination.pageSize < pagination.total) {
+  if (pagination.current * pagination.pageSize < filteredTotal.value) {
     pagination.current++
   }
 }
@@ -257,16 +283,49 @@ const viewStockDetail = (stock: any) => {
   detailDrawerVisible.value = true
 }
 
+/** 行右键菜单:详情抽屉内操作的快捷入口 */
+const { open: openCtxMenu } = useContextMenu()
+const openStockMenu = (e: MouseEvent, stock: any) => {
+  openCtxMenu(e, [
+    { label: '查看详情', action: () => viewStockDetail(stock) },
+    { label: '查看K线', action: () => { currentStock.value = stock; viewBarData() } },
+    { label: '复制代码', action: () => { navigator.clipboard.writeText(stock.code); message.success('已复制') } },
+    { divider: true },
+    { label: '同步K线数据', action: () => { currentStock.value = stock; syncSingleStock() } },
+  ])
+}
+
 const closeDrawer = () => {
   detailDrawerVisible.value = false
 }
 
-const syncStockInfo = () => {
-  console.log('同步股票信息...')
+const syncStockInfo = async () => {
+  if (syncing.value) return
+  syncing.value = true
+  try {
+    await dataApi.syncStockInfo()
+    message.success('股票信息同步任务已提交')
+  } catch (error: any) {
+    console.error('同步股票信息失败:', error)
+    message.error(error?.message || '同步股票信息失败')
+  } finally {
+    syncing.value = false
+  }
 }
 
-const syncSingleStock = () => {
-  console.log(`同步 ${currentStock.value?.code} K线数据...`)
+const syncSingleStock = async () => {
+  const code = currentStock.value?.code
+  if (!code || syncing.value) return
+  syncing.value = true
+  try {
+    await dataApi.syncBars([code])
+    message.success(`${code} K线同步任务已提交`)
+  } catch (error: any) {
+    console.error('同步K线数据失败:', error)
+    message.error(error?.message || '同步K线数据失败')
+  } finally {
+    syncing.value = false
+  }
 }
 
 const viewBarData = () => {
@@ -301,7 +360,7 @@ onMounted(() => {
   padding: 8px 12px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   width: 200px;
@@ -316,7 +375,7 @@ onMounted(() => {
   padding: 8px 20px;
   background: hsl(var(--success));
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   font-weight: 500;
@@ -336,7 +395,7 @@ onMounted(() => {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -352,6 +411,9 @@ onMounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -417,7 +479,7 @@ onMounted(() => {
   padding: 4px 8px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;

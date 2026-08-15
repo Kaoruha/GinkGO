@@ -5,13 +5,26 @@
 .card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: 16px;
 
   &:last-child {
     margin-bottom: 0;
   }
+}
+
+// 列表页含长表格的卡片:.page-layout-body 是 flex column(L122),.card 作为直接子项
+// 默认 flex-shrink:1 会被压缩到容器高度,叠加 .card overflow:hidden 后超出视口的行
+// 被永久截断不可见(数据丢失),且无滚动容器使 th sticky 失效(#6910)。
+// 解除 shrink 让卡片按内容撑高 → 溢出穿透到 .content(overflow-y:auto)整页滚动,
+// 配合各页 .data-table th sticky 实现表头固定。
+.page-layout-body > .card {
+  flex-shrink: 0;
+  // overflow:hidden 会成为 th sticky 的 containing 祖先(自身不滚),把表头卡在卡片顶
+  // 随卡片整体位移 → sticky 失效。改 visible 让 sticky 穿透到 .content(滚动容器)。
+  // 圆角裁剪:卡片内 .card-body padding:20 >> border-radius:8,内容不触圆角,无视觉影响。
+  overflow: visible;
 }
 
 .card-header {
@@ -54,7 +67,7 @@
 .stat-card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 20px;
   transition: all 0.2s;
   display: flex;

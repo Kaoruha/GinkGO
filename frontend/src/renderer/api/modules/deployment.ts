@@ -32,21 +32,21 @@ export const deploymentApi = {
   /**
    * 部署组合到模拟盘/实盘
    */
-  deploy(params: DeployRequest) {
+  deploy(params: DeployRequest): Promise<DeployResponse> {
     return request.post('/api/v1/deploy/', params)
   },
 
   /**
-   * 查询组合的部署信息
+   * 查询组合的部署信息(无部署时返回 null)
    */
-  getStatus(portfolioId: string) {
+  getStatus(portfolioId: string): Promise<DeploymentInfo | null> {
     return request.get(`/api/v1/deploy/${portfolioId}`)
   },
 
   /**
-   * 列出部署记录
+   * 列出部署记录(裸数组,非分页)
    */
-  list(portfolioId?: string) {
+  list(portfolioId?: string): Promise<DeploymentInfo[]> {
     const params: Record<string, string> = {}
     if (portfolioId) params.portfolio_id = portfolioId
     return request.get('/api/v1/deploy/', { params })

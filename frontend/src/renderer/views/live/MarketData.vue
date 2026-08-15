@@ -72,6 +72,7 @@
               :key="pair.symbol"
               class="pair-item"
               :class="{ subscribed: isSubscribed(pair.symbol) }"
+              @contextmenu="openPairMenu($event, pair)"
             >
               <div class="pair-info">
                 <span class="pair-symbol">{{ pair.symbol }}</span>
@@ -84,22 +85,6 @@
                 </span>
                 <span class="volume-label">成交量:</span>
                 <span class="volume-value">{{ formatVolume(getPairVolume(pair.symbol)) }}</span>
-              </div>
-              <div class="pair-actions">
-                <button
-                  v-if="isSubscribed(pair.symbol)"
-                  class="btn-danger btn-sm"
-                  @click="unsubscribe(pair.symbol)"
-                >
-                  取消订阅
-                </button>
-                <button
-                  v-else
-                  class="btn-primary btn-sm"
-                  @click="subscribe(pair.symbol)"
-                >
-                  订阅
-                </button>
               </div>
             </div>
           </div>
@@ -180,6 +165,19 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { marketApi, type TradingPair, type MarketSubscription, DataType } from '@/api/modules/market'
+import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 交易对卡片右键菜单(替代卡片内订阅按钮) */
+const { open: openCtxMenu } = useContextMenu()
+const openPairMenu = (e: MouseEvent, pair: TradingPair) => {
+  openCtxMenu(e, [
+    ...(isSubscribed(pair.symbol)
+      ? [{ label: '取消订阅', action: () => unsubscribe(pair.symbol) }]
+      : [{ label: '订阅', action: () => subscribe(pair.symbol) }]),
+    { label: '复制交易对', action: () => { navigator.clipboard.writeText(pair.symbol); toast.success('已复制') } },
+  ])
+}
 
 // 数据类型标签
 const typeLabels: Record<DataType, string> = {

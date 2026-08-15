@@ -38,11 +38,10 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     try {
       const response = await authApi.login(credentials)
-      const payload = (response as any).data !== undefined ? (response as any).data : response
-      token.value = payload.token
-      user.value = payload.user
-      await saveAuth(payload)
-      return payload
+      token.value = response.token
+      user.value = response.user
+      await saveAuth(response)
+      return response
     } catch (error) {
       console.error('Login failed:', error)
       throw error
@@ -72,8 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const result = await authApi.verifyToken()
-      const payload = (result as any).data !== undefined ? (result as any).data : result
-      if (!payload.valid) {
+      if (!result.valid) {
         token.value = null
         user.value = null
         await clearAuth()
@@ -92,11 +90,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchCurrentUser() {
     try {
       const result = await authApi.getCurrentUser()
-      const payload = (result as any).data !== undefined ? (result as any).data : result
-      user.value = payload
+      user.value = result
       // user_info 非敏感,双形态均写 localStorage
-      localStorage.setItem('user_info', JSON.stringify(payload))
-      return payload
+      localStorage.setItem('user_info', JSON.stringify(result))
+      return result
     } catch (error) {
       console.error('Failed to fetch user:', error)
       return null

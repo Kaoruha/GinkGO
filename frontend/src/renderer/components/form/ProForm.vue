@@ -117,7 +117,7 @@ defineExpose({
   padding: 8px 16px;
   background: transparent;
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;

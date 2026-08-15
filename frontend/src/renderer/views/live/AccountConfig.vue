@@ -31,11 +31,10 @@
                 <th>交易所</th>
                 <th>状态</th>
                 <th>最后验证</th>
-                <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in accounts" :key="record.uuid">
+              <tr v-for="record in accounts" :key="record.uuid" @contextmenu="openAccountMenu($event, record)">
                 <td>
                   <div class="account-name">
                     <span>{{ record.name }}</span>
@@ -62,33 +61,6 @@
                     {{ formatDateTime(record.last_validated_at) }}
                   </span>
                   <span v-else class="text-muted">未验证</span>
-                </td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-small" :disabled="testing[record.uuid]" @click="testConnection(record.uuid)">
-                      <svg v-if="!testing[record.uuid]" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="16" x2="12" y2="12"></line>
-                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                      </svg>
-                      <span v-else class="loading-spinner"></span>
-                      测试连接
-                    </button>
-                    <button class="btn-small" @click="editAccount(record)">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                      </svg>
-                      编辑
-                    </button>
-                    <button class="btn-small btn-danger" @click="confirmDelete(record)">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                      </svg>
-                      删除
-                    </button>
-                  </div>
                 </td>
               </tr>
             </tbody>
@@ -182,32 +154,16 @@
             </div>
 
             <div class="form-actions">
+              <button type="button" class="btn-secondary" @click="handleModalCancel">取消</button>
               <button type="submit" class="btn-primary" :disabled="saving">
                 {{ saving ? '保存中...' : '确定' }}
               </button>
-              <button type="button" class="btn-secondary" @click="handleModalCancel">取消</button>
             </div>
           </form>
         </div>
       </div>
     </div>
 
-    <!-- 删除确认对话框 -->
-    <div v-if="deleteConfirmVisible" class="modal-overlay" @click.self="deleteConfirmVisible = false">
-      <div class="modal modal-small">
-        <div class="modal-header">
-          <h3>确认删除</h3>
-          <button class="modal-close" @click="deleteConfirmVisible = false">×</button>
-        </div>
-        <div class="modal-body">
-          <p>确认删除此账号？</p>
-          <div class="form-actions">
-            <button class="btn-danger" @click="confirmDeleteAccount">确定</button>
-            <button class="btn-secondary" @click="deleteConfirmVisible = false">取消</button>
-          </div>
-        </div>
-      </div>
-    </div>
   </PageLayout>
 </template>
 
@@ -215,6 +171,18 @@
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { liveAccountApi } from '@/api'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 行右键菜单(替代操作列;删除走菜单内置确认) */
+const { open: openCtxMenu } = useContextMenu()
+const openAccountMenu = (e, record) => {
+  openCtxMenu(e, [
+    { label: '测试连接', action: () => testConnection(record.uuid) },
+    { label: '编辑', action: () => editAccount(record) },
+    { divider: true },
+    { label: '删除', danger: true, confirm: `确认删除账号「${record.name}」？`, action: () => deleteAccountDirect(record) },
+  ])
+}
 
 // 状态
 const loading = ref(false)
@@ -224,8 +192,6 @@ const modalVisible = ref(false)
 const isEditMode = ref(false)
 const saving = ref(false)
 const validationResult = ref(null)
-const deleteConfirmVisible = ref(false)
-const recordToDelete = ref(null)
 
 // 表单数据
 const formData = reactive({
@@ -251,11 +217,9 @@ const columns = [
 const fetchAccounts = async () => {
   loading.value = true
   try {
+    // 拦截器已拆信封:code!==0 会 reject,resolve 即成功 payload
     const result = await liveAccountApi.getAccounts()
-    if (result.code === 0) {
-      // 兼容分页响应和数组响应
-      accounts.value = result.data?.accounts || result.data || []
-    }
+    accounts.value = result?.accounts || []
   } catch (error) {
     console.error('获取账号列表失败：', error)
   } finally {
@@ -267,16 +231,14 @@ const fetchAccounts = async () => {
 const testConnection = async (uuid) => {
   testing.value[uuid] = true
   try {
+    // 拦截器已拆信封:resolve 即 {valid,message,account_info} payload
     const result = await liveAccountApi.validateAccount(uuid)
-    if (result.code === 0) {
-      const info = result.data
-      validationResult.value = {
-        success: info?.valid,
-        message: info?.message || '连接测试成功',
-        account_info: info?.account_info
-      }
-      await fetchAccounts()
+    validationResult.value = {
+      success: result?.valid,
+      message: result?.message || '连接测试成功',
+      account_info: result?.account_info
     }
+    await fetchAccounts()
   } catch (error) {
     console.error('连接测试失败：', error)
     validationResult.value = { success: false, message: '连接测试失败' }
@@ -310,22 +272,13 @@ const editAccount = (record) => {
   validationResult.value = null
 }
 
-// 删除账号
-const confirmDelete = (record) => {
-  recordToDelete.value = record
-  deleteConfirmVisible.value = true
-}
-
-const confirmDeleteAccount = async () => {
-  if (!recordToDelete.value) return
+// 删除账号(确认由菜单内置 ConfirmDialog 承担)
+const deleteAccountDirect = async (record) => {
   try {
-    await liveAccountApi.deleteAccount(recordToDelete.value.uuid)
+    await liveAccountApi.deleteAccount(record.uuid)
     await fetchAccounts()
   } catch (error) {
     console.error('删除失败：', error)
-  } finally {
-    deleteConfirmVisible.value = false
-    recordToDelete.value = null
   }
 }
 
@@ -443,7 +396,7 @@ onMounted(() => {
 .modal-content, .modal {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   max-height: 90vh;
@@ -480,7 +433,7 @@ onMounted(() => {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -496,6 +449,9 @@ onMounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -505,12 +461,6 @@ onMounted(() => {
 .data-table td {
   color: hsl(var(--foreground));
   font-size: 14px;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 /* 模态框样式 */
@@ -523,7 +473,7 @@ onMounted(() => {
 .radio-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 14px;
   color: hsl(var(--foreground));
   cursor: pointer;
@@ -551,7 +501,7 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   padding: 12px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   margin-top: 16px;
 }
 
@@ -602,10 +552,6 @@ onMounted(() => {
 @media (max-width: 768px) {
   .data-table {
     font-size: 12px;
-  }
-
-  .action-buttons {
-    flex-direction: column;
   }
 }
 </style>

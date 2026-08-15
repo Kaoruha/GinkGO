@@ -1,5 +1,4 @@
 import request from '../request'
-import type { APIResponse } from '@/types/api'
 
 // 交易所类型
 export type ExchangeType = 'okx' | 'binance'
@@ -80,8 +79,8 @@ export const liveAccountApi = {
     exchange?: ExchangeType
     environment?: EnvironmentType
     status?: AccountStatusType
-  }) => {
-    return request.get<APIResponse<PaginationResponse<LiveAccount>>>(
+  }): Promise<PaginationResponse<LiveAccount>> => {
+    return request.get(
       '/api/v1/accounts',
       { params }
     )
@@ -90,50 +89,109 @@ export const liveAccountApi = {
   /**
    * 获取账号详情
    */
-  getAccount: (uuid: string) => {
-    return request.get<APIResponse<LiveAccount>>(`/api/v1/accounts/${uuid}`)
+  getAccount: (uuid: string): Promise<LiveAccount> => {
+    return request.get(`/api/v1/accounts/${uuid}`)
   },
 
   /**
    * 创建账号
    */
-  createAccount: (data: CreateLiveAccountRequest) => {
-    return request.post<APIResponse<{ account_uuid: string }>>('/api/v1/accounts', data)
+  createAccount: (data: CreateLiveAccountRequest): Promise<{ account_uuid: string }> => {
+    return request.post('/api/v1/accounts', data)
   },
 
   /**
    * 更新账号
    */
-  updateAccount: (uuid: string, data: UpdateLiveAccountRequest) => {
-    return request.put<APIResponse<LiveAccount>>(`/api/v1/accounts/${uuid}`, data)
+  updateAccount: (uuid: string, data: UpdateLiveAccountRequest): Promise<LiveAccount> => {
+    return request.put(`/api/v1/accounts/${uuid}`, data)
   },
 
   /**
    * 删除账号
    */
-  deleteAccount: (uuid: string) => {
-    return request.delete<APIResponse<void>>(`/api/v1/accounts/${uuid}`)
+  deleteAccount: (uuid: string): Promise<void> => {
+    return request.delete(`/api/v1/accounts/${uuid}`)
   },
 
   /**
    * 验证账号
    */
-  validateAccount: (uuid: string) => {
-    return request.post<APIResponse<ValidateAccountResponse>>(`/api/v1/accounts/${uuid}/validate`)
+  validateAccount: (uuid: string): Promise<ValidateAccountResponse> => {
+    return request.post(`/api/v1/accounts/${uuid}/validate`)
   },
 
   /**
    * 更新账号状态
    */
-  updateStatus: (uuid: string, status: AccountStatusType) => {
-    return request.put<APIResponse<LiveAccount>>(`/api/v1/accounts/${uuid}/status`, { status })
+  updateStatus: (uuid: string, status: AccountStatusType): Promise<LiveAccount> => {
+    return request.put(`/api/v1/accounts/${uuid}/status`, { status })
   },
 
   /**
    * 获取账号余额
    */
-  getBalance: (uuid: string) => {
-    return request.get<APIResponse<{
+  getBalance: (uuid: string): Promise<{
+    total_equity: string
+    available_balance: string
+    frozen_balance: string
+    currency_balances: Array<{
+      currency: string
+      available: string
+      frozen: string
+      balance: string
+    }>
+  }> => {
+    return request.get(`/api/v1/accounts/${uuid}/balance`)
+  },
+
+  /**
+   * 获取账号持仓
+   */
+  getPositions: (uuid: string): Promise<{
+    positions: Array<{
+      symbol: string
+      side: 'long' | 'short'
+      size: string
+      avg_price: string
+      current_price: string
+      unrealized_pnl: string
+      unrealized_pnl_percentage: string
+      margin: string
+    }>
+  }> => {
+    return request.get(`/api/v1/accounts/${uuid}/positions`)
+  },
+
+  /**
+   * 获取完整账户信息（余额 + 持仓）
+   */
+  getAccountInfo: (uuid: string): Promise<[{
+    total_equity: string
+    available_balance: string
+    frozen_balance: string
+    currency_balances: Array<{
+      currency: string
+      available: string
+      frozen: string
+      balance: string
+    }>
+  }, {
+    positions: Array<{
+      symbol: string
+      side: 'long' | 'short'
+      size: string
+      avg_price: string
+      current_price: string
+      unrealized_pnl: string
+      unrealized_pnl_percentage: string
+      margin: string
+    }>
+  }]> => {
+    return Promise.all([
+      request.get(`/api/v1/accounts/${uuid}/balance`),
+      request.get(`/api/v1/accounts/${uuid}/positions`)
+    ]) as unknown as Promise<[{
       total_equity: string
       available_balance: string
       frozen_balance: string
@@ -143,14 +201,7 @@ export const liveAccountApi = {
         frozen: string
         balance: string
       }>
-    }>>(`/api/v1/accounts/${uuid}/balance`)
-  },
-
-  /**
-   * 获取账号持仓
-   */
-  getPositions: (uuid: string) => {
-    return request.get<APIResponse<{
+    }, {
       positions: Array<{
         symbol: string
         side: 'long' | 'short'
@@ -161,38 +212,7 @@ export const liveAccountApi = {
         unrealized_pnl_percentage: string
         margin: string
       }>
-    }>>(`/api/v1/accounts/${uuid}/positions`)
-  },
-
-  /**
-   * 获取完整账户信息（余额 + 持仓）
-   */
-  getAccountInfo: (uuid: string) => {
-    return Promise.all([
-      request.get<APIResponse<{
-        total_equity: string
-        available_balance: string
-        frozen_balance: string
-        currency_balances: Array<{
-          currency: string
-          available: string
-          frozen: string
-          balance: string
-        }>
-      }>>(`/api/v1/accounts/${uuid}/balance`),
-      request.get<APIResponse<{
-        positions: Array<{
-          symbol: string
-          side: 'long' | 'short'
-          size: string
-          avg_price: string
-          current_price: string
-          unrealized_pnl: string
-          unrealized_pnl_percentage: string
-          margin: string
-        }>
-      }>>(`/api/v1/accounts/${uuid}/positions`)
-    ])
+    }]>
   },
 }
 

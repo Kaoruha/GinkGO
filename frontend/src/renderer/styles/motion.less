@@ -1,0 +1,82 @@
+// ============================================================
+// Motion - 全站动画基建（可插拔：不 import 此文件 = 无动画）
+// 用法：模板加 class 即生效，如 <div class="m-fade-up">
+// 原则：只用 transform/opacity（合成层），避免布局属性
+// ============================================================
+
+// ---------- tokens：改这里换全站节奏 ----------
+:root {
+  --dur-fast: 0.15s;
+  --dur-normal: 0.25s;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+// ---------- keyframes ----------
+@keyframes m-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes m-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes m-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// ---------- 工具类（挂载时进场）----------
+.m-fade-in {
+  animation: m-fade-in var(--dur-normal) var(--ease-out) both;
+}
+
+.m-fade-up {
+  animation: m-fade-up var(--dur-normal) var(--ease-out) both;
+}
+
+.m-scale-in {
+  animation: m-scale-in var(--dur-normal) var(--ease-out) both;
+}
+
+// 子元素依次进场（stagger），配合内联 --m-i 或 nth-child
+.m-stagger > * {
+  animation: m-fade-up var(--dur-normal) var(--ease-out) both;
+  animation-delay: calc(var(--m-i, 0) * 20ms);
+}
+
+.m-stagger > *:nth-child(1) { --m-i: 0; }
+.m-stagger > *:nth-child(2) { --m-i: 1; }
+.m-stagger > *:nth-child(3) { --m-i: 2; }
+.m-stagger > *:nth-child(4) { --m-i: 3; }
+.m-stagger > *:nth-child(5) { --m-i: 4; }
+.m-stagger > *:nth-child(6) { --m-i: 5; }
+.m-stagger > *:nth-child(7) { --m-i: 6; }
+.m-stagger > *:nth-child(8) { --m-i: 7; }
+.m-stagger > *:nth-child(n+9) { --m-i: 8; } // 超过 8 项不再递增，总时长封顶
+
+// ---------- 路由进场（layout 的 keyed wrapper 用）----------
+.m-page {
+  animation: m-fade-up var(--dur-normal) var(--ease-out) both;
+}
+
+// ---------- 全局关闭：无障碍 ----------
+@media (prefers-reduced-motion: reduce) {
+  [class^="m-"],
+  [class*=" m-"] {
+    animation: none !important;
+  }
+}

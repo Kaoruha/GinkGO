@@ -42,7 +42,7 @@ describe('useStatusFormat', () => {
     const { getTagClass, getLabel } = useStatusFormat(config)
 
     expect(getTagClass('unknown' as any)).toBe('tag-gray')
-    expect(getLabel('unknown' as any)).toBe('unknown')
+    expect(getLabel('unknown' as any)).toBe('未知')
   })
 })
 

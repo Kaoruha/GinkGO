@@ -19,17 +19,7 @@
       </div>
 
       <div class="card-body">
-        <div class="tabs-header">
-          <button
-            v-for="tab in categoryTabs"
-            :key="tab.key"
-            class="tab-button"
-            :class="{ active: categoryTab === tab.key }"
-            @click="categoryTab = tab.key"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
+        <TabsNav v-model="categoryTab" size="small" :items="categoryTabs" />
 
         <div class="tab-content">
           <div class="factor-list">
@@ -55,6 +45,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import TabsNav from '@/components/common/TabsNav.vue'
 
 /**
  * 因子选择器组件
@@ -184,7 +175,7 @@ const toggleFactor = (name: string) => {
 
 .card {
   background: hsl(var(--card));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid hsl(var(--border));
 }
 
@@ -208,7 +199,7 @@ const toggleFactor = (name: string) => {
   align-items: center;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 6px 12px;
   width: 200px;
 }
@@ -236,32 +227,6 @@ const toggleFactor = (name: string) => {
   padding: 0;
 }
 
-.tabs-header {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.tab-button {
-  padding: 12px 16px;
-  background: transparent;
-  border: none;
-  color: hsl(var(--muted-foreground));
-  font-size: 13px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-
-.tab-button:hover {
-  color: hsl(var(--foreground));
-}
-
-.tab-button.active {
-  color: hsl(var(--primary));
-  border-bottom-color: hsl(var(--primary));
-}
-
 .tab-content {
   padding: 12px;
 }
@@ -276,7 +241,7 @@ const toggleFactor = (name: string) => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: all 0.2s;
 }

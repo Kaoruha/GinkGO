@@ -44,8 +44,26 @@
       </div>
     </div>
 
+    <!-- 描述栏:列表页展示的 desc 在此编辑 -->
+    <div class="desc-bar" v-if="!loading && !loadError">
+      <input
+        v-model="currentDesc"
+        type="text"
+        class="desc-input"
+        placeholder="添加组件描述（列表页展示）"
+        maxlength="255"
+      />
+    </div>
+
+    <!-- 加载失败占位:避免空白编辑器让用户误判为空文件 -->
+    <div v-if="loadError" class="editor-loading">
+      <p class="load-error">{{ loadError }}</p>
+      <button class="btn-back" @click="loadFile">重试</button>
+      <button class="btn-back" @click="goBack">返回列表</button>
+    </div>
+
     <!-- 编辑器区域 -->
-    <div class="editor-container" v-if="!loading">
+    <div class="editor-container" v-else-if="!loading">
       <vue-monaco-editor
         v-model:value="currentContent"
         language="python"
@@ -87,12 +105,14 @@ import { ref, computed, onMounted, onUnmounted, watch, shallowRef } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
 import { componentsApi } from '@/api/modules/components'
+import message from '@/utils/toast'
 
 const router = useRouter()
 const route = useRoute()
 
 const loading = ref(true)
 const saving = ref(false)
+const loadError = ref('')
 const originalContent = ref('')
 const currentContent = ref('')
 const cursorLine = ref(1)
@@ -119,12 +139,14 @@ const typeColorClass: Record<number, string> = {
 
 const fileName = ref('')
 const fileType = ref<number>(0)
+const originalDesc = ref('')
+const currentDesc = ref('')
 
 const fileTypeLabel = computed(() => typeNames[fileType.value] || '')
 const fileTypeColorClass = computed(() => typeColorClass[fileType.value] || 'gray')
 
 const hasUnsavedChanges = computed(() => {
-  return currentContent.value !== originalContent.value
+  return currentContent.value !== originalContent.value || currentDesc.value !== originalDesc.value
 })
 
 const editorTheme = ref('vs-dark')
@@ -162,10 +184,8 @@ function handleEditorMount(editorInstance: any) {
     cursorLine.value = e.position.lineNumber
     cursorColumn.value = e.position.column
   })
-  editorInstance.addCommand(
-    editorInstance._standaloneEditor?.constructor?.KeyMod?.CtrlCmd | editorInstance._standaloneEditor?.constructor?.KeyCode?.KeyS,
-    () => { handleSave() }
-  )
+  // Ctrl+S 统一走全局 keydown(下方 handleKeyDown),不再在 Monaco 内重复注册:
+  // 双通道会同步触发两次 handleSave,无防重入时重复 PUT
 }
 
 function handleContentChange(value: string) {
@@ -189,6 +209,7 @@ async function loadFile() {
   if (!fileId.value) return
 
   loading.value = true
+  loadError.value = ''
   try {
     const res: any = await componentsApi.get(fileId.value)
     const data = res?.data || res
@@ -198,25 +219,33 @@ async function loadFile() {
     const code = data.code || ''
     originalContent.value = code
     currentContent.value = code
+    originalDesc.value = data.description || ''
+    currentDesc.value = data.description || ''
   } catch (error: any) {
     console.error('加载文件失败:', error)
+    loadError.value = error?.message || '加载文件失败，请重试'
   } finally {
     loading.value = false
   }
 }
 
 async function handleSave() {
-  if (!hasUnsavedChanges.value || !fileId.value) return
+  if (!hasUnsavedChanges.value || !fileId.value || saving.value) return
 
   saving.value = true
   try {
     await componentsApi.update(fileId.value, {
       name: fileName.value,
       code: currentContent.value,
+      description: currentDesc.value,
     })
     originalContent.value = currentContent.value
+    originalDesc.value = currentDesc.value
+    message.success('保存成功')
   } catch (error: any) {
+    // 静默失败会让用户以为已保存(未保存 badge 亮着却无解释),必须明确报错
     console.error('保存失败:', error)
+    message.error(error?.message || '保存失败，请重试')
   } finally {
     saving.value = false
   }
@@ -225,6 +254,7 @@ async function handleSave() {
 function handleReset() {
   if (!hasUnsavedChanges.value) return
   currentContent.value = originalContent.value
+  currentDesc.value = originalDesc.value
 }
 
 function handleKeyDown(e: KeyboardEvent) {
@@ -265,6 +295,32 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.desc-bar {
+  display: flex;
+  padding: 8px 16px;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  flex-shrink: 0;
+}
+
+.desc-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.desc-input:focus {
+  border-color: hsl(var(--primary));
+}
+.desc-input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
 .toolbar-left {
   display: flex;
   align-items: center;
@@ -286,11 +342,11 @@ onUnmounted(() => {
 .btn-back {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 12px;
   background: transparent;
   border: 1px solid hsl(var(--muted-foreground));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--muted-foreground));
   font-size: 14px;
   cursor: pointer;
@@ -325,7 +381,7 @@ onUnmounted(() => {
   padding: 2px 8px;
   background: hsl(var(--warning));
   color: hsl(var(--foreground));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 500;
 }
@@ -348,6 +404,12 @@ onUnmounted(() => {
 
 .editor-loading p {
   margin-top: 16px;
+}
+
+.load-error {
+  color: hsl(var(--error));
+  font-size: 14px;
+  margin: 0 0 8px;
 }
 
 .status-bar {

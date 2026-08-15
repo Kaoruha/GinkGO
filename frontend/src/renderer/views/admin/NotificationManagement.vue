@@ -1,7 +1,6 @@
 <template>
   <PageLayout>
     <template #title>
-      <span class="tag tag-blue">系统</span>
       通知管理
     </template>
     <template #actions>
@@ -9,24 +8,14 @@
     </template>
 
     <div class="card">
-      <div class="tabs-header">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="tab-button"
-          :class="{ active: activeTab === tab.key }"
-          @click="switchTab(tab.key)"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
+      <TabsNav :model-value="activeTab" :items="tabs" @update:model-value="switchTab" />
 
       <!-- 通知模板标签页 -->
       <div v-if="activeTab === 'templates'" class="tab-content">
         <div v-if="loading" class="loading-container">
           <div class="spinner"></div>
         </div>
-        <div v-else class="table-wrapper">
+        <div v-else-if="templates.length > 0" class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
@@ -35,11 +24,10 @@
                 <th>主题</th>
                 <th>状态</th>
                 <th>更新时间</th>
-                <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in templates" :key="record.uuid">
+              <tr v-for="record in templates" :key="record.uuid" @contextmenu="openTemplateMenu($event, record)">
                 <td>{{ record.name }}</td>
                 <td>
                   <span class="tag" :class="getTypeClass(record.type)">{{ getTypeLabel(record.type) }}</span>
@@ -58,20 +46,11 @@
                   </div>
                 </td>
                 <td>{{ formatDate(record.updated_at) }}</td>
-                <td>
-                  <div class="action-links">
-                    <a class="link" @click="editTemplate(record)">编辑</a>
-                    <a class="link" @click="testTemplate(record)">测试</a>
-                    <a class="link text-red" @click="confirmDeleteTemplate(record)">删除</a>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="templates.length === 0">
-                <td colspan="6" class="empty-state">暂无通知模板</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <EmptyState v-else description="暂无通知模板" />
       </div>
 
       <!-- 发送记录标签页 -->
@@ -79,7 +58,7 @@
         <div v-if="loading" class="loading-container">
           <div class="spinner"></div>
         </div>
-        <div v-else class="table-wrapper">
+        <div v-else-if="history.length > 0" class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
@@ -98,18 +77,14 @@
                 <td>{{ record.subject || '-' }}</td>
                 <td>{{ record.recipient }}</td>
                 <td>
-                  <span class="tag" :class="record.status === 'success' ? 'tag-green' : 'tag-red'">
-                    {{ record.status === 'success' ? '成功' : '失败' }}
-                  </span>
+                  <StatusTag type="execution" :status="record.status" />
                 </td>
                 <td>{{ formatDate(record.created_at) }}</td>
-              </tr>
-              <tr v-if="history.length === 0">
-                <td colspan="5" class="empty-state">暂无发送记录</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <EmptyState v-else description="暂无发送记录" />
       </div>
 
       <!-- 接收人标签页 -->
@@ -120,7 +95,7 @@
         <div v-if="loading" class="loading-container">
           <div class="spinner"></div>
         </div>
-        <div v-else class="table-wrapper">
+        <div v-else-if="recipients.length > 0" class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
@@ -129,11 +104,10 @@
                 <th>关联对象</th>
                 <th>描述</th>
                 <th>默认</th>
-                <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in recipients" :key="record.uuid">
+              <tr v-for="record in recipients" :key="record.uuid" @contextmenu="openRecipientMenu($event, record)">
                 <td>{{ record.name }}</td>
                 <td>
                   <span class="tag tag-blue">{{ record.recipient_type === 'USER' ? '用户' : '用户组' }}</span>
@@ -143,20 +117,11 @@
                 <td>
                   <span v-if="record.is_default" class="tag tag-green">默认</span>
                 </td>
-                <td>
-                  <div class="action-links">
-                    <a class="link" @click="editRecipient(record)">编辑</a>
-                    <a class="link" @click="testRecipient(record)">测试</a>
-                    <a class="link text-red" @click="confirmDeleteRecipient(record)">删除</a>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="recipients.length === 0">
-                <td colspan="6" class="empty-state">暂无接收人</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <EmptyState v-else description="暂无接收人" />
       </div>
     </div>
 
@@ -239,8 +204,32 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import TabsNav from '@/components/common/TabsNav.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
 import { notificationsApi, type NotificationTemplate, type NotificationHistory, type NotificationRecipient } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 行右键菜单(替代操作列;删除走菜单内置确认) */
+const { open: openCtxMenu } = useContextMenu()
+const openTemplateMenu = (e: MouseEvent, record: NotificationTemplate) => {
+  openCtxMenu(e, [
+    { label: '编辑', action: () => editTemplate(record) },
+    { label: '测试', action: () => testTemplate(record) },
+    { divider: true },
+    { label: '删除', danger: true, confirm: `确定要删除模板「${record.name}」吗？`, action: () => deleteTemplate(record) },
+  ])
+}
+
+const openRecipientMenu = (e: MouseEvent, record: NotificationRecipient) => {
+  openCtxMenu(e, [
+    { label: '编辑', action: () => editRecipient(record) },
+    { label: '测试', action: () => testRecipient(record) },
+    { divider: true },
+    { label: '删除', danger: true, confirm: `确定要删除接收人「${record.name}」吗？`, action: () => deleteRecipient(record) },
+  ])
+}
 
 const activeTab = ref('templates')
 const loading = ref(false)
@@ -365,12 +354,6 @@ const testTemplate = async (record: NotificationTemplate) => {
   }
 }
 
-const confirmDeleteTemplate = (record: NotificationTemplate) => {
-  if (confirm(`确定要删除模板 "${record.name}" 吗？`)) {
-    deleteTemplate(record)
-  }
-}
-
 const deleteTemplate = async (record: NotificationTemplate) => {
   try {
     await notificationsApi.deleteTemplate(record.uuid)
@@ -436,12 +419,6 @@ const testRecipient = async (record: NotificationRecipient) => {
   }
 }
 
-const confirmDeleteRecipient = (record: NotificationRecipient) => {
-  if (confirm(`确定要删除接收人 "${record.name}" 吗？`)) {
-    deleteRecipient(record)
-  }
-}
-
 const deleteRecipient = async (record: NotificationRecipient) => {
   try {
     await notificationsApi.deleteRecipient(record.uuid)
@@ -479,53 +456,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content, .modal {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-}
-
-
-/* Tabs样式 */
-.tabs-header {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.tab-button {
-  padding: 16px 24px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: hsl(var(--muted-foreground));
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tab-button:hover {
-  color: hsl(var(--foreground));
-}
-
-.tab-button.active {
-  color: hsl(var(--primary));
-  border-bottom-color: hsl(var(--primary));
-}
+/* 模态框样式走全局 modals.less */
 
 .tab-content {
   padding: 20px;
@@ -544,7 +475,7 @@ onMounted(() => {
 
 /* 表格样式 */
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -560,6 +491,9 @@ onMounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -573,25 +507,6 @@ onMounted(() => {
 
 .data-table tr:hover {
   background: hsl(var(--border));
-}
-
-.action-links {
-  display: flex;
-  gap: 12px;
-}
-
-.link {
-  color: hsl(var(--primary));
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
-.text-red {
-  color: hsl(var(--error));
 }
 
 /* Switch组件 */
@@ -610,7 +525,7 @@ onMounted(() => {
   width: 44px;
   height: 22px;
   background: hsl(var(--secondary));
-  border-radius: 11px;
+  border-radius: 9999px;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -648,15 +563,5 @@ onMounted(() => {
   width: 16px;
   height: 16px;
   cursor: pointer;
-}
-
-.required {
-  color: hsl(var(--error));
-}
-
-.empty-state {
-  text-align: center;
-  color: hsl(var(--muted-foreground));
-  padding: 32px !important;
 }
 </style>

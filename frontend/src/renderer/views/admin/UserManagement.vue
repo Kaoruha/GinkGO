@@ -1,7 +1,6 @@
 <template>
   <PageLayout>
     <template #title>
-      <span class="tag tag-blue">系统</span>
       用户管理
     </template>
     <template #actions>
@@ -34,7 +33,7 @@
       <div v-if="loading" class="loading-container">
         <div class="spinner"></div>
       </div>
-      <div v-else class="table-wrapper">
+      <div v-else-if="users.length > 0" class="table-wrapper">
         <table class="data-table">
           <thead>
             <tr>
@@ -44,39 +43,27 @@
               <th>状态</th>
               <th>角色</th>
               <th>创建时间</th>
-              <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in users" :key="record.uuid">
+            <tr v-for="record in users" :key="record.uuid" @contextmenu="openRowMenu($event, record)">
               <td>{{ record.username }}</td>
               <td>{{ record.display_name || '-' }}</td>
               <td>{{ record.email }}</td>
               <td>
-                <span class="tag" :class="record.status === 'active' ? 'tag-green' : 'tag-gray'">
-                  {{ record.status === 'active' ? '启用' : '禁用' }}
-                </span>
+                <StatusTag type="enable" :status="record.status" />
               </td>
               <td>
-                <span v-for="role in record.roles" :key="role" class="tag tag-blue" style="margin-right: 4px">
+                <span v-for="role in record.roles" :key="role" class="tag tag-blue role-tag">
                   {{ role }}
                 </span>
               </td>
               <td>{{ formatDate(record.created_at) }}</td>
-              <td>
-                <div class="action-links">
-                  <a @click="editUser(record)">编辑</a>
-                  <a @click="openResetPassword(record)">重置密码</a>
-                  <a class="danger-link" @click="deleteUserWithConfirm(record)">删除</a>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="users.length === 0">
-              <td colspan="7" class="empty-state">暂无用户数据</td>
             </tr>
           </tbody>
         </table>
       </div>
+      <EmptyState v-else description="暂无用户数据" />
     </div>
 
     <!-- 创建/编辑用户 Modal -->
@@ -154,8 +141,22 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
 import { usersApi, type UserInfo } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 行右键菜单(替代操作列;删除走菜单内置确认) */
+const { open: openRowMenu0 } = useContextMenu()
+const openRowMenu = (e: MouseEvent, record: UserInfo) => {
+  openRowMenu0(e, [
+    { label: '编辑', action: () => editUser(record) },
+    { label: '重置密码', action: () => openResetPassword(record) },
+    { divider: true },
+    { label: '删除', danger: true, confirm: `确定删除用户「${record.username}」吗？`, action: () => deleteUser(record) },
+  ])
+}
 
 const loading = ref(false)
 const showCreateModal = ref(false)
@@ -276,8 +277,7 @@ const handleResetPassword = async () => {
   }
 }
 
-const deleteUserWithConfirm = async (record: UserInfo) => {
-  if (!confirm(`确定删除用户 "${record.username}" 吗？`)) return
+const deleteUser = async (record: UserInfo) => {
   try {
     await usersApi.delete(record.uuid)
     toast.success('用户已删除')
@@ -293,24 +293,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content, .modal {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-}
+/* 模态框样式走全局 modals.less */
 
 /* Filter Row */
 .filter-row {
@@ -325,7 +308,7 @@ onMounted(() => {
   gap: 8px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 6px 12px;
   flex: 1;
   max-width: 400px;
@@ -353,7 +336,7 @@ onMounted(() => {
   padding: 4px 12px;
   background: hsl(var(--primary));
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--primary-foreground));
   font-size: 13px;
   cursor: pointer;
@@ -361,7 +344,7 @@ onMounted(() => {
 
 /* Table */
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -378,6 +361,9 @@ onMounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -391,28 +377,8 @@ onMounted(() => {
   background: hsl(var(--border));
 }
 
-/* Action Links */
-.action-links {
-  display: flex;
-  gap: 12px;
-}
-
-.action-links a {
-  color: hsl(var(--primary));
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.action-links a:hover {
-  text-decoration: underline;
-}
-
-.danger-link {
-  color: hsl(var(--error)) !important;
-}
-
-.required {
-  color: hsl(var(--error));
+.role-tag {
+  margin-right: 4px;
 }
 
 /* Switch */
@@ -429,7 +395,7 @@ onMounted(() => {
   height: 22px;
   appearance: none;
   background: hsl(var(--secondary));
-  border-radius: 11px;
+  border-radius: 9999px;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -457,11 +423,5 @@ onMounted(() => {
 .switch-text {
   font-size: 13px;
   color: hsl(var(--foreground));
-}
-
-.empty-state {
-  text-align: center;
-  color: hsl(var(--muted-foreground));
-  padding: 32px !important;
 }
 </style>

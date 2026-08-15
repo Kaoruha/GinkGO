@@ -142,14 +142,14 @@ export const useBacktestStore = defineStore('backtest', () => {
 
   /**
    * 获取任务列表
+   * @param opts.silent 静默拉取（轮询场景），不触发 loading 闪烁
    */
-  async function fetchList(params?: { status?: string; page?: number; size?: number; keyword?: string }) {
-    loading.value = true
+  async function fetchList(params?: { status?: string; page?: number; size?: number; keyword?: string }, opts?: { silent?: boolean }) {
+    if (!opts?.silent) loading.value = true
     try {
       const result = await backtestApi.list(params)
-      const payload = (result as any).data !== undefined ? (result as any).data : result
-      tasks.value = (payload as BacktestTask[]) || []
-      total.value = (payload as any)?.total || 0
+      tasks.value = result.items || []
+      total.value = result.total || 0
       lastUpdate.value = new Date().toISOString()
 
       // 更新运行中任务集合
@@ -166,7 +166,7 @@ export const useBacktestStore = defineStore('backtest', () => {
       console.error('Failed to fetch backtest list:', error)
       return null
     } finally {
-      loading.value = false
+      if (!opts?.silent) loading.value = false
     }
   }
 
@@ -177,23 +177,22 @@ export const useBacktestStore = defineStore('backtest', () => {
     detailLoading.value = true
     try {
       const task = await backtestApi.get(uuid)
-      const payload = (task as any).data !== undefined ? (task as any).data : task
-      currentTask.value = payload
+      currentTask.value = task
 
       // 更新列表中的任务
       const index = tasks.value.findIndex(t => t.uuid === uuid)
       if (index !== -1) {
-        tasks.value[index] = payload
+        tasks.value[index] = task
       }
 
       // 更新运行状态
-      if (payload.status === 'running') {
+      if (task.status === 'running') {
         runningTaskIds.value.add(uuid)
       } else {
         runningTaskIds.value.delete(uuid)
       }
 
-      return payload
+      return task
     } catch (error) {
       console.error('Failed to fetch backtest task:', error)
       return null
@@ -208,9 +207,8 @@ export const useBacktestStore = defineStore('backtest', () => {
   async function fetchNetValue(uuid: string) {
     try {
       const result = await backtestApi.getNetValue(uuid)
-      const payload = (result as any).data !== undefined ? (result as any).data : result
-      currentNetValue.value = payload
-      return payload
+      currentNetValue.value = result
+      return result
     } catch (error) {
       console.error('Failed to fetch net value:', error)
       return null
@@ -223,8 +221,7 @@ export const useBacktestStore = defineStore('backtest', () => {
   async function fetchAnalyzers(uuid: string) {
     try {
       const result = await backtestApi.getAnalyzers(uuid)
-      const payload = (result as any).data !== undefined ? (result as any).data : result
-      currentAnalyzers.value = payload.analyzers || []
+      currentAnalyzers.value = result.analyzers || []
       return result
     } catch (error) {
       console.error('Failed to fetch analyzers:', error)
@@ -238,10 +235,9 @@ export const useBacktestStore = defineStore('backtest', () => {
   async function createTask(data: { name: string; portfolio_uuids: string[]; engine_config: Record<string, any> }) {
     try {
       const result = await backtestApi.create(data as BacktestCreateRequest)
-      const payload = (result as any).data !== undefined ? (result as any).data : result
-      tasks.value.unshift(payload)
+      tasks.value.unshift(result)
       total.value++
-      return payload
+      return result
     } catch (error) {
       console.error('Failed to create backtest task:', error)
       throw error
@@ -508,9 +504,10 @@ export const useBacktestStore = defineStore('backtest', () => {
 
     pollingMode.value = true
     pollingTimer = window.setInterval(async () => {
-      // 只在有运行中任务时才轮询
-      if (runningTaskIds.value.size > 0) {
-        await fetchList()
+      // 有未终态任务（排队/运行中）时才轮询——排队中任务不在 runningTaskIds 里，须单独查
+      const hasActive = tasks.value.some(t => ['pending', 'created', 'running'].includes(t.status))
+      if (hasActive || runningTaskIds.value.size > 0) {
+        await fetchList(undefined, { silent: true })
       }
     }, interval)
   }

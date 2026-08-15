@@ -8,8 +8,8 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
  * 列表页配置选项
  */
 export interface ListPageOptions<T, P extends Record<string, any>> {
-  /** 数据获取函数 */
-  fetchFn: (params: P) => Promise<{ data: T[]; total: number }>
+  /** 数据获取函数（request.ts 拦截器拆包后的分页结构） */
+  fetchFn: (params: P) => Promise<{ items: T[]; total: number }>
   /** 默认每页条数 */
   defaultPageSize?: number
   /** 搜索过滤函数，返回 true 表示匹配 */
@@ -95,7 +95,8 @@ export function useListPage<T, P extends Record<string, any> = Record<string, an
       } as unknown as P
 
       const result = await fetchFn(params)
-      data.value = result.data || []
+      // request.ts 拦截器已拆包: 分页端点 = { items, total, ... }
+      data.value = result.items || []
       total.value = result.total || 0
     } finally {
       loading.value = false

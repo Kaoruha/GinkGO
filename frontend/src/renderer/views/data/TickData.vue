@@ -3,9 +3,6 @@
     <template #title>
       <PageTitle
         title="Tick 数据"
-        back-action
-        back-label="数据"
-        @back="$router.push('/data')"
       >
         <template #prefix><span class="tag tag-orange">Tick</span></template>
       </PageTitle>
@@ -65,6 +62,7 @@
         :page-size="tablePageSize"
         :max-height="340"
         row-key="uuid"
+        :context-menu="rowMenu"
         @update:page="tablePage = $event"
         @update:page-size="tablePageSize = $event"
       >
@@ -75,7 +73,12 @@
           <span :class="directionClass(record.direction)">{{ directionLabel(record.direction) }}</span>
         </template>
       </DataTable>
-      <div v-if="!loading && selectedCode && tickData.length === 0 && searched" class="empty-state">
+      <!-- 查询失败:区别于"无数据",提供重试 -->
+      <div v-if="!loading && loadError" class="empty-state">
+        <p class="error-text">{{ loadError }}</p>
+        <button class="btn-retry" @click="loadData">重试</button>
+      </div>
+      <div v-else-if="!loading && selectedCode && tickData.length === 0 && searched" class="empty-state">
         当前股票在所选日期范围内无 Tick 数据，请尝试其他股票
       </div>
       <div v-if="!loading && !selectedCode" class="empty-state">
@@ -97,12 +100,16 @@ import { useChartTheme, cssColor, upColor, downColor } from '@/composables/useCh
 import { dataApi } from '@/api/modules/data'
 import type { TickData } from '@/api/modules/data'
 import dayjs from 'dayjs'
+import { message as toast } from '@/utils/toast'
+import type { MenuItem } from '@/composables/useContextMenu'
 
 const route = useRoute()
 const { theme } = useChartTheme()
 
 const loading = ref(false)
 const searched = ref(false)
+// 查询失败(后端 5xx/网络断):须与"无 Tick 数据"空态区分,否则误导用户换股票重查
+const loadError = ref('')
 const selectedCode = ref('')
 const selectedLabel = ref('')
 const startDate = ref(dayjs().subtract(1, 'year').format('YYYY-MM-DD'))
@@ -112,6 +119,13 @@ const tickData = ref<TickData[]>([])
 // 表格客户端分页（全量数据已加载，前端切页）
 const tablePage = ref(1)
 const tablePageSize = ref(50)
+
+/** 行右键菜单:复制行情值 */
+const rowMenu = (record: TickData): MenuItem[] => [
+  { label: '复制时间', action: () => { navigator.clipboard.writeText(formatTime(record.timestamp)); toast.success('已复制') } },
+  { label: '复制价格', action: () => { navigator.clipboard.writeText(String(record.price ?? '')); toast.success('已复制') } },
+  { label: '复制代码', action: () => { navigator.clipboard.writeText(record.code || selectedCode.value); toast.success('已复制') } },
+]
 
 // 图表：时间桶聚合
 const bucketSize = ref(5) // 分钟
@@ -190,8 +204,7 @@ const tickColumns = [
 
 const searchStocks = async (query: string) => {
   const res: any = await dataApi.listStocks({ query, page_size: 50 })
-  const payload = res?.data !== undefined ? res.data : res
-  const items = Array.isArray(payload) ? payload : (payload?.data ?? payload?.items ?? [])
+  const items = res?.items ?? []
   return items.map((s: any) => ({
     value: s.code,
     label: `${s.code} ${s.name || ''}`,
@@ -237,9 +250,8 @@ function directionClass(d: number) {
 }
 
 function extractItems(res: any): { items: any[]; total: number } {
-  const payload = res?.data !== undefined ? res.data : res
-  const items = Array.isArray(payload) ? payload : (payload?.data ?? payload?.items ?? [])
-  const total = res?.meta?.total ?? res?.total ?? items.length ?? 0
+  const items = res?.items ?? []
+  const total = res?.total ?? items.length ?? 0
   return { items, total }
 }
 
@@ -252,6 +264,7 @@ async function loadData() {
   if (!selectedCode.value) return
   loading.value = true
   searched.value = true
+  loadError.value = ''
   tablePage.value = 1
   try {
     const res: any = await dataApi.getTicks({
@@ -264,8 +277,10 @@ async function loadData() {
     const { items } = extractItems(res)
     tickData.value = items
     nextTick(() => updateChart())
-  } catch {
+  } catch (e: any) {
     tickData.value = []
+    const st = e?.response?.status
+    loadError.value = st ? `Tick 数据加载失败（HTTP ${st}）` : 'Tick 数据加载失败，请检查网络后重试'
   } finally {
     loading.value = false
   }
@@ -420,13 +435,13 @@ onUnmounted(() => {
 
 .control-input {
   padding: 7px 12px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary));
-  border-radius: 4px; color: hsl(var(--foreground)); font-size: 13px; width: 140px;
+  border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 13px; width: 140px;
 }
 .control-input:focus { outline: none; border-color: hsl(var(--primary)); }
 
 .btn-query {
   display: inline-flex; align-items: center; padding: 7px 16px;
-  background: hsl(var(--primary)); border: none; border-radius: 4px; color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary)); border: none; border-radius: var(--radius-sm); color: hsl(var(--primary-foreground));
   font-size: 13px; cursor: pointer; transition: all 0.2s;
 }
 .btn-query:hover:not(:disabled) { background: hsl(var(--primary)); }
@@ -446,7 +461,7 @@ onUnmounted(() => {
 .bucket-selector { display: flex; gap: 4px; }
 .bucket-btn {
   padding: 4px 10px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary));
-  border-radius: 4px; color: hsl(var(--muted-foreground)); font-size: 12px; cursor: pointer; transition: all 0.2s;
+  border-radius: var(--radius-sm); color: hsl(var(--muted-foreground)); font-size: 12px; cursor: pointer; transition: all 0.2s;
 }
 .bucket-btn:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
 .bucket-btn.active { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
@@ -459,9 +474,17 @@ onUnmounted(() => {
   font-size: 13px; border-top: 1px solid hsl(var(--border));
 }
 
+.empty-state .error-text { color: hsl(var(--error)); margin: 0 0 12px; }
+.btn-retry {
+  padding: 6px 16px; background: transparent; border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm); color: hsl(var(--foreground));
+  font-size: 13px; cursor: pointer;
+}
+.btn-retry:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
+
 .text-up { color: hsl(var(--success)) !important; }
 .text-down { color: hsl(var(--error)) !important; }
 .text-neutral { color: hsl(var(--muted-foreground)); }
 
-.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; }
 </style>

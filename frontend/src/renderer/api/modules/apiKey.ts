@@ -1,5 +1,4 @@
 import request from '../request'
-import type { APIResponse } from '@/types/api'
 
 // 权限类型
 export type PermissionType = 'read' | 'trade' | 'admin'
@@ -62,86 +61,53 @@ export interface VerifyApiKeyResponse {
   user_id: string | null
 }
 
-/**
- * API Key API
- */
+// 拦截器已拆信封: 签名为业务 payload 本身, 调用方不再 .data。
 export const apiKeyApi = {
-  /**
-   * 获取 API Key 列表
-   */
-  listApiKeys: (params?: {
-    user_id?: string
-  }) => {
-    return request.get<APIResponse<ApiKey[]>>(`/api/v1/settings/api-keys`, { params })
+  /** 获取 API Key 列表 */
+  listApiKeys: (params?: { user_id?: string }): Promise<ApiKey[]> => {
+    return request.get(`/api/v1/settings/api-keys`, { params })
   },
 
-  /**
-   * 创建 API Key
-   */
-  createApiKey: (data: CreateApiKeyRequest) => {
-    return request.post<APIResponse<CreateApiKeyResponse>>(
-      `/api/v1/settings/api-keys`,
-      data
-    )
+  /** 创建 API Key */
+  createApiKey: (data: CreateApiKeyRequest): Promise<CreateApiKeyResponse> => {
+    return request.post(`/api/v1/settings/api-keys`, data)
   },
 
-  /**
-   * 获取 API Key 详情
-   */
-  getApiKey: (uuid: string) => {
-    return request.get<APIResponse<ApiKey>>(`/api/v1/settings/api-keys/${uuid}`)
+  /** 获取 API Key 详情 */
+  getApiKey: (uuid: string): Promise<ApiKey> => {
+    return request.get(`/api/v1/settings/api-keys/${uuid}`)
   },
 
-  /**
-   * 更新 API Key
-   */
-  updateApiKey: (uuid: string, data: UpdateApiKeyRequest) => {
-    return request.put<APIResponse<{ uuid: string }>>(`/api/v1/settings/api-keys/${uuid}`, data)
+  /** 更新 API Key */
+  updateApiKey: (uuid: string, data: UpdateApiKeyRequest): Promise<{ uuid: string }> => {
+    return request.put(`/api/v1/settings/api-keys/${uuid}`, data)
   },
 
-  /**
-   * 删除 API Key
-   */
-  deleteApiKey: (uuid: string) => {
-    return request.delete<APIResponse<{ uuid: string }>>(`/api/v1/settings/api-keys/${uuid}`)
+  /** 删除 API Key */
+  deleteApiKey: (uuid: string): Promise<{ uuid: string }> => {
+    return request.delete(`/api/v1/settings/api-keys/${uuid}`)
   },
 
-  /**
-   * 获取完整 API Key（用于复制）
-   */
-  revealApiKey: (uuid: string) => {
-    return request.post<APIResponse<{ uuid: string; name: string; key_value: string }>>(
-      `/api/v1/settings/api-keys/${uuid}/reveal`
-    )
+  /** 获取完整 API Key（用于复制） */
+  revealApiKey: (uuid: string): Promise<{ uuid: string; name: string; key_value: string }> => {
+    return request.post(`/api/v1/settings/api-keys/${uuid}/reveal`)
   },
 
-  /**
-   * 验证 API Key
-   */
-  verifyApiKey: (apiKey: string, requiredPermission?: string) => {
-    return request.post<APIResponse<VerifyApiKeyResponse | null>>(
+  /** 验证 API Key */
+  verifyApiKey: (apiKey: string, requiredPermission?: string): Promise<VerifyApiKeyResponse | null> => {
+    return request.post(
       `/api/v1/settings/api-keys/verify?required_permission=${requiredPermission || ''}`,
       {},
-      {
-        headers: {
-          'X-API-Key': apiKey
-        }
-      }
+      { headers: { 'X-API-Key': apiKey } }
     )
   },
 
-  /**
-   * 检查权限
-   */
-  checkPermission: (apiKey: string, permission: string) => {
-    return request.post<APIResponse<{ has_permission: boolean; permission: string }>>(
+  /** 检查权限 */
+  checkPermission: (apiKey: string, permission: string): Promise<{ has_permission: boolean; permission: string }> => {
+    return request.post(
       `/api/v1/settings/api-keys/check-permission?permission=${permission}`,
       {},
-      {
-        headers: {
-          'X-API-Key': apiKey
-        }
-      }
+      { headers: { 'X-API-Key': apiKey } }
     )
-  }
+  },
 }

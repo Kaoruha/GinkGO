@@ -1,4 +1,5 @@
 import request from '../request'
+import type { PaginatedData } from '@/types/api'
 
 export interface PortfolioComponent {
   uuid: string
@@ -79,7 +80,7 @@ export const portfolioApi = {
   /**
    * 获取 Portfolio 列表
    */
-  list(params?: PortfolioListParams): Promise<{ data: Portfolio[]; total: number }> {
+  list(params?: PortfolioListParams): Promise<PaginatedData<Portfolio>> {
     return request.get('/api/v1/portfolios/', { params })
   },
 
@@ -100,7 +101,7 @@ export const portfolioApi = {
   /**
    * 更新 Portfolio
    */
-  update(uuid: string, data: Partial<Portfolio>): Promise<Portfolio> {
+  update(uuid: string, data: Partial<Portfolio> | PortfolioCreateRequest): Promise<Portfolio> {
     return request.put(`/api/v1/portfolios/${uuid}`, data)
   },
 
@@ -150,10 +151,7 @@ export const portfolioApi = {
   /**
    * 获取统一事件时间线
    */
-  listEvents(uuid: string, params?: { limit?: number; offset?: number }): Promise<{
-    data: any[]
-    total: number
-  }> {
+  listEvents(uuid: string, params?: { limit?: number; offset?: number }): Promise<PaginatedData<any>> {
     return request.get(`/api/v1/portfolios/${uuid}/events`, { params })
   },
 }

@@ -59,32 +59,20 @@ export interface PositionListParams {
   size?: number
 }
 
-/**
- * 后端统一响应信封。
- * request.ts 响应拦截器已 `return data`（= response.data = 后端 body），
- * 故 request.get() 返回的已经是 body 本身；API 模块不得再 `.data` 二次解包。
- * 后端 orders/positions 端点用 ok(data=...)，body = {code, data, message}，
- * 无 total/meta（分页由调用方自行处理）。
- */
-export interface ApiResponse<T> {
-  code: number
-  data: T
-  message: string
-  trace_id?: string
-}
-
+// 拦截器已拆信封: 实盘 orders/positions 是 ok(data=[...]) 裸数组(无 meta),
+// 拦截器返数组本身 → 签名为 T[]; 详情为单实体 T。
 export const orderApi = {
   /**
    * 获取订单列表
    */
-  list(params: OrderListParams = {}): Promise<ApiResponse<Order[]>> {
+  list(params: OrderListParams = {}): Promise<Order[]> {
     return request.get('/api/v1/orders', { params })
   },
 
   /**
    * 获取订单详情
    */
-  get(orderId: string): Promise<ApiResponse<Order>> {
+  get(orderId: string): Promise<Order> {
     return request.get(`/api/v1/orders/${orderId}`)
   },
 }
@@ -93,14 +81,14 @@ export const positionApi = {
   /**
    * 获取持仓列表
    */
-  list(params: PositionListParams = {}): Promise<ApiResponse<Position[]>> {
+  list(params: PositionListParams = {}): Promise<Position[]> {
     return request.get('/api/v1/positions', { params })
   },
 
   /**
    * 获取持仓详情
    */
-  get(positionId: string): Promise<ApiResponse<Position>> {
+  get(positionId: string): Promise<Position> {
     return request.get(`/api/v1/positions/${positionId}`)
   },
 }

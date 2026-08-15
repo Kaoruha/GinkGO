@@ -22,73 +22,45 @@ const routes: RouteRecordRaw[] = [
       { path: 'paper', name: 'PortfolioPaper', component: () => import('@/views/portfolio/tabs/PaperTab.vue'), meta: { title: '模拟盘' } },
       { path: 'live', name: 'PortfolioLive', component: () => import('@/views/portfolio/tabs/LiveTab.vue'), meta: { title: '实盘' } },
       { path: 'backtests', name: 'PortfolioBacktests', component: () => import('@/views/portfolio/tabs/BacktestTab.vue'), meta: { title: '回测' } },
-      { path: 'backtests/:backtestId', name: 'BacktestDetail', component: () => import('@/views/portfolio/tabs/BacktestTab.vue'), meta: { title: '回测详情' } },
+      // 回测详情已提为顶级路由 /backtests/:uuid(BacktestDetailPage),旧嵌套路径 redirect 兼容
+      { path: 'backtests/:backtestId', redirect: to => `/backtests/${to.params.backtestId}` },
       { path: 'validation', name: 'PortfolioValidation', component: () => import('@/views/portfolio/tabs/ValidationTab.vue'), meta: { title: '验证' } },
       { path: 'components', name: 'PortfolioComponents', component: () => import('@/views/portfolio/tabs/ComponentsTab.vue'), meta: { title: '组件' } },
     ],
   },
   { path: '/portfolios/:id/edit', name: 'PortfolioEdit', component: () => import('@/views/portfolio/PortfolioFormEditor.vue'), meta: { title: '编辑组合' } },
 
-  // ===== 组件库 =====
-  {
-    path: '/components',
-    component: () => import('@/views/admin/AdminPage.vue'),
-    children: [
-      { path: '', name: 'Components', component: () => import('@/views/components/ComponentListPage.vue'), meta: { title: '组件库' } },
-      { path: ':type', name: 'ComponentList', component: () => import('@/views/components/ComponentListPage.vue'), meta: { title: '组件列表' } },
-      { path: ':type/:id', name: 'ComponentDetail', component: () => import('@/views/components/ComponentDetail.vue'), meta: { title: '组件详情' } },
-    ],
-  },
+  // ===== 组件库（二级菜单已并入 AppSider,叶子路由直达;无 type 时空态,直达默认类型） =====
+  { path: '/components', name: 'Components', redirect: '/components/strategies' },
+  { path: '/components/:type', name: 'ComponentList', component: () => import('@/views/components/ComponentListPage.vue'), meta: { title: '组件列表' } },
+  { path: '/components/:type/:id', name: 'ComponentDetail', component: () => import('@/views/components/ComponentDetail.vue'), meta: { title: '组件详情' } },
 
   // ===== 研究 =====
-  { path: '/research', name: 'Research', redirect: '/research/factor', meta: { title: '研究' } },
-  {
-    path: '/research/factor',
-    component: () => import('@/views/research/ResearchPage.vue'),
-    children: [
-      { path: '', name: 'FactorResearch', redirect: '/research/factor/ic' },
-      { path: 'ic', name: 'ICAnalysis', component: () => import('@/views/research/ICAnalysis.vue'), meta: { title: 'IC 分析' } },
-      { path: 'layering', name: 'FactorLayering', component: () => import('@/views/research/FactorLayering.vue'), meta: { title: '因子分层' } },
-      { path: 'orthogonal', name: 'FactorOrthogonalization', component: () => import('@/views/research/FactorOrthogonalization.vue'), meta: { title: '因子正交化' } },
-      { path: 'comparison', name: 'FactorComparison', component: () => import('@/views/research/FactorComparison.vue'), meta: { title: '因子比较' } },
-      { path: 'decay', name: 'FactorDecay', component: () => import('@/views/research/FactorDecay.vue'), meta: { title: '因子衰减' } },
-    ],
-  },
-  {
-    path: '/research/optimization',
-    component: () => import('@/views/research/ResearchPage.vue'),
-    children: [
-      { path: '', name: 'Optimization', redirect: '/research/optimization/grid' },
-      { path: 'grid', name: 'GridSearch', component: () => import('@/views/optimization/GridSearch.vue'), meta: { title: '网格搜索' } },
-      { path: 'genetic', name: 'GeneticOptimizer', component: () => import('@/views/optimization/GeneticOptimizer.vue'), meta: { title: '遗传算法' } },
-      { path: 'bayesian', name: 'BayesianOptimizer', component: () => import('@/views/optimization/BayesianOptimizer.vue'), meta: { title: '贝叶斯优化' } },
-    ],
-  },
+  { path: '/research', name: 'Research', redirect: '/research/factor/ic', meta: { title: '研究' } },
+  { path: '/research/factor', redirect: '/research/factor/ic' },
+  { path: '/research/factor/ic', name: 'ICAnalysis', component: () => import('@/views/research/ICAnalysis.vue'), meta: { title: 'IC 分析' } },
+  { path: '/research/factor/layering', name: 'FactorLayering', component: () => import('@/views/research/FactorLayering.vue'), meta: { title: '因子分层' } },
+  { path: '/research/factor/orthogonal', name: 'FactorOrthogonalization', component: () => import('@/views/research/FactorOrthogonalization.vue'), meta: { title: '因子正交化' } },
+  { path: '/research/factor/comparison', name: 'FactorComparison', component: () => import('@/views/research/FactorComparison.vue'), meta: { title: '因子比较' } },
+  { path: '/research/factor/decay', name: 'FactorDecay', component: () => import('@/views/research/FactorDecay.vue'), meta: { title: '因子衰减' } },
+  { path: '/research/optimization', name: 'Optimization', redirect: '/research/optimization/grid' },
+  { path: '/research/optimization/grid', name: 'GridSearch', component: () => import('@/views/optimization/GridSearch.vue'), meta: { title: '网格搜索' } },
+  { path: '/research/optimization/genetic', name: 'GeneticOptimizer', component: () => import('@/views/optimization/GeneticOptimizer.vue'), meta: { title: '遗传算法' } },
+  { path: '/research/optimization/bayesian', name: 'BayesianOptimizer', component: () => import('@/views/optimization/BayesianOptimizer.vue'), meta: { title: '贝叶斯优化' } },
 
   // ===== 回测中心 =====
   { path: '/backtests', name: 'BacktestCenter', component: () => import('@/views/backtest/BacktestListPage.vue'), meta: { title: '回测中心' } },
+  { path: '/backtests/:uuid', name: 'BacktestDetail', component: () => import('@/views/backtest/BacktestDetailPage.vue'), meta: { title: '回测详情' } },
 
   // ===== 交易 =====
-  {
-    path: '/trading',
-    component: () => import('@/views/trading/TradingPage.vue'),
-    children: [
-      { path: '', redirect: '/trading/paper' },
-      { path: 'paper', name: 'TradingPaper', component: () => import('@/views/trading/PaperTrading.vue'), meta: { title: '模拟盘监控' } },
-      {
-        path: 'live',
-        component: () => import('@/views/live/LivePage.vue'),
-        children: [
-          { path: '', name: 'TradingLive', component: () => import('@/views/live/LiveTrading.vue'), meta: { title: '实盘监控' } },
-          { path: 'accounts', name: 'LiveAccountConfig', component: () => import('@/views/live/AccountConfig.vue'), meta: { title: '账号配置' } },
-          { path: 'monitor', name: 'LiveAccountInfo', component: () => import('@/views/live/AccountInfo.vue'), meta: { title: '账户监控' } },
-          { path: 'brokers', name: 'LiveBrokers', component: () => import('@/views/live/BrokerManagement.vue'), meta: { title: 'Broker 管理' } },
-          { path: 'market', name: 'MarketData', component: () => import('@/views/live/MarketData.vue'), meta: { title: '市场数据', requiresAuth: false } },
-          { path: 'history', name: 'TradeHistory', component: () => import('@/views/live/TradeHistory.vue'), meta: { title: '交易历史' } },
-        ],
-      },
-    ],
-  },
+  { path: '/trading', redirect: '/trading/paper' },
+  { path: '/trading/paper', name: 'TradingPaper', component: () => import('@/views/trading/PaperTrading.vue'), meta: { title: '模拟盘监控' } },
+  { path: '/trading/live', name: 'TradingLive', component: () => import('@/views/live/LiveTrading.vue'), meta: { title: '实盘监控' } },
+  { path: '/trading/live/accounts', name: 'LiveAccountConfig', component: () => import('@/views/live/AccountConfig.vue'), meta: { title: '账号配置' } },
+  { path: '/trading/live/monitor', name: 'LiveAccountInfo', component: () => import('@/views/live/AccountInfo.vue'), meta: { title: '账户监控' } },
+  { path: '/trading/live/brokers', name: 'LiveBrokers', component: () => import('@/views/live/BrokerManagement.vue'), meta: { title: 'Broker 管理' } },
+  { path: '/trading/live/market', name: 'MarketData', component: () => import('@/views/live/MarketData.vue'), meta: { title: '市场数据', requiresAuth: false } },
+  { path: '/trading/live/history', name: 'TradeHistory', component: () => import('@/views/live/TradeHistory.vue'), meta: { title: '交易历史' } },
 
   // ===== 数据 =====
   { path: '/data', name: 'DataOverview', component: () => import('@/views/data/DataOverview.vue'), meta: { title: '数据概览' } },
@@ -98,21 +70,15 @@ const routes: RouteRecordRaw[] = [
   { path: '/data/adjustfactors', name: 'AdjustFactorData', component: () => import('@/views/data/AdjustFactorData.vue'), meta: { title: '复权因子' } },
   { path: '/data/sync', name: 'DataSync', component: () => import('@/views/data/DataSync.vue'), meta: { title: '数据同步' } },
 
-  // ===== 管理（系统级功能）=====
-  {
-    path: '/admin',
-    component: () => import('@/views/admin/AdminLayout.vue'),
-    children: [
-      { path: '', name: 'Admin', component: () => import('@/views/admin/SystemStatus.vue'), meta: { title: '系统状态' } },
-      { path: 'workers', name: 'WorkerManagement', component: () => import('@/views/admin/WorkerManagement.vue'), meta: { title: 'Worker 管理' } },
-      { path: 'api-keys', name: 'ApiKeyManagement', component: () => import('@/views/admin/ApiKeyManagement.vue'), meta: { title: 'API Key 管理' } },
-      { path: 'users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { title: '用户管理' } },
-      { path: 'groups', name: 'UserGroupManagement', component: () => import('@/views/admin/UserGroupManagement.vue'), meta: { title: '用户组管理' } },
-      { path: 'notifications', name: 'NotificationManagement', component: () => import('@/views/admin/NotificationManagement.vue'), meta: { title: '通知管理' } },
-      { path: 'alerts', name: 'AlertCenter', component: () => import('@/views/admin/AlertCenter.vue'), meta: { title: '告警中心' } },
-      { path: 'task-timer', name: 'TaskTimerHistory', component: () => import('@/views/admin/TaskTimerHistory.vue'), meta: { title: '定时任务' } },
-    ],
-  },
+  // ===== 管理（系统级功能,叶子路由直达） =====
+  { path: '/admin', name: 'Admin', component: () => import('@/views/admin/SystemStatus.vue'), meta: { title: '系统状态' } },
+  { path: '/admin/workers', name: 'WorkerManagement', component: () => import('@/views/admin/WorkerManagement.vue'), meta: { title: 'Worker 管理' } },
+  { path: '/admin/api-keys', name: 'ApiKeyManagement', component: () => import('@/views/admin/ApiKeyManagement.vue'), meta: { title: 'API Key 管理' } },
+  { path: '/admin/users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { title: '用户管理' } },
+  { path: '/admin/groups', name: 'UserGroupManagement', component: () => import('@/views/admin/UserGroupManagement.vue'), meta: { title: '用户组管理' } },
+  { path: '/admin/notifications', name: 'NotificationManagement', component: () => import('@/views/admin/NotificationManagement.vue'), meta: { title: '通知管理' } },
+  { path: '/admin/alerts', name: 'AlertCenter', component: () => import('@/views/admin/AlertCenter.vue'), meta: { title: '告警中心' } },
+  { path: '/admin/task-timer', name: 'TaskTimerHistory', component: () => import('@/views/admin/TaskTimerHistory.vue'), meta: { title: '定时任务' } },
 
   // ===== 旧路由兼容重定向 =====
   // 组合 singular → plural
@@ -123,7 +89,7 @@ const routes: RouteRecordRaw[] = [
   // 回测 → 回测中心
   { path: '/backtest', redirect: '/backtests' },
   { path: '/backtest/create', redirect: '/backtests' },
-  { path: '/backtest/:id', redirect: '/backtests' },
+  { path: '/backtest/:id', redirect: to => `/backtests/${to.params.id}` },
   { path: '/backtest/compare', redirect: '/backtests' },
   // 验证 → 组合
   { path: '/validation/walkforward', redirect: '/portfolios' },
@@ -174,7 +140,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/system/alerts', redirect: '/admin/alerts' },
 
   // 404
-  { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFound.vue'), meta: { title: '页面未找到' } },
+  { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFound.vue'), meta: { title: '页面未找到', fullPage: true } },
 ]
 
 const router = createRouter({

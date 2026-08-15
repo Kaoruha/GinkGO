@@ -24,7 +24,7 @@ export function useStatusFormat<T extends string | number>(
   }
 
   const getLabel = (status: T): string => {
-    return config[String(status)]?.label || String(status)
+    return config[String(status)]?.label || '未知'
   }
 
   return { getTagClass, getLabel }

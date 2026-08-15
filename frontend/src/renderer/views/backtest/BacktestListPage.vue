@@ -4,29 +4,28 @@
     :columns="columns"
     :data-source="tasks"
     :loading="loading && tasks.length === 0"
+    :error-text="listError"
     row-key="uuid"
     :searchable="false"
     :creatable="false"
     :infinite-scroll="true"
     clickable
+    :context-menu="rowMenu"
     @sort="onSort"
     @row-click="goDetail"
+    @retry="resetAndFetch"
   >
     <template #filters>
-      <select v-model="statusFilter" class="filter-select" @change="resetAndFetch">
-        <option value="">全部状态</option>
-        <option value="completed">已完成</option>
-        <option value="running">进行中</option>
-        <option value="pending">排队中</option>
-        <option value="failed">失败</option>
-        <option value="stopped">已停止</option>
-        <option value="created">待调度</option>
-      </select>
+      <SegmentedControl
+        :model-value="statusFilter"
+        :options="statusOptions"
+        @update:model-value="(v) => { statusFilter = v; resetAndFetch() }"
+      />
     </template>
 
     <template #name="{ record }">
       <router-link
-        :to="`/portfolios/${record.portfolio_id}/backtests/${record.uuid}`"
+        :to="`/backtests/${record.uuid}`"
         class="task-link"
         @click.stop
       >
@@ -47,7 +46,14 @@
     </template>
 
     <template #status="{ record }">
-      <StatusTag :status="record.status" type="backtest" />
+      <div class="status-cell">
+        <StatusTag :status="record.status" type="backtest" />
+        <!-- 进行中/排队中显示实时进度条(WS 就地更新,参照 BacktestTab) -->
+        <span v-if="record.status === 'running' || record.status === 'pending'" class="progress-info">
+          <div class="progress-bar-sm"><div class="progress-fill" :style="{ width: (record.progress || 0) + '%' }"></div></div>
+          <span class="progress-text">{{ (record.progress || 0).toFixed(0) }}%</span>
+        </span>
+      </div>
     </template>
 
     <template #annual_return="{ record }">
@@ -89,25 +95,58 @@
       </div>
     </template>
   </ListPage>
+
+  <!-- 删除确认 -->
+  <ConfirmDialog
+    v-model:open="deleteConfirmOpen"
+    :title="`删除回测「${deletingTask?.name || deletingTask?.uuid?.slice(0, 8) || ''}」?`"
+    description="回测记录与结果数据将被删除,此操作不可恢复。"
+    danger
+    confirm-text="删除"
+    :loading="deleting"
+    @confirm="doDelete"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ListPage from '@/components/common/ListPage.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { backtestApi } from '@/api/modules/backtest'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
+import { useWebSocket } from '@/composables'
+import type { MenuItem } from '@/composables/useContextMenu'
+import { message } from '@/utils/toast'
 
 const router = useRouter()
 
+// ========== WebSocket 实时进度 ==========
+const { subscribe, isConnected } = useWebSocket()
+let unsubscribe: (() => void) | null = null
+let pollTimer: number | null = null
+
 const tasks = ref<any[]>([])
 const loading = ref(false)
+// 列表加载失败(后端 5xx/网络断):须与"暂无数据"空态区分,提供重试
+const listError = ref('')
 const loadingMore = ref(false)
 const total = ref(0)
 const currentPage = ref(0)
 const pageSize = 20
 const statusFilter = ref('')
-const sortBy = ref('annual_return')
+
+const statusOptions = [
+  { key: '', label: '全部状态' },
+  { key: 'completed', label: '已完成' },
+  { key: 'running', label: '进行中' },
+  { key: 'pending', label: '排队中' },
+  { key: 'failed', label: '失败' },
+  { key: 'stopped', label: '已停止' },
+  { key: 'created', label: '待调度' },
+]
+const sortBy = ref('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 
 const hasMore = computed(() => tasks.value.length < total.value)
@@ -115,13 +154,13 @@ const hasMore = computed(() => tasks.value.length < total.value)
 const columns = [
   { title: '任务名称', dataIndex: 'name', key: 'name', width: 200 },
   { title: '组合', dataIndex: 'portfolio_name', key: 'portfolio_name', width: 150 },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 90 },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 160 },
   { title: '收益率', dataIndex: 'annual_return', key: 'annual_return', width: 100, sortable: true },
   { title: '夏普', dataIndex: 'sharpe_ratio', key: 'sharpe_ratio', width: 80, sortable: true },
   { title: '最大回撤', dataIndex: 'max_drawdown', key: 'max_drawdown', width: 100, sortable: true },
   { title: '胜率', dataIndex: 'win_rate', key: 'win_rate', width: 80, sortable: true },
   { title: '信号/订单', dataIndex: 'total_signals', key: 'total_signals', width: 100 },
-  { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 160 },
+  { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 160, sortable: true },
 ]
 
 const formatPct = (v: any) => v != null && v !== '' ? (Number(v) * 100).toFixed(2) + '%' : '-'
@@ -132,7 +171,54 @@ const formatTime = (t: string) => {
 }
 
 function goDetail(record: any) {
-  router.push(`/portfolios/${record.portfolio_id}/backtests/${record.uuid}`)
+  router.push(`/backtests/${record.uuid}`)
+}
+
+const stopTask = async (record: any) => {
+  try {
+    await backtestApi.stop(record.uuid)
+    message.success('已发送停止指令')
+    fetchTasks(false)
+  } catch (e: any) {
+    message.error(e?.response?.data?.message || e?.message || '停止失败')
+  }
+}
+
+/** 行右键菜单:详情/复制ID/删除,运行中或排队中可停止 */
+const deleteConfirmOpen = ref(false)
+const deletingTask = ref<any>(null)
+const deleting = ref(false)
+
+const doDelete = async () => {
+  if (!deletingTask.value) return
+  deleting.value = true
+  try {
+    await backtestApi.delete(deletingTask.value.uuid)
+    message.success('删除成功')
+    deleteConfirmOpen.value = false
+    resetAndFetch()
+  } catch (e: any) {
+    message.error(e?.response?.data?.message || '删除失败')
+  } finally {
+    deleting.value = false
+  }
+}
+
+const rowMenu = (record: any): MenuItem[] => {
+  const running = record.status === 'running' || record.status === 'pending' || record.status === 'created'
+  return [
+    { label: '详情', action: () => goDetail(record) },
+    {
+      label: '复制ID',
+      action: () => {
+        navigator.clipboard.writeText(record.uuid)
+        message.success('ID 已复制')
+      },
+    },
+    ...(running ? [{ label: '停止', danger: true, action: () => stopTask(record) }] : []),
+    { divider: true },
+    { label: '删除', danger: true, action: () => { deletingTask.value = record; deleteConfirmOpen.value = true } },
+  ]
 }
 
 function onSort(field: string, order: 'asc' | 'desc') {
@@ -169,15 +255,19 @@ async function fetchTasks(append: boolean) {
       params.sort_order = sortOrder.value
     }
     const res: any = await backtestApi.list(params)
-    const newData = res?.data || []
+    const newData = res?.items || []
     if (append) {
       tasks.value.push(...newData)
     } else {
       tasks.value = newData
     }
-    total.value = res?.meta?.total || 0
-  } catch {
+    total.value = res?.total || 0
+    if (!append) listError.value = ''
+  } catch (e: any) {
+    // 静默清空会让后端故障伪装成"暂无数据",必须显式报错
     if (!append) {
+      const st = e?.response?.status
+          listError.value = st ? `回测列表加载失败（HTTP ${st}）` : '回测列表加载失败，请检查网络后重试'
       tasks.value = []
       total.value = 0
     }
@@ -211,10 +301,33 @@ const setupObserver = () => {
 onMounted(async () => {
   await fetchTasks(false)
   nextTick(() => setupObserver())
+
+  // WS 就地更新行内 progress/status(无限滚动 append 模式,全量替换会丢已加载页)
+  unsubscribe = subscribe('*', (data) => {
+    const taskId = data.task_id || data.task_uuid
+    if (!taskId) return
+    const hit = tasks.value.find(t => t.uuid === taskId)
+    if (!hit) return
+    if (data.progress != null) hit.progress = data.progress
+    if (data.type && data.type !== 'progress') hit.status = data.type
+    // 终态后补一次静默刷新(拉取指标/信号数字;已有数据时 loading prop 为 false,视觉静默)
+    if (['completed', 'failed', 'stopped'].includes(data.type)
+      && currentPage.value === 1 && !loadingMore.value) {
+      fetchTasks(false)
+    }
+  })
+
+  // WS 断连时降级 5s 轮询,重连后恢复推送
+  watch(isConnected, (connected) => {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+    if (!connected) pollTimer = window.setInterval(() => fetchTasks(false), 5000)
+  }, { immediate: true })
 })
 
 onUnmounted(() => {
   if (observer) observer.disconnect()
+  if (unsubscribe) unsubscribe()
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
 })
 </script>
 
@@ -233,21 +346,11 @@ onUnmounted(() => {
 }
 .portfolio-link:hover { color: hsl(var(--primary)); }
 
-.val-green { color: hsl(var(--success)); font-weight: 500; }
+.val-green { color: hsl(var(--success-fg)); font-weight: 500; }
 .val-red { color: hsl(var(--error)); font-weight: 500; }
 .val-muted { color: hsl(var(--muted-foreground)); }
-.val-divider { color: hsl(var(--secondary)); margin: 0 2px; }
-
-.filter-select {
-  padding: 6px 12px;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  color: hsl(var(--foreground));
-  font-size: 13px;
-  cursor: pointer;
-}
-.filter-select:focus { outline: none; border-color: hsl(var(--primary)); }
+/* 分隔符此前用 --secondary(light 下 L≈92%)几乎不可见,改 muted-foreground */
+.val-divider { color: hsl(var(--muted-foreground)); margin: 0 2px; }
 
 .load-more-trigger {
   display: flex;
@@ -273,5 +376,31 @@ onUnmounted(() => {
 
 .load-more-sentinel {
   height: 1px;
+}
+
+/* 状态列:标签+实时进度条并排 */
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-info { display: flex; align-items: center; gap: 8px; }
+
+.progress-bar-sm {
+  width: 60px;
+  height: 4px;
+  background: hsl(var(--border));
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.progress-text { font-size: 11px; color: hsl(var(--muted-foreground)); }
+
+.progress-fill {
+  height: 100%;
+  background: hsl(var(--primary));
+  border-radius: var(--radius-sm);
+  transition: width 0.3s;
 }
 </style>

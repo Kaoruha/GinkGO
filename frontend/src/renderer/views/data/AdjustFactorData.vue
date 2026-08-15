@@ -44,7 +44,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="f in factors" :key="f.uuid">
+            <tr v-for="f in factors" :key="f.uuid" @contextmenu="openFactorMenu($event, f)">
               <td>{{ formatDate(f.timestamp) }}</td>
               <td>{{ f.code }}</td>
               <td class="num">{{ f.foreadjustfactor?.toFixed(6) }}</td>
@@ -53,6 +53,12 @@
             </tr>
           </tbody>
         </table>
+        <!-- 加载失败:区别于空态,提供重试 -->
+        <div v-else-if="!loading && loadError" class="empty-state-small">
+          <p class="error-text">{{ loadError }}</p>
+          <button class="btn-primary btn-retry" @click="loadData">重试</button>
+        </div>
+        <div v-else-if="!loading && hasSearched" class="empty-state-small">查询无结果，请调整股票代码或分页</div>
         <div v-else-if="!loading" class="empty-state-small">点击查询加载数据</div>
       </div>
 
@@ -81,12 +87,27 @@ import { useRoute } from 'vue-router'
 import { dataApi } from '@/api/modules/data'
 import type { AdjustFactorData } from '@/api/modules/data'
 import dayjs from 'dayjs'
+import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 行右键菜单(本页无行操作,给复制类) */
+const { open: openCtxMenu } = useContextMenu()
+const openFactorMenu = (e: MouseEvent, f: AdjustFactorData) => {
+  openCtxMenu(e, [
+    { label: '复制日期', action: () => { navigator.clipboard.writeText(formatDate(f.timestamp)); toast.success('已复制') } },
+    { label: '复制代码', action: () => { navigator.clipboard.writeText(f.code); toast.success('已复制') } },
+    { label: '复制前复权因子', action: () => { navigator.clipboard.writeText(String(f.foreadjustfactor ?? '')); toast.success('已复制') } },
+  ])
+}
 
 const route = useRoute()
 
 const selectedCode = ref((route.query.code as string) || '')
 const loading = ref(false)
 const factors = ref<AdjustFactorData[]>([])
+// 查询失败(后端 5xx/网络断):须与"查询无结果"区分,否则误导用户以为无数据
+const loadError = ref('')
+const hasSearched = ref(false)
 
 const pagination = ref({ current: 1, pageSize: 50, total: 0 })
 const totalPages = computed(() => Math.max(1, Math.ceil(pagination.value.total / pagination.value.pageSize)))
@@ -109,6 +130,8 @@ function formatDate(t: string) {
 
 async function loadData() {
   loading.value = true
+  loadError.value = ''
+  hasSearched.value = true
   try {
     const params: any = {
       page: pagination.value.current,
@@ -117,11 +140,13 @@ async function loadData() {
     if (selectedCode.value) params.code = selectedCode.value
 
     const res: any = await dataApi.getAdjustFactors(params)
-    factors.value = res?.data || []
-    pagination.value.total = res?.meta?.total || 0
-  } catch {
+    factors.value = res?.items || []
+    pagination.value.total = res?.total || 0
+  } catch (e: any) {
     factors.value = []
     pagination.value.total = 0
+    const st = e?.response?.status
+    loadError.value = st ? `复权因子加载失败（HTTP ${st}）` : '复权因子加载失败，请检查网络后重试'
   } finally {
     loading.value = false
   }
@@ -139,35 +164,38 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.control-input { padding: 6px 12px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 4px; color: hsl(var(--foreground)); font-size: 13px; }
+.control-input { padding: 6px 12px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 13px; }
 .control-input:focus { outline: none; border-color: hsl(var(--primary)); }
 .control-input[type="date"] { width: 140px; }
 
-.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; }
 
 /* Stats */
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
-.stat-card-small { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 16px; }
+.stat-card-small { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); padding: 16px; }
 .stat-value-small { font-size: 20px; font-weight: 600; color: hsl(var(--foreground)); }
 .stat-label-small { font-size: 12px; color: hsl(var(--muted-foreground)); margin-top: 4px; }
 
 /* Table */
-.card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; }
+.card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); }
 .card-header-simple { padding: 12px 16px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); }
-.table-wrapper { overflow-x: auto; }
+.table-wrapper { overflow-x: clip; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th { padding: 10px 12px; text-align: left; color: hsl(var(--foreground)); background: hsl(var(--border)); font-weight: 600; white-space: nowrap; }
+.data-table th { position: sticky; top: 0; z-index: 1; padding: 10px 12px; text-align: left; color: hsl(var(--foreground)); background: hsl(var(--border)); font-weight: 600; white-space: nowrap; }
 .data-table td { padding: 10px 12px; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); }
 .data-table tbody tr:hover { background: hsl(var(--secondary)); }
 .data-table .num { font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Menlo', monospace; font-size: 12px; }
 
 .empty-state-small { padding: 40px; text-align: center; color: hsl(var(--muted-foreground)); }
+.empty-state-small .error-text { color: hsl(var(--error)); margin: 0 0 12px; }
+.btn-retry { padding: 6px 16px; background: transparent; border: 1px solid hsl(var(--border)); }
+.btn-retry:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
 
 /* Pagination */
 .pagination { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid hsl(var(--border)); }
 .pagination-info { font-size: 13px; color: hsl(var(--muted-foreground)); }
 .pagination-controls { display: flex; gap: 4px; }
-.pg-btn { min-width: 28px; height: 28px; padding: 0 6px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: 4px; color: hsl(var(--foreground)); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.pg-btn { min-width: 28px; height: 28px; padding: 0 6px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .pg-btn:hover:not(:disabled) { background: hsl(var(--secondary)); border-color: hsl(var(--primary)); }
 .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 

@@ -12,17 +12,15 @@
     create-label="新建文件"
     empty-text="暂无文件"
     empty-action-text="创建第一个文件"
-    show-actions
+    :context-menu="rowMenu"
     @update:search-value="searchText = $event"
     @create="handleCreate"
-    @row-click="record => $router.push(getDetailUrl(record))"
   >
     <template #name="{ record }">
       <router-link :to="getDetailUrl(record)" class="file-link">{{ record.name }}</router-link>
     </template>
-    <template #actions="{ record }">
-      <router-link :to="getDetailUrl(record)" class="act-link">编辑</router-link>
-      <button class="act-link danger" @click.stop="handleDelete(record)">删除</button>
+    <template #description="{ record }">
+      <span class="desc-cell" :title="record.description">{{ record.description }}</span>
     </template>
   </ListPage>
 
@@ -41,19 +39,38 @@
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" @click="createModalVisible = false">取消</button>
-        <button class="btn-primary" @click="handleCreateConfirm">确定</button>
+        <button class="btn-primary" :disabled="saving || !newFileName.trim()" @click="handleCreateConfirm">{{ saving ? '创建中...' : '确定' }}</button>
       </div>
     </div>
   </div>
+  <ConfirmDialog
+    v-model:open="confirmOpen"
+    title="确认删除"
+    :description="confirmDesc"
+    danger
+    confirm-text="删除"
+    @confirm="onConfirm"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import ListPage from '@/components/common/ListPage.vue'
 import { componentsApi } from '@/api/modules/components'
+import { message } from '@/utils/toast'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import type { MenuItem } from '@/composables/useContextMenu'
 
 const route = useRoute()
+const router = useRouter()
+
+/** 行右键菜单:编辑/删除(替代操作列) */
+const rowMenu = (record: any): MenuItem[] => [
+  { label: '编辑', action: () => router.push(getDetailUrl(record)) },
+  { divider: true },
+  { label: '删除', danger: true, action: () => handleDelete(record) },
+]
 
 const routeTypeMap: Record<string, { api: string; label: string }> = {
   strategies: { api: 'strategy', label: '策略组件' },
@@ -77,7 +94,8 @@ const basePath = computed(() => `/components/${route.params.type}`)
 
 const columns = [
   { title: '文件名', dataIndex: 'name' },
-  { title: '更新时间', dataIndex: 'update_at' },
+  { title: '描述', dataIndex: 'description' },
+  { title: '更新时间', dataIndex: 'updated_at' },
 ]
 
 const loading = ref(false)
@@ -85,6 +103,7 @@ const files = ref<any[]>([])
 const searchText = ref('')
 const createModalVisible = ref(false)
 const newFileName = ref('')
+const saving = ref(false)
 
 const filteredFiles = computed(() => {
   if (!searchText.value) return files.value
@@ -106,9 +125,10 @@ async function loadFiles() {
   loading.value = true
   try {
     const res: any = await componentsApi.list(currentType.value)
-    files.value = Array.isArray(res) ? res : (res?.data || [])
-  } catch (e) {
+    files.value = Array.isArray(res) ? res : (res?.items ?? [])
+  } catch (e: any) {
     files.value = []
+    message.error('加载失败: ' + (e?.message || e))
   } finally {
     loading.value = false
   }
@@ -116,27 +136,46 @@ async function loadFiles() {
 
 async function handleCreateConfirm() {
   if (!newFileName.value.trim()) return
-  createModalVisible.value = false
+  if (saving.value) return
+  saving.value = true
   try {
     await componentsApi.create({
       name: newFileName.value.trim(),
       component_type: currentType.value,
       code: `# ${newFileName.value.trim()}\n# TODO: implement\n`,
     })
+    createModalVisible.value = false
+    message.success('创建成功')
     await loadFiles()
-  } catch (e) {
-    console.error('创建失败:', e)
+  } catch (e: any) {
+    message.error('创建失败: ' + (e?.message || e))
+  } finally {
+    saving.value = false
   }
 }
 
-async function handleDelete(record: any) {
-  if (!confirm(`确定删除 ${record.name}？`)) return
-  try {
-    await componentsApi.delete(record.uuid)
-    await loadFiles()
-  } catch (e) {
-    console.error('删除失败:', e)
+const confirmOpen = ref(false)
+const confirmDesc = ref('')
+const confirmAction = ref<(() => Promise<void> | void) | null>(null)
+const onConfirm = async () => {
+  confirmOpen.value = false
+  const fn = confirmAction.value
+  confirmAction.value = null
+  await fn?.()
+}
+
+function handleDelete(record: any) {
+  confirmDesc.value = `确定删除 ${record.name}？`
+  confirmAction.value = async () => {
+    try {
+      await componentsApi.delete(record.uuid)
+      message.success('已删除')
+      await loadFiles()
+    } catch (e: any) {
+      message.error('删除失败: ' + (e?.message || e))
+    }
   }
+  confirmOpen.value = true
 }
 
 watch(() => route.params.type, () => loadFiles(), { immediate: true })
@@ -150,18 +189,16 @@ watch(() => route.params.type, () => loadFiles(), { immediate: true })
 }
 .file-link:hover { text-decoration: underline; }
 
-.act-link {
-  background: none;
-  border: none;
-  color: hsl(var(--primary));
-  font-size: 13px;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: none;
+.desc-cell {
+  display: inline-block;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  color: hsl(var(--muted-foreground));
 }
-.act-link:hover { color: hsl(var(--primary)); }
-.act-link.danger { color: hsl(var(--error-fg)); }
-.act-link.danger:hover { color: hsl(var(--error-fg)); }
+
 
 .modal-overlay {
   position: fixed;
@@ -176,7 +213,7 @@ watch(() => route.params.type, () => loadFiles(), { immediate: true })
 .modal {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   min-width: 400px;
   max-height: 90vh;
 }

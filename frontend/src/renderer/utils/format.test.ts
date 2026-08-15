@@ -8,6 +8,7 @@ import {
   formatPercent,
   formatDuration,
   formatDateTime,
+  formatRelativeTime,
   formatMoney,
 } from './format'
 
@@ -104,6 +105,36 @@ describe('formatDateTime', () => {
 
   it('无效日期应返回 -', () => {
     expect(formatDateTime('invalid')).toBe('-')
+  })
+})
+
+describe('formatRelativeTime', () => {
+  const now = new Date('2024-03-15T14:30:00')
+
+  it('应格式化秒级差异', () => {
+    expect(formatRelativeTime('2024-03-15T14:29:57', now)).toBe('3秒前')
+  })
+
+  it('应格式化分钟级差异', () => {
+    expect(formatRelativeTime('2024-03-15T14:25:00', now)).toBe('5分钟前')
+  })
+
+  it('应格式化小时级差异', () => {
+    expect(formatRelativeTime('2024-03-15T09:30:00', now)).toBe('5小时前')
+  })
+
+  it('超过 24 小时应回退为日期时间短格式', () => {
+    expect(formatRelativeTime('2024-03-13T10:00:00', now)).toBe('3/13 10:00:00')
+  })
+
+  it('未来时间应回退为日期时间短格式', () => {
+    expect(formatRelativeTime('2024-03-15T15:00:00', now)).toBe('3/15 15:00:00')
+  })
+
+  it('空值和无效值应返回 -', () => {
+    expect(formatRelativeTime(null)).toBe('-')
+    expect(formatRelativeTime(undefined)).toBe('-')
+    expect(formatRelativeTime('invalid')).toBe('-')
   })
 })
 

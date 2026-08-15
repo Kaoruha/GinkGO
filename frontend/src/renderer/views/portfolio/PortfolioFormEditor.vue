@@ -17,6 +17,10 @@
         </button>
       </template>
 
+      <div v-if="isEditMode" class="edit-mode-hint">
+        编辑模式仅可保存名称、描述与初始资金;组件绑定与运行模式创建后不可更改(如需调整请新建组合)。
+      </div>
+
     <div class="form-layout">
       <!-- 左侧面板 -->
       <div class="left-panel">
@@ -451,8 +455,9 @@ const route = useRoute()
 // 加载状态
 const saving = ref(false)
 
-// 是否编辑模式
-const isEditMode = computed(() => !!route.params.uuid)
+// 是否编辑模式(modal 模式恒为创建;路由模式读 :id —— 路由定义为 /portfolios/:id/edit)
+const isEditMode = computed(() => !props.isModalMode && !!route.params.id)
+const editingId = computed(() => (isEditMode.value ? String(route.params.id) : ''))
 
 // 表单数据
 const formData = ref({
@@ -532,8 +537,7 @@ const getComponentVersions = (name: string, type: string): any[] => {
 const loadComponentParameters = async (uuid: string) => {
   try {
     const res = await componentsApi.get(uuid) as any
-    const data = res.data || res
-    return data.parameters || []
+    return res.parameters || []
   } catch {
     return []
   }
@@ -720,7 +724,7 @@ const removeAnalyzer = (index: number) => {
 const searchComponents = async (type: string, query: string): Promise<SearchOption[]> => {
   try {
     const res = await componentsApi.list(type, { keyword: query || undefined, page: 1, page_size: 20 })
-    const items = (res as any).data || res || []
+    const items = (res as any)?.items || []
     // 同步到 available 列表供 add 函数查找
     const mapped = items.map((c: any) => ({ ...c, uuid: c.uuid, name: c.name }))
     if (type === 'strategy') availableStrategies.value = mapped
@@ -739,13 +743,13 @@ const loadComponents = async () => {
   try {
     const types = ['strategy', 'selector', 'sizer', 'risk', 'analyzer']
     const results = await Promise.all(
-      types.map(t => componentsApi.list(t, { page: 1, page_size: 100 }).catch(() => ({ data: [] })))
+      types.map(t => componentsApi.list(t, { page: 1, page_size: 100 }).catch(() => ({ items: [], total: 0 }) as any))
     )
-    availableStrategies.value = results[0].data || []
-    availableSelectors.value = results[1].data || []
-    availableSizers.value = results[2].data || []
-    availableRisks.value = results[3].data || []
-    availableAnalyzers.value = results[4].data || []
+    availableStrategies.value = results[0]?.items || []
+    availableSelectors.value = results[1]?.items || []
+    availableSizers.value = results[2]?.items || []
+    availableRisks.value = results[3]?.items || []
+    availableAnalyzers.value = results[4]?.items || []
   } catch (e) {
     console.error('加载组件失败:', e)
   }
@@ -757,7 +761,8 @@ const savePortfolio = async () => {
     message.warning('请输入组合名称')
     return
   }
-  if (formData.value.strategies.length === 0) {
+  // 创建模式要求至少一个策略;编辑模式仅更新基本字段(组件不可改),跳过此校验
+  if (!isEditMode.value && formData.value.strategies.length === 0) {
     message.warning('请至少添加一个策略')
     return
   }
@@ -799,14 +804,26 @@ const savePortfolio = async () => {
       }))
     }
 
-    const result = await portfolioApi.create(payload)
-    message.success(isEditMode.value ? '投资组合更新成功' : '投资组合创建成功')
-    const createdUuid = result.uuid || (result as any).data?.uuid
-    if (!isEditMode.value) {
+    if (isEditMode.value) {
+      // 后端 portfolio_service.update 仅支持基本字段;组件绑定与 mode 创建后不可改
+      await portfolioApi.update(editingId.value, {
+        name: formData.value.name,
+        description: formData.value.description || undefined,
+        initial_cash: formData.value.initial_cash,
+      })
+      message.success('投资组合更新成功')
       if (props.isModalMode) {
-        emit('created', createdUuid)
-      } else if (createdUuid) {
-        router.push(`/portfolios/${createdUuid}`)
+        emit('created', editingId.value)
+      } else {
+        router.push(`/portfolios/${editingId.value}`)
+      }
+    } else {
+      const result = await portfolioApi.create(payload)
+      message.success('投资组合创建成功')
+      if (props.isModalMode) {
+        emit('created', result.uuid)
+      } else if (result.uuid) {
+        router.push(`/portfolios/${result.uuid}`)
       }
     }
   } catch (e: any) {
@@ -847,8 +864,63 @@ const onStrategyVersionChange = (index: number) => makeVersionChange('strategy',
 const onRiskVersionChange = (index: number) => makeVersionChange('risk', index)
 const onAnalyzerVersionChange = (index: number) => makeVersionChange('analyzer', index)
 
-onMounted(() => {
-  loadComponents()
+// 按类型取可用组件列表(编辑回填时匹配 version)
+const getAvailableByType = (type: string): any[] => {
+  if (type === 'strategy') return availableStrategies.value
+  if (type === 'selector') return availableSelectors.value
+  if (type === 'sizer') return availableSizers.value
+  if (type === 'risk') return availableRisks.value
+  if (type === 'analyzer') return availableAnalyzers.value
+  return []
+}
+
+// 将详情返回的组件映射为 formData 条目(拉参数定义 + 合并旧配置,保留旧值优先)
+const mapDetailComponents = async (items: any[], type: string, withWeight = false) => {
+  if (!items || items.length === 0) return []
+  const available = getAvailableByType(type)
+  return Promise.all(items.map(async (c: any) => {
+    const parameters = await loadComponentParameters(c.uuid)
+    const matched = available.find(a => a.uuid === c.uuid)
+    const version = matched?.version || c.version || 'UNKNOWN_VERSION'
+    const entry: any = {
+      uuid: c.uuid,
+      name: c.name,
+      version,
+      parameters,
+      config: parameters.length > 0 ? mergeConfig(parameters, c.config || {}) : (c.config || {}),
+    }
+    if (withWeight) entry.weight = c.weight ?? 100
+    return entry
+  }))
+}
+
+// 编辑模式:加载现有组合并回填基本字段 + 组件绑定
+const loadPortfolioForEdit = async () => {
+  if (!editingId.value) return
+  try {
+    const detail: any = await portfolioApi.get(editingId.value)
+    formData.value.name = detail.name || ''
+    formData.value.initial_cash = detail.initial_cash ?? 1000000
+    const detailMode = typeof detail.mode === 'string' ? detail.mode : 'BACKTEST'
+    formData.value.mode = (['BACKTEST', 'PAPER', 'LIVE'].includes(detailMode) ? detailMode : 'BACKTEST') as any
+    formData.value.benchmark = detail.benchmark || ''
+    formData.value.description = detail.desc || ''
+    const comps = detail.components || {}
+    formData.value.selectors = await mapDetailComponents(comps.selectors, 'selector')
+    formData.value.sizer = comps.sizer ? ((await mapDetailComponents([comps.sizer], 'sizer'))[0] || null) : null
+    formData.value.strategies = await mapDetailComponents(comps.strategies, 'strategy', true)
+    formData.value.risk_managers = await mapDetailComponents(comps.risk_managers, 'risk')
+    formData.value.analyzers = await mapDetailComponents(comps.analyzers, 'analyzer')
+  } catch (e: any) {
+    message.error(`加载组合失败: ${e.message || e}`)
+  }
+}
+
+onMounted(async () => {
+  await loadComponents()
+  if (isEditMode.value) {
+    await loadPortfolioForEdit()
+  }
 })
 </script>
 
@@ -938,7 +1010,7 @@ onMounted(() => {
   gap: 8px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .input-group .form-input {
@@ -956,7 +1028,7 @@ onMounted(() => {
 .component-type-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid hsl(var(--border));
@@ -969,7 +1041,7 @@ onMounted(() => {
   font-size: 12px;
   border: 1px solid hsl(var(--secondary));
   background: transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
@@ -1007,7 +1079,7 @@ onMounted(() => {
   justify-content: space-between;
   padding: 6px 8px;
   background: hsl(var(--border));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   margin-bottom: 8px;
 }
 
@@ -1025,7 +1097,7 @@ onMounted(() => {
 
 .config-item {
   border: 1px solid hsl(var(--border));
-  border-radius: 6px;
+  border-radius: var(--radius);
   overflow: hidden;
 }
 
@@ -1054,7 +1126,7 @@ onMounted(() => {
   padding: 4px 8px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
@@ -1071,7 +1143,7 @@ onMounted(() => {
   padding: 4px 8px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
   text-align: center;
@@ -1111,7 +1183,7 @@ onMounted(() => {
   padding: 4px 8px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
 }
@@ -1138,7 +1210,7 @@ onMounted(() => {
   width: 36px;
   height: 18px;
   background: hsl(var(--secondary));
-  border-radius: 9px;
+  border-radius: 9999px;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -1181,5 +1253,15 @@ onMounted(() => {
 .empty-state p {
   margin: 0;
   font-size: 14px;
+}
+
+.edit-mode-hint {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: hsl(var(--secondary));
+  border-left: 3px solid hsl(var(--primary));
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  border-radius: var(--radius-sm);
 }
 </style>

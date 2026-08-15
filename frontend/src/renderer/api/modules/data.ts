@@ -1,4 +1,5 @@
 import request from '../request'
+import type { PaginatedData } from '@/types/api'
 
 export interface StockInfo {
   uuid: string
@@ -63,16 +64,6 @@ export interface SyncHistoryRecord {
   sync_strategy: string
 }
 
-interface PaginatedResponse<T> {
-  data: T[]
-  meta: {
-    total: number
-    page: number
-    page_size: number
-    total_pages: number
-  }
-}
-
 export const dataApi = {
   /**
    * 获取数据统计
@@ -85,8 +76,10 @@ export const dataApi = {
   /**
    * 获取股票列表
    */
-  listStocks(params?: { query?: string; page?: number; page_size?: number }): Promise<{ data: StockInfo[]; total: number }> {
-    return request.get('/api/v1/data/stockinfo', { params })
+  // 后端过滤参数名是 search(api/api/data.py get_stockinfo),前端统一 query,此处做映射
+  listStocks(params?: { query?: string; page?: number; page_size?: number }): Promise<PaginatedData<StockInfo>> {
+    const { query, ...rest } = params || {}
+    return request.get('/api/v1/data/stockinfo', { params: { ...rest, search: query } })
   },
 
   /**
@@ -108,7 +101,7 @@ export const dataApi = {
     adjustment?: string
     page?: number
     page_size?: number
-  }): Promise<PaginatedResponse<BarData>> {
+  }): Promise<PaginatedData<BarData>> {
     return request.get('/api/v1/data/bars', { params })
   },
 
@@ -139,15 +132,12 @@ export const dataApi = {
     stock_count: number
     last_sync: string
   }> {
-    return request.get('/api/v1/data/stats').then((res: any) => {
-      const d = res.data || res
-      return {
-        bar_count: d.total_bars || 0,
-        tick_count: d.total_ticks || 0,
-        stock_count: d.total_stocks || 0,
-        last_sync: d.latest_update || '-',
-      }
-    })
+    return request.get('/api/v1/data/stats').then((res: any) => ({
+      bar_count: res.total_bars || 0,
+      tick_count: res.total_ticks || 0,
+      stock_count: res.total_stocks || 0,
+      last_sync: res.latest_update || '-',
+    }))
   },
 
   /**
@@ -178,7 +168,7 @@ export const dataApi = {
     sync_type?: string
     page?: number
     page_size?: number
-  }): Promise<PaginatedResponse<SyncHistoryRecord>> {
+  }): Promise<PaginatedData<SyncHistoryRecord>> {
     return request.get('/api/v1/data/sync/history', { params })
   },
 
@@ -192,7 +182,7 @@ export const dataApi = {
     end_date?: string
     page?: number
     page_size?: number
-  }): Promise<PaginatedResponse<TickData>> {
+  }): Promise<PaginatedData<TickData>> {
     return request.get('/api/v1/data/ticks', { params })
   },
 
@@ -214,7 +204,7 @@ export const dataApi = {
     end_date?: string
     page?: number
     page_size?: number
-  }): Promise<PaginatedResponse<AdjustFactorData>> {
+  }): Promise<PaginatedData<AdjustFactorData>> {
     return request.get('/api/v1/data/adjustfactors', { params })
   },
 }

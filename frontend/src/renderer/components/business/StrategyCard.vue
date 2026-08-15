@@ -92,7 +92,7 @@ const handleSelect = () => {
 .strategy-card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 16px;
   cursor: pointer;
   transition: all 0.3s;
@@ -156,7 +156,7 @@ const handleSelect = () => {
   justify-content: space-between;
   padding: 8px;
   background: hsl(var(--border));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .param-name {
@@ -180,7 +180,7 @@ const handleSelect = () => {
   padding: 6px 12px;
   background: transparent;
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
@@ -196,7 +196,7 @@ const handleSelect = () => {
 .tag {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 500;
 }

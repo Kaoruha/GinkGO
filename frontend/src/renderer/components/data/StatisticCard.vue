@@ -89,16 +89,16 @@ const formatValue = (val: number | string) => {
 
 <style scoped>
 .statistic-card {
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   transition: all 0.3s ease;
   height: 100%;
   border: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm);
 }
 
 .statistic-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
 }
 
 .card-primary {
@@ -131,7 +131,7 @@ const formatValue = (val: number | string) => {
 .stat-icon-wrapper {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;

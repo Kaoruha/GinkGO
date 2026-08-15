@@ -13,7 +13,7 @@ describe('useListPage', () => {
   })
 
   it('应初始化默认状态', () => {
-    mockFetchFn.mockResolvedValue({ data: [], total: 0 })
+    mockFetchFn.mockResolvedValue({ items: [], total: 0 })
 
     const { loading, data, total, page, size, searchKeyword } = useListPage({
       fetchFn: mockFetchFn as any,
@@ -54,7 +54,7 @@ describe('useListPage', () => {
 
   it('load 应调用 fetchFn 并更新状态', async () => {
     const mockData = [{ id: 1, name: 'test' }]
-    mockFetchFn.mockResolvedValue({ data: mockData, total: 1 })
+    mockFetchFn.mockResolvedValue({ items: mockData, total: 1 })
 
     const { load, data, total, loading } = useListPage({
       fetchFn: mockFetchFn as any,
@@ -89,7 +89,7 @@ describe('useListPage', () => {
       { id: 2, name: 'Banana', uuid: 'b2' },
       { id: 3, name: 'Cherry', uuid: 'c3' },
     ]
-    mockFetchFn.mockResolvedValue({ data: mockData, total: 3 })
+    mockFetchFn.mockResolvedValue({ items: mockData, total: 3 })
 
     const { load, searchKeyword, filteredData } = useListPage({
       fetchFn: mockFetchFn as any,
@@ -129,7 +129,7 @@ describe('useListPage', () => {
   })
 
   it('refresh 应重新加载数据', async () => {
-    mockFetchFn.mockResolvedValue({ data: [], total: 0 })
+    mockFetchFn.mockResolvedValue({ items: [], total: 0 })
 
     const { refresh } = useListPage({
       fetchFn: mockFetchFn as any,

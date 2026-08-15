@@ -1,0 +1,65 @@
+// 全站数据表格唯一权威样式(原 ListPage/DataTable 各持 scoped 副本,页面手写表格直接复用此类)
+.table-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-lg);
+}
+
+.pro-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pro-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: hsl(var(--border));
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--secondary));
+  white-space: nowrap;
+}
+
+.pro-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.pro-table th.sortable:hover {
+  color: hsl(var(--primary));
+}
+
+.sort-icon {
+  margin-left: 4px;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.pro-table td {
+  padding: 12px;
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+/* 数字列:右对齐 + 等宽数字,量化指标不跳动 */
+.pro-table .col-num,
+.pro-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 操作列:多按钮水平排列 + 间距,避免紧贴不可点 */
+.actions-cell {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.pro-table tbody tr { transition: background 0.2s; }
+.pro-table tbody tr:hover { background: hsl(var(--secondary)); }
+.pro-table tbody tr.clickable { cursor: pointer; }

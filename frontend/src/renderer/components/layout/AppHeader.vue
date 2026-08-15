@@ -159,7 +159,7 @@ const handleLogout = async () => {
   justify-content: center;
   cursor: pointer;
   color: hsl(var(--muted-foreground));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: all 0.2s;
 }
 
@@ -212,7 +212,7 @@ const handleLogout = async () => {
   font-size: 10px;
   line-height: 16px;
   text-align: center;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 
 .avatar-btn {
@@ -239,9 +239,9 @@ const handleLogout = async () => {
   margin-top: 8px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 6px;
+  border-radius: var(--radius);
   min-width: 160px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
   display: none;
   z-index: 100;
 }

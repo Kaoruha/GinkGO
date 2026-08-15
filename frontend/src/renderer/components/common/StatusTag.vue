@@ -9,7 +9,7 @@ import { computed } from 'vue'
 
 const props = defineProps<{
   status: string
-  type?: 'backtest' | 'task' | 'system' | 'order' | 'position'
+  type?: 'backtest' | 'task' | 'system' | 'order' | 'position' | 'worker' | 'infra' | 'execution' | 'enable'
 }>()
 
 // 回测状态配置（六态模型）
@@ -28,6 +28,45 @@ const systemConfig: Record<string, { color: string; label: string }> = {
   offline: { color: 'red', label: '离线' },
   warning: { color: 'orange', label: '警告' },
   unknown: { color: 'gray', label: '未知' },
+  healthy: { color: 'green', label: '健康' },
+  degraded: { color: 'orange', label: '降级' },
+  unhealthy: { color: 'red', label: '异常' },
+}
+
+// Worker/组件运行状态配置（SystemStatus/WorkerManagement 共用）
+const workerConfig: Record<string, { color: string; label: string }> = {
+  running: { color: 'green', label: '运行中' },
+  active: { color: 'green', label: '活跃' },
+  healthy: { color: 'green', label: '健康' },
+  idle: { color: 'gray', label: '空闲' },
+  stopped: { color: 'gray', label: '已停止' },
+  stale: { color: 'orange', label: '心跳过期' },
+  error: { color: 'red', label: '错误' },
+}
+
+// 基础设施连接状态配置（MySQL/Redis/Kafka/ClickHouse）
+const infraConfig: Record<string, { color: string; label: string }> = {
+  ok: { color: 'green', label: '已连接' },
+  connected: { color: 'green', label: '已连接' },
+  error: { color: 'red', label: '错误' },
+  not_configured: { color: 'gray', label: '未配置' },
+  unknown: { color: 'gray', label: '未知' },
+}
+
+// 任务执行结果配置（TaskTimerHistory / 通知发送记录共用）
+const executionConfig: Record<string, { color: string; label: string }> = {
+  pending: { color: 'gray', label: '待执行' },
+  triggered: { color: 'blue', label: '执行中' },
+  success: { color: 'green', label: '成功' },
+  failed: { color: 'red', label: '失败' },
+}
+
+// 启用/禁用类配置（用户 / API Key / 通用开关态共用,label 可用 slot 覆盖)
+const enableConfig: Record<string, { color: string; label: string }> = {
+  active: { color: 'green', label: '启用' },
+  disabled: { color: 'gray', label: '禁用' },
+  inactive: { color: 'gray', label: '禁用' },
+  expired: { color: 'red', label: '已过期' },
 }
 
 // 订单状态配置
@@ -52,6 +91,10 @@ const configMap = {
   system: systemConfig,
   order: orderConfig,
   position: positionConfig,
+  worker: workerConfig,
+  infra: infraConfig,
+  execution: executionConfig,
+  enable: enableConfig,
 }
 
 const config = computed(() => {
@@ -68,7 +111,7 @@ const label = computed(() => config.value.label)
 .status-tag {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 500;
 }

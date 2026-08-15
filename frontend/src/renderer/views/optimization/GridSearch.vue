@@ -5,7 +5,7 @@
 
     <!-- 功能开发中:研究/优化/验证后端 API 未实现(记忆 arch_parameter_optimization_unwired / arch_factor_subsystem_dormant_75pct);
          此为占位骨架,配置后不会产出真实结果,加横幅以免用户误判可用(#4652 静默失败纪律) -->
-    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius:6px;color:hsl(var(--foreground));font-size:13px;">
+    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;">
       <span aria-hidden="true">🚧</span>
       <span>该功能后端接口开发中，当前为预览骨架，暂不可用。</span>
     </div>
@@ -65,20 +65,19 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>排名</th>
+                  <th class="num">排名</th>
                   <th>参数</th>
-                  <th>收益</th>
-                  <th>夏普比率</th>
+                  <th class="num">收益</th>
+                  <th class="num">夏普比率</th>
                 </tr>
               </thead>
-              <tbody>
                 <tr v-for="(record, i) in result.top_results" :key="`result-${i}`">
-                  <td>{{ record.rank }}</td>
+                  <td class="num">{{ record.rank }}</td>
                   <td>{{ record.params }}</td>
-                  <td>{{ (record.total_return * 100).toFixed(2) }}%</td>
-                  <td>{{ record.sharpe_ratio?.toFixed(2) || '-' }}</td>
+                  <td class="num">{{ (record.total_return * 100).toFixed(2) }}%</td>
+                  <td class="num">{{ record.sharpe_ratio?.toFixed(2) || '-' }}</td>
                 </tr>
-              </tbody>
+              
             </table>
           </div>
         </div>
@@ -91,6 +90,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { message } from '@/utils/toast'
 import EmptyState from '@/components/common/EmptyState.vue'
 
 const loading = ref(false)
@@ -105,7 +105,7 @@ const fetchStrategyList = async () => {
 
 const runOptimization = async () => {
   if (!config.strategyId) {
-    console.warn('请选择策略')
+    message.warning('请选择策略')
     return
   }
   loading.value = true
@@ -135,7 +135,7 @@ onMounted(() => {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -151,6 +151,9 @@ onMounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;

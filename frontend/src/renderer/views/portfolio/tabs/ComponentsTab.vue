@@ -48,7 +48,7 @@ const componentGroups = computed(() => {
 onMounted(async () => {
   try {
     const res = await portfolioApi.get(portfolioId.value)
-    portfolio.value = (res as any).data || res
+    portfolio.value = res
   } catch (e) {
     console.error('Failed to load portfolio:', e)
   } finally {
@@ -63,16 +63,16 @@ onMounted(async () => {
 .group-title {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255,255,255,0.6);
+  color: hsl(var(--muted-foreground));
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin: 0 0 8px 0;
 }
 .component-cards { display: flex; flex-wrap: wrap; gap: 8px; }
 .component-card {
-  background: rgba(255,255,255,0.04);
+  background: hsl(var(--muted) / 0.4);
   border: 1px solid hsl(var(--border));
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 10px 14px;
   min-width: 200px;
 }
@@ -89,9 +89,9 @@ onMounted(async () => {
   font-size: 12px;
   padding: 2px 0;
 }
-.config-key { color: rgba(255,255,255,0.4); }
-.config-val { color: rgba(255,255,255,0.7); font-family: monospace; }
-.empty-hint { color: rgba(255,255,255,0.3); font-size: 13px; }
+.config-key { color: hsl(var(--muted-foreground) / 0.8); }
+.config-val { color: hsl(var(--muted-foreground)); font-family: monospace; }
+.empty-hint { color: hsl(var(--muted-foreground)); font-size: 13px; }
 .loading-center { display: flex; justify-content: center; padding: 40px; }
 .spinner {
   width: 24px; height: 24px;

@@ -1,50 +1,49 @@
 <template>
-  <div class="list-page">
-    <!-- 固定头部 -->
-    <div class="list-header">
-      <div class="header-row">
-        <div class="header-left">
-          <h1 class="page-title">{{ title }}</h1>
-          <slot name="tag" />
-        </div>
-        <div class="header-right">
-          <div v-if="searchable" class="search-box">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <path d="m21 21-4.35-4.35"></path>
-            </svg>
-            <input
-              :value="searchValue"
-              type="text"
-              :placeholder="searchPlaceholder"
-              class="search-input"
-              @input="$emit('update:searchValue', ($event.target as HTMLInputElement).value)"
-            />
-            <button v-if="searchValue" class="clear-btn" @click="$emit('update:searchValue', '')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-          <button v-if="creatable" class="btn-primary" @click="$emit('create')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            {{ createLabel }}
-          </button>
-          <slot name="header-actions" />
-        </div>
-      </div>
+  <!-- 列表页壳:基于 PageLayout 组合(header/title/actions/filters 复用统一外壳),
+       自持滚动容器 list-content(表头 sticky 恒贴 header 下,不随整页滚) -->
+  <PageLayout>
+    <template #title>
+      {{ title }}
+      <slot name="tag" />
+    </template>
 
-      <div v-if="$slots.filters" class="filter-bar">
-        <slot name="filters" />
+    <template #actions>
+      <div v-if="searchable" class="search-box">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <input
+          :value="searchValue"
+          type="text"
+          :placeholder="searchPlaceholder"
+          class="search-input"
+          @input="$emit('update:searchValue', ($event.target as HTMLInputElement).value)"
+        />
+        <button v-if="searchValue" class="clear-btn" @click="$emit('update:searchValue', '')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
+      <button v-if="creatable" class="btn-primary" @click="$emit('create')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        {{ createLabel }}
+      </button>
+      <slot name="header-actions" />
+    </template>
 
-      <div v-if="$slots.stats" class="stats-area">
-        <slot name="stats" />
-      </div>
+    <template v-if="$slots.filters" #filters>
+      <slot name="filters" />
+    </template>
+
+    <!-- 统计条(固定不随表格滚动,PortfolioList 在用) -->
+    <div v-if="$slots.stats" class="list-stats">
+      <slot name="stats" />
     </div>
 
     <!-- 可滚动内容区 -->
@@ -52,6 +51,17 @@
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
+      </div>
+
+      <!-- 列表加载失败:区别于空态,提供重试 -->
+      <div v-else-if="errorText" class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <p class="error-text">{{ errorText }}</p>
+        <button class="btn-primary" @click="$emit('retry')">重试</button>
       </div>
 
       <!-- 空状态 -->
@@ -90,12 +100,13 @@
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="m-stagger">
             <tr
               v-for="(record, idx) in pageData"
               :key="record[rowKey] || idx"
               :class="{ clickable: clickable }"
               @click="$emit('rowClick', record)"
+              @contextmenu="onRowContextMenu($event, record, idx)"
             >
               <td v-for="col in resolvedColumns" :key="col.key">
                 <!-- 操作列:flex 容器给按钮间距,避免多按钮紧贴 -->
@@ -140,11 +151,13 @@
       <!-- 无限滚动触发器插槽（在 list-content 内、table-card 外） -->
       <slot name="afterTable" />
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import PageLayout from './PageLayout.vue'
+import { useContextMenu, type MenuItem } from '@/composables/useContextMenu'
 
 export interface Column {
   title: string
@@ -167,6 +180,7 @@ const props = withDefaults(defineProps<{
   createLabel?: string
   emptyText?: string
   emptyActionText?: string
+  errorText?: string
   clickable?: boolean
   showActions?: boolean
   total?: number
@@ -175,6 +189,8 @@ const props = withDefaults(defineProps<{
   pageSizes?: number[]
   serverPagination?: boolean
   infiniteScroll?: boolean
+  /** 行右键菜单构建器:返回菜单项数组;不传则不接管行右键 */
+  contextMenu?: (record: any, index: number) => MenuItem[]
 }>(), {
   loading: false,
   rowKey: 'id',
@@ -185,6 +201,7 @@ const props = withDefaults(defineProps<{
   createLabel: '新建',
   emptyText: '暂无数据',
   emptyActionText: '创建第一个',
+  errorText: '',
   clickable: false,
   showActions: false,
   page: 1,
@@ -195,6 +212,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
+  retry: []
   create: []
   'update:searchValue': [value: string]
   'update:page': [page: number]
@@ -207,6 +225,13 @@ const innerPage = ref(props.page)
 const innerPageSize = ref(props.pageSize)
 const innerSortBy = ref('')
 const innerSortOrder = ref<'asc' | 'desc'>('desc')
+
+// 行右键:页面传 contextMenu 构建器即可获得 OS 风格菜单(与组合页卡片同套基建)
+const { open: openCtx } = useContextMenu()
+function onRowContextMenu(e: MouseEvent, record: any, idx: number) {
+  if (!props.contextMenu) return
+  openCtx(e, props.contextMenu(record, idx))
+}
 
 watch(() => props.page, v => { innerPage.value = v })
 
@@ -284,54 +309,11 @@ function formatValue(val: any): string {
 </script>
 
 <style scoped>
-.list-page {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+/* header/title/actions/filters 外壳样式由 PageLayout 统一提供,此处仅列表特有样式 */
 
-.list-header {
+.list-stats {
   flex-shrink: 0;
-  /* 对齐 PageLayout .page-layout-header 的 margin-bottom:24px,
-     让 ListPage 页(Backtest/Component/Portfolio 列表)与其他页 header 下间距一致,
-     跨页切换不漂移抖动 */
-  margin-bottom: 24px;
-}
-
-.header-row {
-  display: flex;
-  justify-content: space-between;
-  /* flex-start:对齐 PageLayout,header-right(search+按钮)高度变化不撑漂标题 Y */
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
-
-.header-right {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.filter-bar {
-  margin-top: 12px;
-}
-
-.stats-area {
-  margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 /* Search */
@@ -341,8 +323,11 @@ function formatValue(val: any): string {
   gap: 8px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  padding: 6px 12px;
+  /* 与 .btn-primary(buttons.less) 同高同圆角:30px/4px */
+  border-radius: var(--radius-sm);
+  height: 30px;
+  padding: 0 12px;
+  box-sizing: border-box;
   width: 220px;
 }
 
@@ -407,63 +392,9 @@ function formatValue(val: any): string {
 
 .empty-state svg { opacity: 0.3; margin-bottom: 16px; }
 .empty-state p { margin: 0 0 16px; font-size: 14px; }
+.empty-state .error-text { color: hsl(var(--error)); }
 
-/* Table */
-.table-card {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.pro-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.pro-table thead { background: hsl(var(--border)); }
-
-.pro-table th {
-  padding: 12px;
-  text-align: left;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  border-bottom: 1px solid hsl(var(--secondary));
-  white-space: nowrap;
-}
-
-.pro-table th.sortable {
-  cursor: pointer;
-  user-select: none;
-}
-
-.pro-table th.sortable:hover {
-  color: hsl(var(--primary));
-}
-
-.sort-icon {
-  margin-left: 4px;
-  font-size: 11px;
-  opacity: 0.6;
-}
-
-.pro-table td {
-  padding: 12px;
-  color: hsl(var(--foreground));
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-/* 操作列:多按钮水平排列 + 间距,避免紧贴不可点 */
-.actions-cell {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.pro-table tbody tr { transition: background 0.2s; }
-.pro-table tbody tr:hover { background: hsl(var(--secondary)); }
-.pro-table tbody tr.clickable { cursor: pointer; }
+/* Table: 表格样式全局权威在 styles/tables.less(.table-card/.pro-table) */
 
 /* Pagination */
 .pagination-bar {
@@ -488,7 +419,7 @@ function formatValue(val: any): string {
   padding: 0 6px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
@@ -509,7 +440,7 @@ function formatValue(val: any): string {
   padding: 4px 8px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;

@@ -53,20 +53,15 @@
 
         <div class="form-group">
           <label class="form-label">开仓价格</label>
-          <div class="radio-group">
-            <button class="radio-button" :class="{ active: form.openPrice === 'open' }" @click="form.openPrice = 'open'">
-              开盘价
-            </button>
-            <button class="radio-button" :class="{ active: form.openPrice === 'close' }" @click="form.openPrice = 'close'">
-              收盘价
-            </button>
-            <button class="radio-button" :class="{ active: form.openPrice === 'mid' }" @click="form.openPrice = 'mid'">
-              中间价
-            </button>
-            <button class="radio-button" :class="{ active: form.openPrice === 'fixed' }" @click="form.openPrice = 'fixed'">
-              固定价格
-            </button>
-          </div>
+          <SegmentedControl
+            v-model="form.openPrice"
+            :options="[
+              { key: 'open', label: '开盘价' },
+              { key: 'close', label: '收盘价' },
+              { key: 'mid', label: '中间价' },
+              { key: 'fixed', label: '固定价格' },
+            ]"
+          />
         </div>
 
         <div class="form-actions">
@@ -79,6 +74,7 @@
 
 <script setup lang="ts">
 import { reactive } from 'vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 
 /**
  * 策略信号生成器组件
@@ -110,7 +106,7 @@ const generateSignal = () => {
 
 .card {
   background: hsl(var(--card));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid hsl(var(--border));
 }
 
@@ -155,7 +151,7 @@ const generateSignal = () => {
   padding: 8px 12px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
   box-sizing: border-box;
@@ -171,27 +167,6 @@ const generateSignal = () => {
   height: 1px;
   background: hsl(var(--border));
   margin: 16px 0;
-}
-
-.radio-group {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.radio-button {
-  padding: 6px 12px;
-  background: hsl(var(--border));
-  border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
-  color: hsl(var(--muted-foreground));
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.radio-button:hover {
-  border-color: hsl(var(--primary));
 }
 
 .form-actions {

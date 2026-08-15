@@ -1,5 +1,5 @@
 <template>
-  <div class="stat-card" :class="{ 'stat-card-clickable': clickable }">
+  <div class="stat-card m-fade-up" :class="{ 'stat-card-clickable': clickable }">
     <div class="stat-title">{{ title }}</div>
     <div class="stat-value" :style="valueStyle">
       <span v-if="$slots.prefix" class="stat-prefix"><slot name="prefix" /></span>
@@ -49,7 +49,7 @@ const formatValue = (val: number | string | null | undefined): string | number =
 const displayValue = computed(() => formatValue(props.value))
 
 const computedSuffix = computed(() => {
-  if (props.suffix) return undefined
+  if (props.suffix) return props.suffix
   if (props.type === 'percent') return '%'
   return undefined
 })
@@ -77,7 +77,7 @@ const valueStyle = computed(() => {
 <style scoped>
 .stat-card {
   background: hsl(var(--card));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid hsl(var(--border));
   padding: 20px;
   height: 100%;

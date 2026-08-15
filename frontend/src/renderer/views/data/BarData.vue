@@ -1,7 +1,6 @@
 <template>
   <PageLayout>
     <template #title>
-      <button class="back-btn" @click="$router.push('/data')">←</button>
       <span class="tag tag-green">K线</span>
       K线数据
       <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
@@ -64,6 +63,7 @@
         :page-size="50"
         :max-height="340"
         row-key="timestamp"
+        :context-menu="rowMenu"
         @update:page="tablePage = $event"
       >
         <template #colDate="{ record }">{{ formatDate(record.timestamp) }}</template>
@@ -92,6 +92,8 @@ import SearchSelect from '@/components/common/SearchSelect.vue'
 import dayjs, { Dayjs } from 'dayjs'
 import { dataApi } from '@/api'
 import { formatCompact } from '@/utils/format'
+import { message as toast } from '@/utils/toast'
+import type { MenuItem } from '@/composables/useContextMenu'
 import {
   createChart,
   IChartApi,
@@ -129,6 +131,13 @@ let resizeObserver: ResizeObserver | null = null
 
 const tablePage = ref(1)
 
+/** 行右键菜单:复制行情值 */
+const rowMenu = (record: any): MenuItem[] => [
+  { label: '复制日期', action: () => { navigator.clipboard.writeText(formatDate(record.timestamp)); toast.success('已复制') } },
+  { label: '复制收盘价', action: () => { navigator.clipboard.writeText(String(record.close ?? '')); toast.success('已复制') } },
+  { label: '复制代码', action: () => { navigator.clipboard.writeText(selectedCode.value); toast.success('已复制') } },
+]
+
 const barColumns = [
   { title: '日期', dataIndex: 'timestamp', slotName: 'colDate' },
   { title: '开盘', dataIndex: 'open', slotName: 'colOpen' },
@@ -141,9 +150,10 @@ const barColumns = [
 ]
 
 const searchStocks = async (query: string) => {
-  const res = await dataApi.listStocks({ query, page_size: 50 })
-  const items = (res as any)?.data ?? res ?? []
-  return (Array.isArray(items) ? items : []).map((s: any) => ({
+  // 拦截器已拆信封:分页端点 = {items, total, ...},直接取 .items(二次 .data 解包=静默空数据)
+  const res: any = await dataApi.listStocks({ query, page_size: 50 })
+  const items = res?.items ?? []
+  return items.map((s: any) => ({
     value: s.code,
     label: `${s.code} ${s.name || ''}`,
   }))
@@ -448,11 +458,11 @@ onUnmounted(() => {
 .btn-sync {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 14px;
   background: hsl(var(--success) / 0.15);
   border: 1px solid hsl(var(--success) / 0.3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: hsl(var(--success));
   font-size: 13px;
   cursor: pointer;
@@ -479,18 +489,6 @@ onUnmounted(() => {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-
-.back-btn {
-  background: none;
-  border: 1px solid hsl(var(--border));
-  color: hsl(var(--muted-foreground));
-  font-size: 16px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.back-btn:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
 
 .chart-header {
   display: flex;
@@ -529,7 +527,7 @@ onUnmounted(() => {
   background: hsl(var(--primary) / 0.9);
   color: hsl(var(--primary-foreground));
   padding: 6px 16px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   display: flex;
   align-items: center;

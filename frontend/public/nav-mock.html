@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数据导航方案对比</title>
+<style>
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --card: #ffffff;
+  --border: #e2e5eb;
+  --border-strong: #cdd2db;
+  --text: #1c2230;
+  --muted: #66707f;
+  --accent: #3d7a4f;
+  --accent-weak: #3d7a4f1a;
+  --accent-fg: #2e6b40;
+  --warn: #b07a1e;
+  --err: #b23a30;
+  --sidebar: #10131a;
+  --sidebar-text: #9aa3b2;
+  --sidebar-active: #ffffff;
+  --sidebar-accent: #6cb87f;
+  --shadow: 0 1px 3px rgb(20 26 38 / 8%);
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d0f14;
+    --panel: #141821;
+    --card: #171c26;
+    --border: #262d3a;
+    --border-strong: #354051;
+    --text: #e4e8ef;
+    --muted: #8b93a3;
+    --accent: #5aa76d;
+    --accent-weak: #5aa76d22;
+    --accent-fg: #7cc48e;
+    --warn: #d9a441;
+    --err: #e0685e;
+    --sidebar: #0a0c11;
+    --sidebar-text: #8a92a2;
+    --sidebar-active: #f0f3f8;
+    --shadow: 0 1px 3px rgb(0 0 0 / 40%);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d0f14;
+  --panel: #141821;
+  --card: #171c26;
+  --border: #262d3a;
+  --border-strong: #354051;
+  --text: #e4e8ef;
+  --muted: #8b93a3;
+  --accent: #5aa76d;
+  --accent-weak: #5aa76d22;
+  --accent-fg: #7cc48e;
+  --warn: #d9a441;
+  --err: #e0685e;
+  --sidebar: #0a0c11;
+  --sidebar-text: #8a92a2;
+  --sidebar-active: #f0f3f8;
+  --shadow: 0 1px 3px rgb(0 0 0 / 40%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.6 "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  padding: 24px clamp(16px, 4vw, 48px) 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+
+/* ===== 头部 ===== */
+header.masthead { margin-bottom: 20px; }
+.eyebrow {
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--accent); font-weight: 600; margin-bottom: 6px;
+}
+h1 { font-size: 22px; font-weight: 700; text-wrap: balance; }
+.masthead p.lead { color: var(--muted); margin-top: 4px; font-size: 13px; }
+
+/* ===== 方案切换 ===== */
+.seg {
+  display: flex; gap: 8px; margin: 18px 0 14px; flex-wrap: wrap;
+}
+.seg button {
+  font: inherit; font-weight: 600; cursor: pointer;
+  padding: 9px 18px; border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel); color: var(--text);
+  transition: border-color .15s, background .15s;
+  display: flex; align-items: baseline; gap: 8px;
+}
+.seg button .k {
+  font-family: var(--mono); font-size: 12px; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 4px; padding: 0 5px;
+}
+.seg button[aria-pressed="true"] {
+  border-color: var(--accent); background: var(--accent-weak); color: var(--accent-fg);
+}
+.seg button[aria-pressed="true"] .k { color: var(--accent-fg); border-color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ===== 挑战任务 + 步数 ===== */
+.taskbar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel); margin-bottom: 14px; font-size: 13px;
+}
+.taskbar .label { color: var(--muted); font-weight: 600; }
+.taskbar .task { color: var(--text); }
+.taskbar .spacer { flex: 1; }
+.counter { display: flex; align-items: center; gap: 8px; }
+.counter .n {
+  font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent-fg);
+  font-variant-numeric: tabular-nums; min-width: 1.2em; text-align: center;
+}
+.pathlog {
+  font-family: var(--mono); font-size: 12px; color: var(--muted);
+  max-width: 100%; overflow-x: auto; white-space: nowrap; direction: rtl;
+  max-height: 2.6em; overflow-y: hidden;
+}
+.pathlog::-webkit-scrollbar { height: 4px; }
+.pathlog::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+button.reset {
+  font: inherit; font-size: 12px; cursor: pointer; color: var(--muted);
+  background: none; border: 1px dashed var(--border-strong); border-radius: 6px; padding: 3px 10px;
+}
+button.reset:hover { color: var(--accent-fg); border-color: var(--accent); }
+
+/* ===== 仿真应用窗 ===== */
+.app {
+  display: grid; grid-template-columns: 200px 1fr;
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  background: var(--panel); box-shadow: var(--shadow);
+  min-height: 560px;
+}
+.sb {
+  background: var(--sidebar); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px;
+}
+.sb .brand {
+  color: #fff; font-weight: 700; font-size: 14px; padding: 4px 10px 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sb .brand .leaf { color: var(--sidebar-accent); font-size: 15px; }
+.sb .item {
+  color: var(--sidebar-text); font-size: 13px; padding: 7px 10px; border-radius: 6px;
+  display: flex; align-items: center; gap: 8px; cursor: default; user-select: none;
+}
+.sb .item .ic { width: 15px; text-align: center; opacity: .8; font-size: 12px; }
+.sb .item.clickable { cursor: pointer; }
+.sb .item.clickable:hover { color: var(--sidebar-active); background: rgb(255 255 255 / 6%); }
+.sb .item.active {
+  color: var(--sidebar-active); background: rgb(255 255 255 / 8%); font-weight: 600;
+  position: relative;
+}
+.sb .item.active::before {
+  content: ''; position: absolute; left: -10px; top: 6px; bottom: 6px; width: 3px;
+  border-radius: 2px; background: var(--sidebar-accent);
+}
+.sb .sub { padding-left: 14px; }
+.sb .sub .item { font-size: 12.5px; padding: 5.5px 10px; }
+.sb .sub .item .ic { font-size: 10px; }
+
+.main { padding: 18px 20px; overflow-y: auto; max-height: 640px; }
+.crumb { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.crumb h2 { font-size: 16px; font-weight: 700; }
+.crumb .tag {
+  font-size: 11px; font-weight: 600; color: var(--accent-fg);
+  background: var(--accent-weak); padding: 2px 8px; border-radius: 4px;
+}
+.backbtn {
+  font: inherit; font-size: 13px; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--card); color: var(--muted);
+  border-radius: 6px; padding: 3px 10px;
+}
+.backbtn:hover { color: var(--accent-fg); border-color: var(--accent); }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.tabs button {
+  font: inherit; font-size: 13px; cursor: pointer; background: none; border: none;
+  color: var(--muted); padding: 8px 14px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tabs button.active { color: var(--accent-fg); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* 统计卡 */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px; position: relative; overflow: hidden;
+}
+.stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); }
+.stat.c-warn::before { background: var(--warn); }
+.stat .v { font-family: var(--mono); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.stat .go { font-size: 11px; color: var(--accent-fg); margin-top: 8px; }
+.stat.link { cursor: pointer; transition: border-color .15s; }
+.stat.link:hover { border-color: var(--accent); }
+
+/* 卡片 & 表 */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+.card h3 { font-size: 13.5px; font-weight: 600; margin-bottom: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11.5px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+td { padding: 6.5px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+td.num, th.num { text-align: right; font-family: var(--mono); font-size: 12px; }
+tr.rowlink { cursor: pointer; }
+tr.rowlink:hover td { background: var(--accent-weak); }
+.code { font-family: var(--mono); font-size: 12px; }
+.pill { font-size: 11px; padding: 1px 8px; border-radius: 99px; font-weight: 600; }
+.pill.ok { background: var(--accent-weak); color: var(--accent-fg); }
+.pill.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+
+.filterbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.filterbar input, .filterbar select {
+  font: inherit; font-size: 12.5px; color: var(--text);
+  background: var(--panel); border: 1px solid var(--border-strong); border-radius: 6px; padding: 5px 10px;
+}
+.filterbar input.code-in { font-family: var(--mono); width: 130px; }
+.filterbar .btn {
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 6px 16px;
+}
+.chart { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 12px; background: var(--panel); }
+
+.hint {
+  font-size: 12px; color: var(--muted); background: var(--accent-weak);
+  border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 0 8px 8px 0; margin-bottom: 14px;
+}
+.hint b { color: var(--accent-fg); }
+
+/* ===== 说明面板 ===== */
+.notes { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .notes { grid-template-columns: 1fr; } .app { grid-template-columns: 64px 1fr; } .sb .item span.lbl, .sb .brand span.t { display: none; } }
+.notes .card { margin-bottom: 0; }
+.notes ul { list-style: none; font-size: 13px; }
+.notes li { padding: 3px 0 3px 22px; position: relative; color: var(--text); }
+.notes li.good::before { content: '✓'; position: absolute; left: 4px; color: var(--accent-fg); font-weight: 700; }
+.notes li.bad::before { content: '✗'; position: absolute; left: 4px; color: var(--err); font-weight: 700; }
+.notes li.info::before { content: '·'; position: absolute; left: 4px; color: var(--muted); font-weight: 700; }
+.notes .scope { font-size: 12px; color: var(--muted); margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
+kbd {
+  font-family: var(--mono); font-size: 11px; border: 1px solid var(--border-strong);
+  border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--muted);
+}
+footer { margin-top: 26px; color: var(--muted); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">Ginkgo · 数据模块重构</div>
+  <h1>三种导航方案 · 亲手点点看</h1>
+  <p class="lead">每个方案都是可交互模拟。切换方案后按下面的挑战任务走一遍，右侧步数会实时记录你花了多少次跳转。</p>
+</header>
+
+<div class="seg" role="tablist" aria-label="方案选择">
+  <button data-opt="A" aria-pressed="false"><span class="k">A</span>侧栏子菜单</button>
+  <button data-opt="B" aria-pressed="false"><span class="k">B</span>单页 Tab 合并</button>
+  <button data-opt="C" aria-pressed="false"><span class="k">C</span>仅统一返回按钮</button>
+</div>
+
+<div class="taskbar">
+  <span class="label">挑战</span>
+  <span class="task" id="taskText">① 从「K线数据」切到「Tick 数据」 ② 从「股票信息」看 600519 的K线 ③ 找到「数据同步」</span>
+  <span class="spacer"></span>
+  <div class="counter" title="当前方案下的页面跳转次数">
+    <span class="label">跳转</span><span class="n" id="clickN">0</span><span class="label">步</span>
+  </div>
+  <button class="reset" id="resetBtn">清零</button>
+  <div class="pathlog" id="pathLog" style="flex-basis:100%"></div>
+</div>
+
+<div class="app">
+  <nav class="sb" id="sidebar"></nav>
+  <main class="main" id="main"></main>
+</div>
+
+<div class="notes">
+  <div class="card" id="notePros"><h3>优势</h3><ul></ul></div>
+  <div class="card" id="noteCons"><h3>代价与风险</h3><ul></ul></div>
+</div>
+
+<footer>模拟内容与页面结构取自 frontend/src/renderer/views/data/ · 仅用于导航方案决策</footer>
+</div>
+
+<script>
+/* ================= 数据 ================= */
+const STOCKS = [
+  ['000001.SZ','平安银行','10.82','银行','ok'],
+  ['000858.SZ','五粮液','128.30','白酒','ok'],
+  ['300750.SZ','宁德时代','186.45','电池','warn'],
+  ['600519.SH','贵州茅台','1,452.00','白酒','ok'],
+  ['601318.SH','中国平安','42.17','保险','ok'],
+  ['688111.SH','金山办公','281.60','软件','warn'],
+];
+const BARS = [
+  ['2026-08-07','10.72','10.88','10.65','10.81','41,203'],
+  ['2026-08-08','10.81','10.95','10.78','10.92','38,517'],
+  ['2026-08-11','10.92','10.99','10.80','10.83','29,004'],
+  ['2026-08-12','10.83','11.05','10.82','11.01','52,778'],
+  ['2026-08-13','11.01','11.08','10.90','10.95','33,241'],
+];
+const TICKS = [
+  ['09:30:01','10.94','+200','11.9万'],
+  ['09:30:05','10.93','−150','9.2万'],
+  ['09:30:12','10.94','+300','14.1万'],
+  ['09:31:00','10.96','+500','21.0万'],
+  ['09:31:08','10.95','−100','6.8万'],
+];
+const FACTORS = [
+  ['2026-08-07','1.284120'],['2026-08-08','1.284120'],['2026-08-11','1.287655'],
+  ['2026-08-12','1.287655'],['2026-08-13','1.291200'],
+];
+
+const NOTES = {
+  A: {
+    pros: [
+      '任何子页直达，子页互跳 0 中转（挑战①：K线→Tick = 1 步）',
+      '复用 admin 菜单既有模式，交互习惯统一',
+      '概览页卸下导航职责，瘦身为纯统计面板',
+      '带参跳转 股票→K线?code= 完整保留',
+    ],
+    cons: [
+      '侧栏数据项从 1 行变 7 行，侧栏变长',
+      '概览页统计卡仍可点击跳转，与侧栏功能轻微重复（可改为纯展示）',
+    ],
+    scope: '改动面：config/menu.ts（加 children）+ DataOverview 去导航化 + 统一/移除子页返回按钮。约 6 个文件，风险低。',
+  },
+  B: {
+    pros: [
+      '零页面跳转：四个数据视图一页内切换（挑战①：K线→Tick = 1 次点击）',
+      'URL 收敛到单入口，不存在"迷路"问题',
+    ],
+    cons: [
+      '四套筛选条件共存一页，切换即丢状态或互相挤占（需额外做状态缓存）',
+      'stocks→bars 带参跳转改为 tab 内联动，改动面反而更大',
+      '单文件膨胀（现有 4 页共 1,700 行合并），后续维护差',
+      '丢掉独立 URL，无法分享/收藏"K线页"这类直达链接',
+    ],
+    scope: '改动面：新建大页面合并 4 组件 + 状态管理。约 4-5 个文件，中风险。',
+  },
+  C: {
+    pros: [
+      '改动最小（只补齐/统一返回按钮）',
+      '不引入任何新交互模式',
+    ],
+    cons: [
+      '枢纽中转问题依旧：挑战①仍是 K线→概览→Tick 两跳',
+      '概览页 462 行的导航职责不变，复杂度没有真正下降',
+      '治标方案，后续大概率还是会被要求重做',
+    ],
+    scope: '改动面：5 个子页的返回按钮统一。约 5 个文件，风险极低。',
+  },
+};
+
+/* ================= 状态 ================= */
+const state = {
+  option: 'A',
+  page: 'overview',      // overview|stocks|bars|ticks|factors|sync
+  tab: 'stocks',         // 方案B的当前tab
+  barsCode: '',
+  clicks: 0,
+  path: ['数据概览'],
+};
+const PAGE_NAMES = { overview:'数据概览', stocks:'股票信息', bars:'K线数据', ticks:'Tick 数据', factors:'复权因子', sync:'数据同步' };
+
+const $ = s => document.querySelector(s);
+const sb = $('#sidebar'), main = $('#main');
+
+function nav(page, {tabKeep=false} = {}) {
+  state.page = page;
+  if (!tabKeep && state.option === 'B') {
+    const map = { stocks:'stocks', bars:'bars', ticks:'ticks', factors:'factors' };
+    if (map[page]) state.tab = map[page];
+  }
+  state.clicks++;
+  state.path.push(PAGE_NAMES[page]);
+  render();
+}
+
+function resetCount() { state.clicks = 0; state.path = [PAGE_NAMES[state.page]]; render(); }
+
+/* ================= 侧栏 ================= */
+function renderSidebar() {
+  const isA = state.option === 'A';
+  const kids = isA ? `
+    <div class="sub">
+      <div class="item clickable ${st('overview')}"><span class="ic">◦</span><span class="lbl">数据概览</span></div>
+      <div class="item clickable ${st('stocks')}"><span class="ic">◦</span><span class="lbl">股票信息</span></div>
+      <div class="item clickable ${st('bars')}"><span class="ic">◦</span><span class="lbl">K线数据</span></div>
+      <div class="item clickable ${st('ticks')}"><span class="ic">◦</span><span class="lbl">Tick 数据</span></div>
+      <div class="item clickable ${st('factors')}"><span class="ic">◦</span><span class="lbl">复权因子</span></div>
+      <div class="item clickable ${st('sync')}"><span class="ic">◦</span><span class="lbl">数据同步</span></div>
+    </div>` : '';
+  const dataActive = isA || state.page !== 'overview' || state.option !== 'B' ? (isA ? '' : (state.page !== 'overview' || state.option === 'C' ? 'active' : 'active')) : 'active';
+  sb.innerHTML = `
+    <div class="brand"><span class="leaf">❧</span><span class="t">Ginkgo</span></div>
+    <div class="item"><span class="ic">▤</span><span class="lbl">总览</span></div>
+    <div class="item"><span class="ic">◫</span><span class="lbl">组合</span></div>
+    <div class="item"><span class="ic">⇅</span><span class="lbl">交易</span></div>
+    <div class="item clickable ${isA ? '' : 'active'}" style="${isA ? '' : 'font-weight:600'}">
+      <span class="ic">▣</span><span class="lbl">数据</span>${isA ? '<span style="margin-left:auto;font-size:10px">▾</span>' : ''}
+    </div>
+    ${kids}
+    <div class="item"><span class="ic">⚙</span><span class="lbl">管理</span></div>`;
+  if (!isA) {
+    sb.querySelectorAll('.item')[3].addEventListener('click', () => {
+      if (state.option === 'B') { state.tab = 'stocks'; nav('overview', {tabKeep:true}); }
+      else nav('overview', {tabKeep:true});
+    });
+  } else {
+    sb.querySelector('.item:nth-child(4)').addEventListener('click', () => nav('overview'));
+    sb.querySelectorAll('.sub .item').forEach(el => {
+      const lbl = el.querySelector('.lbl').textContent;
+      const key = Object.keys(PAGE_NAMES).find(k => PAGE_NAMES[k] === lbl);
+      if (key) el.addEventListener('click', () => nav(key));
+    });
+  }
+}
+function st(p) { return state.page === p ? 'active' : ''; }
+
+/* ================= 内容 ================= */
+function crumbHTML(page, back) {
+  const backBtn = back === 'arrow'
+    ? `<button class="backbtn" data-back>←</button>`
+    : back === 'label'
+      ? `<button class="backbtn" data-back>← 数据</button>` : '';
+  return `<div class="crumb">${backBtn}<span class="tag">数据</span><h2>${PAGE_NAMES[page]}</h2></div>`;
+}
+
+function statCard(v, l, target) {
+  return `<div class="stat link" ${target ? `data-nav="${target}"` : ''}>
+    <div class="v">${v}</div><div class="l">${l}</div>${target ? '<div class="go">点击查看详情 →</div>' : ''}</div>`;
+}
+
+function overviewHTML(navigable) {
+  return `
+  <div class="crumb"><span class="tag">数据</span><h2>数据概览</h2></div>
+  <div class="stats">
+    ${statCard('5,412','股票总数', navigable ? 'stocks' : null)}
+    ${statCard('1.2亿','K线数据量', navigable ? 'bars' : null)}
+    ${statCard('3,806万','Tick数据量', navigable ? 'ticks' : null)}
+    ${statCard('864万','复权因子', navigable ? 'factors' : null)}
+  </div>
+  <div class="card"><h3>快捷操作</h3>
+    <div style="display:flex;gap:10px">
+      <button class="pill warn" style="border:none;cursor:pointer;padding:6px 14px" ${navigable ? 'data-nav="sync"' : ''}>⟳ 数据同步</button>
+    </div>
+  </div>
+  <div class="card"><h3>最近同步记录</h3>
+    <table><thead><tr><th>类型</th><th>代码</th><th class="num">时间</th><th>状态</th></tr></thead>
+    <tbody>
+      <tr><td>K线数据</td><td class="code">600519.SH</td><td class="num">08-13 16:02</td><td><span class="pill ok">成功</span></td></tr>
+      <tr><td>股票信息</td><td class="code">—</td><td class="num">08-13 15:40</td><td><span class="pill ok">成功</span></td></tr>
+      <tr><td>Tick数据</td><td class="code">000001.SZ</td><td class="num">08-13 15:12</td><td><span class="pill warn">部分</span></td></tr>
+    </tbody></table>
+  </div>`;
+}
+
+function stocksHTML() {
+  return `<div class="card" style="margin-top:2px">
+  <div class="filterbar"><input placeholder="搜索代码/名称" style="width:180px"><select><option>全部市场</option><option>SH</option><option>SZ</option></select><button class="btn">查询</button></div>
+  <table>
+    <thead><tr><th>代码</th><th>名称</th><th class="num">最新价</th><th>行业</th><th>状态</th><th></th></tr></thead>
+    <tbody>${STOCKS.map(s => `<tr class="rowlink" data-code="${s[0]}">
+      <td class="code">${s[0]}</td><td>${s[1]}</td><td class="num">${s[2]}</td><td>${s[3]}</td>
+      <td><span class="pill ${s[4]}">${s[4]==='ok'?'正常':'停牌'}</span></td>
+      <td style="color:var(--accent-fg);font-size:12px">K线 →</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function barsHTML(code) {
+  const c = code || '000001.SZ';
+  return `
+  <div class="filterbar">
+    <input class="code-in" value="${c}" id="barsCode"><input type="date" value="2026-05-13"><input type="date" value="2026-08-13">
+    <select><option>日线</option><option>60分钟</option><option>30分钟</option></select>
+    <button class="btn">查询</button>
+  </div>
+  <div class="chart">${candles(c)}</div>
+  <div class="card"><h3>行情记录</h3>
+  <table><thead><tr><th>日期</th><th class="num">开盘</th><th class="num">最高</th><th class="num">最低</th><th class="num">收盘</th><th class="num">成交量</th></tr></thead>
+  <tbody>${BARS.map(b => `<tr><td class="code">${b[0]}</td><td class="num">${b[1]}</td><td class="num">${b[2]}</td><td class="num">${b[3]}</td><td class="num">${b[4]}</td><td class="num">${b[5]}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+/* 简易K线: 确定性伪随机 */
+function candles(code) {
+  let seed = [...code].reduce((a,ch)=>a+ch.charCodeAt(0),0);
+  const rnd = () => { seed = (seed*9301+49297)%233280; return seed/233280; };
+  const w = 640, h = 130, n = 34;
+  let px = 100; const pts = [];
+  for (let i=0;i<n;i++){ const o=px; px += (rnd()-0.48)*4; pts.push([o,px]); }
+  const lo = Math.min(...pts.flat()), hi = Math.max(...pts.flat());
+  const y = v => h-8-(v-lo)/(hi-lo)*(h-16);
+  const cw = w/n;
+  let out = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="K线示意图">`;
+  for (let i=0;i<n;i++){
+    const [o,c] = pts[i], up = c>=o;
+    const col = up ? 'var(--accent)' : 'var(--err)';
+    const top = y(Math.max(o,c)), bot = y(Math.min(o,c));
+    out += `<line x1="${i*cw+cw/2}" y1="${y(o)-6-rnd()*8}" x2="${i*cw+cw/2}" y2="${bot+4+rnd()*8}" stroke="${col}" stroke-width="1"/>
+    <rect x="${i*cw+1.5}" y="${top}" width="${cw-3}" height="${Math.max(bot-top,1)}" fill="${up?'transparent':col}" stroke="${col}" stroke-width="1"/>`;
+  }
+  return out+'</svg>';
+}
+
+function ticksHTML() {
+  return `<div class="filterbar"><input class="code-in" value="000001.SZ"><input type="date" value="2026-08-13"><button class="btn">查询</button></div>
+  <div class="card"><table><thead><tr><th>时间</th><th class="num">成交价</th><th class="num">成交量</th><th class="num">成交额</th></tr></thead>
+  <tbody>${TICKS.map(t=>`<tr><td class="code">${t[0]}</td><td class="num">${t[1]}</td><td class="num">${t[2]}</td><td class="num">${t[3]}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function factorsHTML() {
+  return `<div class="filterbar"><input class="code-in" value="000001.SZ"><button class="btn">查询</button></div>
+  <div class="card"><table><thead><tr><th>日期</th><th class="num">后复权因子</th></tr></thead>
+  <tbody>${FACTORS.map(f=>`<tr><td class="code">${f[0]}</td><td class="num">${f[1]}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function syncHTML() {
+  return `<div class="card"><h3>发起同步</h3>
+  <div class="filterbar">
+    <select><option>K线数据</option><option>股票信息</option><option>Tick数据</option><option>复权因子</option></select>
+    <input class="code-in" placeholder="代码(留空=全市场)">
+    <input type="date" value="2026-08-01"><input type="date" value="2026-08-13">
+    <button class="btn">开始同步</button>
+  </div></div>
+  <div class="card"><h3>同步历史</h3>
+  <table><thead><tr><th>类型</th><th class="num">进度</th><th>状态</th></tr></thead>
+  <tbody>
+  <tr><td>K线·全市场</td><td class="num">2,341 / 5,412</td><td><span class="pill warn">进行中</span></td></tr>
+  <tr><td>股票信息</td><td class="num">5,412 / 5,412</td><td><span class="pill ok">成功</span></td></tr>
+  </tbody></table></div>`;
+}
+
+/* 方案B: tab页 */
+function tabsPageHTML() {
+  const tabs = [['stocks','股票'],['bars','K线'],['ticks','Tick'],['factors','复权']];
+  let body = '';
+  if (state.tab==='stocks') body = stocksHTML();
+  if (state.tab==='bars') body = barsHTML(state.barsCode);
+  if (state.tab==='ticks') body = ticksHTML();
+  if (state.tab==='factors') body = factorsHTML();
+  return `
+  <div class="crumb"><span class="tag">数据</span><h2>数据浏览</h2>
+    <span style="margin-left:auto"><button class="pill warn" style="border:none;cursor:pointer;padding:5px 12px" data-nav="sync">⟳ 数据同步</button></span></div>
+  <div class="tabs">${tabs.map(t=>`<button data-tab="${t[0]}" class="${state.tab===t[0]?'active':''}">${t[1]}</button>`).join('')}</div>
+  ${state.tab==='stocks' ? '<div class="hint">⚠ 四个视图共存一页：切到其他 Tab 再回来时，这里的搜索/市场筛选状态是否保留需要额外处理</div>' : ''}
+  ${body}`;
+}
+
+/* ================= 渲染 ================= */
+function render() {
+  renderSidebar();
+  const o = state.option;
+
+  if (o === 'B') {
+    main.innerHTML = state.page === 'sync' ? crumbHTML('sync') + syncHTML() : tabsPageHTML();
+  } else if (o === 'A') {
+    let html = '';
+    if (state.page==='overview') html = overviewHTML(true);
+    if (state.page==='stocks') html = crumbHTML('stocks') + stocksHTML();
+    if (state.page==='bars') html = crumbHTML('bars') + barsHTML(state.barsCode);
+    if (state.page==='ticks') html = crumbHTML('ticks') + ticksHTML();
+    if (state.page==='factors') html = crumbHTML('factors') + factorsHTML();
+    if (state.page==='sync') html = crumbHTML('sync') + syncHTML();
+    main.innerHTML = html;
+  } else { /* C: 现状——三种返回形态如实还原 */
+    let html = '';
+    if (state.page==='overview') html = overviewHTML(true);
+    if (state.page==='stocks') html = crumbHTML('stocks') + stocksHTML() + '<div class="hint">此页<b>没有返回按钮</b>（现状）</div>';
+    if (state.page==='bars') html = crumbHTML('bars','arrow') + barsHTML(state.barsCode);
+    if (state.page==='ticks') html = crumbHTML('ticks','label') + ticksHTML();
+    if (state.page==='factors') html = crumbHTML('factors') + factorsHTML() + '<div class="hint">此页<b>没有返回按钮</b>（现状）</div>';
+    if (state.page==='sync') html = crumbHTML('sync') + syncHTML() + '<div class="hint">此页<b>没有返回按钮</b>（现状）</div>';
+    main.innerHTML = html;
+  }
+
+  /* 事件绑定 */
+  main.querySelectorAll('[data-nav]').forEach(el =>
+    el.addEventListener('click', () => nav(el.dataset.nav)));
+  main.querySelectorAll('[data-back]').forEach(el =>
+    el.addEventListener('click', () => nav('overview')));
+  main.querySelectorAll('tr.rowlink').forEach(tr =>
+    tr.addEventListener('click', () => {
+      state.barsCode = tr.dataset.code;
+      if (state.option === 'B') { state.tab = 'bars'; state.clicks++; state.path.push('K线 Tab'); render(); }
+      else nav('bars');
+    }));
+  main.querySelectorAll('[data-tab]').forEach(b =>
+    b.addEventListener('click', () => { state.tab = b.dataset.tab; state.clicks++; state.path.push(b.textContent+' Tab'); render(); }));
+
+  /* 计数与路径 */
+  $('#clickN').textContent = state.clicks;
+  $('#pathLog').textContent = state.path.join('  →  ') + '  ';
+
+  /* 说明面板 */
+  $('#notePros ul').innerHTML = NOTES[o].pros.map(x=>`<li class="good">${x}</li>`).join('');
+  $('#noteCons ul').innerHTML = NOTES[o].cons.map(x=>`<li class="bad">${x}</li>`).join('') + `<li class="info">${NOTES[o].scope}</li>`;
+}
+
+/* 方案切换 */
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  state.option = b.dataset.opt;
+  state.page = 'overview'; state.tab = 'stocks'; state.barsCode = '';
+  state.clicks = 0; state.path = ['数据概览'];
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x===b));
+  render();
+}));
+$('#resetBtn').addEventListener('click', resetCount);
+
+/* 初始: 方案A */
+document.querySelector('.seg button[data-opt="A"]').setAttribute('aria-pressed','true');
+render();
+</script>
+</body>
+</html>

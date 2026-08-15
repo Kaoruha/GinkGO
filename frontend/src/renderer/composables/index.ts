@@ -5,3 +5,5 @@ export { useStatusFormat, useBacktestStatus, usePortfolioMode, usePortfolioState
 export { useListPage, commonSearchFilters } from './useListPage'
 export { usePolling } from './usePolling'
 export type { UsePollingOptions } from './usePolling'
+export { useContextMenu } from './useContextMenu'
+export type { MenuItem } from './useContextMenu'

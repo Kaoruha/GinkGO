@@ -19,6 +19,7 @@
             :key="record[rowKey] || rowIndex"
             :class="{ clickable: $attrs.onRowClick }"
             @click="$emit('rowClick', record)"
+            @contextmenu="onRowContextMenu($event, record)"
           >
             <td
               v-for="column in computedColumns"
@@ -77,6 +78,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, useSlots } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
+import { useContextMenu, type MenuItem } from '@/composables/useContextMenu'
 
 export interface Column {
   title: string
@@ -106,6 +108,8 @@ const props = withDefaults(defineProps<{
   maxHeight?: number | string
   showToolbar?: boolean
   showExport?: boolean
+  /** 行右键菜单构建器:返回菜单项数组;不传则不接管行右键 */
+  contextMenu?: (record: any, index: number) => MenuItem[]
 }>(), {
   loading: false,
   rowKey: 'id',
@@ -125,6 +129,13 @@ const emit = defineEmits<{
 }>()
 
 const slots = useSlots()
+
+// 行右键菜单(与 ListPage 同一套基建)
+const { open: openCtx } = useContextMenu()
+function onRowContextMenu(e: MouseEvent, record: any) {
+  if (!props.contextMenu) return
+  openCtx(e, props.contextMenu(record, displayData.value.indexOf(record)))
+}
 
 function hasSlot(name: string | undefined): boolean {
   if (!name) return false
@@ -200,48 +211,14 @@ function formatCellValue(val: any): string {
 
 .table-wrapper {
   overflow-x: auto;
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   border: 1px solid hsl(var(--border));
   border-bottom: none;
 }
 
+/* .pro-table 样式全局权威在 styles/tables.less */
 .pro-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 13px;
   background: hsl(var(--card));
-}
-
-.pro-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 12px;
-  text-align: left;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  background: hsl(var(--border));
-  border-bottom: 1px solid hsl(var(--secondary));
-  white-space: nowrap;
-}
-
-.pro-table td {
-  padding: 12px;
-  color: hsl(var(--foreground));
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.pro-table tbody tr {
-  transition: background 0.2s;
-}
-
-.pro-table tbody tr:hover {
-  background: hsl(var(--border));
-}
-
-.pro-table tbody tr.clickable {
-  cursor: pointer;
 }
 
 /* Loading */
@@ -272,7 +249,7 @@ function formatCellValue(val: any): string {
   padding: 12px 16px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 0 0 8px 8px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 .pagination-info {
@@ -290,7 +267,7 @@ function formatCellValue(val: any): string {
   padding: 4px 10px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;
@@ -312,7 +289,7 @@ function formatCellValue(val: any): string {
   padding: 4px 8px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 12px;
   text-align: center;
@@ -327,7 +304,7 @@ function formatCellValue(val: any): string {
   padding: 4px 8px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 12px;
   cursor: pointer;

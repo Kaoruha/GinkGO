@@ -8,7 +8,7 @@
 
     <!-- 功能开发中:研究/优化/验证后端 API 未实现(记忆 arch_parameter_optimization_unwired / arch_factor_subsystem_dormant_75pct);
          此为占位骨架,配置后不会产出真实结果,加横幅以免用户误判可用(#4652 静默失败纪律) -->
-    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius:6px;color:hsl(var(--foreground));font-size:13px;">
+    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;">
       <span aria-hidden="true">🚧</span>
       <span>该功能后端接口开发中，当前为预览骨架，暂不可用。</span>
     </div>
@@ -93,48 +93,47 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Fold</th>
+                  <th class="num">Fold</th>
                   <th>训练开始</th>
                   <th>训练结束</th>
                   <th>测试开始</th>
                   <th>测试结束</th>
-                  <th>训练收益</th>
-                  <th>测试收益</th>
+                  <th class="num">训练收益</th>
+                  <th class="num">测试收益</th>
                 </tr>
               </thead>
-              <tbody>
                 <tr v-for="(record, i) in result.folds" :key="`fold-${i}`">
-                  <td>{{ record.fold }}</td>
+                  <td class="num">{{ record.fold }}</td>
                   <td>{{ record.train_start }}</td>
                   <td>{{ record.train_end }}</td>
                   <td>{{ record.test_start }}</td>
                   <td>{{ record.test_end }}</td>
-                  <td>
-                    <span :class="record.train_return >= 0 ? 'text-danger' : 'text-success'">
+                  <td class="num">
+                    <span :class="record.train_return >= 0 ? 'text-success' : 'text-danger'">
                       {{ (record.train_return * 100).toFixed(2) }}%
                     </span>
                   </td>
-                  <td>
-                    <span :class="record.test_return >= 0 ? 'text-danger' : 'text-success'">
+                  <td class="num">
+                    <span :class="record.test_return >= 0 ? 'text-success' : 'text-danger'">
                       {{ (record.test_return * 100).toFixed(2) }}%
                     </span>
                   </td>
                 </tr>
-              </tbody>
+              
             </table>
           </div>
         </div>
-        <div v-else class="empty-state">
-          <p>请配置参数并开始验证</p>
-        </div>
+        <EmptyState v-else description="请配置参数并开始验证" />
       </div>
     </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { message } from '@/utils/toast'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])
@@ -154,7 +153,7 @@ const fetchBacktestList = async () => {
 
 const runValidation = async () => {
   if (!config.backtestId) {
-    console.warn('请选择回测任务')
+    message.warning('请选择回测任务')
     return
   }
 
@@ -189,7 +188,7 @@ onMounted(() => {
 .radio-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 14px;
   color: hsl(var(--foreground));
   cursor: pointer;
@@ -213,7 +212,7 @@ onMounted(() => {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -229,6 +228,9 @@ onMounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -239,17 +241,6 @@ onMounted(() => {
   color: hsl(var(--foreground));
   font-size: 14px;
 }
-
-.empty-state {
-  text-align: center;
-  padding: 40px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state p {
-  margin: 0;
-}
-
 @media (max-width: 768px) {
   .form-row {
     flex-direction: column;

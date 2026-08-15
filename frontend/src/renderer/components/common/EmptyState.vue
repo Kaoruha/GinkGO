@@ -1,5 +1,5 @@
 <template>
-  <div class="empty-state" :class="{ 'has-action': hasAction, 'has-title': title }">
+  <div class="empty-state m-scale-in" :class="{ 'has-action': hasAction, 'has-title': title }">
     <div v-if="image" class="empty-image">
       <img :src="image" :alt="title || description" />
     </div>

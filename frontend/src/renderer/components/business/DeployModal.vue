@@ -8,10 +8,11 @@
       <div class="modal-body">
         <div class="form-item">
           <label>目标模式</label>
-          <div class="radio-group">
-            <button class="radio-button" :class="{ active: mode === 'paper' }" @click="mode = 'paper'">模拟盘</button>
-            <button class="radio-button" :class="{ active: mode === 'live' }" @click="mode = 'live'">实盘</button>
-          </div>
+          <SegmentedControl
+            :model-value="mode"
+            :options="[{ key: 'paper', label: '模拟盘' }, { key: 'live', label: '实盘' }]"
+            @update:model-value="(v) => (mode = v as 'paper' | 'live')"
+          />
         </div>
         <div v-if="mode === 'live'" class="form-item">
           <label>实盘账号</label>
@@ -35,14 +36,25 @@
         </button>
       </div>
     </div>
+    <ConfirmDialog
+      v-model:open="liveConfirmOpen"
+      title="确认实盘部署"
+      description="实盘部署将使用真实资金进行交易,可能产生真实委托与盈亏。此操作不可逆,确定要部署到实盘吗?"
+      danger
+      confirm-text="确认实盘部署"
+      :loading="deploying"
+      @confirm="doDeploy"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { deploymentApi, liveAccountApi } from '@/api'
 import type { LiveAccount } from '@/api'
 import { message } from '@/utils/toast'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -58,6 +70,7 @@ const mode = ref<'paper' | 'live'>('paper')
 const accountId = ref('')
 const name = ref('')
 const deploying = ref(false)
+const liveConfirmOpen = ref(false)
 const liveAccounts = ref<LiveAccount[]>([])
 
 const close = () => emit('update:visible', false)
@@ -74,7 +87,8 @@ watch(() => props.visible, (val) => {
 const loadLiveAccounts = async () => {
   try {
     const res: any = await liveAccountApi.getAccounts({ page: 1, page_size: 100, status: 'enabled' })
-    liveAccounts.value = res?.data?.accounts || []
+    // 拦截器已拆信封:res 即 {accounts,total,...};旧代码读 res.data.accounts 恒空致下拉无账号
+    liveAccounts.value = res?.accounts || res?.data?.accounts || []
   } catch { liveAccounts.value = [] }
 }
 
@@ -84,6 +98,16 @@ const handleDeploy = async () => {
     message.warning('请选择实盘账号')
     return
   }
+  // 实盘部署涉及真实资金下单,需二次确认;模拟盘直接部署
+  if (mode.value === 'live') {
+    liveConfirmOpen.value = true
+    return
+  }
+  await doDeploy()
+}
+
+const doDeploy = async () => {
+  if (deploying.value) return
   deploying.value = true
   try {
     const res: any = await deploymentApi.deploy({
@@ -93,6 +117,7 @@ const handleDeploy = async () => {
       name: name.value || undefined,
     })
     const newPortfolioId = res?.data?.portfolio_id
+    liveConfirmOpen.value = false
     close()
     message.success('部署成功')
     emit('success', newPortfolioId || '')
@@ -117,7 +142,7 @@ const handleDeploy = async () => {
 .modal-box {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   width: 480px;
   max-height: 90vh;
   display: flex;
@@ -137,7 +162,7 @@ const handleDeploy = async () => {
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
   padding: 12px 20px;
   border-top: 1px solid hsl(var(--border));
 }
@@ -148,34 +173,17 @@ const handleDeploy = async () => {
   padding: 7px 10px;
   background: hsl(var(--background));
   border: 1px solid hsl(var(--border));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
 }
 .form-input:focus, .form-select:focus { border-color: hsl(var(--primary)); outline: none; }
 .form-hint { margin: 6px 0 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
-.radio-group {
-  display: inline-flex;
-  background: hsl(var(--border));
-  border-radius: 4px;
-  padding: 2px;
-}
-.radio-button {
-  padding: 5px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 2px;
-  color: hsl(var(--muted-foreground));
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.radio-button:hover { color: hsl(var(--foreground)); }
 .btn-secondary {
   padding: 6px 14px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;

@@ -3,6 +3,12 @@
     <template #title>因子正交化</template>
     <template #description>消除多因子之间的相关性，避免信息重复。正交化后因子相互独立，组合效果更好。</template>
 
+    <!-- 骨架页横幅(#4652 纪律:后端 orthogonalize 接口未实现,禁止伪造 API 假装可用) -->
+    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;">
+      <span aria-hidden="true">🚧</span>
+      <span>该功能后端接口开发中，当前为预览骨架，暂不可用。</span>
+    </div>
+
     <div class="card config-card">
       <div class="card-header">
         <h4>正交化配置</h4>
@@ -48,35 +54,18 @@
             <span class="stat-label">正交后平均相关系数</span>
           </div>
         </div>
-        <div v-else class="empty-state">
-          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-            <path d="M21 15l-5-5L5 21"></path>
-          </svg>
-          <p>请先选择回测任务并开始分析</p>
-        </div>
+        <EmptyState v-else description="请先选择回测任务并开始分析" />
       </div>
     </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
-
-// 简化的通知函数
-const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-  console.log(`[${type.toUpperCase()}] ${message}`)
-}
-
-// 简化的API调用（实际项目中需要导入真实的API）
-const backtestApi: any = {
-  list: async (_params: any) => ({ data: [] })
-}
-const researchApi: any = {
-  orthogonalize: async (_params: any) => ({ data: null })
-}
+import { backtestApi } from '@/api/modules/backtest'
+import { message } from '@/utils/toast'
 
 interface FactorOrthogonalizeResult {
   original_avg_corr: number
@@ -90,31 +79,21 @@ const config = reactive({ backtestId: '', method: 'gram_schmidt' as 'gram_schmid
 
 const fetchBacktestList = async () => {
   try {
-    backtestList.value = (await backtestApi.list({ size: 20 })).data || []
-  } catch {
-    // 静默失败
+    // request.ts 拦截器已拆包:分页端点 resolve 即 {items,total,...}
+    backtestList.value = (await backtestApi.list({ page: 1, size: 20 }))?.items || []
+  } catch (e) {
+    // 骨架页(横幅已声明不可用):回测列表拉取失败仅记日志,不弹错误
+    console.error('Failed to load backtest list:', e)
   }
 }
 
-const runAnalysis = async () => {
+const runAnalysis = () => {
   if (!config.backtestId) {
-    showToast('请选择回测任务', 'warning')
+    message.warning('请选择回测任务')
     return
   }
-
-  loading.value = true
-  try {
-    result.value = await researchApi.orthogonalize({
-      backtest_id: config.backtestId,
-      factors: [],
-      method: config.method
-    })
-    showToast('完成')
-  } catch {
-    showToast('失败', 'error')
-  } finally {
-    loading.value = false
-  }
+  // 后端 orthogonalize 接口未实现(见顶部横幅):明确告知不可用,不再伪造 API 假装成功
+  message.warning('该功能后端接口开发中，暂不可用')
 }
 
 onMounted(() => {
@@ -137,26 +116,6 @@ onMounted(() => {
   font-weight: 600;
   color: hsl(var(--foreground));
 }
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state svg {
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.empty-state p {
-  margin: 0;
-  font-size: 14px;
-}
-
 @media (max-width: 768px) {
   .form-row {
     flex-direction: column;

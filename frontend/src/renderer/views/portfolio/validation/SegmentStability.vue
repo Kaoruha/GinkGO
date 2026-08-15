@@ -103,17 +103,16 @@
               <thead>
                 <tr>
                   <th>时间段</th>
-                  <th v-for="metric in (w.available_metrics || [])" :key="metric">{{ metricLabel(metric) }}</th>
+                  <th class="num" v-for="metric in (w.available_metrics || [])" :key="metric">{{ metricLabel(metric) }}</th>
                 </tr>
               </thead>
-              <tbody>
                 <tr v-for="(seg, i) in w.segments" :key="i">
                   <td>{{ seg._start?.slice(5) || '' }} ~ {{ seg._end?.slice(5) || '' }}</td>
-                  <td v-for="metric in (w.available_metrics || [])" :key="metric">
+                  <td class="num" v-for="metric in (w.available_metrics || [])" :key="metric">
                     {{ formatMetricValue(seg[metric]) }}
                   </td>
                 </tr>
-              </tbody>
+              
             </table>
           </div>
         </div>
@@ -121,19 +120,21 @@
     </template>
 
     <div v-else-if="!loading" class="card">
-      <div class="empty-state">选择回测任务并点击分析</div>
+      <EmptyState description="选择回测任务并点击分析" />
     </div>
     </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import * as echarts from 'echarts'
 import { useChartTheme, cssColor } from '@/composables/useChartTheme'
 import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
+import { message } from '@/utils/toast'
 
 const props = defineProps<{
   portfolioId?: string
@@ -231,9 +232,9 @@ const runAnalysis = async () => {
       n_segments: segments.length ? segments : undefined,
       metrics: Array.from(selectedMetrics),
     })
-    result.value = (res as any).data
+    result.value = res
   } catch (e: any) {
-    alert('分析失败: ' + (e.message || e))
+    message.error('分析失败: ' + (e.message || e))
   } finally {
     loading.value = false
   }
@@ -246,7 +247,7 @@ const fetchBacktestList = async () => {
       params.portfolio_id = props.portfolioId
     }
     const res = await backtestApi.list(params)
-    backtestList.value = res.data || []
+    backtestList.value = res?.items || []
   } catch { /* ignore */ }
 }
 
@@ -258,7 +259,7 @@ const fetchAvailableMetrics = async () => {
       task_id: config.taskId,
       portfolio_id: props.portfolioId || '',
     })
-    availableMetrics.value = (res as any).data?.metrics || []
+    availableMetrics.value = (res as any)?.metrics || []
     const names = new Set(availableMetrics.value.map(m => m.name))
     for (const s of Array.from(selectedMetrics)) {
       if (!names.has(s)) selectedMetrics.delete(s)
@@ -466,6 +467,20 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
+/* 表头 sticky:滚动时固定(bg --card 与 .card-body 融合遮行) */
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: hsl(var(--card));
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
 .stats-grid {
   margin-top: 16px;
   margin-bottom: 16px;
@@ -484,7 +499,7 @@ onUnmounted(() => {
 .segment-tag {
   padding: 6px 14px;
   border: 1px solid hsl(var(--border));
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: hsl(var(--card));
   color: hsl(var(--muted-foreground));
   font-size: 13px;
@@ -506,7 +521,7 @@ onUnmounted(() => {
 
 .segment-tag-add {
   border-style: dashed;
-  color: hsl(var(--muted-foreground) / 0.6);
+  color: hsl(var(--muted-foreground));
 }
 
 .segment-tag-add:hover {
@@ -518,7 +533,7 @@ onUnmounted(() => {
   width: 64px;
   padding: 6px 10px;
   border: 1px solid hsl(var(--primary));
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: hsl(var(--card));
   color: hsl(var(--foreground));
   font-size: 13px;
@@ -527,13 +542,13 @@ onUnmounted(() => {
 
 .metric-count {
   font-size: 11px;
-  color: hsl(var(--muted-foreground) / 0.6);
+  color: hsl(var(--muted-foreground));
   margin-left: 8px;
   font-weight: 400;
 }
 
 .metric-placeholder {
-  color: hsl(var(--muted-foreground) / 0.6);
+  color: hsl(var(--muted-foreground));
   font-size: 13px;
   padding: 6px 0;
 }

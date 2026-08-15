@@ -1,16 +1,6 @@
 <template>
   <div class="validation-tab">
-    <div class="sub-tab-bar">
-      <button
-        v-for="sub in subTabs"
-        :key="sub.key"
-        class="sub-tab-item"
-        :class="{ active: activeSub === sub.key }"
-        @click="activeSub = sub.key"
-      >
-        {{ sub.label }}
-      </button>
-    </div>
+    <TabsNav v-model="activeSub" size="small" :items="subTabs" class="validation-subtabs" />
 
     <div class="sub-tab-content">
       <SegmentStability v-if="activeSub === 'segment'" :portfolio-id="portfolioId" />
@@ -24,6 +14,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
+import TabsNav from '@/components/common/TabsNav.vue'
 import SegmentStability from '@/views/portfolio/validation/SegmentStability.vue'
 import MonteCarlo from '@/views/portfolio/validation/MonteCarlo.vue'
 import WalkForward from '@/views/portfolio/validation/WalkForward.vue'
@@ -48,34 +39,7 @@ const subTabs = [
   height: 100%;
 }
 
-.sub-tab-bar {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid hsl(var(--border));
-  margin-bottom: 16px;
-  flex-shrink: 0;
-}
-
-.sub-tab-item {
-  padding: 8px 16px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.sub-tab-item:hover {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.sub-tab-item.active {
-  color: hsl(var(--primary));
-  border-bottom-color: hsl(var(--primary));
-  font-weight: 600;
-}
+.validation-subtabs { margin-bottom: 16px; }
 
 .sub-tab-content {
   flex: 1;

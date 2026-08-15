@@ -18,7 +18,7 @@ defineProps<{
 <style scoped>
 .config-card {
   background: hsl(var(--card));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid hsl(var(--border));
   margin-bottom: 16px;
 }

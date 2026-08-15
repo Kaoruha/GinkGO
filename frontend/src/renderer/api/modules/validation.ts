@@ -1,4 +1,5 @@
 import request from '../request'
+import type { PaginatedData } from '@/types/api'
 
 /**
  * 策略验证模块 API
@@ -170,14 +171,14 @@ export const validationApi = {
   /**
    * 验证结果列表
    */
-  listResults(params?: { portfolio_id?: string; method?: string; page?: number; page_size?: number }): Promise<{ data: ValidationRecord[]; total: number }> {
+  listResults(params?: { portfolio_id?: string; method?: string; page?: number; page_size?: number }): Promise<PaginatedData<ValidationRecord>> {
     return request.get('/api/v1/validation/results', { params })
   },
 
   /**
    * 验证结果详情
    */
-  getResult(resultId: string): Promise<{ data: ValidationRecord }> {
+  getResult(resultId: string): Promise<ValidationRecord> {
     return request.get(`/api/v1/validation/results/${resultId}`)
   },
 }

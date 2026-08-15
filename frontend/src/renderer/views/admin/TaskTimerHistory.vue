@@ -6,22 +6,10 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">总执行次数</div>
-        <div class="stat-value">{{ summary.total }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">成功</div>
-        <div class="stat-value" style="color: hsl(var(--success))">{{ summary.success }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">失败</div>
-        <div class="stat-value" style="color: hsl(var(--error))">{{ summary.failed }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">执行中</div>
-        <div class="stat-value" style="color: hsl(var(--primary))">{{ summary.triggered }}</div>
-      </div>
+      <StatCard title="总执行次数" :value="summary.total" />
+      <StatCard title="成功" :value="summary.success" :color="summary.success > 0 ? 'positive' : 'neutral'" />
+      <StatCard title="失败" :value="summary.failed" :color="summary.failed > 0 ? 'negative' : 'positive'" />
+      <StatCard title="执行中" :value="summary.triggered" />
     </div>
 
     <!-- 已注册任务 -->
@@ -43,9 +31,7 @@
               <td><span class="tag tag-blue">{{ t.command }}</span></td>
               <td class="mono">{{ t.cron }}</td>
               <td>
-                <span class="tag" :class="t.enabled ? 'tag-green' : 'tag-gray'">
-                  {{ t.enabled ? '启用' : '禁用' }}
-                </span>
+                <StatusTag type="enable" :status="t.enabled ? 'active' : 'disabled'" />
               </td>
             </tr>
           </tbody>
@@ -84,11 +70,11 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="e in executions" :key="e.uuid">
+            <tr v-for="e in executions" :key="e.uuid" @contextmenu="openExecMenu($event, e)">
               <td>{{ e.job_name }}</td>
               <td><span class="tag tag-blue">{{ e.command }}</span></td>
               <td>
-                <span class="tag" :class="statusClass(e.status)">{{ statusText(e.status) }}</span>
+                <StatusTag type="execution" :status="e.status" />
               </td>
               <td class="mono">{{ formatTime(e.triggered_at) }}</td>
               <td class="mono">{{ e.duration_ms > 0 ? e.duration_ms + 'ms' : '-' }}</td>
@@ -96,7 +82,15 @@
             </tr>
           </tbody>
         </table>
-        <div v-else-if="!loading" class="empty-state">暂无执行记录</div>
+        <!-- 加载失败:区别于空态,提供重试 -->
+        <EmptyState
+          v-else-if="!loading && loadError"
+          title="加载失败"
+          :description="loadError"
+          action-text="重试"
+          :on-action="loadExecutions"
+        />
+        <EmptyState v-else-if="!loading" description="暂无执行记录" />
       </div>
 
       <!-- 分页 -->
@@ -120,9 +114,23 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatCard from '@/components/common/StatCard.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
 import { taskTimerApi } from '@/api/modules/taskTimer'
 import type { TaskTimerExecution, TaskTimerJob, ExecutionSummary } from '@/api/modules/taskTimer'
+import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
 import dayjs from 'dayjs'
+
+/** 执行记录行右键菜单(本页无行操作,给复制类) */
+const { open: openCtxMenu } = useContextMenu()
+const openExecMenu = (e: MouseEvent, record: TaskTimerExecution) => {
+  openCtxMenu(e, [
+    { label: '复制任务名', action: () => { navigator.clipboard.writeText(record.job_name); toast.success('已复制') } },
+    { label: '复制命令', action: () => { navigator.clipboard.writeText(record.command); toast.success('已复制') } },
+  ])
+}
 
 const loading = ref(false)
 const tasks = ref<TaskTimerJob[]>([])
@@ -130,15 +138,11 @@ const executions = ref<TaskTimerExecution[]>([])
 const summary = ref<ExecutionSummary>({ total: 0, success: 0, failed: 0, triggered: 0, by_job: {} })
 const filterJobName = ref('')
 const filterStatus = ref('')
+// 执行历史加载失败(后端 5xx/网络断):须与"暂无执行记录"空态区分
+const loadError = ref('')
 const pagination = ref({ current: 1, pageSize: 20, total: 0 })
 const totalPages = computed(() => Math.max(1, Math.ceil(pagination.value.total / pagination.value.pageSize)))
 
-function statusClass(s: string) {
-  return { triggered: 'tag-blue', success: 'tag-green', failed: 'tag-red' }[s] || 'tag-gray'
-}
-function statusText(s: string) {
-  return { triggered: '执行中', success: '成功', failed: '失败' }[s] || s
-}
 function formatTime(t: string | null) {
   if (!t) return '-'
   return dayjs(t).format('YYYY-MM-DD HH:mm:ss')
@@ -162,6 +166,7 @@ async function loadJobs() {
 
 async function loadExecutions() {
   loading.value = true
+  loadError.value = ''
   try {
     const params: any = {
       page: pagination.value.current,
@@ -174,9 +179,11 @@ async function loadExecutions() {
     const data = res?.data ?? []
     executions.value = Array.isArray(data) ? data : []
     pagination.value.total = res?.meta?.total || 0
-  } catch {
+  } catch (e: any) {
     executions.value = []
     pagination.value.total = 0
+    const st = e?.response?.status
+    loadError.value = st ? `执行历史加载失败（HTTP ${st}）` : '执行历史加载失败，请检查网络后重试'
   } finally {
     loading.value = false
   }
@@ -196,31 +203,26 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
-.stat-card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 16px; }
-.stat-label { font-size: 12px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; }
-.stat-value { font-size: 24px; font-weight: 600; color: hsl(var(--foreground)); }
+/* 统计卡片:StatCard + 全局 .stats-grid(间距需页内补) */
+.stats-grid { margin-bottom: 16px; }
 
-.card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
-.card-header { padding: 12px 16px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); }
-.table-wrapper { overflow-x: auto; }
+.card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); margin-bottom: 16px; }
+.card-header { padding: 12px 16px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.table-wrapper { overflow-x: clip; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th { padding: 10px 12px; text-align: left; color: hsl(var(--foreground)); background: hsl(var(--border)); font-weight: 600; white-space: nowrap; }
+.data-table th { position: sticky; top: 0; z-index: 1; padding: 10px 12px; text-align: left; color: hsl(var(--foreground)); background: hsl(var(--border)); font-weight: 600; white-space: nowrap; }
 .data-table td { padding: 10px 12px; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); }
 .data-table tbody tr:hover { background: hsl(var(--secondary)); }
 .mono { font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Menlo', monospace; font-size: 12px; }
 
-.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-
 .filter-bar { display: flex; gap: 8px; }
-.control-input { padding: 6px 12px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: 4px; color: hsl(var(--foreground)); font-size: 13px; }
+.control-input { padding: 6px 12px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 13px; }
 .control-input:focus { outline: none; border-color: hsl(var(--primary)); }
 
-.empty-state { padding: 40px; text-align: center; color: hsl(var(--muted-foreground)); }
 .pagination { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid hsl(var(--border)); }
 .pagination-info { font-size: 13px; color: hsl(var(--muted-foreground)); }
 .pagination-controls { display: flex; gap: 4px; }
-.pg-btn { min-width: 28px; height: 28px; padding: 0 6px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: 4px; color: hsl(var(--foreground)); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.pg-btn { min-width: 28px; height: 28px; padding: 0 6px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .pg-btn:hover:not(:disabled) { background: hsl(var(--secondary)); border-color: hsl(var(--primary)); }
 .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 

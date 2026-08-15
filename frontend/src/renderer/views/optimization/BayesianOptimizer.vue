@@ -5,7 +5,7 @@
 
     <!-- 功能开发中:研究/优化/验证后端 API 未实现(记忆 arch_parameter_optimization_unwired / arch_factor_subsystem_dormant_75pct);
          此为占位骨架,配置后不会产出真实结果,加横幅以免用户误判可用(#4652 静默失败纪律) -->
-    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius:6px;color:hsl(var(--foreground));font-size:13px;">
+    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;">
       <span aria-hidden="true">🚧</span>
       <span>该功能后端接口开发中，当前为预览骨架，暂不可用。</span>
     </div>
@@ -69,34 +69,33 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>迭代</th>
+                  <th class="num">迭代</th>
                   <th>参数</th>
-                  <th>目标值</th>
-                  <th>不确定性</th>
+                  <th class="num">目标值</th>
+                  <th class="num">不确定性</th>
                 </tr>
               </thead>
-              <tbody>
                 <tr v-for="(record, i) in result.history" :key="`iter-${i}`">
-                  <td>{{ record.iteration }}</td>
+                  <td class="num">{{ record.iteration }}</td>
                   <td>{{ record.params }}</td>
-                  <td>{{ record.score?.toFixed(4) || '-' }}</td>
-                  <td>{{ record.uncertainty?.toFixed(4) || '-' }}</td>
+                  <td class="num">{{ record.score?.toFixed(4) || '-' }}</td>
+                  <td class="num">{{ record.uncertainty?.toFixed(4) || '-' }}</td>
                 </tr>
-              </tbody>
+              
             </table>
           </div>
         </div>
-        <div v-else class="empty-state">
-          <p>请配置参数并开始优化</p>
-        </div>
+        <EmptyState v-else description="请配置参数并开始优化" />
       </div>
     </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { message } from '@/utils/toast'
 
 const loading = ref(false)
 const strategyList = ref<any[]>([])
@@ -110,7 +109,7 @@ const fetchStrategyList = async () => {
 
 const runOptimization = async () => {
   if (!config.strategyId) {
-    console.warn('请选择策略')
+    message.warning('请选择策略')
     return
   }
   loading.value = true
@@ -140,7 +139,7 @@ onMounted(() => {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -156,6 +155,9 @@ onMounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -166,17 +168,6 @@ onMounted(() => {
   color: hsl(var(--foreground));
   font-size: 14px;
 }
-
-.empty-state {
-  text-align: center;
-  padding: 40px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state p {
-  margin: 0;
-}
-
 @media (max-width: 768px) {
   .form-row {
     flex-direction: column;

@@ -625,7 +625,7 @@ html:not(.dark) {
   width: 380px;
   background: var(--login-card-bg);
   border: 1px solid var(--login-card-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 40px;
   position: relative;
   z-index: 10;
@@ -661,7 +661,7 @@ html:not(.dark) {
     transparent 50%
   );
   pointer-events: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 /* ========== 头部 ========== */
@@ -677,7 +677,7 @@ html:not(.dark) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   box-shadow:
     0 0 20px rgba(var(--login-neon-rgb), 0.3),
     inset 0 -2px 0 rgba(0, 0, 0, 0.2);
@@ -826,7 +826,7 @@ html:not(.dark) {
   font-size: 14px;
   height: 40px;
   padding: 0 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: all 0.2s;
   box-sizing: border-box;
 }
@@ -890,7 +890,7 @@ html:not(.dark) {
   left: 0;
   right: 0;
   padding: 12px 16px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-family: 'Silkscreen', monospace;
   font-size: 12px;
   text-align: center;
@@ -925,7 +925,7 @@ html:not(.dark) {
   height: 44px;
   background: linear-gradient(135deg, var(--login-neon), var(--login-neon-alt));
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--login-bg);
   font-family: 'Silkscreen', monospace;
   font-size: 14px;

@@ -58,13 +58,17 @@ export const useSystemStore = defineStore('system', () => {
   /** 数据库状态 */
   const dbStatus = computed(() => infrastructure.value)
 
+  /** 基础设施单项是否连通(后端 'ok'/'connected' 同义) */
+  const isInfraOk = (status?: string) =>
+    status === 'ok' || status === 'connected'
+
   /** 数据库是否健康 */
   const dbHealthy = computed(() => {
     const infra = infrastructure.value
     if (!infra) return false
-    return infra.mysql?.status === 'ok' &&
-           infra.redis?.status === 'ok' &&
-           infra.clickhouse?.status === 'ok'
+    return isInfraOk(infra.mysql?.status) &&
+           isInfraOk(infra.redis?.status) &&
+           isInfraOk(infra.clickhouse?.status)
   })
 
   /** 健康 Worker 数量 */
@@ -80,9 +84,9 @@ export const useSystemStore = defineStore('system', () => {
     if (!systemStatus.value) return 'unknown'
 
     const infra = infrastructure.value
-    const dbOk = infra?.mysql?.status === 'ok' &&
-                 infra?.redis?.status === 'ok' &&
-                 infra?.clickhouse?.status === 'ok'
+    const dbOk = isInfraOk(infra?.mysql?.status) &&
+                 isInfraOk(infra?.redis?.status) &&
+                 isInfraOk(infra?.clickhouse?.status)
 
     if (dbOk && healthyWorkerCount.value > 0) return 'healthy'
     if (dbOk || healthyWorkerCount.value > 0) return 'degraded'
@@ -127,11 +131,9 @@ export const useSystemStore = defineStore('system', () => {
     if (!silent) loading.value = true
     try {
       const result = await systemApi.getFullStatus()
-      const statusPayload = (result.status as any).data !== undefined ? (result.status as any).data : result.status
-      const workersPayload = (result.workers as any).data !== undefined ? (result.workers as any).data : result.workers
-      systemStatus.value = statusPayload
-      workers.value = (workersPayload as any)?.data || workersPayload as any || []
-      componentCounts.value = (workersPayload as any)?.components || componentCounts.value
+      systemStatus.value = result.status
+      workers.value = result.workers?.data || []
+      componentCounts.value = result.workers?.components || componentCounts.value
       lastUpdate.value = new Date().toISOString()
       return result
     } catch (error) {
@@ -148,9 +150,8 @@ export const useSystemStore = defineStore('system', () => {
   async function fetchWorkers() {
     try {
       const result = await systemApi.getWorkers()
-      const payload = (result as any).data !== undefined ? (result as any).data : result
-      workers.value = (payload as any)?.data || payload as any || []
-      componentCounts.value = (payload as any)?.components || componentCounts.value
+      workers.value = result.data || []
+      componentCounts.value = result.components || componentCounts.value
       return result
     } catch (error) {
       console.error('Failed to fetch workers:', error)
@@ -164,13 +165,12 @@ export const useSystemStore = defineStore('system', () => {
   async function startWorker(workerId: string) {
     try {
       const result = await systemApi.startWorker(workerId)
-      const payload = (result as any).data !== undefined ? (result as any).data : result
       // 更新本地状态
       const worker = workers.value.find(w => w.id === workerId)
       if (worker) {
         worker.status = 'running'
       }
-      return payload
+      return result
     } catch (error) {
       console.error('Failed to start worker:', error)
       throw error
@@ -183,13 +183,12 @@ export const useSystemStore = defineStore('system', () => {
   async function stopWorker(workerId: string) {
     try {
       const result = await systemApi.stopWorker(workerId)
-      const payload = (result as any).data !== undefined ? (result as any).data : result
       // 更新本地状态
       const worker = workers.value.find(w => w.id === workerId)
       if (worker) {
         worker.status = 'stopped'
       }
-      return payload
+      return result
     } catch (error) {
       console.error('Failed to stop worker:', error)
       throw error

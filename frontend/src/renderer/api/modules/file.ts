@@ -12,37 +12,35 @@ export interface FileItem {
 export const fileApi = {
   /**
    * 获取文件列表
-   * 后端 GET /api/v1/file_list → { code, data: FileItem[], meta: { total, ... } }
-   * request 拦截器已 return response.data（HTTP body），故 res 即 { code, data, meta }。
+   * 后端 GET /api/v1/file_list → paginated 信封
+   * request 拦截器已拆包: 分页端点返回 { items, total, page, ... } (PaginatedData)
    */
   async list(query: string = '', page: number = 1, size: number = 100, type?: number): Promise<FileItem[]> {
-    const res = await request.get<FileItem[]>('/api/v1/file_list', {
+    const res = await request.get('/api/v1/file_list', {
       params: { query, page, size, type }
     })
-    return (res as any)?.data || []
+    return (res as any)?.items || []
   },
 
   /**
    * 获取单个文件
-   * 后端 GET /api/v1/file/{id} → { code, data: FileItem }
+   * 后端 GET /api/v1/file/{id} → ok 信封, 拦截器拆包后 res 即 FileItem
    */
   async get(fileId: string): Promise<FileItem> {
-    const res = await request.get<FileItem>(`/api/v1/file/${fileId}`)
-    return (res as any)?.data
+    return request.get(`/api/v1/file/${fileId}`)
   },
 
   /**
    * 创建文件
-   * 后端 POST /api/v1/file { name, type, content } → { code, data: { uuid, name } }
+   * 后端 POST /api/v1/file → ok(data={uuid,name}), 拦截器拆包后 res 即 { uuid, name }
    */
   async create(name: string, type: number, content: string = ''): Promise<{ status: string; uuid: string; name: string }> {
-    const res = await request.post('/api/v1/file', {
+    const res: any = await request.post('/api/v1/file', {
       name,
       type,
       content
     })
-    const data = (res as any)?.data || {}
-    return { status: 'success', uuid: data.uuid, name: data.name }
+    return { status: 'success', uuid: res?.uuid, name: res?.name }
   },
 
   /**

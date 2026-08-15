@@ -175,7 +175,7 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   padding: 8px 12px 8px 32px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
   outline: none;
@@ -192,11 +192,11 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 .search-select-dropdown {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   max-height: 240px;
   overflow-y: auto;
   z-index: 1100;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-md);
 }
 .dropdown-loading {
   padding: 12px;

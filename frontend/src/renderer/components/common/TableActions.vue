@@ -46,11 +46,20 @@
       </a>
     </template>
   </div>
+  <ConfirmDialog
+    v-model:open="confirmOpen"
+    :title="confirmTitle"
+    :description="confirmDesc"
+    danger
+    :confirm-text="pendingAction?.label || '确定'"
+    @confirm="onConfirm"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
 export interface TableAction {
   key: string
@@ -69,7 +78,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  action: [key: string, record: Record<string, any>]
+  action: [key: string, record: any]
 }>()
 
 const defaultLabels: Record<string, string> = {
@@ -90,11 +99,17 @@ const visibleActions = computed(() => {
     .filter(action => action.show !== false)
 })
 
+const confirmOpen = ref(false)
+const pendingAction = ref<TableAction | null>(null)
+const confirmTitle = computed(() => pendingAction.value ? `确认${pendingAction.value.label || pendingAction.value.key}` : '')
+const confirmDesc = computed(() => pendingAction.value?.confirm || `确定要${pendingAction.value?.label || pendingAction.value?.key}吗？`)
 const handleConfirm = (action: TableAction) => {
-  const message = action.confirm || `确定要${action.label || action.key}吗？`
-  if (confirm(message)) {
-    emit('action', action.key, props.record)
-  }
+  pendingAction.value = action
+  confirmOpen.value = true
+}
+const onConfirm = () => {
+  if (pendingAction.value) emit('action', pendingAction.value.key, props.record)
+  confirmOpen.value = false
 }
 </script>
 

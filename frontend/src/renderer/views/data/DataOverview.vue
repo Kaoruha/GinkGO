@@ -21,7 +21,7 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <div class="stat-card stat-blue" @click="navigateTo('/data/stocks')">
+      <div class="stat-card stat-blue">
         <div class="stat-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
@@ -32,10 +32,9 @@
           <div class="stat-value">{{ formatNumber(dataStats.totalStocks) }}</div>
           <div class="stat-label">股票总数</div>
         </div>
-        <div class="stat-footer">点击查看详情 →</div>
       </div>
 
-      <div class="stat-card stat-green" @click="navigateTo('/data/bars')">
+      <div class="stat-card stat-green">
         <div class="stat-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 3v18h18"/>
@@ -48,10 +47,9 @@
           <div class="stat-value">{{ formatNumber(dataStats.totalBars) }}</div>
           <div class="stat-label">K线数据量</div>
         </div>
-        <div class="stat-footer">点击查看详情 →</div>
       </div>
 
-      <div class="stat-card stat-orange" @click="navigateTo('/data/ticks')">
+      <div class="stat-card stat-orange">
         <div class="stat-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
@@ -61,10 +59,9 @@
           <div class="stat-value">{{ formatNumber(dataStats.totalTicks) }}</div>
           <div class="stat-label">Tick数据量</div>
         </div>
-        <div class="stat-footer">点击查看详情 →</div>
       </div>
 
-      <div class="stat-card stat-purple" @click="navigateTo('/data/adjustfactors')">
+      <div class="stat-card stat-purple">
         <div class="stat-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="20" x2="12" y2="10"/>
@@ -76,23 +73,6 @@
           <div class="stat-value">{{ formatNumber(dataStats.totalAdjustFactors) }}</div>
           <div class="stat-label">复权因子</div>
         </div>
-        <div class="stat-footer">点击查看详情 →</div>
-      </div>
-    </div>
-
-    <!-- 快捷操作 -->
-    <div class="card">
-      <h3 class="card-title">快捷操作</h3>
-      <div class="actions-grid">
-        <button class="action-btn" @click="navigateTo('/data/sync')">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 2v6h-6"/>
-            <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
-            <path d="M3 22v-6h6"/>
-            <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
-          </svg>
-          数据同步
-        </button>
       </div>
     </div>
 
@@ -101,7 +81,7 @@
       <div class="card">
         <h3 class="card-title">最近同步记录</h3>
         <div v-if="recentSyncs.length > 0" class="timeline">
-          <div v-for="(item, index) in recentSyncs" :key="index" class="timeline-item">
+          <div v-for="(item, index) in recentSyncs" :key="index" class="timeline-item" @contextmenu="openSyncMenu($event, item)">
             <div class="timeline-dot" :class="item.status"></div>
             <div class="timeline-content">
               <div class="timeline-title">{{ item.type }} - {{ item.code }}</div>
@@ -109,14 +89,7 @@
             </div>
           </div>
         </div>
-        <div v-else class="empty-state">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <p>暂无同步记录</p>
-        </div>
+        <EmptyState v-else description="暂无同步记录" />
       </div>
 
       <div class="card">
@@ -138,12 +111,13 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
-import { useRouter } from 'vue-router'
 import { dataApi } from '@/api'
+import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
 
-const router = useRouter()
 const refreshing = ref(false)
 
 const dataStats = reactive({
@@ -158,6 +132,15 @@ interface SyncRecord {
   code: string
   time: string
   status: string
+}
+
+/** 同步记录右键菜单(本页无行操作,给复制类) */
+const { open: openCtxMenu } = useContextMenu()
+const openSyncMenu = (e: MouseEvent, item: SyncRecord) => {
+  openCtxMenu(e, [
+    { label: '复制同步类型', action: () => { navigator.clipboard.writeText(item.type); toast.success('已复制') } },
+    { label: '复制代码', action: () => { navigator.clipboard.writeText(item.code); toast.success('已复制') } },
+  ])
 }
 
 const recentSyncs = ref<SyncRecord[]>([])
@@ -227,10 +210,6 @@ const refreshStats = async () => {
   }
 }
 
-const navigateTo = (path: string) => {
-  router.push(path)
-}
-
 const formatNumber = (num: number): string => {
   if (num >= 100000000) {
     return (num / 100000000).toFixed(1) + '亿'
@@ -268,7 +247,7 @@ onMounted(() => {
   justify-content: center;
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   margin-bottom: 12px;
 }
 
@@ -277,12 +256,6 @@ onMounted(() => {
 .stat-orange .stat-icon { background: hsl(var(--warning) / 0.1); color: hsl(var(--warning)); }
 .stat-purple .stat-icon { background: hsl(var(--secondary-foreground) / 0.1); color: hsl(var(--secondary-foreground)); }
 
-.stat-footer {
-  margin-top: 12px;
-  font-size: 12px;
-  color: hsl(var(--primary));
-}
-
 /* 卡片 */
 
 .card-title {
@@ -290,33 +263,6 @@ onMounted(() => {
   font-weight: 600;
   color: hsl(var(--foreground));
   margin: 0 0 16px 0;
-}
-
-/* 快捷操作 */
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  background: transparent;
-  border: 1px dashed hsl(var(--secondary));
-  border-radius: 4px;
-  color: hsl(var(--foreground));
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  border-color: hsl(var(--primary));
-  color: hsl(var(--primary));
 }
 
 /* 两列网格 */
@@ -391,26 +337,6 @@ onMounted(() => {
   font-size: 12px;
   color: hsl(var(--muted-foreground));
 }
-
-/* 空状态 */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state svg {
-  margin-bottom: 12px;
-  opacity: 0.5;
-}
-
-.empty-state p {
-  margin: 0;
-}
-
 /* 数据源列表 */
 .data-sources {
   display: flex;
@@ -424,7 +350,7 @@ onMounted(() => {
   align-items: center;
   padding: 12px;
   background: hsl(var(--border));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .source-info {
@@ -444,7 +370,7 @@ onMounted(() => {
 
 .status-tag {
   padding: 4px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 500;
 }

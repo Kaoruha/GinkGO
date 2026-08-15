@@ -5,10 +5,10 @@
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 16px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
@@ -24,11 +24,11 @@
 .btn-primary {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 16px;
   background: hsl(var(--primary));
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--primary-foreground));
   font-size: 14px;
   cursor: pointer;
@@ -52,11 +52,11 @@
 .btn-secondary {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 16px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
@@ -72,11 +72,11 @@
 .btn-danger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 16px;
   background: hsl(var(--error));
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;
@@ -93,13 +93,7 @@
   font-size: 12px;
 }
 
-// radio-button.active = tab / 筛选器 chip 选中态。全局收口(ADR-045 Codex 视觉)。
-// 旧:各组件 scoped 重复 background:primary + color:foreground(浅色下 r≈1 不可读)。
-.radio-button.active {
-  background: hsl(var(--primary));
-  border-color: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-}
+// radio-button 体系已统一迁移至 SegmentedControl / TabsNav(见 docs/tab-component-spec.md),全局收口废弃。
 
 .btn-text {
   background: none;
@@ -120,7 +114,7 @@
   color: hsl(var(--muted-foreground));
   cursor: pointer;
   padding: 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -172,7 +166,7 @@
   cursor: pointer;
   padding: 2px 8px;
   font-size: 13px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 
   &:hover {
     background: hsl(var(--primary) / 0.1);

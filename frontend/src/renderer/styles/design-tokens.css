@@ -43,8 +43,27 @@
     --input: 0 0% 88%;
     --ring: 0 0% 9%;
 
-    /* 圆角(ADR-045 §4 紧凑密度:6px) */
-    --radius: 0.375rem;
+    /* 圆角(ADR-045 §4 紧凑密度:6px 为基准)
+       三档收敛:sm=控件(btn/input/tag) | base=中间态(下拉/嵌套块) | lg=容器(card/modal)
+       50%=头像/圆点(pill 用 9999px)。历史 12 种碎片值(2/3/5/9/10/11/12/20px)全部归档到三档。 */
+    --radius: 0.375rem;      /* 6px */
+    --radius-sm: 4px;
+    --radius-lg: 8px;
+    --radius-full: 50%;
+
+    /* 投影三档:黑色基底(light 下轻、dark 下加深),不用 foreground/α(dark fg 近白会变光晕)。
+       对齐现网实测:light .08-.2 | dark modal .4/.5 */
+    --shadow-sm: 0 2px 8px rgb(0 0 0 / 0.08);    /* hover 轻浮起 */
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.12);   /* popover/dropdown */
+    --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.2);    /* modal/全屏遮罩层 */
+
+    /* 间距 4px 网格(gap/padding 统一节奏,禁 off-grid 2/6/10px) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
 
     /* 状态颜色:涨绿跌红语义色保留(ADR-045),仅数字/图表使用 */
     --success: 142 71% 45%;            /* 涨绿 */
@@ -89,6 +108,11 @@
     --border: 0 0% 16%;
     --input: 0 0% 16%;
     --ring: 0 0% 70%;
+
+    /* 暗色下黑投影加深才可见(对齐现网 dark modal .4/.5) */
+    --shadow-sm: 0 2px 8px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.5);
 
     /* 状态颜色同浅色(success/warning/error/info 由 :root 继承);
        文字专用 *-fg 在深色下用亮色,深底可读。 */

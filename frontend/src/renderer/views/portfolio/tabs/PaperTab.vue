@@ -99,7 +99,8 @@ const loadData = async () => {
     }
     if (eventsRes) {
       const e = eventsRes as any
-      events.value = e.data || []
+      // request.ts 拦截器已拆包: 数组+meta.total 分页端点 → { items, total, ... }
+      events.value = e.items || []
       eventsTotal.value = e.total || 0
     }
   } catch (e) {
@@ -358,7 +359,7 @@ onUnmounted(() => {
 .section {
   background: hsl(var(--foreground) / 0.03);
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 14px 16px;
 }
 .section-header {
@@ -381,16 +382,16 @@ onUnmounted(() => {
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 
 /* 配置下拉 */
 .config-wrapper { position: relative; }
 .config-dropdown {
   position: absolute; right: 0; top: 100%; z-index: 50;
-  background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px;
+  background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg);
   padding: 10px 12px; min-width: 180px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-lg);
 }
 .config-title {
   font-size: 12px; color: hsl(var(--muted-foreground)); margin-bottom: 8px;
@@ -423,7 +424,7 @@ onUnmounted(() => {
   font-size: 12px; color: hsl(var(--muted-foreground));
 }
 .empty-hint {
-  color: hsl(var(--muted-foreground) / 0.6); font-size: 13px;
+  color: hsl(var(--muted-foreground)); font-size: 13px;
   padding: 20px 0; text-align: center;
 }
 .event-list {
@@ -431,10 +432,10 @@ onUnmounted(() => {
   max-height: 400px; overflow-y: auto;
 }
 .event-list::-webkit-scrollbar { width: 4px; }
-.event-list::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 2px; }
+.event-list::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: var(--radius-sm); }
 
 .event-item {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 12px;
   padding: 8px 4px;
   border-bottom: 1px solid hsl(var(--border));
   font-size: 13px;
@@ -442,7 +443,7 @@ onUnmounted(() => {
 .event-item:last-child { border-bottom: none; }
 .event-icon { font-size: 14px; flex-shrink: 0; width: 20px; text-align: center; }
 .event-badge {
-  flex-shrink: 0; padding: 2px 8px; border-radius: 4px;
+  flex-shrink: 0; padding: 2px 8px; border-radius: var(--radius-sm);
   font-size: 11px; font-weight: 600; white-space: nowrap;
 }
 .event-time {

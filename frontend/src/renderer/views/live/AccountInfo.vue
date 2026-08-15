@@ -6,6 +6,17 @@ import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Wallet, TrendingUp, TrendingDown, AlertCircle, DollarSign, Coins, Clock, Activity } from 'lucide-vue-next'
 import { liveAccountApi } from '@/api'
 import { usePolling } from '@/composables'
+import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 账户卡片右键菜单(替代卡片内刷新按钮) */
+const { open: openCtxMenu } = useContextMenu()
+const openAccountInfoMenu = (e: MouseEvent, account: any) => {
+  openCtxMenu(e, [
+    { label: '刷新', action: () => refreshAccount(account.uuid) },
+    { label: '复制账户 ID', action: () => { navigator.clipboard.writeText(account.uuid); toast.success('已复制') } },
+  ])
+}
 
 // Types
 interface BalanceInfo {
@@ -48,6 +59,8 @@ interface AccountData {
 const accounts = ref<AccountData[]>([])
 const loading = ref(true)
 const refreshing = ref(false)
+// 列表加载失败(后端 500/网络断):须与"暂无账户"空态区分,否则误导用户去配账号
+const listError = ref('')
 const accountLoadingStates = ref<Record<string, { balance: boolean; positions: boolean }>>({})
 
 // 统计数据
@@ -82,44 +95,43 @@ const totalPositions = computed(() => {
 
 // 加载账户信息（首次加载）
 const loadAccountInfo = async () => {
+  listError.value = ''
   try {
-    const response = await liveAccountApi.getAccounts() as any
-    console.log('getAccounts response:', response)
-    if (response?.code === 0) {
-      // 分页响应中，账号列表在 data.accounts 中
-      const accountList = response.data?.accounts || response.data || []
-      console.log('Account list:', accountList)
+    // 拦截器已拆信封:resolve 即 payload,code!==0 会 reject(同 AccountConfig.fetchAccounts)
+    const response = await liveAccountApi.getAccounts()
+    // 分页响应中，账号列表在 accounts 中
+    const accountList = response?.accounts || []
 
-      // 创建账户对象（保持引用稳定）
-      const newAccounts: AccountData[] = accountList.map((account: any) => ({
-        uuid: account.uuid,
-        name: account.name,
-        exchange: account.exchange,
-        environment: account.environment,
-        status: account.status,
-        balance: undefined,
-        positions: undefined,
-        last_update: undefined,
-        error: undefined
-      }))
+    // 创建账户对象（保持引用稳定）
+    const newAccounts: AccountData[] = accountList.map((account: any) => ({
+      uuid: account.uuid,
+      name: account.name,
+      exchange: account.exchange,
+      environment: account.environment,
+      status: account.status,
+      balance: undefined,
+      positions: undefined,
+      last_update: undefined,
+      error: undefined
+    }))
 
-      accounts.value = newAccounts
+    accounts.value = newAccounts
 
-      // 初始化加载状态
-      accountLoadingStates.value = {}
-      newAccounts.forEach(account => {
-        accountLoadingStates.value[account.uuid] = { balance: true, positions: true }
-      })
+    // 初始化加载状态
+    accountLoadingStates.value = {}
+    newAccounts.forEach(account => {
+      accountLoadingStates.value[account.uuid] = { balance: true, positions: true }
+    })
 
-      // 异步加载每个账户的详细信息（不阻塞 UI）
-      Promise.all(
-        newAccounts.map(account => updateAccountDetails(account))
-      ).finally(() => {
-        loading.value = false
-      })
-    }
+    // 异步加载每个账户的详细信息（不阻塞 UI）
+    Promise.all(
+      newAccounts.map(account => updateAccountDetails(account))
+    ).finally(() => {
+      loading.value = false
+    })
   } catch (error) {
     console.error('Failed to load account info:', error)
+    listError.value = (error as any)?.message || '账户列表加载失败，请稍后重试'
     loading.value = false
   }
 }
@@ -148,11 +160,7 @@ const updateAccountDetails = async (account: AccountData) => {
   setAccountLoading(accountId, true, true)
 
   try {
-    const [balanceRes, positionsRes] = await liveAccountApi.getAccountInfo(accountId) as [any, any]
-
-    // 调试日志
-    console.log(`[${accountId}] Balance response:`, balanceRes)
-    console.log(`[${accountId}] Positions response:`, positionsRes)
+    const [balanceRes, positionsRes] = await liveAccountApi.getAccountInfo(accountId)
 
     // 创建更新后的账户对象
     const updatedAccount: AccountData = {
@@ -161,28 +169,16 @@ const updateAccountDetails = async (account: AccountData) => {
       error: undefined
     }
 
-    if (balanceRes?.code === 0) {
-      updatedAccount.balance = balanceRes.data
-      console.log(`[${accountId}] Updated balance:`, updatedAccount.balance)
-    } else {
-      console.warn(`[${accountId}] Balance response code:`, balanceRes?.code)
-    }
+    // 拦截器已拆信封:resolve 即业务 payload,失败走 catch
+    updatedAccount.balance = balanceRes
 
-    if (positionsRes?.code === 0) {
-      // 合并现货持仓（币种余额）和合约持仓
-      const contractPositions = positionsRes.data?.positions || []
-      const spotPositions = balanceRes.data?.spot_positions || []
-      updatedAccount.positions = [...spotPositions, ...contractPositions]
-      console.log(`[${accountId}] Updated positions:`, updatedAccount.positions)
-    } else {
-      console.warn(`[${accountId}] Positions response code:`, positionsRes?.code)
-    }
+    // 合并现货持仓（币币余额）和合约持仓
+    const contractPositions = positionsRes?.positions || []
+    const spotPositions = (balanceRes as any)?.spot_positions || []
+    updatedAccount.positions = [...spotPositions, ...contractPositions]
 
     // 在数组中找到索引并替换整个对象，触发响应式更新
-    const idx = replaceAccount(accountId, updatedAccount)
-    if (idx !== -1) {
-      console.log(`[${accountId}] Account updated at index ${idx}`)
-    }
+    replaceAccount(accountId, updatedAccount)
 
     // 清除加载状态
     setAccountLoading(accountId, false, false)
@@ -293,6 +289,13 @@ usePolling(refreshAll, 10000)
       <p>加载账户信息...</p>
     </div>
 
+    <!-- 加载失败:区别于空态,提供重试 -->
+    <div v-else-if="!loading && listError" class="empty-state">
+      <AlertCircle class="w-16 h-16 mx-auto mb-4 opacity-30" />
+      <p class="empty-text">{{ listError }}</p>
+      <Button variant="outline" size="sm" class="mt-4" @click="loadAccountInfo">重试</Button>
+    </div>
+
     <!-- 空状态 -->
     <div v-else-if="!loading && accounts.length === 0" class="empty-state">
       <Wallet class="w-16 h-16 mx-auto mb-4 opacity-30" />
@@ -353,6 +356,7 @@ usePolling(refreshAll, 10000)
           v-for="account in accounts"
           :key="account.uuid"
           class="account-card"
+          @contextmenu="openAccountInfoMenu($event, account)"
         >
           <!-- 卡片头部 -->
           <div class="card-header">
@@ -370,14 +374,6 @@ usePolling(refreshAll, 10000)
                 </Badge>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              @click="refreshAccount(account.uuid)"
-              class="card-refresh"
-            >
-              <RefreshCw class="w-4 h-4" />
-            </Button>
           </div>
 
           <!-- 错误提示 -->
@@ -530,7 +526,7 @@ usePolling(refreshAll, 10000)
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   color: white;
 }
 
@@ -586,7 +582,7 @@ usePolling(refreshAll, 10000)
   align-items: center;
   justify-content: center;
   background: hsl(var(--border));
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   color: hsl(var(--primary));
 }
 
@@ -624,14 +620,14 @@ usePolling(refreshAll, 10000)
 .account-card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   transition: all 0.3s ease;
 }
 
 .account-card:hover {
   border-color: hsl(var(--border));
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .account-info {
@@ -667,14 +663,6 @@ usePolling(refreshAll, 10000)
   font-size: 12px;
 }
 
-.card-refresh {
-  color: hsl(var(--muted-foreground));
-}
-
-.card-refresh:hover {
-  color: hsl(var(--primary));
-}
-
 /* 错误提示 */
 .error-banner {
   display: flex;
@@ -703,7 +691,7 @@ usePolling(refreshAll, 10000)
 
 .balance-item {
   background: hsl(var(--card));
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 16px;
   border: 1px solid hsl(var(--border));
   transition: all 0.2s ease;
@@ -750,7 +738,7 @@ usePolling(refreshAll, 10000)
   gap: 8px;
   padding: 8px 16px;
   background: hsl(var(--card));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   font-size: 14px;
 }
 
@@ -797,7 +785,7 @@ usePolling(refreshAll, 10000)
 .position-item {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 16px;
   transition: all 0.2s ease;
 }
@@ -887,7 +875,7 @@ usePolling(refreshAll, 10000)
 
 .skeleton-item {
   background: hsl(var(--card));
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 16px;
   border: 1px solid hsl(var(--border));
 }
@@ -896,7 +884,7 @@ usePolling(refreshAll, 10000)
   background: linear-gradient(90deg, hsl(var(--border)) 25%, hsl(var(--secondary)) 50%, hsl(var(--border)) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .skeleton-label {
@@ -919,7 +907,7 @@ usePolling(refreshAll, 10000)
 .skeleton-position {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 16px;
 }
 

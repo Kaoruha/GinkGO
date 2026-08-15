@@ -44,7 +44,7 @@ import PageLayout from '@/components/common/PageLayout.vue'
   padding: 12px 32px;
   background: linear-gradient(135deg, hsl(var(--success)), hsl(var(--success)));
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--background));
   font-family: 'Silkscreen', monospace;
   font-size: 14px;

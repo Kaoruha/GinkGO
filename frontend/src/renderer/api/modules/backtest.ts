@@ -1,4 +1,5 @@
 import request from '../request'
+import type { PaginatedData } from '@/types/api'
 
 export interface BacktestTask {
   uuid: string
@@ -6,6 +7,8 @@ export interface BacktestTask {
   name: string
   engine_id: string
   portfolio_id: string
+  /** 后端列表/详情接口附带(仅列表联查返回,单查可能缺省) */
+  portfolio_name?: string
   status: 'created' | 'pending' | 'running' | 'completed' | 'failed' | 'stopped'
   start_time: string | null
   end_time?: string
@@ -75,18 +78,6 @@ export interface NetValueData {
 export interface BacktestNetValue {
   strategy: NetValueData[]
   benchmark: NetValueData[]
-}
-
-export interface BacktestListResponse {
-  data: BacktestTask[]
-  total: number
-  page: number
-  size: number
-  meta?: {
-    total: number
-    page: number
-    size: number
-  }
 }
 
 export interface AnalyzerInfo {
@@ -167,11 +158,38 @@ export interface PositionRecord {
   timestamp: string | null
 }
 
+/** Portfolio 全部已完成回测的聚合统计（后端 get_portfolio_stats） */
+export interface PortfolioBacktestStats {
+  portfolio_id: string
+  total_backtests: number
+  completed_backtests: number
+  avg_nav: number | null
+  best_nav: number | null
+  worst_nav: number | null
+  avg_max_drawdown: number | null
+  worst_max_drawdown: number | null
+  best_max_drawdown: number | null
+  avg_sharpe_ratio: number | null
+  best_sharpe_ratio: number | null
+  avg_annual_return: number | null
+  avg_win_rate: number | null
+  latest_completed: {
+    uuid: string
+    name: string
+    created_at: string
+    nav: number | null
+    max_drawdown: number
+    sharpe_ratio: number
+    annual_return: number
+    win_rate: number
+  } | null
+}
+
 export const backtestApi = {
   /**
    * 获取回测任务列表
    */
-  list(params?: BacktestListParams): Promise<BacktestListResponse> {
+  list(params?: BacktestListParams): Promise<PaginatedData<BacktestTask>> {
     return request.get('/api/v1/backtests/', { params })
   },
 
@@ -248,29 +266,36 @@ export const backtestApi = {
   /**
    * 获取回测信号记录
    */
-  getSignals(uuid: string, page: number = 1, size: number = 100): Promise<{ data: SignalRecord[]; total: number; page: number; size: number }> {
+  getSignals(uuid: string, page: number = 1, size: number = 100): Promise<PaginatedData<SignalRecord>> {
     return request.get(`/api/v1/backtests/${uuid}/signals`, { params: { page, size } })
   },
 
   /**
    * 获取回测订单记录
    */
-  getOrders(uuid: string): Promise<{ data: OrderRecord[]; total: number }> {
+  getOrders(uuid: string): Promise<PaginatedData<OrderRecord>> {
     return request.get(`/api/v1/backtests/${uuid}/orders`)
   },
 
   /**
    * 获取回测持仓记录
    */
-  getPositions(uuid: string): Promise<{ data: PositionRecord[]; total: number }> {
+  getPositions(uuid: string): Promise<PaginatedData<PositionRecord>> {
     return request.get(`/api/v1/backtests/${uuid}/positions`)
   },
 
   /**
    * 获取回测日志
    */
-  getLogs(uuid: string, params?: { level?: string; event_type?: string; start_time?: string; end_time?: string; limit?: number; offset?: number }): Promise<{ data: { logs: any[]; total: number; limit: number; offset: number } }> {
+  getLogs(uuid: string, params?: { level?: string; event_type?: string; start_time?: string; end_time?: string; limit?: number; offset?: number }): Promise<{ logs: any[]; total: number; limit: number; offset: number }> {
     return request.get(`/api/v1/backtests/${uuid}/logs`, { params })
+  },
+
+  /**
+   * 聚合某 Portfolio 全部已完成回测的统计指标（净值/回撤/夏普等的平均与极值）
+   */
+  getPortfolioStats(portfolioId: string): Promise<PortfolioBacktestStats> {
+    return request.get(`/api/v1/backtests/portfolio-stats/${portfolioId}`)
   },
 
 }

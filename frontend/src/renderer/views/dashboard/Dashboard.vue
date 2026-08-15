@@ -4,7 +4,7 @@
 
     <div class="page-content">
       <!-- 系统状态卡片 -->
-      <div class="stats-grid" data-testid="stats-grid">
+      <div class="stats-grid m-stagger" data-testid="stats-grid">
         <div class="stat-card" data-testid="stat-portfolio">
           <div class="stat-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -217,8 +217,8 @@ async function fetchDashboardData() {
       }
     }
 
-    if (listResult.status === 'fulfilled' && listResult.value?.data) {
-      portfolios.value = listResult.value.data
+    if (listResult.status === 'fulfilled' && listResult.value?.items) {
+      portfolios.value = listResult.value.items
     }
   } finally {
     loading.value = false
@@ -275,7 +275,7 @@ onMounted(fetchDashboardData)
   align-items: center;
   justify-content: center;
   background: hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   color: hsl(var(--success));
 }
 
@@ -307,14 +307,14 @@ onMounted(fetchDashboardData)
 .stage-card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 20px;
   transition: all 0.2s;
 }
 
 .stage-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .stage-card.stage-1 {
@@ -385,7 +385,7 @@ onMounted(fetchDashboardData)
 .activity-card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 20px;
 }
 
@@ -405,7 +405,7 @@ onMounted(fetchDashboardData)
 .portfolio-list-card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 20px;
 }
 
@@ -450,7 +450,7 @@ onMounted(fetchDashboardData)
 }
 
 .table-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: hsl(var(--muted) / 0.5);
 }
 
 .table-row:last-child {
@@ -458,6 +458,10 @@ onMounted(fetchDashboardData)
 }
 
 .table-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: hsl(var(--card));
   cursor: default;
   color: hsl(var(--muted-foreground));
   font-size: 12px;
@@ -501,7 +505,7 @@ onMounted(fetchDashboardData)
 .badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 500;
 }

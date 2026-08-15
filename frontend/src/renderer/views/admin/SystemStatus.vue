@@ -2,6 +2,13 @@
   <PageLayout>
     <template #title>
       系统状态
+      <StatusTag type="system" :status="systemStore.systemHealth" />
+    </template>
+    <template #meta>
+      <!-- 低价值元信息降级到副行:不再占统计卡 -->
+      <span>v{{ systemStore.version }}</span>
+      <span>调试模式 {{ systemStore.debugMode ? '开' : '关' }}</span>
+      <span>最后更新 {{ lastUpdate }}</span>
     </template>
     <template #actions>
       <label class="switch-label">
@@ -20,52 +27,27 @@
       </button>
     </template>
 
-    <!-- 系统概览 -->
-    <div class="stats-grid-six">
-      <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-label">服务状态</div>
-          <div v-if="systemStatus.status === 'running'" class="stat-icon stat-success">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-          </div>
-          <div v-else class="stat-icon stat-error">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="15" y1="9" x2="9" y2="15"></line>
-              <line x1="9" y1="9" x2="15" y2="15"></line>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-value">{{ systemStatus.status === 'running' ? '运行中' : '异常' }}</div>
+    <!-- 异常横幅:降级/异常时置顶,健康时不占空间 -->
+    <div v-if="healthIssues.length" class="alert-banner" :class="`alert-${systemStore.systemHealth}`">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      <div class="alert-body">
+        <div class="alert-title">{{ systemStore.systemHealth === 'unhealthy' ? '系统异常' : '系统降级' }}</div>
+        <ul class="alert-list">
+          <li v-for="(issue, i) in healthIssues" :key="i">{{ issue }}</li>
+        </ul>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">版本</div>
-        <div class="stat-value">{{ systemStatus.version }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">运行时间</div>
-        <div class="stat-value">{{ systemStatus.uptime }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">调试模式</div>
-        <div class="stat-value-with-tag">
-          {{ systemStatus.debug_mode ? '开启' : '关闭' }}
-          <span class="tag" :class="systemStatus.debug_mode ? 'tag-orange' : 'tag-green'">
-            {{ systemStatus.debug_mode ? 'DEBUG' : 'PROD' }}
-          </span>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">在线组件</div>
-        <div class="stat-value">{{ componentCounts.total }} <span class="stat-unit">个</span></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">最后更新</div>
-        <div class="stat-value stat-small">{{ lastUpdate }}</div>
-      </div>
+    </div>
+
+    <!-- 核心指标:4 张数值卡(复用全局 .stats-grid + StatCard) -->
+    <div class="stats-grid">
+      <StatCard title="基础设施" :value="okInfraCount" suffix="/ 4 已连接" :color="okInfraCount === infraTotal ? 'neutral' : 'negative'" />
+      <StatCard title="在线组件" :value="onlineWorkerCount" :suffix="`/ ${systemStore.totalWorkerCount}`" :color="onlineWorkerCount === systemStore.totalWorkerCount ? 'neutral' : 'negative'" />
+      <StatCard title="异常组件" :value="anomalyWorkerCount" :color="anomalyWorkerCount > 0 ? 'negative' : 'positive'" />
+      <StatCard title="运行中任务" :value="runningTaskCount" />
     </div>
 
     <!-- 基础设施状态 -->
@@ -76,10 +58,8 @@
       <div class="infra-grid">
         <div v-for="(info, name) in infrastructure" :key="name" class="infra-card">
           <div class="infra-header">
-            <span class="infra-name">{{ getInfraName(name) }}</span>
-            <span class="tag" :class="`tag-${getInfraColorClass(info.status)}`">
-              {{ getInfraStatusText(info.status) }}
-            </span>
+            <span class="infra-name">{{ INFRA_NAMES[name] || name }}</span>
+            <StatusTag type="infra" :status="info.status" />
           </div>
           <div v-if="info.error" class="infra-error">{{ info.error }}</div>
           <div v-if="info.latency_ms !== undefined" class="infra-info">
@@ -92,31 +72,33 @@
       </div>
     </div>
 
-    <!-- 组件统计 -->
-    <div class="card">
-      <div class="card-header">
-        <h3>组件统计</h3>
-      </div>
-      <div class="component-stats">
-        <div v-for="(count, type) in componentTypeMap" :key="type" class="component-stat-card">
-          <div class="component-stat-label">{{ count.label }}</div>
-          <div class="component-stat-row">
-            <span class="component-stat-value" :style="{ color: count.color }">{{ getOnlineCount(type) }}</span>
-            <span class="component-stat-total"> / {{ getComponentCount(type) }} 在线</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Worker 状态 -->
+    <!-- 组件详情:统计 chips 兼作类型筛选,异常组件排序置顶 -->
     <div class="card">
       <div class="card-header">
         <h3>组件详情</h3>
+        <div class="type-chips">
+          <button
+            class="type-chip"
+            :class="{ active: typeFilter === 'all' }"
+            @click="typeFilter = 'all'"
+          >
+            全部 {{ systemStore.totalWorkerCount }}
+          </button>
+          <button
+            v-for="t in visibleComponentTypes"
+            :key="t.key"
+            class="type-chip"
+            :class="{ active: typeFilter === t.key }"
+            @click="typeFilter = t.key"
+          >
+            {{ t.label }} <span :class="onlineCount(t.key) < totalCount(t.key) ? 'chip-warn' : ''">{{ onlineCount(t.key) }}/{{ totalCount(t.key) }}</span>
+          </button>
+        </div>
       </div>
       <div v-if="workerLoading" class="loading-container">
         <div class="spinner"></div>
       </div>
-      <div v-else-if="workers.length > 0" class="table-wrapper">
+      <div v-else-if="filteredWorkers.length > 0" class="table-wrapper">
         <table class="data-table">
           <thead>
             <tr>
@@ -128,7 +110,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in workers" :key="`${record.type}-${record.id}`">
+            <tr v-for="record in filteredWorkers" :key="`${record.type}-${record.id}`">
               <td class="monospace">{{ record.id }}</td>
               <td>
                 <span class="tag" :class="`tag-${getTypeColorClass(record.type)}`">
@@ -136,9 +118,7 @@
                 </span>
               </td>
               <td>
-                <span class="tag" :class="`tag-${getStatusColorClass(record.status)}`">
-                  {{ getStatusText(record.status) }}
-                </span>
+                <StatusTag type="worker" :status="record.status" />
               </td>
               <td class="detail-text">
                 <template v-if="record.type === 'backtest_worker'">
@@ -148,7 +128,7 @@
                   Portfolio: {{ record.portfolio_count || 0 }}
                 </template>
                 <template v-else-if="record.type === 'scheduler'">
-                  运行: {{ getSchedulerRunning(record) }} / 待处理: {{ getSchedulerPending(record) }}
+                  运行: {{ record.running_tasks || 0 }} / 待处理: {{ record.pending_tasks || 0 }}
                 </template>
                 <template v-else-if="record.type === 'task_timer'">
                   定时任务: {{ record.jobs_count || 0 }}
@@ -157,41 +137,76 @@
                   已处理: {{ record.task_count || 0 }}
                 </template>
               </td>
-              <td class="monospace">{{ record.last_heartbeat }}</td>
+              <td class="monospace" :class="{ 'heartbeat-stale': isHeartbeatStale(record) }">
+                {{ formatRelativeTime(record.last_heartbeat) }}
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div v-else class="empty-state">
-        <p>暂无组件</p>
-      </div>
+      <EmptyState v-else :description="typeFilter === 'all' ? '暂无组件' : '该类型暂无组件'" />
     </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatCard from '@/components/common/StatCard.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatRelativeTime } from '@/utils/format'
 import { useSystemStore } from '@/stores'
+import type { WorkerInfo } from '@/api'
 
 // ========== Store ==========
 const systemStore = useSystemStore()
 
-// ========== 计算属性（从 Store 获取） ==========
+// ========== 本地状态 ==========
 const autoRefreshModel = ref(systemStore.autoRefresh)
+/** 组件类型筛选('all' | 组件 type) */
+const typeFilter = ref('all')
 
+// ========== 常量 ==========
+const INFRA_NAMES: Record<string, string> = {
+  mysql: 'MySQL',
+  redis: 'Redis',
+  kafka: 'Kafka',
+  clickhouse: 'ClickHouse',
+}
+
+const COMPONENT_TYPES: Array<{ key: string; label: string; countsKey: string; tagColor: string }> = [
+  { key: 'data_worker', label: 'DataWorker', countsKey: 'data_workers', tagColor: 'purple' },
+  { key: 'backtest_worker', label: 'BacktestWorker', countsKey: 'backtest_workers', tagColor: 'blue' },
+  { key: 'execution_node', label: 'ExecutionNode', countsKey: 'execution_nodes', tagColor: 'green' },
+  { key: 'scheduler', label: 'Scheduler', countsKey: 'schedulers', tagColor: 'orange' },
+  { key: 'task_timer', label: 'TaskTimer', countsKey: 'task_timers', tagColor: 'magenta' },
+]
+
+const WORKER_TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  COMPONENT_TYPES.map(t => [t.key, t.label]),
+)
+
+/** 异常严重度:越小越靠前(error > stale > stopped/idle > 其他) */
+const SEVERITY_RANK: Record<string, number> = {
+  error: 0,
+  stale: 1,
+  stopped: 2,
+  idle: 2,
+}
+
+const isOnline = (status: string) =>
+  status === 'running' || status === 'healthy' || status === 'active'
+
+const isAnomaly = (status: string) => status === 'error' || status === 'stale'
+
+// ========== 计算属性 ==========
 const workerLoading = computed(() => systemStore.loading)
+
 const lastUpdate = computed(() => {
   if (!systemStore.lastUpdate) return '-'
   return new Date(systemStore.lastUpdate).toLocaleTimeString()
 })
-
-const systemStatus = computed(() => ({
-  status: systemStore.systemStatus?.status || 'unknown',
-  version: systemStore.version,
-  uptime: systemStore.uptime,
-  debug_mode: systemStore.debugMode,
-}))
 
 const infrastructure = computed(() => {
   const infra = systemStore.infrastructure
@@ -206,114 +221,87 @@ const infrastructure = computed(() => {
 
 const workers = computed(() => systemStore.workers)
 
-const componentCounts = computed(() => {
-  const counts = systemStore.componentCounts
-  const total = Object.values(counts).reduce((sum, count) => sum + (count as number), 0)
-  return { ...counts, total }
+const infraTotal = computed(() => Object.keys(infrastructure.value).length || 4)
+
+const okInfraCount = computed(() =>
+  Object.values(infrastructure.value).filter(
+    info => info.status === 'ok' || info.status === 'connected',
+  ).length,
+)
+
+const onlineWorkerCount = computed(() =>
+  workers.value.filter(w => isOnline(w.status)).length,
+)
+
+const anomalyWorkerCount = computed(() =>
+  workers.value.filter(w => isAnomaly(w.status)).length,
+)
+
+const runningTaskCount = computed(() =>
+  workers.value.reduce((sum, w) => {
+    if (w.type === 'backtest_worker') return sum + (w.task_count || 0)
+    if (w.type === 'scheduler') return sum + (w.running_tasks || 0)
+    return sum
+  }, 0),
+)
+
+/** 横幅异常清单:基础设施错误 + 异常组件 */
+const healthIssues = computed(() => {
+  const issues: string[] = []
+  for (const [name, info] of Object.entries(infrastructure.value)) {
+    if (info.status === 'error') {
+      issues.push(`${INFRA_NAMES[name] || name} 连接错误${info.error ? `：${info.error}` : ''}`)
+    }
+  }
+  for (const w of workers.value) {
+    if (isAnomaly(w.status)) {
+      issues.push(`${WORKER_TYPE_LABELS[w.type] || w.type} ${w.id} 状态异常（${w.status}）`)
+    }
+  }
+  return issues
 })
 
-// 组件类型映射
-const componentTypeMap: Record<string, { label: string; color: string; typeKey: string }> = {
-  // ADR-045 Codex 视觉:清除 Ant Design 硬编码 hex,改用主题 token(浅/深自适应可读)
-  data_workers: { label: 'DataWorker', color: 'hsl(var(--secondary-foreground))', typeKey: 'data_worker' },
-  backtest_workers: { label: 'BacktestWorker', color: 'hsl(var(--primary))', typeKey: 'backtest_worker' },
-  execution_nodes: { label: 'ExecutionNode', color: 'hsl(var(--success-fg))', typeKey: 'execution_node' },
-  schedulers: { label: 'Scheduler', color: 'hsl(var(--warning-fg))', typeKey: 'scheduler' },
-  task_timers: { label: 'TaskTimer', color: 'hsl(var(--error-fg))', typeKey: 'task_timer' },
-}
+/** 只显示有注册组件的类型 chip */
+const visibleComponentTypes = computed(() =>
+  COMPONENT_TYPES.filter(t => (systemStore.componentCounts as any)[t.countsKey] > 0),
+)
 
-const getOnlineCount = (type: string): number => {
-  const typeKey = componentTypeMap[type]?.typeKey
-  if (!typeKey) return 0
-  return workers.value.filter(w => w.type === typeKey && (w.status === 'running' || w.status === 'healthy' || w.status === 'active')).length
-}
+/** 异常置顶,同级按类型 + ID 稳定排序 */
+const filteredWorkers = computed(() =>
+  workers.value
+    .filter(w => typeFilter.value === 'all' || w.type === typeFilter.value)
+    .slice()
+    .sort((a, b) => {
+      const rank = (SEVERITY_RANK[a.status] ?? 3) - (SEVERITY_RANK[b.status] ?? 3)
+      if (rank !== 0) return rank
+      if (a.type !== b.type) return a.type.localeCompare(b.type)
+      return a.id.localeCompare(b.id)
+    }),
+)
 
 // ========== 方法 ==========
-const getComponentCount = (type: string): number => {
-  return (componentCounts.value as any)[type] || 0
+const onlineCount = (type: string): number =>
+  workers.value.filter(w => w.type === type && isOnline(w.status)).length
+
+const totalCount = (type: string): number => {
+  const t = COMPONENT_TYPES.find(t => t.key === type)
+  if (!t) return 0
+  return (systemStore.componentCounts as any)[t.countsKey] || 0
 }
 
-const getSchedulerRunning = (record: any): number => {
-  return record.running_tasks || 0
+/** 心跳超过 60s 视为过期,标橙提示 */
+const isHeartbeatStale = (record: WorkerInfo): boolean => {
+  if (!record.last_heartbeat) return false
+  const ts = new Date(record.last_heartbeat).getTime()
+  if (isNaN(ts)) return false
+  return Date.now() - ts > 60_000
 }
 
-const getSchedulerPending = (record: any): number => {
-  return record.pending_tasks || 0
-}
+const getTypeColorClass = (type: string): string =>
+  COMPONENT_TYPES.find(t => t.key === type)?.tagColor || 'gray'
 
-const getInfraName = (name: string): string => {
-  const names: Record<string, string> = {
-    mysql: 'MySQL',
-    redis: 'Redis',
-    kafka: 'Kafka',
-    clickhouse: 'ClickHouse',
-  }
-  return names[name] || name
-}
-
-const getInfraColorClass = (status: string): string => {
-  const colors: Record<string, string> = {
-    ok: 'green',
-    connected: 'green',
-    error: 'red',
-    not_configured: 'gray',
-  }
-  return colors[status] || 'gray'
-}
-
-const getInfraStatusText = (status: string): string => {
-  const texts: Record<string, string> = {
-    ok: '已连接',
-    connected: '已连接',
-    error: '错误',
-    not_configured: '未配置',
-  }
-  return texts[status] || status
-}
-
-const getStatusColorClass = (status: string): string => {
-  const colors: Record<string, string> = {
-    running: 'green',
-    active: 'green',
-    stopped: 'gray',
-    stale: 'orange',
-    error: 'red',
-  }
-  return colors[status?.toLowerCase()] || 'gray'
-}
-
-const getStatusText = (status: string): string => {
-  const texts: Record<string, string> = {
-    running: '运行中',
-    active: '活跃',
-    stopped: '已停止',
-    stale: '过期',
-    error: '错误',
-  }
-  return texts[status?.toLowerCase()] || status
-}
-
-const getTypeColorClass = (type: string): string => {
-  const colors: Record<string, string> = {
-    data_worker: 'purple',
-    backtest_worker: 'blue',
-    execution_node: 'green',
-    scheduler: 'orange',
-    task_timer: 'magenta',
-  }
-  return colors[type] || 'gray'
-}
-
-const getTypeText = (type: string): string => {
-  const texts: Record<string, string> = {
-    data_worker: '数据Worker',
-    backtest_worker: '回测Worker',
-    execution_node: '执行节点',
-    scheduler: '调度器',
-    task_timer: '定时器',
-  }
-  return texts[type] || type
-}
+const getTypeText = (type: string): string =>
+  WORKER_TYPE_LABELS[type] || type
 
 const fetchStatus = async () => {
   try {
@@ -324,8 +312,7 @@ const fetchStatus = async () => {
 }
 
 const toggleAutoRefresh = () => {
-  const checked = autoRefreshModel.value
-  if (checked) {
+  if (autoRefreshModel.value) {
     systemStore.enableAutoRefresh(5000)
   } else {
     systemStore.disableAutoRefresh()
@@ -358,7 +345,7 @@ onUnmounted(() => {
   height: 20px;
   appearance: none;
   background: hsl(var(--secondary));
-  border-radius: 20px;
+  border-radius: 9999px;
   outline: none;
   cursor: pointer;
   transition: background 0.3s;
@@ -389,55 +376,53 @@ onUnmounted(() => {
   color: hsl(var(--muted-foreground));
 }
 
-/* 按钮 */
-
-/* 统计卡片 - 6列 */
-.stats-grid-six {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
+/* 异常横幅 */
+.alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
   margin-bottom: 16px;
 }
 
-.stat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+.alert-banner > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
-.stat-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.alert-degraded {
+  background: hsl(var(--warning) / 0.1);
+  border-color: hsl(var(--warning) / 0.4);
+  color: hsl(var(--warning-fg));
 }
 
-.stat-error {
-  background: hsl(var(--error) / 0.2);
-  color: hsl(var(--error));
+.alert-unhealthy {
+  background: hsl(var(--error) / 0.1);
+  border-color: hsl(var(--error) / 0.4);
+  color: hsl(var(--error-fg));
 }
 
-.stat-value-with-tag {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.stat-small {
+.alert-title {
   font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 
-.stat-unit {
+.alert-list {
+  margin: 0;
+  padding-left: 18px;
   font-size: 12px;
-  color: hsl(var(--muted-foreground));
-  font-weight: normal;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* 卡片 */
+/* 统计卡片间距(列数/间距走全局 .stats-grid) */
+.stats-grid {
+  margin-bottom: 16px;
+}
 
 /* 基础设施卡片 */
 .infra-grid {
@@ -449,7 +434,7 @@ onUnmounted(() => {
 
 .infra-card {
   background: hsl(var(--muted));
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 12px;
 }
 
@@ -476,46 +461,47 @@ onUnmounted(() => {
 
 .infra-error {
   color: hsl(var(--error-fg));
+  word-break: break-all;
 }
 
-/* 组件统计 */
-.component-stats {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
-  padding: 20px;
+/* 类型 chips(chips 与 card-header 同行,窄屏换行) */
+.type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.component-stat-card {
-  background: hsl(var(--muted));
-  border-radius: 6px;
-  padding: 12px;
-  text-align: center;
-}
-
-.component-stat-label {
-  font-size: 12px;
+.type-chip {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--border));
+  background: transparent;
   color: hsl(var(--muted-foreground));
-  margin-bottom: 4px;
-}
-
-.component-stat-value {
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.component-stat-total {
   font-size: 12px;
-  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-/* 标签 */
+.type-chip:hover {
+  border-color: hsl(var(--primary) / 0.5);
+  color: hsl(var(--foreground));
+}
 
+.type-chip.active {
+  background: hsl(var(--primary) / 0.1);
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
+  font-weight: 500;
+}
+
+.chip-warn {
+  color: hsl(var(--warning-fg));
+}
 
 /* 表格 */
 .table-wrapper {
   padding: 20px;
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -531,6 +517,9 @@ onUnmounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--muted));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -553,41 +542,21 @@ onUnmounted(() => {
   color: hsl(var(--muted-foreground));
 }
 
-/* 空状态 */
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state p {
-  margin: 0;
+.heartbeat-stale {
+  color: hsl(var(--warning-fg));
+  font-weight: 600;
 }
 
 /* 响应式 */
 @media (max-width: 1200px) {
-  .stats-grid-six {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
   .infra-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 768px) {
-  .stats-grid-six {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .infra-grid {
     grid-template-columns: 1fr;
-  }
-
-  .component-stats {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>

@@ -56,7 +56,7 @@
           <button class="btn-small" @click="clearHistory">清空历史</button>
         </div>
         <div v-if="commandHistory.length > 0" class="timeline">
-          <div v-for="(cmd, index) in commandHistory" :key="index" class="timeline-item">
+          <div v-for="(cmd, index) in commandHistory" :key="index" class="timeline-item" @contextmenu="openCmdMenu($event, cmd)">
             <div class="timeline-dot" :class="cmd.success ? 'success' : 'error'"></div>
             <div class="timeline-content">
               <div class="timeline-title">{{ cmd.type }}</div>
@@ -68,14 +68,7 @@
             </div>
           </div>
         </div>
-        <div v-else class="empty-state">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <p>暂无命令记录</p>
-        </div>
+        <EmptyState v-else description="暂无命令记录" />
       </div>
     </div>
 
@@ -105,10 +98,22 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { dataApi } from '@/api'
 import { extractSyncFailed } from '@/utils/syncResult'
+import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 命令历史右键菜单(本页无行操作,给复制类) */
+const { open: openCtxMenu } = useContextMenu()
+const openCmdMenu = (e: MouseEvent, cmd: CommandRecord) => {
+  openCtxMenu(e, [
+    { label: '复制命令类型', action: () => { navigator.clipboard.writeText(cmd.type); toast.success('已复制') } },
+    { label: '复制代码列表', action: () => { navigator.clipboard.writeText(cmd.codes); toast.success('已复制') } },
+  ])
+}
 
 interface CommandRecord {
   type: string
@@ -343,26 +348,6 @@ onMounted(() => {
 .timeline-status.error {
   color: hsl(var(--error));
 }
-
-/* 空状态 */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state svg {
-  margin-bottom: 12px;
-  opacity: 0.5;
-}
-
-.empty-state p {
-  margin: 0;
-}
-
 /* 统计网格 */
 .stats-grid-four {
   display: grid;

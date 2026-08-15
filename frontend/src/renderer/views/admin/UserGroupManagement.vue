@@ -1,7 +1,6 @@
 <template>
   <PageLayout>
     <template #title>
-      <span class="tag tag-blue">系统</span>
       用户组管理
     </template>
     <template #actions>
@@ -12,7 +11,7 @@
       <div v-if="loading" class="loading-container">
         <div class="spinner"></div>
       </div>
-      <div v-else class="table-wrapper">
+      <div v-else-if="userGroups.length > 0" class="table-wrapper">
         <table class="data-table">
           <thead>
             <tr>
@@ -20,36 +19,24 @@
               <th>描述</th>
               <th>用户数</th>
               <th>权限</th>
-              <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in userGroups" :key="record.uuid">
+            <tr v-for="record in userGroups" :key="record.uuid" @contextmenu="openGroupMenu($event, record)">
               <td>{{ record.name }}</td>
               <td>{{ record.description || '-' }}</td>
-              <td>
-                <span class="badge badge-success">{{ record.user_count }}</span>
-              </td>
+              <td>{{ record.user_count }}</td>
               <td>
                 <div class="tags-wrapper">
                   <span v-for="perm in record.permissions?.slice(0, 3)" :key="perm" class="tag tag-blue">{{ perm }}</span>
                   <span v-if="record.permissions?.length > 3" class="tag tag-gray">+{{ record.permissions.length - 3 }}</span>
                 </div>
               </td>
-              <td>
-                <div class="action-links">
-                  <a class="link" @click="editGroup(record)">编辑</a>
-                  <a class="link" @click="managePermissions(record)">权限</a>
-                  <a class="link text-red" @click="confirmDelete(record)">删除</a>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="userGroups.length === 0">
-              <td colspan="5" class="empty-state">暂无用户组数据</td>
             </tr>
           </tbody>
         </table>
       </div>
+      <EmptyState v-else description="暂无用户组数据" />
     </div>
 
     <!-- 用户组编辑/创建模态框 -->
@@ -114,8 +101,21 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import { userGroupsApi, type UserGroupInfo } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 行右键菜单(替代操作列;删除走菜单内置确认) */
+const { open: openCtxMenu } = useContextMenu()
+const openGroupMenu = (e: MouseEvent, record: UserGroupInfo) => {
+  openCtxMenu(e, [
+    { label: '编辑', action: () => editGroup(record) },
+    { label: '权限', action: () => managePermissions(record) },
+    { divider: true },
+    { label: '删除', danger: true, confirm: `确定要删除用户组「${record.name}」吗？`, action: () => deleteGroup(record) },
+  ])
+}
 
 const loading = ref(false)
 const showCreateModal = ref(false)
@@ -165,12 +165,6 @@ const managePermissions = (record: UserGroupInfo) => {
   permissionTarget.value = record
   selectedPermissions.value = [...(record.permissions || [])]
   showPermissionModal.value = true
-}
-
-const confirmDelete = (record: UserGroupInfo) => {
-  if (confirm(`确定要删除用户组 "${record.name}" 吗？`)) {
-    deleteGroup(record)
-  }
 }
 
 const deleteGroup = async (record: UserGroupInfo) => {
@@ -244,28 +238,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content, .modal {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-}
-
+/* 模态框样式走全局 modals.less */
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -281,6 +257,9 @@ onMounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -299,45 +278,7 @@ onMounted(() => {
 .tags-wrapper {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-}
-
-.badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  min-width: 24px;
-  text-align: center;
-}
-
-.badge-success {
-  background: hsl(var(--success) / 0.2);
-  color: hsl(var(--success));
-}
-
-.action-links {
-  display: flex;
-  gap: 12px;
-}
-
-.link {
-  color: hsl(var(--primary));
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
-.text-red {
-  color: hsl(var(--error));
-}
-
-.required {
-  color: hsl(var(--error));
+  gap: 8px;
 }
 
 .multi-select {
@@ -349,11 +290,11 @@ onMounted(() => {
 .checkbox-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 12px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
@@ -372,11 +313,5 @@ onMounted(() => {
 
 .checkbox-label input[type="checkbox"] {
   cursor: pointer;
-}
-
-.empty-state {
-  text-align: center;
-  color: hsl(var(--muted-foreground));
-  padding: 32px !important;
 }
 </style>

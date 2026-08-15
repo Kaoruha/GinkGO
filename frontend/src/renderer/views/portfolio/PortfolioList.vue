@@ -21,47 +21,101 @@
 
     <template #filters>
       <div class="filter-bar">
-        <div class="radio-group">
-          <button
-            v-for="option in filterOptions"
-            :key="option.value"
-            class="radio-button"
-            :class="{ active: filterMode === option.value }"
-            @click="setFilterMode(option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
+        <SegmentedControl
+          :model-value="filterMode"
+          :options="filterOptions"
+          @update:model-value="setFilterMode"
+        />
+        <SegmentedControl
+          :model-value="viewMode"
+          :options="viewOptions"
+          @update:model-value="setViewMode"
+        />
       </div>
     </template>
 
     <template #stats>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value">{{ stats.total }}</div>
-          <div class="stat-label">总投资组合</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value stat-success">{{ stats.running }}</div>
-          <div class="stat-label">运行中</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ stats.avgNetValue?.toFixed(3) || '-' }}</div>
-          <div class="stat-label">平均净值</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ formatMoney(stats.totalAssets) }}</div>
-          <div class="stat-label">总资产</div>
-        </div>
+      <div class="stats-inline">
+        <span class="stat-item">共 <strong>{{ stats.total }}</strong> 个组合</span>
+        <span class="stat-sep">·</span>
+        <span class="stat-item">运行中 <strong class="text-success">{{ stats.running }}</strong></span>
+        <span class="stat-sep">·</span>
+        <span class="stat-item">平均净值 <strong>{{ stats.avgNetValue?.toFixed(3) || '-' }}</strong></span>
+        <span class="stat-sep">·</span>
+        <span class="stat-item">总资产 <strong>{{ formatMoney(stats.totalAssets) }}</strong></span>
+        <template v-if="showCtxHint">
+          <span class="stat-sep">·</span>
+          <span class="stat-item ctx-hint">💡 右键卡片/行可操作</span>
+        </template>
       </div>
     </template>
 
     <!-- 自定义内容: 卡片网格 -->
     <template #default>
-      <div v-if="displayPortfolios.length === 0 && !loading" class="empty-state">
-        <div class="empty-icon">📊</div>
-        <p class="empty-text">暂无投资组合</p>
-        <button class="btn-primary" @click="showCreateModal">创建第一个组合</button>
+      <EmptyState
+        v-if="displayPortfolios.length === 0 && !loading"
+        title="暂无投资组合"
+        description="创建第一个组合,开始回测验证策略"
+        action-text="创建第一个组合"
+        :on-action="showCreateModal"
+      />
+      <!-- 列表视图:复用全局 .pro-table(styles/tables.less),与其他列表页视觉一致 -->
+      <div v-else-if="viewMode === 'table'" class="table-card">
+        <table class="pro-table">
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>模式</th>
+              <th>状态</th>
+              <th class="col-num">{{ firstMetricLabel }}</th>
+              <th class="col-num">Sharpe</th>
+              <th class="col-num">最大回撤</th>
+              <th class="col-num">胜率</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody class="m-stagger">
+            <tr
+              v-for="portfolio in displayPortfolios"
+              :key="portfolio.uuid"
+              data-testid="portfolio-row"
+              class="clickable"
+              :title="portfolio.uuid"
+              @click="viewDetail(portfolio)"
+              @contextmenu="openPortfolioMenu($event, portfolio)"
+            >
+              <td class="cell-name">{{ portfolio.name }}</td>
+              <td>
+                <span class="tag" :class="`tag-${getModeColorClass(portfolio.mode)}`">{{ formatMode(portfolio.mode) }}</span>
+              </td>
+              <td>
+                <span class="status-dot" :class="getStateDotClass(portfolio.state)"></span>
+                {{ formatState(portfolio.state) }}
+              </td>
+              <td class="col-num" :class="getValueClass(portfolio.annual_return)">
+                {{ formatPercent(portfolio.annual_return) }}
+              </td>
+              <td class="col-num" :class="getSharpeClass(portfolio.sharpe_ratio)">
+                {{ formatDecimal(portfolio.sharpe_ratio) }}
+              </td>
+              <td class="col-num negative">
+                {{ formatDrawdown(portfolio.max_drawdown) }}
+              </td>
+              <td class="col-num" :class="getWinRateClass(portfolio.win_rate)">
+                {{ formatPercent(portfolio.win_rate) }}
+              </td>
+              <td @click.stop>
+                <div class="actions-cell">
+                  <button
+                    v-if="portfolio.mode === 0 || portfolio.mode === 'BACKTEST'"
+                    class="deploy-link"
+                    @click="openDeploy(portfolio)"
+                  >部署</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       <template v-else>
         <div class="portfolio-grid">
@@ -70,57 +124,28 @@
             :key="portfolio.uuid"
             class="portfolio-card"
             data-testid="portfolio-card"
+            :title="portfolio.uuid"
             @click="viewDetail(portfolio)"
+            @contextmenu="openPortfolioMenu($event, portfolio)"
           >
             <div class="card-header">
               <div class="card-title">
                 <span class="name">{{ portfolio.name }}</span>
-                <span class="uuid" :title="portfolio.uuid">{{ portfolio.uuid }}</span>
-              </div>
-              <div class="card-actions" @click.stop>
-                <button class="btn-icon" data-testid="card-menu-btn" @click="toggleMenu(portfolio.uuid)">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="1"></circle>
-                    <circle cx="12" cy="5" r="1"></circle>
-                    <circle cx="12" cy="19" r="1"></circle>
-                  </svg>
-                </button>
-                <div v-if="activeMenu === portfolio.uuid" class="dropdown-menu">
-                  <button class="dropdown-item" @click="viewDetail(portfolio)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                    详情
-                  </button>
-                  <button v-if="portfolio.mode === 0 || portfolio.mode === 'BACKTEST'" class="dropdown-item" @click="openDeploy(portfolio)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M5 12h14"></path>
-                      <path d="M12 5l7 7-7 7"></path>
-                    </svg>
-                    部署
-                  </button>
-                  <div class="dropdown-divider"></div>
-                  <button class="dropdown-item danger" data-testid="btn-delete-portfolio" @click="confirmDelete(portfolio)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M3 6h18"></path>
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                    </svg>
-                    删除
-                  </button>
+                <div class="card-tags">
+                  <span class="tag" :class="`tag-${getModeColorClass(portfolio.mode)}`">{{ formatMode(portfolio.mode) }}</span>
+                  <span class="tag" :class="`tag-${getStateColorClass(portfolio.state)}`">{{ formatState(portfolio.state) }}</span>
                 </div>
               </div>
             </div>
 
             <div class="card-body">
+              <div class="metric-primary">
+                <span class="label">{{ getReturnLabel(portfolio.mode) }}</span>
+                <span class="value" :class="getValueClass(portfolio.annual_return)">
+                  {{ formatPercent(portfolio.annual_return) }}
+                </span>
+              </div>
               <div class="metrics-grid">
-                <div class="metric">
-                  <span class="label">{{ getReturnLabel(portfolio.mode) }}</span>
-                  <span class="value" :class="getValueClass(portfolio.annual_return)">
-                    {{ formatPercent(portfolio.annual_return) }}
-                  </span>
-                </div>
                 <div class="metric">
                   <span class="label">Sharpe</span>
                   <span class="value" :class="getSharpeClass(portfolio.sharpe_ratio)">
@@ -140,14 +165,18 @@
                   </span>
                 </div>
               </div>
+              <div class="info-row">
+                <span class="info-item">净值 <strong>{{ portfolio.net_value?.toFixed(4) ?? '--' }}</strong></span>
+                <span class="info-item">初始资金 <strong>{{ formatMoney(portfolio.initial_cash) }}</strong></span>
+              </div>
             </div>
             <div class="card-footer">
-              <span class="footer-tag" :class="`tag-${getModeColorClass(portfolio.mode)}`">
-                {{ formatMode(portfolio.mode) }}
-              </span>
-              <span class="footer-tag" :class="`tag-${getStateColorClass(portfolio.state)}`">
-                {{ formatState(portfolio.state) }}
-              </span>
+              <button
+                v-if="portfolio.mode === 0 || portfolio.mode === 'BACKTEST'"
+                class="deploy-link"
+                @click.stop="openDeploy(portfolio)"
+              >部署 →</button>
+              <span v-else class="footer-spacer"></span>
               <span class="date">{{ formatShortDate(portfolio.created_at) }}</span>
             </div>
             <div v-if="portfolio.related && portfolio.related.length > 0" class="related-bar">
@@ -222,11 +251,13 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { storeToRefs } from 'pinia'
-import { usePortfolioMode, usePortfolioState } from '@/composables'
+import { usePortfolioMode, usePortfolioState, useContextMenu } from '@/composables'
 import { formatMoney } from '@/utils/format'
 import ListPage from '@/components/common/ListPage.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import PortfolioFormEditor from './PortfolioFormEditor.vue'
 import DeployModal from '@/components/business/DeployModal.vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { message } from '@/utils/toast'
 
 const router = useRouter()
@@ -254,15 +285,17 @@ const deleteModalVisible = ref(false)
 const deletingPortfolio = ref<any>(null)
 const formEditorRef = ref()
 const loadMoreTrigger = ref<HTMLElement>()
-const activeMenu = ref<string | null>(null)
 
 const showDeployModal = ref(false)
 const deployingPortfolio = ref<any>(null)
 
+// 右键菜单(OS 风格,替代原三点 dropdown);首次使用前给一次性可发现性提示
+const { open: openCtx } = useContextMenu()
+const showCtxHint = ref(!localStorage.getItem('ginkgo_ctx_hint_done'))
+
 const openDeploy = (portfolio: any) => {
   deployingPortfolio.value = portfolio
   showDeployModal.value = true
-  activeMenu.value = null
 }
 
 const onDeploySuccess = (newPortfolioId: string) => {
@@ -274,11 +307,34 @@ const onDeploySuccess = (newPortfolioId: string) => {
 }
 
 const filterOptions = [
-  { value: '', label: '全部' },
-  { value: 'BACKTEST', label: '回测' },
-  { value: 'PAPER', label: '模拟' },
-  { value: 'LIVE', label: '实盘' }
+  { key: '', label: '全部' },
+  { key: 'BACKTEST', label: '回测' },
+  { key: 'PAPER', label: '模拟' },
+  { key: 'LIVE', label: '实盘' }
 ]
+
+/** 视图切换:卡片网格 / 表格行 */
+const viewMode = ref<'card' | 'table'>('card')
+const viewOptions = [
+  { key: 'card', label: '卡片' },
+  { key: 'table', label: '列表' }
+]
+const setViewMode = (v: string) => { viewMode.value = v as 'card' | 'table' }
+
+/** 列表视图首列收益指标文案:混合模式下取通用词 */
+const firstMetricLabel = computed(() =>
+  displayPortfolios.value.some(p => String(p.mode).toUpperCase() !== 'BACKTEST' && p.mode !== 0)
+    ? '收益'
+    : '年化收益'
+)
+
+/** 状态点样式(复用全局 .status-dot 呼吸动画) */
+const getStateDotClass = (state: number | string) => {
+  const s = String(state).toUpperCase()
+  if (s === 'RUNNING' || s === '1') return 'running'
+  if (s === 'ERROR' || s === '4') return 'error'
+  return 'stopped'
+}
 
 const displayPortfolios = computed(() => filteredPortfolios.value)
 
@@ -343,8 +399,9 @@ const getReturnLabel = (mode: any) => {
   return m === 'BACKTEST' || m === 0 || m === '0' ? '年化收益' : '累计收益'
 }
 
+// 0 是有效值须显示(原实现 val===0 返回 '--',0% 收益被吞);仅 null/undefined/NaN 显示占位
 const formatPercent = (val: any) => {
-  if (val === null || val === undefined || val === 0) return '--'
+  if (val === null || val === undefined) return '--'
   const n = typeof val === 'string' ? parseFloat(val) : val
   if (isNaN(n)) return '--'
   const sign = n > 0 ? '+' : ''
@@ -352,14 +409,14 @@ const formatPercent = (val: any) => {
 }
 
 const formatDecimal = (val: any) => {
-  if (val === null || val === undefined || val === 0) return '--'
+  if (val === null || val === undefined) return '--'
   const n = typeof val === 'string' ? parseFloat(val) : val
   if (isNaN(n)) return '--'
   return n.toFixed(2)
 }
 
 const formatDrawdown = (val: any) => {
-  if (val === null || val === undefined || val === 0) return '--'
+  if (val === null || val === undefined) return '--'
   const n = typeof val === 'string' ? parseFloat(val) : val
   if (isNaN(n)) return '--'
   return `-${(Math.abs(n) * 100).toFixed(1)}%`
@@ -397,8 +454,21 @@ const formatRelatedMode = (mode: string) => {
 }
 
 const setFilterMode = (value: string) => { filterMode.value = value }
-const toggleMenu = (uuid: string) => { activeMenu.value = activeMenu.value === uuid ? null : uuid }
-const closeMenus = () => { activeMenu.value = null }
+
+/** 卡片/表格行右键菜单:详情/部署/删除(替代三点菜单交互) */
+const openPortfolioMenu = (e: MouseEvent, portfolio: any) => {
+  if (!localStorage.getItem('ginkgo_ctx_hint_done')) {
+    localStorage.setItem('ginkgo_ctx_hint_done', '1')
+    showCtxHint.value = false
+  }
+  const isBacktest = portfolio.mode === 0 || portfolio.mode === 'BACKTEST'
+  openCtx(e, [
+    { label: '详情', action: () => viewDetail(portfolio) },
+    ...(isBacktest ? [{ label: '部署', action: () => openDeploy(portfolio) }] : []),
+    { divider: true },
+    { label: '删除', danger: true, action: () => confirmDelete(portfolio) },
+  ])
+}
 
 const showCreateModal = () => { createModalVisible.value = true }
 const closeCreateModal = () => { createModalVisible.value = false }
@@ -411,7 +481,6 @@ const handleCreated = (uuid: string) => {
 }
 
 const viewDetail = (record: any) => {
-  activeMenu.value = null
   router.push(`/portfolios/${record.uuid}`)
 }
 
@@ -424,7 +493,6 @@ const confirmDelete = (record: any) => {
   }
   deletingPortfolio.value = record
   deleteModalVisible.value = true
-  activeMenu.value = null
 }
 
 const closeDeleteModal = () => {
@@ -451,67 +519,62 @@ onMounted(() => {
   fetchPortfolios({ page: 0, append: false })
   fetchStats()
   setupIntersectionObserver()
-  document.addEventListener('click', closeMenus)
 })
 
 onUnmounted(() => {
   if (observer) observer.disconnect()
-  document.removeEventListener('click', closeMenus)
 })
 </script>
 
 <style scoped>
-/* Stats */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.stat-card {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
-
-.stat-value.stat-success { color: hsl(var(--success-fg)); }
-.stat-label { font-size: 12px; color: hsl(var(--muted-foreground)); margin-top: 4px; }
-
-/* Filter */
-.filter-bar { margin-top: 12px; }
-
-.radio-group {
-  display: inline-flex;
-  background: hsl(var(--border));
-  border-radius: 4px;
-  padding: 2px;
-}
-
-.radio-button {
-  padding: 6px 16px;
-  background: transparent;
-  border: none;
-  border-radius: 2px;
-  color: hsl(var(--foreground));
+/* Stats: 单行内联统计(原 4 张大卡与 Dashboard 重复且占屏 30%) */
+.stats-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
+  color: hsl(var(--muted-foreground));
 }
 
-.radio-button:hover { color: hsl(var(--foreground)); }
+.stats-inline strong {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-inline .text-success { color: hsl(var(--success-fg)); }
+.stats-inline .stat-sep { opacity: 0.5; }
+
+/* Filter:模式筛选居左,视图切换居右 */
+.filter-bar {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 列表视图:结构/样式复用全局 .pro-table,此处仅页面特有细节 */
+.pro-table .cell-name {
+  font-weight: 600;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pro-table td.negative { color: hsl(var(--error-fg)); }
+.pro-table td.positive { color: hsl(var(--success-fg)); }
+.pro-table td.warning { color: hsl(var(--warning-fg)); }
+.pro-table td.neutral { color: hsl(var(--muted-foreground)); }
 
 /* Tag */
 .tag {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 500;
 }
@@ -521,14 +584,14 @@ onUnmounted(() => {
 .portfolio-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  gap: 16px;
 }
 
 .portfolio-card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  padding: 12px;
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
@@ -536,7 +599,7 @@ onUnmounted(() => {
 }
 
 .portfolio-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
   border-color: hsl(var(--secondary));
 }
@@ -545,23 +608,15 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .card-title {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
   flex: 1;
   min-width: 0;
-}
-
-.card-title .uuid {
-  font-size: 11px;
-  color: hsl(var(--muted-foreground));
-  font-family: monospace;
-  flex-shrink: 0;
-  user-select: all;
 }
 
 .card-title .name {
@@ -573,65 +628,46 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.card-actions { position: relative; }
-
-.btn-icon {
-  padding: 4px;
-  background: transparent;
-  border: none;
-  color: hsl(var(--muted-foreground));
-  cursor: pointer;
-  border-radius: 4px;
+.card-tags {
   display: flex;
+  gap: 6px;
 }
 
-.btn-icon:hover { color: hsl(var(--foreground)); background: hsl(var(--border)); }
+/* 右键交互一次性提示(首次右键后消失,localStorage 记忆) */
+.ctx-hint { color: hsl(var(--primary)); }
 
-.dropdown-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background: hsl(var(--border));
-  border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
-  min-width: 120px;
-  z-index: 100;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
+.card-body { display: flex; flex-direction: column; gap: 10px; flex: 1; }
 
-.dropdown-item {
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: hsl(var(--foreground));
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dropdown-item:hover { background: hsl(var(--secondary)); }
-.dropdown-item.danger { color: hsl(var(--error)); }
-.dropdown-item.danger:hover { background: hsl(var(--error) / 0.1); }
-.dropdown-divider { height: 1px; background: hsl(var(--secondary)); margin: 4px 0; }
-
-.card-body { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+/* 主指标:收益大号突出 */
+.metric-primary { display: flex; flex-direction: column; gap: 2px; }
+.metric-primary .label { font-size: 11px; color: hsl(var(--muted-foreground)); }
+.metric-primary .value { font-size: 22px; font-weight: 700; line-height: 1.2; }
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 16px;
-  padding: 10px;
-  background: hsl(var(--card));
-  border-radius: 6px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 12px;
+  padding: 8px 10px;
+  background: hsl(var(--muted) / 0.4);
+  border-radius: var(--radius);
 }
 
-.metrics-grid .metric .label { font-size: 10px; color: hsl(var(--muted-foreground)); }
-.metrics-grid .metric .value { font-size: 16px; font-weight: 700; }
+.metrics-grid .metric { display: flex; flex-direction: column; gap: 2px; }
+.metrics-grid .metric .label { font-size: 11px; color: hsl(var(--muted-foreground)); }
+.metrics-grid .metric .value { font-size: 15px; font-weight: 700; }
+
+.info-row {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+.info-row .info-item strong {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
 
 .value.positive { color: hsl(var(--success-fg)); }
 .value.negative { color: hsl(var(--error-fg)); }
@@ -642,30 +678,38 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-top: 12px;
+  padding-top: 8px;
   border-top: 1px solid hsl(var(--border));
 }
 
-.card-footer .footer-tag {
-  font-size: 12px;
-  font-weight: 400;
-  color: hsl(var(--foreground));
+/* 部署是回测组合的高频主操作,从三点菜单提升为卡上入口 */
+.deploy-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: hsl(var(--primary));
+  font-size: 13px;
+  cursor: pointer;
 }
+
+.deploy-link:hover { text-decoration: underline; }
+
+.footer-spacer { flex: 1; }
 
 .card-footer .date { font-size: 12px; color: hsl(var(--muted-foreground)); margin-left: auto; }
 
 .related-bar {
   display: flex;
   gap: 8px;
-  padding: 10px 0 0;
+  padding: 8px 0 0;
   border-top: 1px solid hsl(var(--secondary));
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .related-card {
   flex: 1;
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: opacity 0.2s;
 }
@@ -683,33 +727,21 @@ onUnmounted(() => {
   margin-bottom: 4px;
 }
 
-.related-mode { font-size: 10px; font-weight: 600; }
+.related-mode { font-size: 12px; font-weight: 600; }
 .related-backtest .related-mode { color: hsl(var(--primary)); }
 .related-paper .related-mode { color: hsl(var(--warning-fg)); }
 .related-live .related-mode { color: hsl(var(--success-fg)); }
 
-.related-state { font-size: 9px; color: hsl(var(--success-fg)); }
+.related-state { font-size: 11px; color: hsl(var(--success-fg)); }
 
 .related-metrics {
   display: flex;
-  gap: 10px;
-  font-size: 9px;
+  gap: 12px;
+  font-size: 11px;
   color: hsl(var(--muted-foreground));
 }
 
-.related-metrics strong { font-size: 11px; }
-
-/* Empty */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-icon { font-size: 48px; margin-bottom: 16px; }
-.empty-text { font-size: 14px; margin: 0 0 16px 0; }
+.related-metrics strong { font-size: 12px; }
 
 /* Load more */
 .load-more-trigger {
@@ -744,7 +776,7 @@ onUnmounted(() => {
 .modal-content {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   max-height: 90vh;
@@ -780,7 +812,7 @@ onUnmounted(() => {
   padding: 8px 16px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   cursor: pointer;
 }
@@ -791,7 +823,7 @@ onUnmounted(() => {
   padding: 8px 16px;
   background: hsl(var(--error));
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   cursor: pointer;
 }
@@ -810,7 +842,6 @@ onUnmounted(() => {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 768px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .portfolio-grid { grid-template-columns: 1fr; }
 }
 </style>

@@ -1,5 +1,4 @@
 import request from '../request'
-import type { APIResponse } from '@/types/api'
 
 /** Broker 实例状态 */
 export type BrokerState = 'uninitialized' | 'initializing' | 'running' | 'paused' | 'stopped' | 'error' | 'recovering'
@@ -43,28 +42,28 @@ export const BROKER_STATE_LABELS: Record<BrokerState, { label: string; color: 's
  */
 export const brokerApi = {
   /** 获取 Broker 实例列表 */
-  list: () =>
-    request.get<APIResponse<BrokerInstance[]>>('/api/v1/accounts/brokers'),
+  list: (): Promise<BrokerInstance[]> =>
+    request.get('/api/v1/accounts/brokers'),
 
   /** 启动 Broker */
-  start: (uuid: string) =>
-    request.post<APIResponse<void>>(`/api/v1/accounts/brokers/${uuid}/start`),
+  start: (uuid: string): Promise<void> =>
+    request.post(`/api/v1/accounts/brokers/${uuid}/start`),
 
   /** 暂停 Broker */
-  pause: (uuid: string) =>
-    request.post<APIResponse<void>>(`/api/v1/accounts/brokers/${uuid}/pause`),
+  pause: (uuid: string): Promise<void> =>
+    request.post(`/api/v1/accounts/brokers/${uuid}/pause`),
 
   /** 恢复 Broker */
-  resume: (uuid: string) =>
-    request.post<APIResponse<void>>(`/api/v1/accounts/brokers/${uuid}/resume`),
+  resume: (uuid: string): Promise<void> =>
+    request.post(`/api/v1/accounts/brokers/${uuid}/resume`),
 
   /** 停止 Broker */
-  stop: (uuid: string) =>
-    request.post<APIResponse<void>>(`/api/v1/accounts/brokers/${uuid}/stop`),
+  stop: (uuid: string): Promise<void> =>
+    request.post(`/api/v1/accounts/brokers/${uuid}/stop`),
 
   /** 紧急停止全部 */
-  emergencyStop: () =>
-    request.post<APIResponse<void>>('/api/v1/accounts/brokers/emergency-stop'),
+  emergencyStop: (): Promise<void> =>
+    request.post('/api/v1/accounts/brokers/emergency-stop'),
 }
 
 export default brokerApi

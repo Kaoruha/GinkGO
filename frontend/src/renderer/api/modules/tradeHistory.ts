@@ -1,5 +1,4 @@
 import request from '../request'
-import type { APIResponse } from '@/types/api'
 
 /** 交易记录 */
 export interface TradeRecord {
@@ -50,16 +49,16 @@ export interface TradeHistoryParams {
  */
 export const tradeHistoryApi = {
   /** 获取交易记录 */
-  getTrades: (accountId: string, params?: TradeHistoryParams) =>
-    request.get<APIResponse<TradeRecord[]>>(`/api/v1/accounts/${accountId}/trades`, { params }),
+  getTrades: (accountId: string, params?: TradeHistoryParams): Promise<TradeRecord[]> =>
+    request.get(`/api/v1/accounts/${accountId}/trades`, { params }),
 
   /** 获取交易统计 */
-  getStatistics: (accountId: string) =>
-    request.get<APIResponse<TradeStatistics>>(`/api/v1/accounts/${accountId}/trades/statistics`),
+  getStatistics: (accountId: string): Promise<TradeStatistics> =>
+    request.get(`/api/v1/accounts/${accountId}/trades/statistics`),
 
   /** 获取每日汇总 */
-  getDailySummary: (accountId: string, params?: { start_date?: string; end_date?: string }) =>
-    request.get<APIResponse<DailySummary[]>>(`/api/v1/accounts/${accountId}/trades/daily-summary`, { params }),
+  getDailySummary: (accountId: string, params?: { start_date?: string; end_date?: string }): Promise<DailySummary[]> =>
+    request.get(`/api/v1/accounts/${accountId}/trades/daily-summary`, { params }),
 
   /** 导出 CSV */
   exportCSV: (accountId: string) =>

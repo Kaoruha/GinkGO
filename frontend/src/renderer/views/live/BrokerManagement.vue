@@ -3,10 +3,38 @@ import { ref, onMounted } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { RefreshCw, Play, Pause, Square, AlertTriangle, Activity, Clock, Settings } from 'lucide-vue-next'
+import { RefreshCw, Pause, Square, AlertTriangle, Activity, Clock, Settings } from 'lucide-vue-next'
 import PageLayout from '@/components/common/PageLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { brokerApi } from '@/api'
+import { message } from '@/utils/toast'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import { useContextMenu, type MenuItem } from '@/composables/useContextMenu'
+
+/** 卡片右键菜单(替代卡片内操作按钮;停止走菜单内置确认) */
+const { open: openCtxMenu } = useContextMenu()
+const openBrokerMenu = (e: MouseEvent, broker: BrokerInfo) => {
+  const items: MenuItem[] = []
+  if (['uninitialized', 'stopped', 'error'].includes(broker.state)) {
+    items.push({ label: '启动', action: () => startBroker(broker.uuid) })
+  }
+  if (broker.state === 'running') {
+    items.push({ label: '暂停', action: () => pauseBroker(broker.uuid) })
+  }
+  if (broker.state === 'paused') {
+    items.push({ label: '恢复', action: () => resumeBroker(broker.uuid) })
+  }
+  if (['running', 'paused', 'initializing'].includes(broker.state)) {
+    items.push({ divider: true })
+    items.push({
+      label: '停止', danger: true,
+      confirm: '停止将终止该 Broker 实例的运行。此操作不可逆,确定要继续吗?',
+      action: () => doStopDirect(broker.uuid),
+    })
+  }
+  if (items.length === 0) items.push({ label: '刷新', action: loadBrokers })
+  openCtxMenu(e, items)
+}
 
 // Types
 interface BrokerInfo {
@@ -31,6 +59,9 @@ const brokers = ref<BrokerInfo[]>([])
 const loading = ref(true)
 const actionLoading = ref<string | null>(null)
 const loadError = ref(false)  // 后端 /accounts/brokers 接口不可用(404=功能未实现)
+// 紧急停止 二次确认态
+const emergencyConfirmOpen = ref(false)
+const emergencyLoading = ref(false)
 
 // 状态配置
 const stateConfig: Record<string, {
@@ -90,7 +121,7 @@ const loadBrokers = async () => {
   try {
     loadError.value = false
     const result = await brokerApi.list()
-    brokers.value = (result as any)?.data || []
+    brokers.value = (result as any) || []
   } catch (error) {
     // 后端 /accounts/brokers 待实现(实盘 broker stub 阶段),诚实标注而非笼统"加载失败"
     loadError.value = true
@@ -107,7 +138,7 @@ const startBroker = async (brokerUuid: string) => {
     await brokerApi.start(brokerUuid)
     await loadBrokers()
   } catch (error: any) {
-    alert(error?.message || '启动失败')
+    message.error(error?.message || '启动失败')
   } finally {
     actionLoading.value = null
   }
@@ -119,7 +150,7 @@ const pauseBroker = async (brokerUuid: string) => {
     await brokerApi.pause(brokerUuid)
     await loadBrokers()
   } catch (error: any) {
-    alert(error?.message || '暂停失败')
+    message.error(error?.message || '暂停失败')
   } finally {
     actionLoading.value = null
   }
@@ -131,35 +162,42 @@ const resumeBroker = async (brokerUuid: string) => {
     await brokerApi.resume(brokerUuid)
     await loadBrokers()
   } catch (error: any) {
-    alert(error?.message || '恢复失败')
+    message.error(error?.message || '恢复失败')
   } finally {
     actionLoading.value = null
   }
 }
 
-const stopBroker = async (brokerUuid: string) => {
-  if (!confirm('确定要停止此 Broker 吗？')) return
-
+// 停止单个 Broker(确认由菜单内置 ConfirmDialog 承担)
+const doStopDirect = async (brokerUuid: string) => {
   actionLoading.value = brokerUuid
   try {
     await brokerApi.stop(brokerUuid)
+    message.success('已停止该 Broker')
     await loadBrokers()
   } catch (error: any) {
-    alert(error?.message || '停止失败')
+    message.error(error?.message || '停止失败')
   } finally {
     actionLoading.value = null
   }
 }
 
-const emergencyStopAll = async () => {
-  if (!confirm('确定要紧急停止所有 Broker 吗？此操作不可逆！')) return
+// 紧急停止全部:打开二次确认(全量终止,不可逆,危险)
+const handleEmergencyClick = () => {
+  emergencyConfirmOpen.value = true
+}
 
+const doEmergencyStop = async () => {
+  emergencyLoading.value = true
   try {
     await brokerApi.emergencyStop()
-    alert('已发送紧急停止指令')
+    message.success('已发送紧急停止指令')
+    emergencyConfirmOpen.value = false
     await loadBrokers()
   } catch (error: any) {
-    alert(error?.message || '紧急停止失败')
+    message.error(error?.message || '紧急停止失败')
+  } finally {
+    emergencyLoading.value = false
   }
 }
 
@@ -192,7 +230,7 @@ onMounted(() => {
         variant="destructive"
         size="sm"
         class="emergency-btn"
-        @click="emergencyStopAll"
+        @click="handleEmergencyClick"
       >
         <Square class="w-4 h-4 mr-2" />
         紧急停止全部
@@ -242,6 +280,7 @@ onMounted(() => {
             :key="broker.uuid"
             class="broker-item"
             :class="{ 'has-error': broker.state === 'error' }"
+            @contextmenu="openBrokerMenu($event, broker)"
           >
             <!-- 状态指示器 -->
             <div class="broker-status-indicator" :style="{ backgroundColor: stateConfig[broker.state]?.bgColor }">
@@ -288,60 +327,6 @@ onMounted(() => {
                 </div>
               </div>
 
-              <!-- 操作按钮 -->
-              <div class="broker-actions">
-                <!-- 启动 -->
-                <Button
-                  v-if="['uninitialized', 'stopped', 'error'].includes(broker.state)"
-                  variant="default"
-                  size="sm"
-                  class="action-btn start-btn"
-                  :disabled="actionLoading === broker.uuid"
-                  @click="startBroker(broker.uuid)"
-                >
-                  <Play :class="['w-4 h-4 mr-2', actionLoading === broker.uuid && 'animate-spin']" />
-                  启动
-                </Button>
-
-                <!-- 暂停 -->
-                <Button
-                  v-if="broker.state === 'running'"
-                  variant="outline"
-                  size="sm"
-                  class="action-btn pause-btn"
-                  :disabled="actionLoading === broker.uuid"
-                  @click="pauseBroker(broker.uuid)"
-                >
-                  <Pause class="w-4 h-4 mr-2" />
-                  暂停
-                </Button>
-
-                <!-- 恢复 -->
-                <Button
-                  v-if="broker.state === 'paused'"
-                  variant="default"
-                  size="sm"
-                  class="action-btn resume-btn"
-                  :disabled="actionLoading === broker.uuid"
-                  @click="resumeBroker(broker.uuid)"
-                >
-                  <Play :class="['w-4 h-4 mr-2', actionLoading === broker.uuid && 'animate-spin']" />
-                  恢复
-                </Button>
-
-                <!-- 停止 -->
-                <Button
-                  v-if="['running', 'paused', 'initializing'].includes(broker.state)"
-                  variant="destructive"
-                  size="sm"
-                  class="action-btn stop-btn"
-                  :disabled="actionLoading === broker.uuid"
-                  @click="stopBroker(broker.uuid)"
-                >
-                  <Square class="w-4 h-4 mr-2" />
-                  停止
-                </Button>
-              </div>
             </div>
 
             <!-- 错误信息 -->
@@ -359,6 +344,15 @@ onMounted(() => {
         </div>
       </CardContent>
     </Card>
+    <ConfirmDialog
+      v-model:open="emergencyConfirmOpen"
+      title="紧急停止全部 Broker"
+      description="将立即停止所有正在运行的 Broker 实例。此操作不可逆且影响范围最大,确定要继续吗?"
+      danger
+      confirm-text="紧急停止全部"
+      :loading="emergencyLoading"
+      @confirm="doEmergencyStop"
+    />
   </PageLayout>
 </template>
 
@@ -366,7 +360,7 @@ onMounted(() => {
 .broker-card {
   background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%);
   border: 1px solid hsl(var(--border));
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
 }
 
 .emergency-btn {
@@ -411,7 +405,7 @@ onMounted(() => {
   position: relative;
   background: hsl(var(--foreground) / 0.03);
   border: 1px solid hsl(var(--border));
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 20px;
   transition: all 0.2s ease;
 }
@@ -420,7 +414,7 @@ onMounted(() => {
   background: hsl(var(--foreground) / 0.05);
   border-color: hsl(var(--foreground) / 0.12);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-md);
 }
 
 .broker-item.has-error {
@@ -434,7 +428,7 @@ onMounted(() => {
   top: 24px;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -479,7 +473,7 @@ onMounted(() => {
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 500;
-  border-radius: 6px;
+  border-radius: var(--radius);
 }
 
 .account-info {
@@ -499,7 +493,7 @@ onMounted(() => {
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 600;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   text-transform: uppercase;
 }
 
@@ -524,54 +518,9 @@ onMounted(() => {
 .process-info {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: hsl(var(--muted-foreground));
   font-size: 12px;
-}
-
-.broker-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  min-width: 80px;
-}
-
-.start-btn {
-  background: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(var(--success)) 100%);
-  border: none;
-}
-
-.start-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(var(--success)) 100%);
-}
-
-.pause-btn {
-  border-color: hsl(var(--warning) / 0.3);
-  color: hsl(var(--warning));
-}
-
-.pause-btn:hover:not(:disabled) {
-  background: hsl(var(--warning) / 0.1);
-}
-
-.resume-btn {
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
-  border: none;
-}
-
-.resume-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
-}
-
-.stop-btn {
-  background: linear-gradient(135deg, hsl(var(--error)) 0%, hsl(var(--error)) 100%);
-  border: none;
-}
-
-.stop-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, hsl(var(--error)) 0%, hsl(var(--error)) 100%);
 }
 
 .error-message {
@@ -579,7 +528,7 @@ onMounted(() => {
   padding: 12px;
   background: hsl(var(--error) / 0.1);
   border: 1px solid hsl(var(--error) / 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   color: hsl(var(--error));
   font-size: 13px;
   display: flex;
@@ -606,10 +555,6 @@ onMounted(() => {
   .broker-main {
     flex-direction: column;
     gap: 16px;
-  }
-
-  .broker-actions {
-    width: 100%;
   }
 
   .broker-time {

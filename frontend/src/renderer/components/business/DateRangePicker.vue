@@ -145,7 +145,7 @@ const handleCancel = () => {
 
 .card {
   background: hsl(var(--card));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid hsl(var(--border));
 }
 
@@ -175,7 +175,7 @@ const handleCancel = () => {
   padding: 6px 12px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 13px;
   cursor: pointer;
@@ -215,7 +215,7 @@ const handleCancel = () => {
   padding: 8px 12px;
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   box-sizing: border-box;
@@ -235,7 +235,7 @@ const handleCancel = () => {
   padding: 8px 16px;
   background: transparent;
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: hsl(var(--foreground));
   font-size: 14px;
   cursor: pointer;

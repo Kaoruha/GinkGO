@@ -111,9 +111,9 @@ const loadingMessage = computed(() => {
   color: hsl(var(--foreground));
   padding: 24px;
   background: hsl(var(--card));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid hsl(var(--border));
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .loading-spinner {

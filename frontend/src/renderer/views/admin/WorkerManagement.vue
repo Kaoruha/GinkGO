@@ -22,22 +22,10 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">总 Worker</div>
-        <div class="stat-value">{{ workers.length }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">运行中</div>
-        <div class="stat-value stat-success">{{ runningCount }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">已停止</div>
-        <div class="stat-value stat-muted">{{ stoppedCount }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">异常</div>
-        <div class="stat-value stat-danger">{{ errorCount }}</div>
-      </div>
+      <StatCard title="总 Worker" :value="workers.length" />
+      <StatCard title="运行中" :value="runningCount" :color="runningCount > 0 ? 'positive' : 'neutral'" />
+      <StatCard title="已停止" :value="stoppedCount" color="neutral" />
+      <StatCard title="异常" :value="errorCount" :color="errorCount > 0 ? 'negative' : 'positive'" />
     </div>
 
     <!-- Worker 列表 -->
@@ -65,11 +53,10 @@
               <th>状态</th>
               <th>详情</th>
               <th>最后心跳</th>
-              <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in filteredWorkers" :key="`${record.type}-${record.id}`">
+            <tr v-for="record in filteredWorkers" :key="`${record.type}-${record.id}`" @contextmenu="openWorkerMenu($event, record)">
               <td class="monospace">{{ record.id }}</td>
               <td>
                 <span class="tag" :class="`tag-${getTypeColorClass(record.type)}`">
@@ -77,9 +64,7 @@
                 </span>
               </td>
               <td>
-                <span class="tag" :class="`tag-${getStatusColorClass(record.status)}`">
-                  {{ getStatusText(record.status) }}
-                </span>
+                <StatusTag type="worker" :status="record.status" />
               </td>
               <td class="detail-text">
                 <template v-if="record.type === 'backtest_worker'">
@@ -98,32 +83,7 @@
                   已处理: {{ record.task_count || 0 }}
                 </template>
               </td>
-              <td class="monospace">{{ record.last_heartbeat || '-' }}</td>
-              <td>
-                <div class="action-buttons">
-                  <button
-                    v-if="record.status !== 'running'"
-                    class="btn-icon btn-start"
-                    @click="handleStart(record)"
-                    title="启动"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                  </button>
-                  <button
-                    v-if="record.status === 'running'"
-                    class="btn-icon btn-stop"
-                    @click="handleStop(record)"
-                    title="停止"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <rect x="6" y="4" width="4" height="16"></rect>
-                      <rect x="14" y="4" width="4" height="16"></rect>
-                    </svg>
-                  </button>
-                </div>
-              </td>
+              <td class="monospace">{{ formatRelativeTime(record.last_heartbeat) }}</td>
             </tr>
           </tbody>
         </table>
@@ -137,9 +97,24 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import StatCard from '@/components/common/StatCard.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import { formatRelativeTime } from '@/utils/format'
 import { useSystemStore } from '@/stores'
 import type { WorkerInfo } from '@/api'
 import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 行右键菜单(替代操作列;停止走菜单内置确认) */
+const { open: openCtxMenu } = useContextMenu()
+const openWorkerMenu = (e: MouseEvent, record: WorkerInfo) => {
+  openCtxMenu(e, [
+    { label: '刷新', action: refreshData },
+    ...(record.status !== 'running'
+      ? [{ label: '启动', action: () => handleStart(record) }]
+      : [{ label: '停止', danger: true, confirm: `确定要停止 Worker「${record.id}」吗？`, action: () => doStop(record) }]),
+  ])
+}
 
 const systemStore = useSystemStore()
 const autoRefreshModel = ref(false)
@@ -167,16 +142,6 @@ const getTypeText = (type: string) => {
   return texts[type] || type
 }
 
-const getStatusColorClass = (status: string) => {
-  const colors: Record<string, string> = { running: 'green', active: 'green', stopped: 'gray', idle: 'gray', stale: 'orange', error: 'red' }
-  return colors[status?.toLowerCase()] || 'gray'
-}
-
-const getStatusText = (status: string) => {
-  const texts: Record<string, string> = { running: '运行中', active: '活跃', stopped: '已停止', idle: '空闲', stale: '过期', error: '错误' }
-  return texts[status?.toLowerCase()] || status
-}
-
 const refreshData = () => {
   systemStore.fetchWorkers()
 }
@@ -199,8 +164,8 @@ const handleStart = async (worker: WorkerInfo) => {
   }
 }
 
-const handleStop = async (worker: WorkerInfo) => {
-  if (!confirm(`确定要停止 Worker "${worker.id}" 吗？`)) return
+/** 裸停 Worker(确认由菜单内置 ConfirmDialog 承担) */
+const doStop = async (worker: WorkerInfo) => {
   try {
     await systemStore.stopWorker(worker.id)
     toast.success(`Worker ${worker.id} 已停止`)
@@ -234,7 +199,7 @@ onUnmounted(() => {
   height: 20px;
   appearance: none;
   background: hsl(var(--secondary));
-  border-radius: 20px;
+  border-radius: 9999px;
   outline: none;
   cursor: pointer;
   transition: background 0.3s;
@@ -265,36 +230,16 @@ onUnmounted(() => {
   color: hsl(var(--muted-foreground));
 }
 
-/* 统计卡片 */
+/* 统计卡片:StatCard + 全局 .stats-grid/.stat-card(间距需页内补) */
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
   margin-bottom: 16px;
 }
 
-/* stat-* 字色由全局 cards.less 统一收口(*-fg token) */
-
-/* 卡片 */
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.card-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
-
+/* 筛选下拉 */
 .filter-select {
   background: hsl(var(--border));
   border: 1px solid hsl(var(--secondary));
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 6px 12px;
   color: hsl(var(--foreground));
   font-size: 13px;
@@ -305,7 +250,7 @@ onUnmounted(() => {
 /* 表格 */
 .table-wrapper {
   padding: 20px;
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .data-table {
@@ -321,6 +266,9 @@ onUnmounted(() => {
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -341,42 +289,6 @@ onUnmounted(() => {
 .detail-text {
   font-size: 12px;
   color: hsl(var(--muted-foreground));
-}
-
-/* 操作按钮 */
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-icon {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-start {
-  background: hsl(var(--success) / 0.2);
-  color: hsl(var(--success));
-}
-
-.btn-start:hover {
-  background: hsl(var(--success) / 0.3);
-}
-
-.btn-stop {
-  background: hsl(var(--error) / 0.2);
-  color: hsl(var(--error));
-}
-
-.btn-stop:hover {
-  background: hsl(var(--error) / 0.3);
 }
 
 /* 响应式 */

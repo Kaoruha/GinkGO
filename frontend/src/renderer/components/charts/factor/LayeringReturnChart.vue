@@ -146,13 +146,13 @@ watch(() => props.layerData, updateSeriesData, { deep: true })
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
 }
 
 .color-box {
   width: 12px;
   height: 12px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 </style>

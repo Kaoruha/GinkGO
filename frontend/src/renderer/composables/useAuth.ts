@@ -4,7 +4,7 @@
 //
 // 注意:文件名沿用 useAuth.ts(对齐 brief Step 3),但本导出是单例服务对象,
 // 非 Vue composable。供 api/modules/auth.ts、stores/auth.ts、request.ts、
-// useWebSocket.ts、errorHandler.ts 共用,作为 token 持久化的唯一收口。
+// useWebSocket.ts 共用,作为 token 持久化的唯一收口。
 //
 // user_info 是非敏感数据,双形态均留 localStorage(由调用方自行处理),
 // 本服务只管 token。

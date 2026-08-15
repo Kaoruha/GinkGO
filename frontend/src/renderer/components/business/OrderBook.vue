@@ -84,7 +84,7 @@ const orders = ref<Order[]>([
 
 .card {
   background: hsl(var(--card));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid hsl(var(--border));
 }
 
@@ -151,7 +151,7 @@ const orders = ref<Order[]>([
 .tag {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 500;
 }
@@ -160,7 +160,7 @@ const orders = ref<Order[]>([
 .status-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 500;
 }

@@ -1,5 +1,4 @@
 import request from '../request'
-import type { APIResponse } from '@/types/api'
 
 // 账户类型
 export type AccountType = 'paper' | 'live'
@@ -97,8 +96,8 @@ export interface CreatePaperAccount {
 /**
  * 获取模拟盘账户列表
  */
-export function getPaperAccounts() {
-  return request<APIResponse<PaperAccount[]>>({
+export function getPaperAccounts(): Promise<PaperAccount[]> {
+  return request({
     url: '/api/v1/paper-trading/accounts',
     method: 'GET'
   })
@@ -107,8 +106,8 @@ export function getPaperAccounts() {
 /**
  * 创建模拟盘账户
  */
-export function createPaperAccount(data: CreatePaperAccount) {
-  return request<APIResponse<{ uuid: string }>>({
+export function createPaperAccount(data: CreatePaperAccount): Promise<{ uuid: string }> {
+  return request({
     url: '/api/v1/paper-trading/accounts',
     method: 'POST',
     data
@@ -118,12 +117,12 @@ export function createPaperAccount(data: CreatePaperAccount) {
 /**
  * 获取模拟盘账户详情
  */
-export function getPaperAccount(accountId: string) {
-  return request<APIResponse<PaperAccount & {
-    positions: Position[]
-    active_orders: Order[]
-    today_trades: Order[]
-  }>>({
+export function getPaperAccount(accountId: string): Promise<PaperAccount & {
+  positions: Position[]
+  active_orders: Order[]
+  today_trades: Order[]
+}> {
+  return request({
     url: `/api/v1/paper-trading/accounts/${accountId}`,
     method: 'GET'
   })
@@ -132,8 +131,8 @@ export function getPaperAccount(accountId: string) {
 /**
  * 启动模拟盘
  */
-export function startPaperTrading(accountId: string, strategyIds: string[]) {
-  return request<APIResponse<void>>({
+export function startPaperTrading(accountId: string, strategyIds: string[]): Promise<void> {
+  return request({
     url: `/api/v1/paper-trading/${accountId}/start`,
     method: 'POST',
     data: { strategy_ids: strategyIds }
@@ -143,8 +142,8 @@ export function startPaperTrading(accountId: string, strategyIds: string[]) {
 /**
  * 停止模拟盘
  */
-export function stopPaperTrading(accountId: string) {
-  return request<APIResponse<void>>({
+export function stopPaperTrading(accountId: string): Promise<void> {
+  return request({
     url: `/api/v1/paper-trading/${accountId}/stop`,
     method: 'POST'
   })
@@ -153,8 +152,8 @@ export function stopPaperTrading(accountId: string) {
 /**
  * 获取模拟盘持仓
  */
-export function getPaperPositions(accountId: string) {
-  return request<APIResponse<Position[]>>({
+export function getPaperPositions(accountId: string): Promise<Position[]> {
+  return request({
     url: `/api/v1/paper-trading/${accountId}/positions`,
     method: 'GET'
   })
@@ -163,8 +162,8 @@ export function getPaperPositions(accountId: string) {
 /**
  * 获取模拟盘订单
  */
-export function getPaperOrders(accountId: string, status?: OrderStatus[]) {
-  return request<APIResponse<Order[]>>({
+export function getPaperOrders(accountId: string, status?: OrderStatus[]): Promise<Order[]> {
+  return request({
     url: `/api/v1/paper-trading/${accountId}/orders`,
     method: 'GET',
     params: { status }
@@ -174,8 +173,8 @@ export function getPaperOrders(accountId: string, status?: OrderStatus[]) {
 /**
  * 撤销模拟盘订单
  */
-export function cancelPaperOrder(accountId: string, orderId: string) {
-  return request<APIResponse<void>>({
+export function cancelPaperOrder(accountId: string, orderId: string): Promise<void> {
+  return request({
     url: `/api/v1/paper-trading/${accountId}/orders/${orderId}`,
     method: 'DELETE'
   })
@@ -184,14 +183,14 @@ export function cancelPaperOrder(accountId: string, orderId: string) {
 /**
  * 获取模拟盘日报
  */
-export function getPaperReport(accountId: string, date: string) {
-  return request<APIResponse<{
-    date: string
-    total_return: number
-    daily_return: number
-    trades_count: number
-    positions_count: number
-  }>>({
+export function getPaperReport(accountId: string, date: string): Promise<{
+  date: string
+  total_return: number
+  daily_return: number
+  trades_count: number
+  positions_count: number
+}> {
+  return request({
     url: `/api/v1/paper-trading/${accountId}/report/daily`,
     method: 'GET',
     params: { date }
@@ -203,8 +202,8 @@ export function getPaperReport(accountId: string, date: string) {
 /**
  * 获取实盘账户列表
  */
-export function getLiveAccounts() {
-  return request<APIResponse<LiveAccount[]>>({
+export function getLiveAccounts(): Promise<LiveAccount[]> {
+  return request({
     url: '/api/v1/live-trading/accounts',
     method: 'GET'
   })
@@ -213,8 +212,8 @@ export function getLiveAccounts() {
 /**
  * 连接券商
  */
-export function connectBroker(accountId: string) {
-  return request<APIResponse<void>>({
+export function connectBroker(accountId: string): Promise<void> {
+  return request({
     url: `/api/v1/live-trading/accounts/${accountId}/connect`,
     method: 'POST'
   })
@@ -223,8 +222,8 @@ export function connectBroker(accountId: string) {
 /**
  * 断开券商连接
  */
-export function disconnectBroker(accountId: string) {
-  return request<APIResponse<void>>({
+export function disconnectBroker(accountId: string): Promise<void> {
+  return request({
     url: `/api/v1/live-trading/accounts/${accountId}/disconnect`,
     method: 'POST'
   })
@@ -233,8 +232,8 @@ export function disconnectBroker(accountId: string) {
 /**
  * 获取实盘持仓
  */
-export function getLivePositions(accountId: string) {
-  return request<APIResponse<Position[]>>({
+export function getLivePositions(accountId: string): Promise<Position[]> {
+  return request({
     url: `/api/v1/live-trading/${accountId}/positions`,
     method: 'GET'
   })
@@ -243,8 +242,8 @@ export function getLivePositions(accountId: string) {
 /**
  * 获取实盘活跃订单
  */
-export function getLiveActiveOrders(accountId: string) {
-  return request<APIResponse<Order[]>>({
+export function getLiveActiveOrders(accountId: string): Promise<Order[]> {
+  return request({
     url: `/api/v1/live-trading/${accountId}/active-orders`,
     method: 'GET'
   })
@@ -253,8 +252,8 @@ export function getLiveActiveOrders(accountId: string) {
 /**
  * 撤销实盘订单
  */
-export function cancelLiveOrder(accountId: string, orderId: string) {
-  return request<APIResponse<void>>({
+export function cancelLiveOrder(accountId: string, orderId: string): Promise<void> {
+  return request({
     url: `/api/v1/live-trading/${accountId}/orders/${orderId}`,
     method: 'DELETE'
   })
@@ -263,14 +262,14 @@ export function cancelLiveOrder(accountId: string, orderId: string) {
 /**
  * 获取资金信息
  */
-export function getLiveCapital(accountId: string) {
-  return request<APIResponse<{
-    total_asset: number
-    available_cash: number
-    position_value: number
-    frozen_cash: number
-    today_pnl: number
-  }>>({
+export function getLiveCapital(accountId: string): Promise<{
+  total_asset: number
+  available_cash: number
+  position_value: number
+  frozen_cash: number
+  today_pnl: number
+}> {
+  return request({
     url: `/api/v1/live-trading/${accountId}/capital`,
     method: 'GET'
   })
@@ -279,8 +278,8 @@ export function getLiveCapital(accountId: string) {
 /**
  * 获取风险状态
  */
-export function getRiskStatus(accountId: string) {
-  return request<APIResponse<RiskStatus>>({
+export function getRiskStatus(accountId: string): Promise<RiskStatus> {
+  return request({
     url: `/api/v1/live-trading/${accountId}/risk/status`,
     method: 'GET'
   })
@@ -289,8 +288,8 @@ export function getRiskStatus(accountId: string) {
 /**
  * 触发熔断
  */
-export function triggerCircuitBreaker(accountId: string) {
-  return request<APIResponse<void>>({
+export function triggerCircuitBreaker(accountId: string): Promise<void> {
+  return request({
     url: `/api/v1/live-trading/${accountId}/risk/circuit-breaker`,
     method: 'POST'
   })
@@ -306,14 +305,14 @@ export function getTradingLogs(params: {
   start_date?: string
   end_date?: string
   limit?: number
-}) {
-  return request<APIResponse<Array<{
-    time: string
-    type: string
-    level: string
-    message: string
-    details?: any
-  }>>>({
+}): Promise<Array<{
+  time: string
+  type: string
+  level: string
+  message: string
+  details?: any
+}>> {
+  return request({
     url: '/api/v1/live-trading/logs',
     method: 'GET',
     params

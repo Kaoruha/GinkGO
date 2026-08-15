@@ -5,5 +5,5 @@
 </template>
 
 <style scoped>
-.empty-hint { color: rgba(255,255,255,0.4); font-size: 13px; padding: 32px 0; text-align: center; }
+.empty-hint { color: hsl(var(--muted-foreground)); font-size: 13px; padding: 32px 0; text-align: center; }
 </style>

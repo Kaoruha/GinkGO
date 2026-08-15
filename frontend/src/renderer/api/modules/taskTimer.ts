@@ -1,4 +1,5 @@
 import request from '../request'
+import type { PaginatedData } from '@/types/api'
 
 // ===== 类型定义 =====
 
@@ -45,21 +46,21 @@ export const taskTimerApi = {
     end_date?: string
     page?: number
     page_size?: number
-  }) {
+  }): Promise<PaginatedData<TaskTimerExecution>> {
     return request.get('/api/v1/task-timer/executions', { params })
   },
 
   /**
    * 获取执行统计摘要
    */
-  getSummary() {
+  getSummary(): Promise<ExecutionSummary> {
     return request.get('/api/v1/task-timer/executions/summary')
   },
 
   /**
    * 获取已注册的定时任务列表
    */
-  getJobs() {
+  getJobs(): Promise<TaskTimerJob[]> {
     return request.get('/api/v1/task-timer/jobs')
   },
 }

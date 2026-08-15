@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌿</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 极简银杏叶:纯剪影,扇形+中央缺刻+叶柄 -->
+  <path d="M50 64
+           C38 58 12 50 12 30
+           C12 14 26 8 36 14
+           C42 17 46 22 50 30
+           C54 22 58 17 64 14
+           C74 8 88 14 88 30
+           C88 50 62 58 50 64 Z"
+        fill="#4c8a5c"/>
+  <path d="M50 64 C50 75 50 86 50 98" stroke="#4c8a5c" stroke-width="5" stroke-linecap="round" fill="none"/>
+</svg>

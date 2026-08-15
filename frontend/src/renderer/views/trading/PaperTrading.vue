@@ -26,12 +26,13 @@
           </tr>
         </tbody>
       </table>
-      <div v-else class="empty-state">暂无模拟盘实例</div>
+      <EmptyState v-else description="暂无模拟盘实例" />
     </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { portfolioApi } from '@/api/modules/portfolio'
@@ -41,7 +42,7 @@ const portfolios = ref<any[]>([])
 const fetchPortfolios = async () => {
   try {
     const res = await portfolioApi.list({ mode: 'PAPER' })
-    portfolios.value = res.data || []
+    portfolios.value = res?.items || []
   } catch { /* ignore */ }
 }
 
@@ -55,7 +56,7 @@ onMounted(() => fetchPortfolios())
   overflow-y: auto;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 16px;
 }
 
@@ -72,6 +73,9 @@ onMounted(() => fetchPortfolios())
 }
 
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: hsl(var(--border));
   color: hsl(var(--foreground));
   font-weight: 500;
@@ -87,15 +91,6 @@ onMounted(() => fetchPortfolios())
 .data-table tbody tr:hover {
   background: hsl(var(--border));
 }
-
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 60px;
-  color: hsl(var(--muted-foreground));
-}
-
 .link {
   color: hsl(var(--primary));
   text-decoration: none;

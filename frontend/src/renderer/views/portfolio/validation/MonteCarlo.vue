@@ -55,7 +55,7 @@
         </div>
         <div class="stat-card">
           <div class="stat-label">期望收益</div>
-          <div class="stat-value" :class="result.expected_return >= 0 ? 'stat-danger' : 'stat-success'">
+          <div class="stat-value" :class="result.expected_return >= 0 ? 'stat-success' : 'stat-danger'">
             {{ (result.expected_return * 100).toFixed(2) }}%
           </div>
         </div>
@@ -74,11 +74,11 @@
           <div class="stats-grid">
             <div class="stat-card">
               <div class="stat-label">最大收益</div>
-              <div class="stat-value stat-danger">{{ (result.max_return * 100).toFixed(2) }}%</div>
+              <div class="stat-value stat-success">{{ (result.max_return * 100).toFixed(2) }}%</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">最小收益</div>
-              <div class="stat-value stat-success">{{ (result.min_return * 100).toFixed(2) }}%</div>
+              <div class="stat-value stat-danger">{{ (result.min_return * 100).toFixed(2) }}%</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">标准差</div>
@@ -96,19 +96,19 @@
     <!-- 空状态 -->
     <div v-else class="card">
       <div class="card-body">
-        <div class="empty-state">
-          <p>请配置参数并开始模拟</p>
-        </div>
+        <EmptyState description="请配置参数并开始模拟" />
       </div>
     </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
+import { message } from '@/utils/toast'
 
 const props = defineProps<{
   portfolioId?: string
@@ -131,13 +131,13 @@ const fetchBacktestList = async () => {
       params.portfolio_id = props.portfolioId
     }
     const res = await backtestApi.list(params)
-    backtestList.value = res.data || []
+    backtestList.value = res?.items || []
   } catch { /* ignore */ }
 }
 
 const runSimulation = async () => {
   if (!config.backtestId) {
-    console.warn('请选择回测任务')
+    message.warning('请选择回测任务')
     return
   }
 
@@ -150,9 +150,9 @@ const runSimulation = async () => {
       n_simulations: config.nSimulations,
       confidence_level: config.confidenceLevel,
     })
-    result.value = (res as any).data || res
+    result.value = res
   } catch (e: any) {
-    alert('模拟失败: ' + (e.message || e))
+    message.error('模拟失败: ' + (e.message || e))
   } finally {
     loading.value = false
   }
@@ -167,17 +167,6 @@ onMounted(() => {
 .stat-danger {
   color: hsl(var(--error));
 }
-
-.empty-state {
-  text-align: center;
-  padding: 40px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state p {
-  margin: 0;
-}
-
 @media (max-width: 768px) {
   .form-row {
     flex-direction: column;

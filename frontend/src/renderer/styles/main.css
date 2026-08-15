@@ -74,7 +74,7 @@
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--muted-foreground));
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {

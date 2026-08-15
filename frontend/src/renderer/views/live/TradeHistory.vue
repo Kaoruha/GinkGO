@@ -17,6 +17,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { message as toast } from '@/utils/toast'
+import { useContextMenu } from '@/composables/useContextMenu'
+
+/** 行右键菜单(本页无行操作,给复制类) */
+const { open: openCtxMenu } = useContextMenu()
+const openTradeMenu = (e: MouseEvent, trade: TradeRecord) => {
+  openCtxMenu(e, [
+    { label: '复制交易对', action: () => { navigator.clipboard.writeText(trade.symbol); toast.success('已复制') } },
+    { label: '复制订单ID', action: () => { navigator.clipboard.writeText(trade.exchange_order_id || trade.uuid); toast.success('已复制') } },
+    { label: '复制成交ID', action: () => { navigator.clipboard.writeText(trade.exchange_trade_id || trade.uuid); toast.success('已复制') } },
+  ])
+}
 
 // Types
 interface TradeRecord {
@@ -104,8 +116,7 @@ const getSideBadgeVariant = (side: string) => {
 const loadAccounts = async () => {
   try {
     const result = await liveAccountApi.getAccounts()
-    const payload = (result as any)?.data
-    const list = payload?.accounts || payload || []
+    const list = (result as any)?.accounts || []
     accounts.value = list
     // 自动选中第一个账户
     if (list.length > 0 && !selectedAccount.value) {
@@ -129,7 +140,7 @@ const loadTrades = async () => {
     if (dateFilter.end_date) params.end_date = dateFilter.end_date
 
     const result = await tradeHistoryApi.getTrades(selectedAccount.value, params)
-    trades.value = (result as any)?.data || []
+    trades.value = (result as any) || []
 
     // 同时加载统计数据
     await loadStatistics()
@@ -149,7 +160,7 @@ const loadStatistics = async () => {
 
   try {
     const result = await tradeHistoryApi.getStatistics(selectedAccount.value)
-    statistics.value = (result as any)?.data ?? null
+    statistics.value = (result as any) ?? null
   } catch (error) {
     console.error('Failed to load statistics:', error)
   }
@@ -161,7 +172,7 @@ const loadDailySummary = async () => {
 
   try {
     const result = await tradeHistoryApi.getDailySummary(selectedAccount.value)
-    dailySummary.value = (result as any)?.data || []
+    dailySummary.value = (result as any) || []
   } catch (error) {
     console.error('Failed to load daily summary:', error)
   }
@@ -308,6 +319,7 @@ onMounted(() => {
             <TableRow
               v-for="trade in trades"
               :key="trade.uuid"
+              @contextmenu="openTradeMenu($event, trade)"
             >
               <TableCell>{{ formatDate(trade.trade_time) }}</TableCell>
               <TableCell class="font-medium">{{ trade.symbol }}</TableCell>
