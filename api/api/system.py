@@ -71,6 +71,17 @@ async def get_workers_by_type(worker_type: str):
         return ok(data={"type": target, "workers": [], "count": 0})
 
 
+@router.get("/workers/{worker_id}/tasks")
+async def get_worker_tasks(worker_id: str):
+    """Worker 管理页行内下钻：回测 Worker 活跃任务明细（心跳 task_uuids → MySQL）。"""
+    try:
+        svc = _get_system_service()
+        return ok(data=svc.get_worker_tasks(worker_id))
+    except Exception as e:
+        logger.error(f"Failed to get worker tasks for {worker_id}: {e}")
+        return ok(data={"worker_id": worker_id, "found": False, "tasks": []})
+
+
 @router.get("/error-stats")
 async def get_error_stats(req: Request):
     """#6785: 查询当前 API 进程累计的错误热点（管理员）。
