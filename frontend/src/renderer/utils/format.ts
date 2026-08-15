@@ -122,6 +122,25 @@ export function formatRelativeTime(dateStr?: string | null, now: Date = new Date
 }
 
 /**
+ * 心跳 stale 分级（对齐 backtest worker 心跳节奏：interval=10s、ttl=30s）
+ * 0=新鲜 | 1=超 TTL 30s（橙） | 2=超两倍 TTL 60s（红）
+ */
+export function heartbeatStaleLevel(dateStr?: string | null, now: Date = new Date()): 0 | 1 | 2 {
+  if (!dateStr) return 0
+
+  try {
+    const ms = new Date(dateStr).getTime()
+    if (isNaN(ms)) return 0
+    const diff = (now.getTime() - ms) / 1000
+    if (diff >= 60) return 2
+    if (diff >= 30) return 1
+    return 0
+  } catch {
+    return 0
+  }
+}
+
+/**
  * 格式化金额
  */
 export function formatMoney(amount: number | string | null | undefined, prefix = '¥'): string {

@@ -10,6 +10,7 @@ import {
   formatDateTime,
   formatRelativeTime,
   formatMoney,
+  heartbeatStaleLevel,
 } from './format'
 
 describe('formatDate', () => {
@@ -155,5 +156,26 @@ describe('formatMoney', () => {
   it('空值应返回 ¥0', () => {
     expect(formatMoney(null)).toBe('¥0')
     expect(formatMoney(undefined)).toBe('¥0')
+  })
+})
+
+describe('heartbeatStaleLevel', () => {
+  const now = new Date('2026-08-15T10:00:00')
+
+  it('30s 内 → 0（新鲜）', () => {
+    expect(heartbeatStaleLevel('2026-08-15T09:59:45', now)).toBe(0)
+  })
+
+  it('超 30s（TTL）→ 1（橙）', () => {
+    expect(heartbeatStaleLevel('2026-08-15T09:59:20', now)).toBe(1)
+  })
+
+  it('超 60s（两倍 TTL）→ 2（红）', () => {
+    expect(heartbeatStaleLevel('2026-08-15T09:58:50', now)).toBe(2)
+  })
+
+  it('空/非法输入 → 0（不告警）', () => {
+    expect(heartbeatStaleLevel(null, now)).toBe(0)
+    expect(heartbeatStaleLevel('garbage', now)).toBe(0)
   })
 })
