@@ -16,6 +16,7 @@ from ginkgo.services.logging.level_service import LevelService
 from ginkgo.services.logging.alert_service import AlertService
 from ginkgo.data.drivers import get_db_connection
 from ginkgo.data.models import MBacktestLog
+from ginkgo.data.utils import get_crud
 from ginkgo.data.services.redis_service import RedisService
 from ginkgo.libs import GLOG
 
@@ -41,10 +42,18 @@ class LoggingContainer(containers.DeclarativeContainer):
         lambda: get_db_connection(MBacktestLog)
     )
 
+    # 日志三表 CRUD（写操作经 CRUD 层，删除复用容器单例）
+    log_cruds = providers.Singleton(lambda: {
+        "backtest": get_crud("backtest_log"),
+        "component": get_crud("component_log"),
+        "performance": get_crud("performance_log"),
+    })
+
     # 日志查询服务
     log_service = providers.Factory(
         LogService,
-        engine=clickhouse_engine
+        engine=clickhouse_engine,
+        log_cruds=log_cruds
     )
 
     # 动态日志级别管理服务

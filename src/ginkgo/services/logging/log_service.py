@@ -40,12 +40,14 @@ class LogService(BaseService):
         engine: ClickHouse 数据库引擎
     """
 
-    def __init__(self, engine=None):
+    def __init__(self, engine=None, log_cruds=None):
         """
         初始化 LogService
 
         Args:
             engine: ClickHouse 引擎实例（可选，默认使用 get_db_connection）
+            log_cruds: 日志三表 CRUD 映射（可选，默认懒实例化）
+                {"backtest": BacktestLogCRUD, "component": ..., "performance": ...}
         """
         # 使用依赖注入模式初始化 BaseService
         super().__init__(engine=engine)
@@ -55,6 +57,10 @@ class LogService(BaseService):
             self._engine = get_db_connection(MBacktestLog)
         else:
             self._engine = engine
+
+        # 日志三表 CRUD（删除等写操作经 CRUD 层，分层 Service → CRUD → DB）
+        if log_cruds is not None:
+            self._log_cruds = log_cruds
 
     @time_logger
     def query_backtest_logs(
@@ -529,8 +535,9 @@ class LogService(BaseService):
     def delete_logs_by_task_id(self, task_id: str) -> Dict[str, Any]:
         """按 task_id 删除三张日志表的旧日志（重跑清理入口）。
 
-        CH 无事务（DELETE 为原生 SQL、异步生效），逐表 best-effort：
-        单表失败告警并继续，返回各表删除结果供调用方告警。
+        经日志三表 CRUD 操作（分层 Service → CRUD → DB），写路径不绕过
+        CRUD 层。CH 无事务（DELETE 异步生效），逐表 best-effort：单表失败
+        告警并继续，返回各表删除结果供调用方告警。
 
         Args:
             task_id: 回测运行会话 ID
@@ -541,25 +548,27 @@ class LogService(BaseService):
         if not task_id:
             raise ValueError("task_id must not be empty")
 
+        if getattr(self, "_log_cruds", None) is None:
+            # 懒实例化（LogService() 直构路径）；容器注入则复用单例。
+            # 注意 BaseService kwargs 自动 setattr：log_cruds=None 会预置
+            # _log_cruds=None，故判 None 而非 hasattr。
+            from ginkgo.data.crud import (
+                BacktestLogCRUD, ComponentLogCRUD, PerformanceLogCRUD,
+            )
+            self._log_cruds = {
+                "backtest": BacktestLogCRUD(),
+                "component": ComponentLogCRUD(),
+                "performance": PerformanceLogCRUD(),
+            }
+
         results = {}
-        with self._engine.get_session() as session:
-            for name, model in (
-                ("backtest", MBacktestLog),
-                ("component", MComponentLog),
-                ("performance", MPerformanceLog),
-            ):
-                try:
-                    session.execute(
-                        text(
-                            f"DELETE FROM {model.__tablename__} "
-                            f"WHERE task_id = :task_id"
-                        ),
-                        {"task_id": task_id},
-                    )
-                    results[name] = True
-                except Exception as e:
-                    self._logger.ERROR(f"删除 {model.__tablename__} 失败: {e}")
-                    results[name] = False
+        for name, crud in self._log_cruds.items():
+            try:
+                crud.remove(filters={"task_id": task_id})
+                results[name] = True
+            except Exception as e:
+                self._logger.ERROR(f"删除日志表 {name} 失败: {e}")
+                results[name] = False
         return results
 
     @time_logger
