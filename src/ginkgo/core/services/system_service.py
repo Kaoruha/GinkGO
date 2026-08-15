@@ -1,5 +1,5 @@
 # Upstream: API Server (ginkgo serve api), CLI (ginkgo status)
-# Downstream: RedisService, stockinfo_service, KafkaConsumer, bar_crud
+# Downstream: RedisService, stockinfo_service, KafkaConsumer, bar_crud, BacktestTaskService
 # Role: 系统状态和基础设施健康检查(MySQL/Redis/Kafka/ClickHouse)
 
 """
@@ -83,6 +83,52 @@ class SystemService:
             GLOG.ERROR(f"Failed to get workers status: {e}")
             return {"data": [], "components": {}}
 
+    def get_worker_tasks(self, worker_id: str) -> Dict[str, Any]:
+        """
+        获取回测 Worker 当前活跃任务详情（Worker 管理页行内下钻）。
+
+        数据链路：心跳 BacktestWorkerHeartbeat.task_uuids (#6846) → MySQL
+        backtest_task（task_id = task_uuid）。心跳持有但 MySQL 无记录的任务
+        仍列出（字段兜底），避免"任务刚结束就消失"的闪断。
+        """
+        try:
+            from ginkgo import service_hub
+            from ginkgo.data.containers import container
+
+            redis_service = service_hub.data.redis_service()
+            if not redis_service:
+                return {"worker_id": worker_id, "found": False, "tasks": []}
+
+            bw_result = redis_service.get_backtest_worker_status()
+            workers = (bw_result.data or []) if bw_result.success else []
+            worker = next(
+                (w for w in workers if w.get("worker_id") == worker_id), None)
+            if worker is None:
+                return {"worker_id": worker_id, "found": False, "tasks": []}
+
+            task_service = container.backtest_task_service()
+            tasks = []
+            for task_uuid in worker.get("task_uuids") or []:
+                r = task_service.get_by_task_id(task_uuid)
+                if r.success and r.data is not None:
+                    t = r.data
+                    tasks.append({
+                        "task_id": getattr(t, "task_id", task_uuid),
+                        "name": getattr(t, "name", "") or "",
+                        "status": getattr(t, "status", "unknown"),
+                        "progress": getattr(t, "progress", 0),
+                        "portfolio_id": getattr(t, "portfolio_id", ""),
+                    })
+                else:
+                    tasks.append({
+                        "task_id": task_uuid, "name": "", "status": "unknown",
+                        "progress": 0, "portfolio_id": "",
+                    })
+            return {"worker_id": worker_id, "found": True, "tasks": tasks}
+        except Exception as e:
+            GLOG.ERROR(f"Failed to get worker tasks for {worker_id}: {e}")
+            return {"worker_id": worker_id, "found": False, "tasks": []}
+
     def get_infrastructure_status(self) -> Dict[str, Any]:
         """获取基础设施状态"""
         return self._check_infrastructure()
@@ -143,6 +189,7 @@ class SystemService:
                 "task_count": w.get("active_tasks", 0),
                 "max_tasks": w.get("max_tasks", 0),
                 "last_heartbeat": w.get("last_heartbeat", ""),
+                "task_uuids": w.get("task_uuids", []),
             })
 
         # ExecutionNode
@@ -266,8 +313,7 @@ class SystemService:
             from kafka import KafkaConsumer
             consumer = KafkaConsumer(
                 bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],
-                request_timeout_ms=5000,
-                api_version_auto_timeout_ms=5000
+                request_timeout_ms=5000
             )
             topics = consumer.topics()
             consumer.close()

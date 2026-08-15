@@ -401,3 +401,106 @@ class TestSystemServiceErrorStats:
 
         mock_clear.assert_called_once()
         assert result == {"reset": True}
+
+
+# ── SystemService Worker 任务下钻测试 (#6910) ─────────────────────────
+
+
+@pytest.mark.unit
+class TestWorkerTasks:
+    """get_worker_tasks + _format_workers 透传 task_uuids（Worker 管理页下钻）。"""
+
+    def _heartbeat_components(self):
+        return {
+            "backtest_workers": [{
+                "worker_id": "bw1", "status": "running", "running_tasks": 1,
+                "max_tasks": 5, "last_heartbeat": "2026-08-15T10:00:00",
+                "task_uuids": ["t-1", "t-2"],
+            }],
+        }
+
+    def test_format_workers_passes_task_uuids(self):
+        """_format_workers 不丢 task_uuids（此前被丢弃，下钻无数据源）。"""
+        from ginkgo.core.services.system_service import SystemService
+        svc = SystemService()
+        workers = svc._format_workers(self._heartbeat_components())
+        assert workers[0]["type"] == "backtest_worker"
+        assert workers[0]["task_uuids"] == ["t-1", "t-2"]
+
+    def test_get_worker_tasks_returns_task_details(self):
+        """心跳 task_uuids → MySQL 任务明细（name/status/progress）。"""
+        from ginkgo.core.services.system_service import SystemService
+
+        task = MagicMock()
+        task.task_id = "t-1"
+        task.name = "bt-name"
+        task.status = "running"
+        task.progress = 42
+        task.portfolio_id = "p-1"
+
+        redis_svc = MagicMock()
+        redis_svc.get_all_components_status.return_value = MagicMock(
+            success=True, data=self._heartbeat_components())
+        bw_status = MagicMock(success=True, data=[{
+            "worker_id": "bw1", "status": "running", "active_tasks": 1,
+            "max_tasks": 5, "last_heartbeat": "x", "task_uuids": ["t-1"],
+        }])
+        redis_svc.get_backtest_worker_status.return_value = bw_status
+
+        task_svc = MagicMock()
+        task_svc.get_by_task_id.return_value = MagicMock(success=True, data=task)
+
+        svc = SystemService()
+        with patch("ginkgo.service_hub") as hub, \
+             patch("ginkgo.data.containers.container") as cont:
+            hub.data.redis_service.return_value = redis_svc
+            cont.backtest_task_service.return_value = task_svc
+            result = svc.get_worker_tasks("bw1")
+
+        assert result["found"] is True
+        assert result["tasks"] == [{
+            "task_id": "t-1", "name": "bt-name", "status": "running",
+            "progress": 42, "portfolio_id": "p-1",
+        }]
+
+    def test_get_worker_tasks_unknown_worker(self):
+        """未知 worker_id → found=False + 空 tasks（非异常）。"""
+        from ginkgo.core.services.system_service import SystemService
+
+        redis_svc = MagicMock()
+        redis_svc.get_backtest_worker_status.return_value = MagicMock(
+            success=True, data=[])
+
+        svc = SystemService()
+        with patch("ginkgo.service_hub") as hub:
+            hub.data.redis_service.return_value = redis_svc
+            result = svc.get_worker_tasks("nope")
+
+        assert result == {"worker_id": "nope", "found": False, "tasks": []}
+
+    def test_get_worker_tasks_orphan_uuid_still_listed(self):
+        """心跳持有但 MySQL 无记录（任务刚结束）→ 仍列出，字段兜底。"""
+        from ginkgo.core.services.system_service import SystemService
+
+        redis_svc = MagicMock()
+        redis_svc.get_backtest_worker_status.return_value = MagicMock(
+            success=True, data=[{
+                "worker_id": "bw1", "task_uuids": ["t-gone"],
+                "status": "running", "active_tasks": 1,
+                "max_tasks": 5, "last_heartbeat": "x",
+            }])
+        task_svc = MagicMock()
+        task_svc.get_by_task_id.return_value = MagicMock(success=False, data=None)
+
+        svc = SystemService()
+        with patch("ginkgo.service_hub") as hub, \
+             patch("ginkgo.data.containers.container") as cont:
+            hub.data.redis_service.return_value = redis_svc
+            cont.backtest_task_service.return_value = task_svc
+            result = svc.get_worker_tasks("bw1")
+
+        assert result["found"] is True
+        assert result["tasks"] == [{
+            "task_id": "t-gone", "name": "", "status": "unknown",
+            "progress": 0, "portfolio_id": "",
+        }]
