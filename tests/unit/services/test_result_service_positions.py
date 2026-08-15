@@ -12,15 +12,9 @@ os.environ["GINKGO_SKIP_DEBUG_CHECK"] = "1"
 
 import pandas as pd
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 from ginkgo.data.services.result_service import ResultService
-
-
-@pytest.fixture
-def service():
-    # ResultService.__init__ 要求 analyzer_crud（Container 注入）；单测用 MagicMock
-    return ResultService(analyzer_crud=MagicMock())
 
 
 @pytest.fixture
@@ -46,6 +40,17 @@ def mock_record_crud():
     return crud
 
 
+@pytest.fixture
+def service(mock_record_crud):
+    # 构造注入 position_record_crud（与 Container wiring 同构），单测免 patch
+    return ResultService(
+        analyzer_crud=MagicMock(),
+        signal_crud=MagicMock(),
+        order_record_crud=MagicMock(),
+        position_record_crud=mock_record_crud,
+    )
+
+
 @pytest.mark.unit
 class TestResultServiceGetPositionsDf:
     """get_positions_df 必须查 PositionRecordCRUD（MPositionRecord 流水表）——
@@ -53,11 +58,7 @@ class TestResultServiceGetPositionsDf:
 
     def test_filters_by_portfolio_engine_task(self, service, mock_record_crud):
         """portfolio/engine/task 三过滤透传到 PositionRecordCRUD.find"""
-        with patch(
-            "ginkgo.data.crud.position_record_crud.PositionRecordCRUD",
-            return_value=mock_record_crud,
-        ):
-            service.get_positions_df(portfolio_id="p1", engine_id="e1", task_id="t1", page=2, page_size=5)
+        service.get_positions_df(portfolio_id="p1", engine_id="e1", task_id="t1", page=2, page_size=5)
         mock_record_crud.find.assert_called_once()
         _, kwargs = mock_record_crud.find.call_args
         assert kwargs["filters"] == {
@@ -73,11 +74,7 @@ class TestResultServiceGetPositionsDf:
 
     def test_returns_dataframe_with_records(self, service, mock_record_crud):
         """to_dataframe() 结果透传到 ServiceResult.data（pandas.DataFrame）"""
-        with patch(
-            "ginkgo.data.crud.position_record_crud.PositionRecordCRUD",
-            return_value=mock_record_crud,
-        ):
-            result = service.get_positions_df(portfolio_id="p1", engine_id="e1", task_id="t1")
+        result = service.get_positions_df(portfolio_id="p1", engine_id="e1", task_id="t1")
         assert result.is_success()
         assert isinstance(result.data, pd.DataFrame)
         assert len(result.data) == 1
@@ -89,21 +86,13 @@ class TestResultServiceGetPositionsDf:
     def test_empty_returns_empty_dataframe(self, service, mock_record_crud):
         """find 返回空时 data 是空 DataFrame（非 None/非 list），CLI 下游 len() 安全"""
         mock_record_crud.find.return_value = None
-        with patch(
-            "ginkgo.data.crud.position_record_crud.PositionRecordCRUD",
-            return_value=mock_record_crud,
-        ):
-            result = service.get_positions_df(portfolio_id="p1", engine_id="e1", task_id="t1")
+        result = service.get_positions_df(portfolio_id="p1", engine_id="e1", task_id="t1")
         assert result.is_success()
         assert isinstance(result.data, pd.DataFrame)
         assert len(result.data) == 0
 
     def test_omits_unset_filters(self, service, mock_record_crud):
         """未传的过滤维度不进 filters（避免 None 污染）"""
-        with patch(
-            "ginkgo.data.crud.position_record_crud.PositionRecordCRUD",
-            return_value=mock_record_crud,
-        ):
-            service.get_positions_df(portfolio_id="p1")
+        service.get_positions_df(portfolio_id="p1")
         _, kwargs = mock_record_crud.find.call_args
         assert kwargs["filters"] == {"is_del": False, "portfolio_id": "p1"}

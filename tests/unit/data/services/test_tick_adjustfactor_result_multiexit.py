@@ -93,7 +93,7 @@ def _make_result_service(get_return) -> ResultService:
     with patch("ginkgo.libs.GLOG"):
         analyzer_crud = MagicMock()
         analyzer_crud.get_by_task_id.return_value = get_return
-        svc = ResultService(analyzer_crud=analyzer_crud)
+        svc = ResultService(analyzer_crud=analyzer_crud, signal_crud=MagicMock(), order_record_crud=MagicMock(), position_record_crud=MagicMock())
     return svc
 
 

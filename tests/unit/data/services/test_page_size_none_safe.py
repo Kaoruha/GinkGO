@@ -11,7 +11,7 @@ CLI ``--page-size 0`` → 下推 ``page_size=None`` 给 service。旧守卫
 Run: pytest tests/unit/data/services/test_page_size_none_safe.py -v -o "addopts="
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
@@ -56,14 +56,18 @@ class TestPageSizeNoneSafe:
         assert kwargs["page_size"] is None
 
     def test_result_get_positions_df_tolerates_none_page_size(self):
-        """result_service.get_positions_df 内部自建 PositionRecordCRUD（不走 self._crud_repo），
-        record position 命令走此路径；patch 该 CRUD 验证同一守卫。"""
-        svc = ResultService(analyzer_crud=MagicMock())
-        # PositionRecordCRUD 在方法内 function-local import，patch 源模块（非 result_service 命名空间）
-        with patch("ginkgo.data.crud.position_record_crud.PositionRecordCRUD") as MockCrud:
-            MockCrud.return_value.find.return_value = _model_list()
-            result = svc.get_positions_df(page_size=None)
+        """result_service.get_positions_df 走注入的 position_record_crud（构造 wiring），
+        record position 命令走此路径；注入 mock CRUD 验证同一守卫。"""
+        position_record_crud = MagicMock()
+        position_record_crud.find.return_value = _model_list()
+        svc = ResultService(
+            analyzer_crud=MagicMock(),
+            signal_crud=MagicMock(),
+            order_record_crud=MagicMock(),
+            position_record_crud=position_record_crud,
+        )
+        result = svc.get_positions_df(page_size=None)
 
         assert result.success is True
-        _, kwargs = MockCrud.return_value.find.call_args
+        _, kwargs = position_record_crud.find.call_args
         assert kwargs["page_size"] is None

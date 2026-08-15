@@ -45,7 +45,7 @@ def analyzer_service():
 @pytest.fixture
 def result_service():
     with patch("ginkgo.libs.GLOG"):
-        return ResultService(analyzer_crud=MagicMock())
+        return ResultService(analyzer_crud=MagicMock(), signal_crud=MagicMock(), order_record_crud=MagicMock(), position_record_crud=MagicMock())
 
 
 class TestCountMethodsPassthrough:
@@ -80,13 +80,10 @@ class TestCountMethodsPassthrough:
 
     @pytest.mark.unit
     def test_result_count_positions_calls_position_record_count(self, result_service):
-        """count_positions inline 实例化 PositionRecordCRUD → patch 类构造。"""
-        mock_crud = MagicMock()
+        """count_positions 走构造注入的 position_record_crud.count(filters=)。"""
+        mock_crud = result_service._position_record_crud
         mock_crud.count.return_value = 11
-        with patch(
-            "ginkgo.data.crud.position_record_crud.PositionRecordCRUD", return_value=mock_crud
-        ):
-            result = result_service.count_positions(portfolio_id="p1", engine_id="e1", task_id="t1")
+        result = result_service.count_positions(portfolio_id="p1", engine_id="e1", task_id="t1")
         assert result.success is True
         assert result.data == {"count": 11}
         mock_crud.count.assert_called_once()
@@ -94,13 +91,10 @@ class TestCountMethodsPassthrough:
 
     @pytest.mark.unit
     def test_result_get_positions_df_passes_page_to_find(self, result_service):
-        """get_positions_df(page=, page_size=) → PositionRecordCRUD.find(page=, page_size=, order_by=timestamp)。"""
-        mock_crud = MagicMock()
+        """get_positions_df(page=, page_size=) → position_record_crud.find(page=, page_size=, order_by=timestamp)。"""
+        mock_crud = result_service._position_record_crud
         mock_crud.find.return_value = MagicMock()
-        with patch(
-            "ginkgo.data.crud.position_record_crud.PositionRecordCRUD", return_value=mock_crud
-        ):
-            result = result_service.get_positions_df(portfolio_id="p1", page=2, page_size=10)
+        result = result_service.get_positions_df(portfolio_id="p1", page=2, page_size=10)
         assert result.success is True
         _, kwargs = mock_crud.find.call_args
         assert kwargs["page"] == 2
@@ -132,11 +126,7 @@ class TestCountMethodsErrorPath:
 
     @pytest.mark.unit
     def test_result_count_positions_handles_crud_error(self, result_service):
-        mock_crud = MagicMock()
-        mock_crud.count.side_effect = RuntimeError("ch down")
-        with patch(
-            "ginkgo.data.crud.position_record_crud.PositionRecordCRUD", return_value=mock_crud
-        ):
-            result = result_service.count_positions()
+        result_service._position_record_crud.count.side_effect = RuntimeError("ch down")
+        result = result_service.count_positions()
         assert result.success is False
 

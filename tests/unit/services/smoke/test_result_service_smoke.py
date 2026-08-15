@@ -1,6 +1,6 @@
 """Smoke test for ResultService -- #3823"""
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 try:
     from ginkgo.data.services.result_service import ResultService
@@ -15,7 +15,13 @@ class TestResultServiceSmoke:
 
     def _make_svc(self):
         mock_crud = MagicMock()
-        return ResultService(analyzer_crud=mock_crud), mock_crud
+        svc = ResultService(
+            analyzer_crud=mock_crud,
+            signal_crud=MagicMock(),
+            order_record_crud=MagicMock(),
+            position_record_crud=MagicMock(),
+        )
+        return svc, mock_crud
 
     def test_instantiation(self):
         svc, _ = self._make_svc()
@@ -38,21 +44,15 @@ class TestResultServiceSmoke:
         assert result is not None
 
     def test_get_signals_callable(self):
-        svc, mock_crud = self._make_svc()
-        with patch("ginkgo.data.crud.signal_crud.SignalCRUD") as MockSignalCRUD:
-            mock_signal_crud = MagicMock()
-            mock_signal_crud.find.return_value = []
-            mock_signal_crud.count.return_value = 0
-            MockSignalCRUD.return_value = mock_signal_crud
-            result = svc.get_signals(task_id="t1")
-            assert result is not None
+        svc, _ = self._make_svc()
+        svc._signal_crud.find.return_value = []
+        svc._signal_crud.count.return_value = 0
+        result = svc.get_signals(task_id="t1")
+        assert result is not None
 
     def test_get_orders_callable(self):
-        svc, mock_crud = self._make_svc()
-        with patch("ginkgo.data.crud.order_record_crud.OrderRecordCRUD") as MockOrderCRUD:
-            mock_order_crud = MagicMock()
-            mock_order_crud.find.return_value = []
-            mock_order_crud.count.return_value = 0
-            MockOrderCRUD.return_value = mock_order_crud
-            result = svc.get_orders(task_id="t1")
-            assert result is not None
+        svc, _ = self._make_svc()
+        svc._order_record_crud.find.return_value = []
+        svc._order_record_crud.count.return_value = 0
+        result = svc.get_orders(task_id="t1")
+        assert result is not None

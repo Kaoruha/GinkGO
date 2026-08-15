@@ -18,6 +18,9 @@ from datetime import datetime
 import pandas as pd
 
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD
+from ginkgo.data.crud.signal_crud import SignalCRUD
+from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
+from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
 from ginkgo.data.models import MAnalyzerRecord
 from ginkgo.data.mappers import models_to_dataframe
 from ginkgo.libs import GLOG, retry, datetime_normalize
@@ -34,14 +37,28 @@ class ResultService(BaseService):
     - 提供 DataFrame 格式输出，支持绘图
     """
 
-    def __init__(self, analyzer_crud: AnalyzerRecordCRUD):
+    def __init__(
+        self,
+        analyzer_crud: AnalyzerRecordCRUD,
+        signal_crud: SignalCRUD,
+        order_record_crud: OrderRecordCRUD,
+        position_record_crud: PositionRecordCRUD,
+    ):
         """
         初始化 ResultService
 
         Args:
             analyzer_crud: AnalyzerRecord 数据访问对象
+            signal_crud: Signal 数据访问对象
+            order_record_crud: OrderRecord 数据访问对象
+            position_record_crud: PositionRecord 数据访问对象
         """
-        super().__init__(crud_repo=analyzer_crud)
+        super().__init__(
+            analyzer_crud=analyzer_crud,
+            signal_crud=signal_crud,
+            order_record_crud=order_record_crud,
+            position_record_crud=position_record_crud,
+        )
         self._crud_repo = analyzer_crud
 
     def get_run_summary(self, task_id: str) -> ServiceResult:
@@ -399,14 +416,11 @@ class ResultService(BaseService):
             if not task_id:
                 return ServiceResult.error("task_id 不能为空")
 
-            from ginkgo.data.crud.signal_crud import SignalCRUD
-            signal_crud = SignalCRUD()
-
             filters = {"task_id": task_id}
             if portfolio_id:
                 filters["portfolio_id"] = portfolio_id
 
-            result = signal_crud.find(
+            result = self._signal_crud.find(
                 filters=filters,
                 page=page,
                 page_size=page_size,
@@ -414,7 +428,7 @@ class ResultService(BaseService):
                 desc_order=True
             )
 
-            total = signal_crud.count(filters)
+            total = self._signal_crud.count(filters)
 
             GLOG.INFO(f"获取 task_id={task_id} 的信号记录成功: {len(result)} 条")
             return ServiceResult.success({"data": result, "total": total, "page": page, "page_size": page_size})
@@ -519,14 +533,11 @@ class ResultService(BaseService):
         portfolio_id: Optional[str] = None
     ) -> list:
         """查询订单记录流水(按 timestamp desc), 供 get_orders/get_order_records 共用。"""
-        from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-        order_record_crud = OrderRecordCRUD()
-
         filters = {"task_id": task_id}
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
 
-        return order_record_crud.find(
+        return self._order_record_crud.find(
             filters=filters,
             order_by="timestamp",
             desc_order=True
@@ -551,20 +562,17 @@ class ResultService(BaseService):
             if not task_id:
                 return ServiceResult.error("task_id 不能为空")
 
-            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-            position_record_crud = PositionRecordCRUD()
-
             filters = {"task_id": task_id}
             if portfolio_id:
                 filters["portfolio_id"] = portfolio_id
 
-            result = position_record_crud.find(
+            result = self._position_record_crud.find(
                 filters=filters,
                 order_by="timestamp",
                 desc_order=True
             )
 
-            total = position_record_crud.count(filters)
+            total = self._position_record_crud.count(filters)
 
             GLOG.INFO(f"获取 task_id={task_id} 的持仓记录成功: {len(result)} 条")
             return ServiceResult.success({"data": result, "total": total})
@@ -595,10 +603,8 @@ class ResultService(BaseService):
             filters = self._build_position_record_filters(
                 portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
             )
-            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-            position_record_crud = PositionRecordCRUD()
 
-            model_list = position_record_crud.find(
+            model_list = self._position_record_crud.find(
                 filters=filters,
                 page=page,
                 page_size=page_size if page_size and page_size > 0 else None,  # None 守卫：0=全量下推 None，裸 >0 对 None 报 TypeError
@@ -625,9 +631,7 @@ class ResultService(BaseService):
             filters = self._build_position_record_filters(
                 portfolio_id=portfolio_id, engine_id=engine_id, task_id=task_id,
             )
-            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-            position_record_crud = PositionRecordCRUD()
-            count = position_record_crud.count(filters=filters)
+            count = self._position_record_crud.count(filters=filters)
             return ServiceResult.success({"count": count}, f"Successfully counted positions: {count}")
         except Exception as e:
             GLOG.ERROR(f"统计持仓记录失败: {str(e)}")
@@ -686,10 +690,7 @@ class ResultService(BaseService):
             ServiceResult: 创建结果
         """
         try:
-            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-            position_record_crud = PositionRecordCRUD()
-
-            position_record_crud.create(**kwargs)
+            self._position_record_crud.create(**kwargs)
 
             GLOG.INFO(f"持仓记录创建成功: code={kwargs.get('code')} task_id={kwargs.get('task_id')}")
             return ServiceResult.success({"message": "Position record created"})
@@ -706,20 +707,17 @@ class ResultService(BaseService):
     ) -> ServiceResult:
         """按 portfolio 查询订单记录（不依赖 task_id，用于实盘/模拟盘）"""
         try:
-            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-            crud = OrderRecordCRUD()
-
             filters = {"portfolio_id": portfolio_id}
             if status is not None:
                 filters["status"] = status
 
-            result = crud.find(
+            result = self._order_record_crud.find(
                 filters=filters,
                 page_size=page_size,
                 order_by="timestamp",
                 desc_order=True,
             )
-            total = crud.count(filters)
+            total = self._order_record_crud.count(filters)
 
             return ServiceResult.success({"data": result, "total": total})
         except Exception as e:
@@ -733,10 +731,7 @@ class ResultService(BaseService):
     ) -> ServiceResult:
         """查询当前持仓（不依赖 task_id，用于实盘/模拟盘）"""
         try:
-            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
-            crud = PositionRecordCRUD()
-
-            result = crud.find_current_positions(
+            result = self._position_record_crud.find_current_positions(
                 portfolio_id=portfolio_id,
                 min_volume=min_volume,
             )
@@ -748,15 +743,12 @@ class ResultService(BaseService):
     def cancel_order(self, order_id: str) -> ServiceResult:
         """取消订单"""
         try:
-            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-            crud = OrderRecordCRUD()
-
-            records = crud.find_by_order_id(order_id)
+            records = self._order_record_crud.find_by_order_id(order_id)
             if not records:
                 return ServiceResult.error("Order not found")
 
             record = records[0]
-            crud.update_by_uuid(record.uuid, data={"status": 4})  # 4 = CANCELLED
+            self._order_record_crud.update_by_uuid(record.uuid, data={"status": 4})  # 4 = CANCELLED
 
             return ServiceResult.success({"cancelled": True})
         except Exception as e:
@@ -772,10 +764,7 @@ class ResultService(BaseService):
     ) -> ServiceResult:
         """按 portfolio + 日期范围查询订单（不依赖 task_id）"""
         try:
-            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-            crud = OrderRecordCRUD()
-
-            result = crud.find_by_portfolio(
+            result = self._order_record_crud.find_by_portfolio(
                 portfolio_id=portfolio_id,
                 start_date=start_date,
                 end_date=end_date,

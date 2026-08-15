@@ -295,7 +295,13 @@ class Container(containers.DeclarativeContainer):
     factor_service = providers.Singleton(FactorService, factor_crud=factor_crud)
 
     # Result service with AnalyzerRecordCRUD dependency
-    result_service = providers.Singleton(ResultService, analyzer_crud=analyzer_record_crud)
+    result_service = providers.Singleton(
+        ResultService,
+        analyzer_crud=analyzer_record_crud,
+        signal_crud=signal_crud,
+        order_record_crud=order_record_crud,
+        position_record_crud=position_record_crud,
+    )
 
     # Analyzer service with AnalyzerRecordCRUD dependency
     analyzer_service = providers.Singleton(AnalyzerService, analyzer_crud=analyzer_record_crud)

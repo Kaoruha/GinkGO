@@ -24,7 +24,7 @@ def test_get_analyzer_values_df_returns_dataframe():
     """get_by_task_id 返列表 → models_to_dataframe（L156）。patch models_to_dataframe
     返 DataFrame 以隔离 ORM 模型构造；补 ``assert_called_once`` 锁住 L156 真调了出口
     转换——否则回退/跳过 models_to_dataframe（→ else pd.DataFrame()）测试仍绿(silent-pass)。"""
-    svc = ResultService(analyzer_crud=_FakeAnalyzerCrud())
+    svc = ResultService(analyzer_crud=_FakeAnalyzerCrud(), signal_crud=MagicMock(), order_record_crud=MagicMock(), position_record_crud=MagicMock())
     with patch(
         "ginkgo.data.services.result_service.models_to_dataframe",
         return_value=pd.DataFrame(),
@@ -41,7 +41,7 @@ def test_create_order_record_delegates_to_container():
     fake_order_svc.create_order_record.return_value = ServiceResult.success()
     with patch("ginkgo.data.containers.container") as mock_container:
         mock_container.order_service.return_value = fake_order_svc
-        svc = ResultService(analyzer_crud=_FakeAnalyzerCrud())
+        svc = ResultService(analyzer_crud=_FakeAnalyzerCrud(), signal_crud=MagicMock(), order_record_crud=MagicMock(), position_record_crud=MagicMock())
         res = svc.create_order_record(code="000001", portfolio_id="p")
     assert res.success
     fake_order_svc.create_order_record.assert_called_once_with(code="000001", portfolio_id="p")

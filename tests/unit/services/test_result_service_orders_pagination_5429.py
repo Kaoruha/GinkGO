@@ -7,7 +7,7 @@ get_orders 不能像 get_signals 那样把分页下推到 crud.find——按 ord
 """
 import datetime
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -43,9 +43,10 @@ class TestGetOrdersPaginateAfterDedup:
 
     @pytest.mark.unit
     def test_page_one_returns_first_slice_with_full_total(self):
-        svc = ResultService(MagicMock())
-        with patch("ginkgo.data.crud.order_record_crud.OrderRecordCRUD.find", return_value=FLOW):
-            result = svc.get_orders("task-1", page=1, page_size=2)
+        order_record_crud = MagicMock()
+        order_record_crud.find.return_value = FLOW
+        svc = ResultService(MagicMock(), MagicMock(), order_record_crud, MagicMock())
+        result = svc.get_orders("task-1", page=1, page_size=2)
 
         assert result.is_success()
         data = result.data["data"]
@@ -58,9 +59,10 @@ class TestGetOrdersPaginateAfterDedup:
     @pytest.mark.unit
     def test_page_two_returns_remainder_with_same_total(self):
         """翻页 total 不变(独立于 page), 第 2 页返回剩余 unique。"""
-        svc = ResultService(MagicMock())
-        with patch("ginkgo.data.crud.order_record_crud.OrderRecordCRUD.find", return_value=FLOW):
-            result = svc.get_orders("task-1", page=2, page_size=2)
+        order_record_crud = MagicMock()
+        order_record_crud.find.return_value = FLOW
+        svc = ResultService(MagicMock(), MagicMock(), order_record_crud, MagicMock())
+        result = svc.get_orders("task-1", page=2, page_size=2)
 
         assert result.is_success()
         data = result.data["data"]
@@ -71,9 +73,10 @@ class TestGetOrdersPaginateAfterDedup:
     @pytest.mark.unit
     def test_large_page_size_returns_all_unique(self):
         """page_size >= unique 数时返回全部 unique(等价旧行为), total 仍独立。"""
-        svc = ResultService(MagicMock())
-        with patch("ginkgo.data.crud.order_record_crud.OrderRecordCRUD.find", return_value=FLOW):
-            result = svc.get_orders("task-1", page=1, page_size=50)
+        order_record_crud = MagicMock()
+        order_record_crud.find.return_value = FLOW
+        svc = ResultService(MagicMock(), MagicMock(), order_record_crud, MagicMock())
+        result = svc.get_orders("task-1", page=1, page_size=50)
 
         data = result.data["data"]
         assert len(data) == 3
@@ -83,12 +86,13 @@ class TestGetOrdersPaginateAfterDedup:
     @pytest.mark.unit
     def test_total_independent_of_page_size(self):
         """不同 page_size 必须返回相同 total(关键分页语义, brief 验收点)。"""
-        svc = ResultService(MagicMock())
+        order_record_crud = MagicMock()
+        order_record_crud.find.return_value = FLOW
+        svc = ResultService(MagicMock(), MagicMock(), order_record_crud, MagicMock())
         totals = []
-        with patch("ginkgo.data.crud.order_record_crud.OrderRecordCRUD.find", return_value=FLOW):
-            for ps in (1, 2, 3, 50):
-                r = svc.get_orders("task-1", page=1, page_size=ps)
-                totals.append(r.data["total"])
+        for ps in (1, 2, 3, 50):
+            r = svc.get_orders("task-1", page=1, page_size=ps)
+            totals.append(r.data["total"])
         assert len(set(totals)) == 1 and totals[0] == 3, \
             f"total 必须与 page_size 无关, 实测: {totals}"
 
@@ -99,9 +103,10 @@ class TestGetOrdersPaginateAfterDedup:
         这两处内部调用方不传分页参数, 依赖 get_orders 默认返回全部去重订单。
         端点层(Query 默认 50)才显式分页。改此默认会破坏分析引擎完整性。
         """
-        svc = ResultService(MagicMock())
-        with patch("ginkgo.data.crud.order_record_crud.OrderRecordCRUD.find", return_value=FLOW):
-            result = svc.get_orders("task-1")  # 不传 page/page_size
+        order_record_crud = MagicMock()
+        order_record_crud.find.return_value = FLOW
+        svc = ResultService(MagicMock(), MagicMock(), order_record_crud, MagicMock())
+        result = svc.get_orders("task-1")  # 不传 page/page_size
 
         data = result.data["data"]
         assert len(data) == 3, "默认(page_size=0)应返回全部 unique, 非 50 切片"

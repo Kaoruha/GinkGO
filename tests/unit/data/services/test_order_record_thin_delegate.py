@@ -19,7 +19,7 @@ class TestResultServiceCreateOrderRecordThinDelegate:
         """result_service.create_order_record → container.order_service().create_order_record。"""
         from ginkgo.data.services.result_service import ResultService
 
-        svc = ResultService(analyzer_crud=MagicMock())
+        svc = ResultService(analyzer_crud=MagicMock(), signal_crud=MagicMock(), order_record_crud=MagicMock(), position_record_crud=MagicMock())
 
         mock_order_service = MagicMock()
         mock_order_service.create_order_record.return_value = MagicMock(success=True)
@@ -41,7 +41,7 @@ class TestResultServiceCreateOrderRecordThinDelegate:
         """签名 **kwargs 不变——任意 kwargs 透传 OrderService。"""
         from ginkgo.data.services.result_service import ResultService
 
-        svc = ResultService(analyzer_crud=MagicMock())
+        svc = ResultService(analyzer_crud=MagicMock(), signal_crud=MagicMock(), order_record_crud=MagicMock(), position_record_crud=MagicMock())
         mock_order_service = MagicMock()
 
         with patch("ginkgo.data.containers.container") as mock_container:
@@ -81,7 +81,7 @@ class TestResultServiceCreateOrderRecordThinDelegate:
         from ginkgo.data.services.result_service import ResultService
         from ginkgo.data.services.base_service import ServiceResult
 
-        svc = ResultService(analyzer_crud=MagicMock())
+        svc = ResultService(analyzer_crud=MagicMock(), signal_crud=MagicMock(), order_record_crud=MagicMock(), position_record_crud=MagicMock())
         sentinel = ServiceResult.success({"message": "from order_service"})
 
         with patch("ginkgo.data.containers.container") as mock_container:

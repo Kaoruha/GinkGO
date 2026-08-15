@@ -13,7 +13,7 @@ CRUD 层不掺业务去重逻辑(符合 API→Service→CRUD→DB 分层边界)�
 """
 import datetime
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -35,7 +35,7 @@ class TestGetOrdersDedup:
 
     @pytest.mark.unit
     def test_dedup_keeps_latest_terminal_state_per_order_id(self):
-        svc = ResultService(MagicMock())
+        svc = ResultService(MagicMock(), MagicMock(), MagicMock(), MagicMock())
 
         # order_id=ord-A: NEW(d1)→SUBMITTED(d2)→FILLED(d3)，最终态 FILLED
         # order_id=ord-B: NEW(d1)→CANCELED(d2)，最终态 CANCELED(失败单也保留)
@@ -48,12 +48,12 @@ class TestGetOrdersDedup:
             _rec("ord-B", 1, 1),   # NEW @ d1
         ]
 
-        crud = MagicMock()
-        crud.find.return_value = raw
-        crud.count.return_value = len(raw)
+        order_record_crud = MagicMock()
+        order_record_crud.find.return_value = raw
+        order_record_crud.count.return_value = len(raw)
+        svc._order_record_crud = order_record_crud
 
-        with patch("ginkgo.data.crud.order_record_crud.OrderRecordCRUD", return_value=crud):
-            out = svc.get_orders(task_id="task-1")
+        out = svc.get_orders(task_id="task-1")
 
         assert out.is_success()
         data = out.data["data"]
@@ -74,18 +74,18 @@ class TestGetOrderRecordsFullFlow:
 
     @pytest.mark.unit
     def test_returns_all_status_transitions(self):
-        svc = ResultService(MagicMock())
+        svc = ResultService(MagicMock(), MagicMock(), MagicMock(), MagicMock())
 
         raw = [
             _rec("ord-A", 4, 3),
             _rec("ord-A", 2, 2),
             _rec("ord-A", 1, 1),
         ]
-        crud = MagicMock()
-        crud.find.return_value = raw
+        order_record_crud = MagicMock()
+        order_record_crud.find.return_value = raw
+        svc._order_record_crud = order_record_crud
 
-        with patch("ginkgo.data.crud.order_record_crud.OrderRecordCRUD", return_value=crud):
-            out = svc.get_order_records(task_id="task-1")
+        out = svc.get_order_records(task_id="task-1")
 
         assert out.is_success()
         data = out.data["data"]
