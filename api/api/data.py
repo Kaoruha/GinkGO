@@ -505,7 +505,9 @@ async def get_ticks(
         else:
             ticks_data = result_data
 
-        ticks_list = ticks_data.to_entities() if hasattr(ticks_data, "to_entities") else []
+        # tick_service.get() 返回裸 list[MTick]（ADR-029 §Decision 9，无 to_entities）；
+        # 与 bars 端点（data.py:426）同款兜底：裸 list 本身即数据，勿丢弃为 []
+        ticks_list = ticks_data.to_entities() if hasattr(ticks_data, "to_entities") else ticks_data
 
         tick_summaries = []
         for tick in ticks_list:
