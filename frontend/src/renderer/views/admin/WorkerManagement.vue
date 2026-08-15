@@ -22,7 +22,7 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <StatCard title="总 Worker" :value="workers.length" />
+      <StatCard title="总 Worker" :value="filteredWorkers.length" />
       <StatCard title="运行中" :value="runningCount" :color="runningCount > 0 ? 'positive' : 'neutral'" />
       <StatCard title="已停止" :value="stoppedCount" color="neutral" />
       <StatCard title="异常" :value="errorCount" :color="errorCount > 0 ? 'negative' : 'positive'" />
@@ -56,14 +56,28 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in filteredWorkers" :key="`${record.type}-${record.id}`" @contextmenu="openWorkerMenu($event, record)">
-              <td class="monospace">{{ record.id }}</td>
+            <template v-for="record in filteredWorkers" :key="`${record.type}-${record.id}`">
+            <tr @contextmenu="openWorkerMenu($event)">
+              <td class="monospace cell-id">
+                <button
+                  v-if="record.type === 'backtest_worker'"
+                  class="expand-btn"
+                  :class="{ expanded: expandedIds.has(record.id) }"
+                  @click="toggleExpand(record)"
+                  title="活跃任务"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </button>
+                <span>{{ record.id }}</span>
+              </td>
               <td>
                 <span class="tag" :class="`tag-${getTypeColorClass(record.type)}`">
                   {{ getTypeText(record.type) }}
                 </span>
               </td>
-              <td>
+              <td :class="staleCellClass(record.last_heartbeat)">
                 <StatusTag type="worker" :status="record.status" />
               </td>
               <td class="detail-text">
@@ -83,8 +97,38 @@
                   已处理: {{ record.task_count || 0 }}
                 </template>
               </td>
-              <td class="monospace">{{ formatRelativeTime(record.last_heartbeat) }}</td>
+              <td class="monospace" :class="staleCellClass(record.last_heartbeat)">
+                {{ formatRelativeTime(record.last_heartbeat) }}
+              </td>
             </tr>
+            <tr v-if="record.type === 'backtest_worker' && expandedIds.has(record.id)" class="expand-row">
+              <td colspan="5">
+                <div v-if="expandLoading.has(record.id)" class="expand-hint">加载中…</div>
+                <div v-else-if="expandError.has(record.id)" class="expand-hint expand-error">加载失败，点击箭头重试</div>
+                <div v-else-if="(expandedTasks[record.id] || []).length === 0" class="expand-hint">无活跃任务</div>
+                <table v-else class="mini-table">
+                  <thead>
+                    <tr><th>任务</th><th>状态</th><th>进度</th><th>Portfolio</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="t in expandedTasks[record.id]" :key="t.task_id">
+                      <td class="monospace">{{ t.name || t.task_id }}</td>
+                      <td>
+                        <StatusTag type="worker" :status="t.status" />
+                      </td>
+                      <td>
+                        <div class="progress-bar">
+                          <div class="progress-fill" :style="{ width: `${t.progress}%` }"></div>
+                        </div>
+                        <span class="progress-num">{{ t.progress }}%</span>
+                      </td>
+                      <td class="monospace">{{ t.portfolio_id || '-' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -99,20 +143,18 @@ import PageLayout from '@/components/common/PageLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
-import { formatRelativeTime } from '@/utils/format'
+import { formatRelativeTime, heartbeatStaleLevel } from '@/utils/format'
 import { useSystemStore } from '@/stores'
-import type { WorkerInfo } from '@/api'
+import { systemApi } from '@/api'
+import type { WorkerInfo, WorkerTaskInfo } from '@/api'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
 
-/** 行右键菜单(替代操作列;停止走菜单内置确认) */
+/** 行右键菜单(纯监控:仅刷新) */
 const { open: openCtxMenu } = useContextMenu()
-const openWorkerMenu = (e: MouseEvent, record: WorkerInfo) => {
+const openWorkerMenu = (e: MouseEvent) => {
   openCtxMenu(e, [
     { label: '刷新', action: refreshData },
-    ...(record.status !== 'running'
-      ? [{ label: '启动', action: () => handleStart(record) }]
-      : [{ label: '停止', danger: true, confirm: `确定要停止 Worker「${record.id}」吗？`, action: () => doStop(record) }]),
   ])
 }
 
@@ -128,9 +170,61 @@ const filteredWorkers = computed(() => {
   return workers.value.filter(w => w.type === typeFilter.value)
 })
 
-const runningCount = computed(() => workers.value.filter(w => w.status === 'running' || w.status === 'active').length)
-const stoppedCount = computed(() => workers.value.filter(w => w.status === 'stopped' || w.status === 'idle').length)
-const errorCount = computed(() => workers.value.filter(w => w.status === 'error' || w.status === 'stale').length)
+const runningCount = computed(() => filteredWorkers.value.filter(w => w.status === 'running' || w.status === 'active').length)
+const stoppedCount = computed(() => filteredWorkers.value.filter(w => w.status === 'stopped' || w.status === 'idle').length)
+const errorCount = computed(() => filteredWorkers.value.filter(w => w.status === 'error' || w.status === 'stale').length)
+
+/** 相对时间重渲染 tick：随 store 每次刷新变化（自动刷新 5s 一跳） */
+const heartbeatTick = computed(() => systemStore.lastUpdate)
+
+const staleCellClass = (hb: string) => {
+  heartbeatTick.value // 渲染期读取，建立响应依赖
+  const level = heartbeatStaleLevel(hb)
+  if (level === 2) return 'stale-2'
+  if (level === 1) return 'stale-1'
+  return ''
+}
+
+/** 任务下钻状态：自动刷新只重拉列表，不刷新已展开任务（收起再展开即重新拉取） */
+const expandedIds = ref(new Set<string>())
+const expandedTasks = ref<Record<string, WorkerTaskInfo[]>>({})
+const expandLoading = ref(new Set<string>())
+const expandError = ref(new Set<string>())
+
+const toggleExpand = async (worker: WorkerInfo) => {
+  const id = worker.id
+  const next = new Set(expandedIds.value)
+  if (next.has(id)) {
+    // 收起：丢弃缓存，重展开时重新拉最新
+    next.delete(id)
+    expandedIds.value = next
+    const { [id]: _drop, ...rest } = expandedTasks.value
+    expandedTasks.value = rest
+    return
+  }
+  next.add(id)
+  expandedIds.value = next
+  if (expandLoading.value.has(id)) return
+  const loading = new Set(expandLoading.value)
+  loading.add(id)
+  expandLoading.value = loading
+  const errs = new Set(expandError.value)
+  errs.delete(id)
+  expandError.value = errs
+  try {
+    const resp = await systemApi.getWorkerTasks(id)
+    expandedTasks.value = { ...expandedTasks.value, [id]: resp.tasks || [] }
+  } catch {
+    const e = new Set(expandError.value)
+    e.add(id)
+    expandError.value = e
+    toast.error('任务加载失败')
+  } finally {
+    const l = new Set(expandLoading.value)
+    l.delete(id)
+    expandLoading.value = l
+  }
+}
 
 const getTypeColorClass = (type: string) => {
   const colors: Record<string, string> = { data_worker: 'purple', backtest_worker: 'blue', execution_node: 'green', scheduler: 'orange', task_timer: 'magenta' }
@@ -151,27 +245,6 @@ const toggleAutoRefresh = () => {
     systemStore.enableAutoRefresh(5000)
   } else {
     systemStore.disableAutoRefresh()
-  }
-}
-
-const handleStart = async (worker: WorkerInfo) => {
-  try {
-    await systemStore.startWorker(worker.id)
-    toast.success(`Worker ${worker.id} 已启动`)
-    await refreshData()
-  } catch (e: any) {
-    toast.error(e.message || '启动失败')
-  }
-}
-
-/** 裸停 Worker(确认由菜单内置 ConfirmDialog 承担) */
-const doStop = async (worker: WorkerInfo) => {
-  try {
-    await systemStore.stopWorker(worker.id)
-    toast.success(`Worker ${worker.id} 已停止`)
-    await refreshData()
-  } catch (e: any) {
-    toast.error(e.message || '停止失败')
   }
 }
 
@@ -290,6 +363,59 @@ onUnmounted(() => {
   font-size: 12px;
   color: hsl(var(--muted-foreground));
 }
+
+/* 心跳 stale 预警 */
+.stale-1 { color: hsl(var(--warning)); }
+.stale-2 { color: hsl(var(--error)); font-weight: 600; }
+
+/* 下钻展开 */
+.cell-id { display: flex; align-items: center; gap: 6px; }
+
+.expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: transform 0.2s, color 0.2s;
+}
+
+.expand-btn:hover { color: hsl(var(--foreground)); }
+.expand-btn.expanded { transform: rotate(90deg); }
+
+.expand-row > td { padding: 8px 12px 16px 40px; background: hsl(var(--secondary) / 0.3); }
+
+.expand-hint { font-size: 12px; color: hsl(var(--muted-foreground)); padding: 4px 0; }
+.expand-error { color: hsl(var(--error)); }
+
+.mini-table { width: 100%; border-collapse: collapse; }
+.mini-table th,
+.mini-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid hsl(var(--border)); font-size: 12px; }
+.mini-table th { color: hsl(var(--muted-foreground)); font-weight: 500; white-space: nowrap; }
+
+.progress-bar {
+  display: inline-block;
+  width: 100px;
+  height: 6px;
+  border-radius: 3px;
+  background: hsl(var(--secondary));
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: hsl(var(--primary));
+  transition: width 0.3s;
+}
+
+.progress-num { margin-left: 8px; font-size: 11px; color: hsl(var(--muted-foreground)); }
 
 /* 响应式 */
 @media (max-width: 768px) {
