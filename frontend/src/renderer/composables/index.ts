@@ -1,6 +1,8 @@
 export { useLoading } from './useLoading'
 export { useErrorHandler } from './useErrorHandler'
 export { useWebSocket } from './useWebSocket'
+export { useServerEvents } from './useServerEvents'
+export type { ServerEvent } from './useServerEvents'
 export { useStatusFormat, useBacktestStatus, usePortfolioMode, usePortfolioState } from './useStatusFormat'
 export { useListPage, commonSearchFilters } from './useListPage'
 export { usePolling } from './usePolling'

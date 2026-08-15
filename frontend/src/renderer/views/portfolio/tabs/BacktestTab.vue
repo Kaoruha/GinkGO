@@ -174,7 +174,7 @@ import { backtestApi } from '@/api'
 import type { BacktestTask } from '@/api'
 import { useBacktestStore } from '@/stores'
 import { useBacktestStatus } from '@/composables'
-import { useWebSocket } from '@/composables'
+import { useServerEvents } from '@/composables'
 import { canStartByState, canStopByState, canCancelByState, BACKTEST_DEFAULT_RANGE_MONTHS } from '@/constants/backtest'
 import { message } from '@/utils/toast'
 import { formatPercent } from '@/utils/format'
@@ -400,8 +400,10 @@ const handleCreate = async () => {
 }
 
 // ========== WebSocket ==========
-const { subscribe, isConnected } = useWebSocket()
+// 薄事件 → 按 key trailing 合并刷新(多任务事件风暴塌缩成一次列表拉取,ADR-046)
+const { on, onReconnect, scheduleRefetch } = useServerEvents()
 let unsubscribe: (() => void) | null = null
+const refetchList = () => scheduleRefetch('backtest-tab-list', () => loadList({ silent: true }))
 
 onMounted(() => {
   loadList()
@@ -410,27 +412,20 @@ onMounted(() => {
     router.replace({ query: {} })
   }
 
-  unsubscribe = subscribe('*', (data) => {
-    const taskId = data.task_id || data.task_uuid
-    if (!taskId) return
-    loadList({ silent: true })
-  })
-
-  // WS 断连时降级为轮询（store.startPolling），重连后恢复推送
-  watch(isConnected, (connected) => {
-    if (connected) {
-      backtestStore.onWebSocketConnected()
-    } else {
-      backtestStore.onWebSocketDisconnected()
-    }
-  }, { immediate: true })
+  const offs = [
+    on('*', (e) => {
+      if (e.entity !== 'backtest_task') return
+      refetchList()
+    }),
+    // 重连补齐:断线窗口内丢失的事件靠幂等全量拉取兜底
+    onReconnect(refetchList),
+  ]
+  unsubscribe = () => offs.forEach(off => off())
 })
 
 onUnmounted(() => {
   disposed = true
   if (unsubscribe) unsubscribe()
-  // store 轮询随页面走:离开本页即停,否则定时器跨页存活变成全站后台轮询
-  backtestStore.stopPolling()
 })
 </script>
 

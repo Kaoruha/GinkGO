@@ -70,11 +70,46 @@ async def deploy(req: DeployRequest):
 
     success = await saga.execute()
     if not success:
+        await _broadcast_deploy_failed(req, saga.error)
         raise BusinessError(f"部署失败: {saga.error}. 事务已回滚。")
 
     result = saga.steps[0].result
     deploy_data = result.data if hasattr(result, 'data') else result
+    await _broadcast_deploy_changed(req, deploy_data)
     return ok(data=deploy_data, message="部署成功")
+
+
+async def _broadcast_deploy_changed(req: "DeployRequest", deploy_data: Any):
+    """部署成功 → WS 薄事件（ADR-046）。WS 故障不得影响部署结果。"""
+    try:
+        from websocket.events import broadcast_event
+
+        dep_id = None
+        status = "deployed"
+        if isinstance(deploy_data, dict):
+            dep_id = deploy_data.get("uuid") or deploy_data.get("id")
+            if deploy_data.get("status") is not None:
+                status = str(deploy_data["status"]).lower()
+
+        await broadcast_event(
+            "deployment.changed", "deployment", dep_id or req.portfolio_id, status,
+            {"mode": req.mode, "portfolio_id": req.portfolio_id},
+        )
+    except Exception as e:
+        logger.warning(f"deployment.changed broadcast failed: {e}")
+
+
+async def _broadcast_deploy_failed(req: "DeployRequest", error: Any):
+    """部署失败 → WS 薄事件。"""
+    try:
+        from websocket.events import broadcast_event
+
+        await broadcast_event(
+            "deployment.changed", "deployment", req.portfolio_id, "failed",
+            {"mode": req.mode, "portfolio_id": req.portfolio_id, "error": str(error)},
+        )
+    except Exception as e:
+        logger.warning(f"deployment.changed broadcast failed: {e}")
 
 
 @router.get("/templates")

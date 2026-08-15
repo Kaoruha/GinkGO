@@ -49,6 +49,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Failed to start BacktestProgressConsumer: {e}")
 
+    # 启动通知消费者（ginkgo.notifications → WS toast，ADR-046）
+    try:
+        from services.notification_consumer import get_notification_consumer
+        asyncio.create_task(get_notification_consumer().start())
+        logger.info("NotificationConsumer started (background)")
+    except Exception as e:
+        logger.warning(f"Failed to start NotificationConsumer: {e}")
+
+    # 启动 worker 存活状态监视器（10s 快照 diff → WS worker.changed，ADR-046）
+    try:
+        from services.worker_status_watcher import get_worker_status_watcher
+        asyncio.create_task(get_worker_status_watcher().start())
+        logger.info("WorkerStatusWatcher started (background)")
+    except Exception as e:
+        logger.warning(f"Failed to start WorkerStatusWatcher: {e}")
+
     yield
     # 关闭时
     logger.info("Shutting down Ginkgo API Server...")
@@ -61,6 +77,22 @@ async def lifespan(app: FastAPI):
         logger.info("BacktestProgressConsumer stopped")
     except Exception as e:
         logger.warning(f"Failed to stop BacktestProgressConsumer: {e}")
+
+    # 停止通知消费者
+    try:
+        from services.notification_consumer import get_notification_consumer
+        await get_notification_consumer().stop()
+        logger.info("NotificationConsumer stopped")
+    except Exception as e:
+        logger.warning(f"Failed to stop NotificationConsumer: {e}")
+
+    # 停止 worker 状态监视器
+    try:
+        from services.worker_status_watcher import get_worker_status_watcher
+        await get_worker_status_watcher().stop()
+        logger.info("WorkerStatusWatcher stopped")
+    except Exception as e:
+        logger.warning(f"Failed to stop WorkerStatusWatcher: {e}")
 
     # 关闭 Redis 连接池
     try:

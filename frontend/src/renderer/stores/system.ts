@@ -30,9 +30,6 @@ export const useSystemStore = defineStore('system', () => {
     task_timers: 0,
   })
 
-  /** WebSocket 连接状态 */
-  const wsConnected = ref(false)
-
   /** 加载状态 */
   const loading = ref(false)
 
@@ -160,13 +157,6 @@ export const useSystemStore = defineStore('system', () => {
   }
 
   /**
-   * 设置 WebSocket 连接状态
-   */
-  function setWsConnected(connected: boolean) {
-    wsConnected.value = connected
-  }
-
-  /**
    * 开启自动刷新
    */
   function enableAutoRefresh(interval?: number) {
@@ -220,7 +210,6 @@ export const useSystemStore = defineStore('system', () => {
     systemStatus,
     workers,
     componentCounts,
-    wsConnected,
     loading,
     autoRefresh,
     refreshInterval,
@@ -243,7 +232,6 @@ export const useSystemStore = defineStore('system', () => {
     // Actions
     fetchStatus,
     fetchWorkers,
-    setWsConnected,
     enableAutoRefresh,
     disableAutoRefresh,
     toggleAutoRefresh,

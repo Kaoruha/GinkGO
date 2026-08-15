@@ -112,6 +112,38 @@ class ConnectionManager:
         for connection in disconnected:
             await self.disconnect(connection)
 
+    async def broadcast_to_user(self, user_uuids: List[str], message: dict, fallback_all: bool = True):
+        """按 user_uuid 定向发送
+
+        Args:
+            user_uuids: 目标用户列表
+            message: 要发送的消息
+            fallback_all: 无匹配连接时是否回退全员广播（单用户项目：群发通知
+                等 group-addressed 消息无 user_uuids，回退全员而非丢弃）
+        """
+        wanted = set(u for u in user_uuids if u)
+        targets = [
+            conn
+            for conn, meta in self.connection_metadata.items()
+            if meta.get("user_uuid") in wanted
+        ]
+        if not targets:
+            if fallback_all:
+                await self.broadcast(message)
+            return
+
+        message_str = json.dumps(message)
+        disconnected = []
+        for conn in targets:
+            try:
+                await conn.send_text(message_str)
+            except Exception as e:
+                logger.warning(f"Failed to send message: {e}")
+                disconnected.append(conn)
+
+        for conn in disconnected:
+            await self.disconnect(conn)
+
     async def send_personal(self, message: dict, websocket: WebSocket):
         """发送消息到特定连接"""
         try:

@@ -58,22 +58,22 @@
 
     <template #annual_return="{ record }">
       <span :class="Number(record.annual_return) >= 0 ? 'val-green' : 'val-red'">
-        {{ formatPct(record.annual_return) }}
+        {{ formatPercent(record.annual_return) }}
       </span>
     </template>
 
     <template #sharpe_ratio="{ record }">
       <span :class="Number(record.sharpe_ratio) >= 0 ? 'val-green' : 'val-red'">
-        {{ formatNum(record.sharpe_ratio, 2) }}
+        {{ formatDecimal(record.sharpe_ratio) }}
       </span>
     </template>
 
     <template #max_drawdown="{ record }">
-      <span class="val-red">{{ formatPct(record.max_drawdown) }}</span>
+      <span class="val-red">{{ formatPercent(record.max_drawdown) }}</span>
     </template>
 
     <template #win_rate="{ record }">
-      {{ formatPct(record.win_rate) }}
+      {{ formatPercent(record.win_rate) }}
     </template>
 
     <template #total_signals="{ record }">
@@ -82,8 +82,8 @@
       <span class="val-muted">{{ record.total_orders ?? '-' }}</span>
     </template>
 
-    <template #created_at="{ record }">
-      <span class="val-muted">{{ formatTime(record.created_at) }}</span>
+    <template #update_at="{ record }">
+      <span class="val-muted" :title="formatTime(record.update_at || record.created_at)">{{ formatRelativeTime(record.update_at || record.created_at) }}</span>
     </template>
 
     <!-- 无限滚动触发器 -->
@@ -116,14 +116,17 @@ import StatusTag from '@/components/common/StatusTag.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { backtestApi } from '@/api/modules/backtest'
 import SegmentedControl from '@/components/common/SegmentedControl.vue'
-import { useWebSocket } from '@/composables'
+import { useWebSocket, useServerEvents } from '@/composables'
+import { formatDecimal } from '@/composables/useBacktestFormatters'
+import { formatPercent, formatRelativeTime } from '@/utils/format'
 import type { MenuItem } from '@/composables/useContextMenu'
 import { message } from '@/utils/toast'
 
 const router = useRouter()
 
 // ========== WebSocket 实时进度 ==========
-const { subscribe, isConnected } = useWebSocket()
+const { isConnected } = useWebSocket()
+const { on, onReconnect } = useServerEvents()
 let unsubscribe: (() => void) | null = null
 let pollTimer: number | null = null
 
@@ -146,7 +149,7 @@ const statusOptions = [
   { key: 'stopped', label: '已停止' },
   { key: 'created', label: '待调度' },
 ]
-const sortBy = ref('created_at')
+const sortBy = ref('update_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 
 const hasMore = computed(() => tasks.value.length < total.value)
@@ -160,11 +163,9 @@ const columns = [
   { title: '最大回撤', dataIndex: 'max_drawdown', key: 'max_drawdown', width: 100, sortable: true },
   { title: '胜率', dataIndex: 'win_rate', key: 'win_rate', width: 80, sortable: true },
   { title: '信号/订单', dataIndex: 'total_signals', key: 'total_signals', width: 100 },
-  { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 160, sortable: true },
+  { title: '最近更新', dataIndex: 'update_at', key: 'update_at', width: 110, sortable: true },
 ]
 
-const formatPct = (v: any) => v != null && v !== '' ? (Number(v) * 100).toFixed(2) + '%' : '-'
-const formatNum = (v: any, d: number) => v != null && v !== '' ? Number(v).toFixed(d) : '-'
 const formatTime = (t: string) => {
   if (!t) return '-'
   return t.replace('T', ' ').slice(0, 19)
@@ -302,20 +303,27 @@ onMounted(async () => {
   await fetchTasks(false)
   nextTick(() => setupObserver())
 
-  // WS 就地更新行内 progress/status(无限滚动 append 模式,全量替换会丢已加载页)
-  unsubscribe = subscribe('*', (data) => {
-    const taskId = data.task_id || data.task_uuid
-    if (!taskId) return
-    const hit = tasks.value.find(t => t.uuid === taskId)
-    if (!hit) return
-    if (data.progress != null) hit.progress = data.progress
-    if (data.type && data.type !== 'progress') hit.status = data.type
-    // 终态后补一次静默刷新(拉取指标/信号数字;已有数据时 loading prop 为 false,视觉静默)
-    if (['completed', 'failed', 'stopped'].includes(data.type)
-      && currentPage.value === 1 && !loadingMore.value) {
-      fetchTasks(false)
-    }
-  })
+  // WS 薄事件就地更新行内 progress/status(无限滚动 append 模式,全量替换会丢已加载页)。
+  // 信封 status 已是 REST 同款小写枚举,直接赋值(旧路径 data.type 会写入大写态名)
+  const offs = [
+    on('*', (e) => {
+      if (e.entity !== 'backtest_task') return
+      const hit = tasks.value.find(t => t.uuid === e.id)
+      if (!hit) return
+      if (e.data?.progress != null) hit.progress = e.data.progress
+      if (e.status && e.event !== 'backtest.progress') hit.status = e.status
+      // 终态后补一次静默刷新(拉取指标/信号数字;已有数据时 loading prop 为 false,视觉静默)
+      if (['backtest.completed', 'backtest.failed', 'backtest.stopped'].includes(e.event)
+        && currentPage.value === 1 && !loadingMore.value) {
+        fetchTasks(false)
+      }
+    }),
+    // 重连补齐:断线窗口内丢失的事件靠幂等全量拉取兜底(ADR-046 无全局 seq)
+    onReconnect(() => {
+      if (!loading.value) fetchTasks(false)
+    }),
+  ]
+  unsubscribe = () => offs.forEach(off => off())
 
   // WS 断连时降级 5s 轮询,重连后恢复推送
   watch(isConnected, (connected) => {

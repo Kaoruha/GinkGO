@@ -13,6 +13,7 @@ from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from core.logging import logger
 from core.redis_client import set_backtest_progress, delete_backtest_progress
+from websocket.events import broadcast_event, canonical_status
 
 
 def _get_task_service():
@@ -205,6 +206,14 @@ class BacktestProgressConsumer:
             }
             await set_backtest_progress(task_uuid, progress_data, ttl=60)
 
+            # WS 薄事件广播（ADR-046）：状态已落库+落缓存后才宣告
+            await broadcast_event(
+                "backtest.progress", "backtest_task", task_uuid,
+                canonical_status(state),
+                {"progress": progress, "current_date": current_date,
+                 "state": state.lower() if state else None},
+            )
+
         except Exception as e:
             logger.error(f"Failed to update progress for {task_uuid[:8]}: {e}")
 
@@ -213,6 +222,12 @@ class BacktestProgressConsumer:
         try:
             # 可以记录到日志或单独的阶段表
             logger.info(f"[{task_uuid[:8]}] Stage: {stage} - {message}")
+
+            # stage 不落库，WS 广播是其唯一出口（数据准备中/引擎构建中等阶段提示）
+            await broadcast_event(
+                "backtest.stage", "backtest_task", task_uuid, "running",
+                {"stage": stage, "message": message},
+            )
         except Exception as e:
             logger.error(f"Failed to update stage for {task_uuid[:8]}: {e}")
 
@@ -258,6 +273,12 @@ class BacktestProgressConsumer:
             }
             await set_backtest_progress(task_uuid, progress_data, ttl=60)
 
+            # WS 薄事件：薄结果子集供列表页即时渲染，明细由前端 REST 全量拉取
+            await broadcast_event(
+                "backtest.completed", "backtest_task", task_uuid, "completed",
+                {k: v for k, v in result_fields.items()},
+            )
+
         except Exception as e:
             logger.error(f"Failed to update completed for {task_uuid[:8]}: {e}")
 
@@ -281,6 +302,11 @@ class BacktestProgressConsumer:
             }
             await set_backtest_progress(task_uuid, progress_data, ttl=60)
 
+            await broadcast_event(
+                "backtest.failed", "backtest_task", task_uuid, "failed",
+                {"error": error},
+            )
+
         except Exception as e:
             logger.error(f"Failed to update failed for {task_uuid[:8]}: {e}")
 
@@ -300,6 +326,10 @@ class BacktestProgressConsumer:
                 "updated_at": datetime.utcnow().isoformat()
             }
             await set_backtest_progress(task_uuid, progress_data, ttl=60)
+
+            await broadcast_event(
+                "backtest.stopped", "backtest_task", task_uuid, "stopped", {},
+            )
 
         except Exception as e:
             logger.error(f"Failed to update cancelled for {task_uuid[:8]}: {e}")

@@ -40,15 +40,6 @@ export const useBacktestStore = defineStore('backtest', () => {
   /** 最后更新时间 */
   const lastUpdate = ref<string | null>(null)
 
-  /** WebSocket 连接状态 */
-  const wsConnected = ref(false)
-
-  /** 轮询模式标志（WebSocket 断开时启用） */
-  const pollingMode = ref(false)
-
-  /** 轮询定时器 */
-  let pollingTimer: number | null = null
-
   /** 批量操作加载状态 */
   const batchOperationLoading = ref(false)
 
@@ -339,205 +330,45 @@ export const useBacktestStore = defineStore('backtest', () => {
   }
 
   /**
-   * 批量启动任务
-   * 返回操作结果统计
+   * 批量操作通用执行:Promise.allSettled 并发 + 成功/失败统计。
+   * batchStart/Stop/Cancel 三者仅操作函数不同,统计逻辑完全一致,归集于此。
    */
-  async function batchStart(uuids: string[]): Promise<{
+  async function runBatch(
+    uuids: string[],
+    op: (uuid: string) => Promise<any>
+  ): Promise<{
     total: number
     success: number
     failed: number
     failedTasks: Array<{ uuid: string; error: string }>
   }> {
     batchOperationLoading.value = true
-    const results = await Promise.allSettled(
-      uuids.map(uuid => startTask(uuid))
-    )
-
-    const success = results.filter(r => r.status === 'fulfilled').length
-    const failed = results.filter(r => r.status === 'rejected').length
-    const failedTasks: Array<{ uuid: string; error: string }> = []
-
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        failedTasks.push({
-          uuid: uuids[index],
-          error: result.reason?.message || '未知错误'
-        })
+    try {
+      const results = await Promise.allSettled(uuids.map(uuid => op(uuid)))
+      const failedTasks = results
+        .map((r, i) => r.status === 'rejected'
+          ? { uuid: uuids[i], error: r.reason?.message || '未知错误' }
+          : null)
+        .filter((x): x is { uuid: string; error: string } => x !== null)
+      return {
+        total: uuids.length,
+        success: results.length - failedTasks.length,
+        failed: failedTasks.length,
+        failedTasks,
       }
-    })
-
-    batchOperationLoading.value = false
-    return { total: uuids.length, success, failed, failedTasks }
-  }
-
-  /**
-   * 批量停止任务
-   */
-  async function batchStop(uuids: string[]): Promise<{
-    total: number
-    success: number
-    failed: number
-    failedTasks: Array<{ uuid: string; error: string }>
-  }> {
-    batchOperationLoading.value = true
-    const results = await Promise.allSettled(
-      uuids.map(uuid => stopTask(uuid))
-    )
-
-    const success = results.filter(r => r.status === 'fulfilled').length
-    const failed = results.filter(r => r.status === 'rejected').length
-    const failedTasks: Array<{ uuid: string; error: string }> = []
-
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        failedTasks.push({
-          uuid: uuids[index],
-          error: result.reason?.message || '未知错误'
-        })
-      }
-    })
-
-    batchOperationLoading.value = false
-    return { total: uuids.length, success, failed, failedTasks }
-  }
-
-  /**
-   * 批量取消任务
-   */
-  async function batchCancel(uuids: string[]): Promise<{
-    total: number
-    success: number
-    failed: number
-    failedTasks: Array<{ uuid: string; error: string }>
-  }> {
-    batchOperationLoading.value = true
-    const results = await Promise.allSettled(
-      uuids.map(uuid => cancelTask(uuid))
-    )
-
-    const success = results.filter(r => r.status === 'fulfilled').length
-    const failed = results.filter(r => r.status === 'rejected').length
-    const failedTasks: Array<{ uuid: string; error: string }> = []
-
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        failedTasks.push({
-          uuid: uuids[index],
-          error: result.reason?.message || '未知错误'
-        })
-      }
-    })
-
-    batchOperationLoading.value = false
-    return { total: uuids.length, success, failed, failedTasks }
-  }
-
-  /**
-   * 处理 WebSocket 进度更新
-   * 包含数据冲突处理（基于时间戳比较）
-   * 由 WebSocket 消息处理器调用
-   */
-  function updateProgress(data: {
-    task_id: string
-    status?: string
-    progress?: number
-    current_stage?: string
-    error_message?: string
-    timestamp?: string  // 服务端时间戳，用于冲突处理
-    update_at?: string
-  }) {
-    const task = tasks.value.find(t => t.uuid === data.task_id)
-
-    // 数据冲突处理：比较时间戳
-    if (task && data.update_at) {
-      const existingTime = new Date(task.update_at).getTime()
-      const updateTime = new Date(data.update_at).getTime()
-
-      // 仅当服务端数据更新时才更新本地数据
-      if (updateTime > existingTime) {
-        if (data.status) task.status = data.status as any
-        if (data.progress) task.progress = data.progress
-        if (data.current_stage) task.current_stage = data.current_stage
-        if (data.error_message) task.error_message = data.error_message
-        if (data.update_at) task.update_at = data.update_at
-      }
-    } else if (task) {
-      // 没有时间戳信息时，直接更新
-      if (data.status) task.status = data.status as any
-      if (data.progress) task.progress = data.progress
-      if (data.current_stage) task.current_stage = data.current_stage
-      if (data.error_message) task.error_message = data.error_message
-    }
-
-    // 更新当前任务（同样进行冲突处理）
-    if (currentTask.value?.uuid === data.task_id && data.update_at) {
-      const existingTime = new Date(currentTask.value.update_at).getTime()
-      const updateTime = new Date(data.update_at).getTime()
-
-      if (updateTime > existingTime) {
-        if (data.status) currentTask.value.status = data.status as any
-        if (data.progress) currentTask.value.progress = data.progress
-        if (data.current_stage) currentTask.value.current_stage = data.current_stage
-        if (data.error_message) currentTask.value.error_message = data.error_message
-        if (data.update_at) currentTask.value.update_at = data.update_at
-      }
-    } else if (currentTask.value?.uuid === data.task_id) {
-      if (data.status) currentTask.value.status = data.status as any
-      if (data.progress) currentTask.value.progress = data.progress
-      if (data.current_stage) currentTask.value.current_stage = data.current_stage
-      if (data.error_message) currentTask.value.error_message = data.error_message
-    }
-
-    // 更新运行状态
-    if (data.status === 'running') {
-      runningTaskIds.value.add(data.task_id)
-    } else if (['completed', 'failed', 'stopped'].includes(data.status || '')) {
-      runningTaskIds.value.delete(data.task_id)
+    } finally {
+      batchOperationLoading.value = false
     }
   }
 
-  /**
-   * 启动轮询模式（WebSocket 断开时）
-   */
-  function startPolling(interval = 5000) {
-    if (pollingTimer) return // 避免重复启动
+  /** 批量启动任务,返回操作结果统计 */
+  const batchStart = (uuids: string[]) => runBatch(uuids, startTask)
 
-    pollingMode.value = true
-    pollingTimer = window.setInterval(async () => {
-      // 有未终态任务（排队/运行中）时才轮询——排队中任务不在 runningTaskIds 里，须单独查
-      const hasActive = tasks.value.some(t => ['pending', 'created', 'running'].includes(t.status))
-      if (hasActive || runningTaskIds.value.size > 0) {
-        await fetchList(undefined, { silent: true })
-      }
-    }, interval)
-  }
+  /** 批量停止任务 */
+  const batchStop = (uuids: string[]) => runBatch(uuids, stopTask)
 
-  /**
-   * 停止轮询模式（WebSocket 重连时）
-   */
-  function stopPolling() {
-    pollingMode.value = false
-    if (pollingTimer) {
-      clearInterval(pollingTimer)
-      pollingTimer = null
-    }
-  }
-
-  /**
-   * WebSocket 连接状态更新
-   */
-  function onWebSocketConnected() {
-    wsConnected.value = true
-    stopPolling() // 停止轮询
-  }
-
-  /**
-   * WebSocket 断开处理
-   */
-  function onWebSocketDisconnected() {
-    wsConnected.value = false
-    startPolling() // 启动轮询降级
-  }
+  /** 批量取消任务 */
+  const batchCancel = (uuids: string[]) => runBatch(uuids, cancelTask)
 
   /**
    * 清除当前任务详情
@@ -566,8 +397,6 @@ export const useBacktestStore = defineStore('backtest', () => {
     detailLoading,
     total,
     lastUpdate,
-    wsConnected,
-    pollingMode,
     batchOperationLoading,
 
     // Getters
@@ -590,13 +419,8 @@ export const useBacktestStore = defineStore('backtest', () => {
     batchStart,
     batchStop,
     batchCancel,
-    updateProgress,
     clearCurrentTask,
     refresh,
-    onWebSocketConnected,
-    onWebSocketDisconnected,
-    startPolling,
-    stopPolling,
     canOperateTask,
     canStartTask,
     canStopTask,

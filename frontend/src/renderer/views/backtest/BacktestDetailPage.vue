@@ -363,7 +363,7 @@ import { backtestApi, portfolioApi } from '@/api'
 import type { BacktestTask, AnalyzerInfo } from '@/api'
 import { useBacktestStore } from '@/stores'
 import { useBacktestStatus } from '@/composables'
-import { useWebSocket } from '@/composables'
+import { useWebSocket, useServerEvents, usePolling } from '@/composables'
 import { canStartByState, canStopByState } from '@/constants/backtest'
 import { NetValueChart } from '@/components/charts'
 import type { LineData } from 'lightweight-charts'
@@ -482,6 +482,7 @@ const loadDetail = async (silent = false) => {
     if (disposed) return
     const prevName = currentTask.value?.portfolio_name
     const fresh = ((task as any).data || task) as BacktestTask
+
     // 静默刷新沿用已补拉过的组合名,省一次 /portfolios/{id} 往返(限流敏感期少占配额)
     if (silent && prevName && !fresh.portfolio_name) fresh.portfolio_name = prevName
     currentTask.value = fresh
@@ -609,22 +610,71 @@ const onLogsScroll = (e: Event) => {
   }
 }
 
-const handleReRun = async () => {
+const handleReRun = () => {
+  if (!currentTask.value) return
+  openConfirm('确认重新运行', '将重新调度并运行此回测任务，运行结果会被新的一次覆盖。', doReRun)
+}
+
+const doReRun = async () => {
   if (!currentTask.value) return
   try {
     const result = await backtestStore.startTask(currentTask.value.uuid)
+    console.log('重新运行结果:', result) // 调试日志
     message.success('已重新启动回测')
+
     if (result?.task_id) {
-      // 复用同一 task 的 rerun:路由不变 push 是 no-op,须显式重载,
-      // 否则页面停在旧终态(进度卡 v-if="running" 不显示,看起来像卡死)
-      if (result.task_id === backtestId.value) loadDetail()
-      else router.push(`/backtests/${result.task_id}`)
+      // 重新运行后，等待一小段时间让任务状态更新，然后重新加载
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // 如果返回的 task_id 与当前页面不同，跳转到新任务
+      if (result.task_id !== backtestId.value) {
+        console.log('跳转到新任务:', result.task_id) // 调试日志
+        router.push(`/backtests/${result.task_id}`)
+      } else {
+        // 相同任务ID，重新加载详情
+        console.log('重新加载当前任务详情') // 调试日志
+        await loadDetail()
+      }
     } else {
-      loadDetail()
+      // 没有返回 task_id，直接重新加载
+      await loadDetail()
     }
   } catch (e: any) {
+    console.error('重新运行失败:', e) // 调试日志
     message.error(e.response?.data?.detail || '重新运行失败')
   }
+}
+
+// WebSocket 订阅:薄事件信封(ADR-046)直接 patch 本地 currentTask。
+// 旧路径经 store 往返(tasks 里碰巧有同 id 任务才生效,重跑后常失灵),
+// 新路径 entity+id 精确定位,信封 status 已是 REST 同款小写枚举
+const TERMINAL_EVENTS = ['backtest.completed', 'backtest.failed', 'backtest.stopped']
+
+function setupWebSocketSubscription() {
+  if (unsubscribe) {
+    unsubscribe()
+    unsubscribe = null
+  }
+
+  unsubscribe = on('*', (e) => {
+    const t = currentTask.value
+    if (!t || e.entity !== 'backtest_task' || e.id !== t.uuid) return
+
+    if (e.data?.progress != null) t.progress = e.data.progress
+    if (e.status && e.event !== 'backtest.progress') t.status = e.status as typeof t.status
+
+    // 终态:静默补一次全量(指标/图表/交易记录落定)
+    if (TERMINAL_EVENTS.includes(e.event)) {
+      loadDetail(true)
+      return
+    }
+    // 运行中:节流 10s 静默刷新图表/统计,兼顾"数据不只在结束后刷新"与不闪屏
+    const now = Date.now()
+    if (now - lastRunRefresh > 10000) {
+      lastRunRefresh = now
+      loadDetail(true)
+    }
+  })
 }
 
 // 统一危险操作确认(停止/删除回测)— 替代原生 confirm(),站点风格一致、Electron 下不弹原生框
@@ -709,39 +759,59 @@ const metrics = computed<{ label: string; value: string; color?: string }[]>(() 
 })
 
 // ========== WebSocket ==========
-const { subscribe } = useWebSocket()
+const { isConnected } = useWebSocket()
+const { on } = useServerEvents()
 let unsubscribe: (() => void) | null = null
-// 运行中节流静默刷新的时间戳(WS 消息 2s 一条,详情全量刷新节流到 10s)
+// 运行中节流静默刷新的时间戳(进度事件 2s 一条,详情全量刷新节流到 10s)
 let lastRunRefresh = 0
+
+// ========== 运行态轮询(断线兜底) ==========
+// WS 推送是主路径;断线窗口内 5s 轮询顶上(轻量,拉任务本体不走 loadDetail 全家桶),
+// 终态时停轮询并补一次全量刷新让指标/图表/交易记录落定
+const ACTIVE_STATES = ['created', 'pending', 'running']
+const TERMINAL_STATES = ['completed', 'failed', 'stopped']
+const pollTaskStatus = async () => {
+  if (!backtestId.value || disposed) return stopProgressPolling()
+  const s = currentTask.value?.status
+  if (!s || !ACTIVE_STATES.includes(s)) return stopProgressPolling()
+  try {
+    const task = await backtestApi.get(backtestId.value)
+    if (disposed) return
+    const prev = currentTask.value
+    const fresh = ((task as any).data || task) as BacktestTask
+    // 沿用已补拉过的组合名(详情接口不返回 portfolio_name)
+    if (prev?.portfolio_name && !fresh.portfolio_name) fresh.portfolio_name = prev.portfolio_name
+    currentTask.value = fresh
+    if (TERMINAL_STATES.includes(fresh.status)) {
+      stopProgressPolling()
+      loadDetail(true)
+    }
+  } catch { /* 单次失败(如限流 429)静默保留旧值,下轮重试 */ }
+}
+const { start: startProgressPolling, stop: stopProgressPolling } = usePolling(pollTaskStatus, 5000)
+// 轮询反转:连线时 WS 是主路径,停轮询并补齐一次断线窗口;断线且任务活跃才轮询
+watch(isConnected, (connected) => {
+  if (connected) {
+    stopProgressPolling()
+    if (backtestId.value) loadDetail(true)
+  } else {
+    const s = currentTask.value?.status
+    if (s && ACTIVE_STATES.includes(s)) startProgressPolling()
+    else stopProgressPolling()
+  }
+}, { immediate: true })
+// 重跑等场景终态→活跃翻转时,断线下重启兜底轮询(连线时上方 watch 已处理)
+watch(() => currentTask.value?.status, (s) => {
+  if (s && ACTIVE_STATES.includes(s) && !isConnected.value) startProgressPolling()
+  else stopProgressPolling()
+})
 
 onMounted(() => {
   loadDetail()
   // 深链直达 ?tab=logs 时 watch 不 fire(初始即 logs),须显式加载
   if (route.query.tab === 'logs') loadLogs(true)
 
-  unsubscribe = subscribe('*', (data) => {
-    const taskId = data.task_id || data.task_uuid
-    if (!taskId) return
-    const t = currentTask.value
-    if (t && taskId === t.uuid) {
-      backtestStore.updateProgress({ task_id: taskId, status: data.type === 'progress' ? undefined : data.type, progress: data.progress })
-      // 进度就地更新,不做全屏刷新(此前每条消息都 loadDetail → spinner 闪屏)
-      if (data.progress != null) t.progress = data.progress
-      // 状态取消息 type(与上方 store 更新口径一致;progress 消息不动状态)
-      if (data.type && data.type !== 'progress') t.status = data.type
-      // 终态:静默补一次全量(指标/图表/交易记录落定)
-      if (['completed', 'failed', 'stopped'].includes(data.type)) {
-        loadDetail(true)
-        return
-      }
-      // 运行中:节流 10s 静默刷新图表/统计,兼顾"数据不只在结束后刷新"与不闪屏
-      const now = Date.now()
-      if (now - lastRunRefresh > 10000) {
-        lastRunRefresh = now
-        loadDetail(true)
-      }
-    }
-  })
+  setupWebSocketSubscription()
 })
 
 watch(backtestId, (newVal) => {
