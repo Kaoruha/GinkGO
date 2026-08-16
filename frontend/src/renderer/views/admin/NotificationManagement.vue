@@ -368,6 +368,8 @@ import StatusTag from '@/components/common/StatusTag.vue'
 import { notificationsApi, type NotificationTemplate, type NotificationHistory, type NotificationRecipient } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { formatDate } from '@/utils/format'
+import { NOTIFICATION_TYPE_CONFIG } from '@/constants/statusConfig'
 
 /** 行右键菜单(替代操作列;删除走菜单内置确认) */
 const { open: openCtxMenu } = useContextMenu()
@@ -414,20 +416,9 @@ const tabs = [
   { key: 'recipients', label: '接收人' },
 ]
 
-const getTypeClass = (type: string) => {
-  const classMap: Record<string, string> = { email: 'tag-blue', discord: 'tag-green', system: 'tag-orange' }
-  return classMap[type] || 'tag-gray'
-}
+const getTypeClass = (type: string) => NOTIFICATION_TYPE_CONFIG[type]?.tagClass ?? 'tag-gray'
 
-const getTypeLabel = (type: string) => {
-  const labelMap: Record<string, string> = { email: '邮件', discord: 'Discord', system: '系统', webhook: 'Webhook' }
-  return labelMap[type] || type
-}
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('zh-CN')
-}
+const getTypeLabel = (type: string) => NOTIFICATION_TYPE_CONFIG[type]?.label ?? type
 
 // ===== 数据加载 =====
 
@@ -634,37 +625,6 @@ onMounted(() => {
 /* 表格样式 */
 .table-wrapper {
   overflow-x: clip;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.data-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: hsl(var(--border));
-  color: hsl(var(--foreground));
-  font-weight: 500;
-  font-size: 13px;
-}
-
-.data-table td {
-  color: hsl(var(--foreground));
-  font-size: 14px;
-}
-
-.data-table tr:hover {
-  background: hsl(var(--border));
 }
 
 /* Switch组件 */

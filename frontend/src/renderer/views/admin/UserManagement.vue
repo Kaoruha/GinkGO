@@ -301,6 +301,7 @@ import StatusTag from '@/components/common/StatusTag.vue'
 import { usersApi, type UserInfo } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { formatDate } from '@/utils/format'
 
 /** 行右键菜单(替代操作列;删除走菜单内置确认) */
 const { open: openRowMenu0 } = useContextMenu()
@@ -332,11 +333,6 @@ const userForm = reactive({
   roles: [] as string[],
   active: true,
 })
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('zh-CN')
-}
 
 const loadUsers = async () => {
   loading.value = true
@@ -448,6 +444,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
+/* 字号覆盖:正文 13px(公共基线 14px,见 styles/tables.less) */
+.data-table td {
+  font-size: 13px;
+}
+
 /* 模态框样式走全局 modals.less */
 
 /* Filter Row */
@@ -500,36 +502,6 @@ onMounted(() => {
 /* Table */
 .table-wrapper {
   overflow-x: clip;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.data-table th,
-.data-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.data-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: hsl(var(--border));
-  color: hsl(var(--foreground));
-  font-weight: 500;
-}
-
-.data-table td {
-  color: hsl(var(--foreground));
-}
-
-.data-table tbody tr:hover {
-  background: hsl(var(--border));
 }
 
 .role-tag {

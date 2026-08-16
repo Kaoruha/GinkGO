@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { formatDate } from '@/utils/format'
 
 /** 行右键菜单(本页无行操作,给复制类) */
 const { open: openCtxMenu } = useContextMenu()
@@ -102,10 +103,6 @@ const formatNumber = (num: number | string | null, decimals = 2) => {
   const n = typeof num === 'string' ? parseFloat(num) : num
   if (isNaN(n)) return '-'
   return n.toFixed(decimals)
-}
-
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString()
 }
 
 const getSideBadgeVariant = (side: string) => {

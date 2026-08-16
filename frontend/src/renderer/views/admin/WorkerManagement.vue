@@ -72,20 +72,12 @@
           <option value="">
             全部类型
           </option>
-          <option value="data_worker">
-            数据 Worker
-          </option>
-          <option value="backtest_worker">
-            回测 Worker
-          </option>
-          <option value="execution_node">
-            执行节点
-          </option>
-          <option value="scheduler">
-            调度器
-          </option>
-          <option value="task_timer">
-            定时器
+          <option
+            v-for="t in WORKER_TYPES"
+            :key="t.key"
+            :value="t.key"
+          >
+            {{ t.label }}
           </option>
         </select>
       </div>
@@ -142,9 +134,9 @@
                 <td>
                   <span
                     class="tag"
-                    :class="`tag-${getTypeColorClass(record.type)}`"
+                    :class="workerTypeTagClass(record.type)"
                   >
-                    {{ getTypeText(record.type) }}
+                    {{ workerTypeLabel(record.type) }}
                   </span>
                 </td>
                 <td :class="staleCellClass(record.last_heartbeat)">
@@ -262,6 +254,7 @@ import { systemApi } from '@/api'
 import type { WorkerInfo, WorkerTaskInfo } from '@/api'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { WORKER_TYPES, workerTypeTagClass, workerTypeLabel } from '@/constants/statusConfig'
 
 /** 行右键菜单(纯监控:仅刷新) */
 const { open: openCtxMenu } = useContextMenu()
@@ -339,16 +332,6 @@ const toggleExpand = async (worker: WorkerInfo) => {
   }
 }
 
-const getTypeColorClass = (type: string) => {
-  const colors: Record<string, string> = { data_worker: 'purple', backtest_worker: 'blue', execution_node: 'green', scheduler: 'orange', task_timer: 'magenta' }
-  return colors[type] || 'gray'
-}
-
-const getTypeText = (type: string) => {
-  const texts: Record<string, string> = { data_worker: '数据Worker', backtest_worker: '回测Worker', execution_node: '执行节点', scheduler: '调度器', task_timer: '定时器' }
-  return texts[type] || type
-}
-
 const refreshData = () => {
   systemStore.fetchWorkers()
 }
@@ -371,6 +354,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
+/* 密度覆盖:紧凑 12px(公共基线见 styles/tables.less) */
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
 /* 开关 */
 .switch-label {
   display: flex;
@@ -437,34 +428,6 @@ onUnmounted(() => {
 .table-wrapper {
   padding: 20px;
   overflow-x: clip;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-  padding: 10px 12px;
-  text-align: left;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.data-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: hsl(var(--border));
-  color: hsl(var(--foreground));
-  font-weight: 500;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.data-table td {
-  color: hsl(var(--foreground));
-  font-size: 12px;
 }
 
 .monospace {

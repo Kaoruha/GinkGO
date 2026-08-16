@@ -227,7 +227,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { dataApi } from '@/api'
 import type { SyncHistoryRecord } from '@/api'
-import { formatRelativeTime } from '@/utils/format'
+import { formatRelativeTime, formatCompact } from '@/utils/format'
+import { SYNC_TYPE_CONFIG, SYNC_STATUS_CONFIG } from '@/constants/statusConfig'
 import { message as toast } from '@/utils/toast'
 
 // ===== ① 存量统计 =====
@@ -286,19 +287,9 @@ const typeOptions = [
 
 const hasMore = computed(() => records.value.length < total.value)
 
-const TYPE_LABELS: Record<string, string> = {
-  bars: 'K线', ticks: 'Tick', stockinfo: '股票', adjustfactor: '复权',
-}
-const TYPE_TAGS: Record<string, string> = {
-  bars: 'tag-blue', ticks: 'tag-cyan', stockinfo: 'tag-green', adjustfactor: 'tag-purple',
-}
-const STATUS_LABELS: Record<string, string> = {
-  success: '成功', partial: '部分', failed: '失败', running: '同步中',
-}
-
-const typeLabel = (t: string) => TYPE_LABELS[t] ?? t
-const typeTagClass = (t: string) => TYPE_TAGS[t] ?? 'tag-gray'
-const statusLabel = (s: string) => STATUS_LABELS[s] ?? s
+const typeLabel = (t: string) => SYNC_TYPE_CONFIG[t]?.label ?? t
+const typeTagClass = (t: string) => SYNC_TYPE_CONFIG[t]?.tagClass ?? 'tag-gray'
+const statusLabel = (s: string) => SYNC_STATUS_CONFIG[s]?.label ?? s
 
 async function fetchHistory(append = false) {
   if (append) page.value += 1
@@ -332,11 +323,7 @@ function loadMore() {
 
 // ===== 格式化 =====
 function formatNumber(n: number | null | undefined): string {
-  const num = Number(n)
-  if (!num || isNaN(num)) return '0'
-  if (num >= 100000000) return (num / 100000000).toFixed(2) + '亿'
-  if (num >= 10000) return (num / 10000).toFixed(1) + '万'
-  return num.toLocaleString()
+  return formatCompact(n, 1)
 }
 
 function formatDuration(ms: number | null | undefined): string {

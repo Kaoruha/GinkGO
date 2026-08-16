@@ -26,17 +26,6 @@ export interface BrokerInstance {
   }
 }
 
-/** Broker 状态映射 */
-export const BROKER_STATE_LABELS: Record<BrokerState, { label: string; color: 'success' | 'info' | 'warning' | 'default' | 'destructive' | 'outline' | 'secondary' }> = {
-  uninitialized: { label: '未初始化', color: 'secondary' },
-  initializing: { label: '初始化中', color: 'warning' },
-  running: { label: '运行中', color: 'success' },
-  paused: { label: '已暂停', color: 'warning' },
-  stopped: { label: '已停止', color: 'secondary' },
-  error: { label: '错误', color: 'destructive' },
-  recovering: { label: '恢复中', color: 'warning' },
-}
-
 /**
  * Broker 管理 API
  */

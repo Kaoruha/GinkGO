@@ -8,6 +8,7 @@ import { liveAccountApi } from '@/api'
 import { usePolling } from '@/composables'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { formatDate } from '@/utils/format'
 
 /** 账户卡片右键菜单(替代卡片内刷新按钮) */
 const { open: openCtxMenu } = useContextMenu()
@@ -604,7 +605,7 @@ usePolling(refreshAll, 10000)
           <div class="card-footer">
             <Clock class="w-3 h-3 mr-1" />
             <span class="update-time">
-              最后更新: {{ account.last_update ? new Date(account.last_update).toLocaleString() : '-' }}
+              最后更新: {{ formatDate(account.last_update) }}
             </span>
           </div>
         </div>

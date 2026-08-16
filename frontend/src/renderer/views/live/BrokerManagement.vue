@@ -10,6 +10,8 @@ import { brokerApi } from '@/api'
 import { message } from '@/utils/toast'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { useContextMenu, type MenuItem } from '@/composables/useContextMenu'
+import { formatRelativeTime } from '@/utils/format'
+import { BROKER_STATE_CONFIG, type BadgeEntry } from '@/constants/statusConfig'
 
 /** 卡片右键菜单(替代卡片内操作按钮;停止走菜单内置确认) */
 const { open: openCtxMenu } = useContextMenu()
@@ -63,57 +65,37 @@ const loadError = ref(false)  // 后端 /accounts/brokers 接口不可用(404=�
 const emergencyConfirmOpen = ref(false)
 const emergencyLoading = ref(false)
 
-// 状态配置
+// 状态配置:语义(label/variant)收敛在 constants/statusConfig;
+// 本页仅保留视觉层 —— variant→配色映射与 lucide 图标。
+const VARIANT_COLORS: Record<BadgeEntry['variant'], { color: string; bgColor: string }> = {
+  success: { color: 'hsl(var(--success))', bgColor: 'hsl(var(--success) / 0.1)' },
+  secondary: { color: 'hsl(var(--muted-foreground))', bgColor: 'hsl(var(--muted-foreground) / 0.1)' },
+  outline: { color: 'hsl(var(--warning))', bgColor: 'hsl(var(--warning) / 0.1)' },
+  destructive: { color: 'hsl(var(--error))', bgColor: 'hsl(var(--error) / 0.1)' },
+}
+
+const STATE_ICONS: Record<string, any> = {
+  uninitialized: Settings,
+  initializing: Activity,
+  running: Activity,
+  paused: Pause,
+  stopped: Square,
+  recovering: Activity,
+  error: AlertTriangle,
+}
+
 const stateConfig: Record<string, {
   label: string;
   variant: 'success' | 'secondary' | 'destructive' | 'outline';
   icon: any;
   color: string;
   bgColor: string;
-}> = {
-  uninitialized: {
-    label: '未初始化',
-    variant: 'secondary',
-    icon: Settings,
-    color: 'hsl(var(--muted-foreground))',
-    bgColor: 'hsl(var(--muted-foreground) / 0.1)'
-  },
-  initializing: {
-    label: '初始化中',
-    variant: 'outline',
-    icon: Activity,
-    color: 'hsl(var(--warning))',
-    bgColor: 'hsl(var(--warning) / 0.1)'
-  },
-  running: {
-    label: '运行中',
-    variant: 'success',
-    icon: Activity,
-    color: 'hsl(var(--success))',
-    bgColor: 'hsl(var(--success) / 0.1)'
-  },
-  paused: {
-    label: '已暂停',
-    variant: 'secondary',
-    icon: Pause,
-    color: 'hsl(var(--warning))',
-    bgColor: 'hsl(var(--warning) / 0.1)'
-  },
-  stopped: {
-    label: '已停止',
-    variant: 'secondary',
-    icon: Square,
-    color: 'hsl(var(--muted-foreground))',
-    bgColor: 'hsl(var(--muted-foreground) / 0.1)'
-  },
-  error: {
-    label: '错误',
-    variant: 'destructive',
-    icon: AlertTriangle,
-    color: 'hsl(var(--error))',
-    bgColor: 'hsl(var(--error) / 0.1)'
-  }
-}
+}> = Object.fromEntries(
+  Object.entries(BROKER_STATE_CONFIG).map(([state, cfg]) => [
+    state,
+    { ...cfg, icon: STATE_ICONS[state], ...VARIANT_COLORS[cfg.variant] },
+  ]),
+)
 
 // 加载 Broker 列表
 const loadBrokers = async () => {
@@ -199,19 +181,6 @@ const doEmergencyStop = async () => {
   } finally {
     emergencyLoading.value = false
   }
-}
-
-// 格式化时间
-const formatTime = (timeStr: string) => {
-  const date = new Date(timeStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-
-  if (diffMins < 1) return '刚刚'
-  if (diffMins < 60) return `${diffMins} 分钟前`
-  if (diffMins < 1440) return `${Math.floor(diffMins / 60)} 小时前`
-  return date.toLocaleString()
 }
 
 const getBrokerId = (uuid: string) => uuid.slice(0, 8)
@@ -376,11 +345,11 @@ onMounted(() => {
 
             <!-- 时间信息 -->
             <div class="broker-time">
-              <span class="time-label">创建于 {{ formatTime(broker.create_at) }}</span>
+              <span class="time-label">创建于 {{ formatRelativeTime(broker.create_at) }}</span>
               <span
                 v-if="broker.update_at"
                 class="time-label"
-              >更新于 {{ formatTime(broker.update_at) }}</span>
+              >更新于 {{ formatRelativeTime(broker.update_at) }}</span>
             </div>
           </div>
         </div>

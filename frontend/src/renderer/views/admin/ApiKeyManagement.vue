@@ -111,8 +111,8 @@
                   {{ key.is_expired ? '已过期' : key.is_active ? '激活' : '禁用' }}
                 </StatusTag>
               </td>
-              <td>{{ key.expires_at ? formatDate(key.expires_at) : '永不过期' }}</td>
-              <td>{{ key.last_used_at ? formatDateTime(key.last_used_at) : '从未使用' }}</td>
+              <td>{{ key.expires_at ? formatDay(key.expires_at) : '永不过期' }}</td>
+              <td>{{ key.last_used_at ? formatDate(key.last_used_at) : '从未使用' }}</td>
             </tr>
           </tbody>
         </table>
@@ -246,6 +246,7 @@ import StatusTag from '@/components/common/StatusTag.vue'
 import { apiKeyApi, type ApiKey, type CreateApiKeyRequest, type UpdateApiKeyRequest, PermissionType } from '@/api/modules/apiKey'
 import { message } from '@/utils/toast'
 import { copyText } from '@/utils/clipboard'
+import { formatDate, formatDay } from '@/utils/format'
 import { useContextMenu } from '@/composables/useContextMenu'
 
 /** 行右键菜单(替代操作列;删除走菜单内置确认) */
@@ -408,14 +409,6 @@ const copyApiKey = async (key: ApiKey) => {
 const copyToClipboard = async (text: string) => {
   const ok = await copyText(text)
   if (!ok) message.error('复制失败，请手动复制')
-}
-
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleDateString('zh-CN')
-}
-
-const formatDateTime = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString('zh-CN')
 }
 
 onMounted(() => {

@@ -141,7 +141,7 @@
                 />
               </td>
               <td class="mono">
-                {{ formatTime(e.triggered_at) }}
+                {{ formatDate(e.triggered_at) }}
               </td>
               <td class="mono">
                 {{ e.duration_ms > 0 ? e.duration_ms + 'ms' : '-' }}
@@ -226,7 +226,7 @@ import { taskTimerApi } from '@/api/modules/taskTimer'
 import type { TaskTimerExecution, TaskTimerJob, ExecutionSummary } from '@/api/modules/taskTimer'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
-import dayjs from 'dayjs'
+import { formatDate } from '@/utils/format'
 
 /** 执行记录行右键菜单(本页无行操作,给复制类) */
 const { open: openCtxMenu } = useContextMenu()
@@ -247,11 +247,6 @@ const filterStatus = ref('')
 const loadError = ref('')
 const pagination = ref({ current: 1, pageSize: 20, total: 0 })
 const totalPages = computed(() => Math.max(1, Math.ceil(pagination.value.total / pagination.value.pageSize)))
-
-function formatTime(t: string | null) {
-  if (!t) return '-'
-  return dayjs(t).format('YYYY-MM-DD HH:mm:ss')
-}
 
 async function loadSummary() {
   try {
@@ -308,16 +303,27 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
+/* 密度覆盖:紧凑 padding + 表头加重 + 正文 13px(公共基线见 styles/tables.less) */
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+}
+
+.data-table th {
+  font-weight: 600;
+}
+
+.data-table td {
+  font-size: 13px;
+}
+
 /* 统计卡片:StatCard + 全局 .stats-grid(间距需页内补) */
 .stats-grid { margin-bottom: 16px; }
 
 .card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); margin-bottom: 16px; }
 .card-header { padding: 12px 16px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
 .table-wrapper { overflow-x: clip; }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th { position: sticky; top: 0; z-index: 1; padding: 10px 12px; text-align: left; color: hsl(var(--foreground)); background: hsl(var(--border)); font-weight: 600; white-space: nowrap; }
-.data-table td { padding: 10px 12px; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); }
-.data-table tbody tr:hover { background: hsl(var(--secondary)); }
 .mono { font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Menlo', monospace; font-size: 12px; }
 
 .filter-bar { display: flex; gap: 8px; }

@@ -27,7 +27,7 @@
     >
       <div class="stat-card-small">
         <div class="stat-value-small">
-          {{ pagination.total.toLocaleString() }}
+          {{ formatNumber(pagination.total) }}
         </div>
         <div class="stat-label-small">
           记录数
@@ -84,7 +84,7 @@
               :key="f.uuid"
               @contextmenu="openFactorMenu($event, f)"
             >
-              <td>{{ formatDate(f.timestamp) }}</td>
+              <td>{{ formatDay(f.timestamp) }}</td>
               <td>{{ f.code }}</td>
               <td class="num">
                 {{ f.foreadjustfactor?.toFixed(6) }}
@@ -133,7 +133,7 @@
         class="pagination"
       >
         <span class="pagination-info">
-          共 {{ pagination.total.toLocaleString() }} 条，第 {{ pagination.current }} / {{ totalPages }} 页
+          共 {{ formatNumber(pagination.total) }} 条，第 {{ pagination.current }} / {{ totalPages }} 页
         </span>
         <div class="pagination-controls">
           <button
@@ -183,15 +183,15 @@ import PageLayout from '@/components/common/PageLayout.vue'
 import { useRoute } from 'vue-router'
 import { dataApi } from '@/api/modules/data'
 import type { AdjustFactorData } from '@/api/modules/data'
-import dayjs from 'dayjs'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { formatDay, formatNumber } from '@/utils/format'
 
 /** 行右键菜单(本页无行操作,给复制类) */
 const { open: openCtxMenu } = useContextMenu()
 const openFactorMenu = (e: MouseEvent, f: AdjustFactorData) => {
   openCtxMenu(e, [
-    { label: '复制日期', action: () => { navigator.clipboard.writeText(formatDate(f.timestamp)); toast.success('已复制') } },
+    { label: '复制日期', action: () => { navigator.clipboard.writeText(formatDay(f.timestamp)); toast.success('已复制') } },
     { label: '复制代码', action: () => { navigator.clipboard.writeText(f.code); toast.success('已复制') } },
     { label: '复制前复权因子', action: () => { navigator.clipboard.writeText(String(f.foreadjustfactor ?? '')); toast.success('已复制') } },
   ])
@@ -219,11 +219,6 @@ const stats = computed(() => {
     latestBack: latest?.backadjustfactor?.toFixed(6) || '-',
   }
 })
-
-function formatDate(t: string) {
-  if (!t) return '-'
-  return dayjs(t).format('YYYY-MM-DD')
-}
 
 async function loadData() {
   loading.value = true
@@ -261,6 +256,21 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
+/* 密度覆盖:紧凑 padding + 表头加重 + 正文 13px(公共基线见 styles/tables.less) */
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+}
+
+.data-table th {
+  font-weight: 600;
+}
+
+.data-table td {
+  font-size: 13px;
+}
+
 .control-input { padding: 6px 12px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 13px; }
 .control-input:focus { outline: none; border-color: hsl(var(--primary)); }
 .control-input[type="date"] { width: 140px; }
@@ -277,11 +287,6 @@ onMounted(() => {
 .card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); }
 .card-header-simple { padding: 12px 16px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); }
 .table-wrapper { overflow-x: clip; }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th { position: sticky; top: 0; z-index: 1; padding: 10px 12px; text-align: left; color: hsl(var(--foreground)); background: hsl(var(--border)); font-weight: 600; white-space: nowrap; }
-.data-table td { padding: 10px 12px; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); }
-.data-table tbody tr:hover { background: hsl(var(--secondary)); }
-.data-table .num { font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Menlo', monospace; font-size: 12px; }
 
 .empty-state-small { padding: 40px; text-align: center; color: hsl(var(--muted-foreground)); }
 .empty-state-small .error-text { color: hsl(var(--error)); margin: 0 0 12px; }

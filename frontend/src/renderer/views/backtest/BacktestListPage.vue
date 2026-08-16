@@ -110,7 +110,7 @@
     <template #update_at="{ record }">
       <span
         class="val-muted"
-        :title="formatTime(record.update_at || record.created_at)"
+        :title="formatDate(record.update_at || record.created_at)"
       >{{ formatRelativeTime(record.update_at || record.created_at) }}</span>
     </template>
 
@@ -163,7 +163,7 @@ import request from '@/api/request'
 import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { useWebSocket, useServerEvents } from '@/composables'
 import { formatDecimal } from '@/composables/useBacktestFormatters'
-import { formatPercent, formatRelativeTime } from '@/utils/format'
+import { formatDate, formatPercent, formatRelativeTime } from '@/utils/format'
 import type { MenuItem } from '@/composables/useContextMenu'
 import { message } from '@/utils/toast'
 
@@ -224,11 +224,6 @@ const columns = [
   { title: '信号/订单', dataIndex: 'total_signals', key: 'total_signals', width: 100 },
   { title: '最近更新', dataIndex: 'update_at', key: 'update_at', width: 110, sortable: true },
 ]
-
-const formatTime = (t: string) => {
-  if (!t) return '-'
-  return t.replace('T', ' ').slice(0, 19)
-}
 
 function goDetail(record: any) {
   router.push(`/backtests/${record.uuid}`)

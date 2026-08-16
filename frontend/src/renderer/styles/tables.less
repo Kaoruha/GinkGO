@@ -63,3 +63,45 @@
 .pro-table tbody tr { transition: background 0.2s; }
 .pro-table tbody tr:hover { background: hsl(var(--secondary)); }
 .pro-table tbody tr.clickable { cursor: pointer; }
+
+// ===== .data-table:页面手写表格公共基线(原 23 份 scoped 拷贝收敛至此) =====
+// 与 .pro-table 同源同权重,差异仅两处:td 字号 14px(pro 13px 紧凑)、th 字重 500(pro 600)。
+// 页面特有密度(admin 12px 紧凑/回测详情 6px 密集/ApiKey 大写风格)以最小 scoped 覆盖保留,
+// scoped 带 [data-v] 属性选择器,specificity 恒高于此处全局规则。
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: hsl(var(--border));
+  color: hsl(var(--foreground));
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.data-table td {
+  color: hsl(var(--foreground));
+  font-size: 14px;
+}
+
+.data-table tbody tr { transition: background 0.2s; }
+.data-table tbody tr:hover { background: hsl(var(--secondary)); }
+
+// 数字列:等宽数字 + 等宽字体,量化表格列不跳动(原 AdjustFactorData/TaskTimerHistory 私有语义上移)
+.data-table .num {
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 12px;
+}

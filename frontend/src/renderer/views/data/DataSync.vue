@@ -185,6 +185,7 @@ import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { dataApi } from '@/api'
 import { extractSyncFailed } from '@/utils/syncResult'
+import { formatCompact, formatDate } from '@/utils/format'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
 
@@ -243,7 +244,7 @@ const sendCommand = async () => {
     commandHistory.value.unshift({
       type: command.type,
       codes: codes.join(', '),
-      time: new Date().toLocaleString('zh-CN'),
+      time: formatDate(new Date()),
       success: failed === 0,
     })
 
@@ -252,7 +253,7 @@ const sendCommand = async () => {
     commandHistory.value.unshift({
       type: command.type,
       codes: codes.join(', '),
-      time: new Date().toLocaleString('zh-CN'),
+      time: formatDate(new Date()),
       success: false,
     })
     console.error('发送失败:', e.message || '未知错误')
@@ -287,14 +288,7 @@ const truncateText = (text: string, maxLength: number): string => {
   return text.length > maxLength ? text.slice(0, maxLength) + '...' : text
 }
 
-const formatNumber = (num: number): string => {
-  if (num >= 100000000) {
-    return (num / 100000000).toFixed(1) + '亿'
-  } else if (num >= 10000) {
-    return (num / 10000).toFixed(1) + '万'
-  }
-  return num.toString()
-}
+const formatNumber = (num: number): string => formatCompact(num, 1)
 
 onMounted(() => {
   fetchSyncStatus()

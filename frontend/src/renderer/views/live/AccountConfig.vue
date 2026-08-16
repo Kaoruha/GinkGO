@@ -109,7 +109,7 @@
                 </td>
                 <td>
                   <span v-if="record.last_validated_at">
-                    {{ formatDateTime(record.last_validated_at) }}
+                    {{ formatDate(record.last_validated_at) }}
                   </span>
                   <span
                     v-else
@@ -338,6 +338,8 @@ import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { liveAccountApi } from '@/api'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { formatDate } from '@/utils/format'
+import { ACCOUNT_STATUS_CONFIG } from '@/constants/statusConfig'
 
 /** 行右键菜单(替代操作列;删除走菜单内置确认) */
 const { open: openCtxMenu } = useContextMenu()
@@ -512,35 +514,10 @@ const resetForm = () => {
   validationResult.value = null
 }
 
-// 获取状态标签类
-const getStatusTagClass = (status) => {
-  const classMap = {
-    enabled: 'tag-green',
-    disabled: 'tag-gray',
-    connecting: 'tag-blue',
-    disconnected: 'tag-orange',
-    error: 'tag-red'
-  }
-  return classMap[status] || 'tag-gray'
-}
+// 获取状态标签类/文本(枚举收敛在 constants/statusConfig)
+const getStatusTagClass = (status) => ACCOUNT_STATUS_CONFIG[status]?.tagClass ?? 'tag-gray'
 
-// 获取状态文本
-const getStatusText = (status) => {
-  const textMap = {
-    enabled: '已启用',
-    disabled: '已禁用',
-    connecting: '连接中',
-    disconnected: '已断开',
-    error: '错误'
-  }
-  return textMap[status] || status
-}
-
-// 格式化日期时间
-const formatDateTime = (dateTime) => {
-  if (!dateTime) return '-'
-  return new Date(dateTime).toLocaleString('zh-CN')
-}
+const getStatusText = (status) => ACCOUNT_STATUS_CONFIG[status]?.label ?? status
 
 // 生命周期
 onMounted(() => {
@@ -549,6 +526,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
+/* 字号覆盖:小屏 12px 见文末 @media;公共基线见 styles/tables.less */
+.data-table td {
+  font-size: 13px;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -600,33 +583,6 @@ onMounted(() => {
 
 .table-wrapper {
   overflow-x: clip;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.data-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: hsl(var(--border));
-  color: hsl(var(--foreground));
-  font-weight: 500;
-  font-size: 13px;
-}
-
-.data-table td {
-  color: hsl(var(--foreground));
-  font-size: 14px;
 }
 
 /* 模态框样式 */

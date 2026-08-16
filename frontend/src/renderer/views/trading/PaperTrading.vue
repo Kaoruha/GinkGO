@@ -34,7 +34,7 @@
               </router-link>
             </td>
             <td>{{ p.mode }}</td>
-            <td>{{ p.created_at?.replace('T', ' ').slice(0, 19) || '-' }}</td>
+            <td>{{ formatDate(p.created_at) }}</td>
             <td>
               <router-link
                 :to="`/portfolios/${p.uuid}`"
@@ -59,6 +59,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { portfolioApi } from '@/api/modules/portfolio'
+import { formatDate } from '@/utils/format'
 
 const portfolios = ref<any[]>([])
 
@@ -73,6 +74,12 @@ onMounted(() => fetchPortfolios())
 </script>
 
 <style scoped>
+
+/* 字号覆盖:正文 13px(公共基线 14px,见 styles/tables.less) */
+.data-table td {
+  font-size: 13px;
+}
+
 .table-container {
   flex: 1;
   min-height: 0;
@@ -83,37 +90,6 @@ onMounted(() => fetchPortfolios())
   padding: 16px;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.data-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: hsl(var(--border));
-  color: hsl(var(--foreground));
-  font-weight: 500;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.data-table td {
-  color: hsl(var(--foreground));
-  font-size: 13px;
-}
-
-.data-table tbody tr:hover {
-  background: hsl(var(--border));
-}
 .link {
   color: hsl(var(--primary));
   text-decoration: none;

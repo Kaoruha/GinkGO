@@ -26,6 +26,22 @@ export function formatDate(dateStr: string | Date | null | undefined): string {
 }
 
 /**
+ * 格式化日期 (仅日期,YYYY-MM-DD,用于日期列/按日分组标签)
+ */
+export function formatDay(dateStr: string | Date | null | undefined): string {
+  if (!dateStr) return '-'
+  try {
+    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+    if (isNaN(date.getTime())) return '-'
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${date.getFullYear()}-${month}-${day}`
+  } catch {
+    return '-'
+  }
+}
+
+/**
  * 格式化数字（添加千分位）
  */
 export function formatNumber(num: number | string | null | undefined): string {

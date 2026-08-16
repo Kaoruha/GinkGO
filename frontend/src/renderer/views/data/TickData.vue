@@ -102,7 +102,7 @@
         @update:page-size="tablePageSize = $event"
       >
         <template #colTime="{ record }">
-          {{ formatTime(record.timestamp) }}
+          {{ formatDate(record.timestamp) }}
         </template>
         <template #colPrice="{ record }">
           {{ record.price?.toFixed(2) }}
@@ -158,6 +158,7 @@ import { dataApi } from '@/api/modules/data'
 import type { TickData } from '@/api/modules/data'
 import dayjs from 'dayjs'
 import { message as toast } from '@/utils/toast'
+import { formatCompact, formatDate } from '@/utils/format'
 import type { MenuItem } from '@/composables/useContextMenu'
 
 const route = useRoute()
@@ -179,7 +180,7 @@ const tablePageSize = ref(50)
 
 /** 行右键菜单:复制行情值 */
 const rowMenu = (record: TickData): MenuItem[] => [
-  { label: '复制时间', action: () => { navigator.clipboard.writeText(formatTime(record.timestamp)); toast.success('已复制') } },
+  { label: '复制时间', action: () => { navigator.clipboard.writeText(formatDate(record.timestamp)); toast.success('已复制') } },
   { label: '复制价格', action: () => { navigator.clipboard.writeText(String(record.price ?? '')); toast.success('已复制') } },
   { label: '复制代码', action: () => { navigator.clipboard.writeText(record.code || selectedCode.value); toast.success('已复制') } },
 ]
@@ -230,7 +231,7 @@ function aggregateTicks(data: TickData[], bucketMinutes: number): OHLCBucket[] {
   const result: OHLCBucket[] = []
   for (const [ts, b] of map) {
     result.push({
-      time: new Date(ts).toISOString().replace('T', ' ').slice(0, 16),
+      time: formatDate(new Date(ts)),
       ts,
       open: b.prices[0],
       close: b.prices[b.prices.length - 1],
@@ -283,15 +284,7 @@ const stats = computed(() => {
 })
 
 function formatVolume(v: number) {
-  if (!v) return '-'
-  if (v >= 100000000) return (v / 100000000).toFixed(2) + '亿'
-  if (v >= 10000) return (v / 10000).toFixed(2) + '万'
-  return v.toLocaleString()
-}
-
-function formatTime(t: string) {
-  if (!t) return '-'
-  return t.replace('T', ' ').slice(0, 19)
+  return formatCompact(v, 2)
 }
 
 function directionLabel(d: number) {

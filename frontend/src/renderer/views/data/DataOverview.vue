@@ -234,6 +234,8 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatCompact, formatDate } from '@/utils/format'
+import { SYNC_TYPE_CONFIG } from '@/constants/statusConfig'
 import { dataApi } from '@/api'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
@@ -273,18 +275,8 @@ interface DataSource {
 
 const dataSources = ref<DataSource[]>([])
 
-const formatTime = (iso: string | null): string => {
-  if (!iso) return '--'
-  const d = new Date(iso)
-  return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
-
-const SYNC_TYPE_LABELS: Record<string, string> = {
-  stockinfo: '股票信息',
-  bars: 'K线数据',
-  ticks: 'Tick数据',
-  adjustfactor: '复权因子',
-}
+const formatTime = (iso: string | null): string =>
+  iso ? formatDate(iso) : '--'
 
 const refreshStats = async () => {
   refreshing.value = true
@@ -317,7 +309,7 @@ const refreshStats = async () => {
       const raw = (syncHistoryRes.value as any)?.data ?? []
       const items: any[] = Array.isArray(raw) ? raw : []
       recentSyncs.value = items.map((s: any) => ({
-        type: SYNC_TYPE_LABELS[s.sync_type] || s.sync_type,
+        type: SYNC_TYPE_CONFIG[s.sync_type]?.label ?? s.sync_type,
         code: s.code,
         time: formatTime(s.completed_at || s.started_at),
         status: s.status,
@@ -330,14 +322,7 @@ const refreshStats = async () => {
   }
 }
 
-const formatNumber = (num: number): string => {
-  if (num >= 100000000) {
-    return (num / 100000000).toFixed(1) + '亿'
-  } else if (num >= 10000) {
-    return (num / 10000).toFixed(1) + '万'
-  }
-  return num.toString()
-}
+const formatNumber = (num: number): string => formatCompact(num, 1)
 
 onMounted(() => {
   refreshStats()

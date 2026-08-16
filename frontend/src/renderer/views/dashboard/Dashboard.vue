@@ -153,7 +153,7 @@
               v-if="!loading && stats.totalAssets > 0"
               class="stat-value"
             >
-              {{ stats.totalAssets.toLocaleString() }} <span class="stat-suffix">元</span>
+              {{ formatNumber(stats.totalAssets) }} <span class="stat-suffix">元</span>
             </div>
             <div
               v-else
@@ -560,7 +560,7 @@ import { portfolioApi, backtestApi, dataApi } from '@/api'
 import type { Portfolio, BacktestTask } from '@/api'
 import { useBacktestStatus } from '@/composables'
 import { formatDecimal, getPnLColor } from '@/composables/useBacktestFormatters'
-import { formatRelativeTime } from '@/utils/format'
+import { formatNumber, formatRelativeTime } from '@/utils/format'
 
 interface Stats {
   total: number

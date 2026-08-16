@@ -492,52 +492,6 @@ onMounted(() => {
   overflow-x: clip;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.data-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: hsl(var(--border));
-  color: hsl(var(--foreground));
-  font-weight: 500;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.data-table td {
-  color: hsl(var(--foreground));
-  font-size: 14px;
-}
-
-.data-table tbody tr {
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.data-table tbody tr:hover {
-  background: hsl(var(--border));
-}
-
-.data-table .link {
-  color: hsl(var(--primary));
-  text-decoration: none;
-}
-
-.data-table .link:hover {
-  text-decoration: underline;
-}
-
 .text-center {
   text-align: center;
   color: hsl(var(--muted-foreground));

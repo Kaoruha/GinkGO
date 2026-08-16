@@ -104,7 +104,7 @@
         @update:page="tablePage = $event"
       >
         <template #colDate="{ record }">
-          {{ formatDate(record.timestamp) }}
+          {{ formatDay(record.timestamp) }}
         </template>
         <template #colOpen="{ record }">
           {{ record.open?.toFixed(2) }}
@@ -142,7 +142,7 @@ import DataTable from '@/components/data/DataTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
 import dayjs, { Dayjs } from 'dayjs'
 import { dataApi } from '@/api'
-import { formatCompact } from '@/utils/format'
+import { formatCompact, formatDay, formatDateTime } from '@/utils/format'
 import { message as toast } from '@/utils/toast'
 import type { MenuItem } from '@/composables/useContextMenu'
 import {
@@ -184,7 +184,7 @@ const tablePage = ref(1)
 
 /** 行右键菜单:复制行情值 */
 const rowMenu = (record: any): MenuItem[] => [
-  { label: '复制日期', action: () => { navigator.clipboard.writeText(formatDate(record.timestamp)); toast.success('已复制') } },
+  { label: '复制日期', action: () => { navigator.clipboard.writeText(formatDay(record.timestamp)); toast.success('已复制') } },
   { label: '复制收盘价', action: () => { navigator.clipboard.writeText(String(record.close ?? '')); toast.success('已复制') } },
   { label: '复制代码', action: () => { navigator.clipboard.writeText(selectedCode.value); toast.success('已复制') } },
 ]
@@ -222,8 +222,6 @@ const priceStats = computed(() => {
   const volumes = barData.value.map(b => b.volume || 0)
   return { high: Math.max(...closes), low: Math.min(...closes), totalVolume: volumes.reduce((a, b) => a + b, 0) }
 })
-
-const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD')
 
 const fetchBarsFromAPI = async (code: string, startDate: Dayjs, pageSize: number, endDate?: Dayjs): Promise<any[]> => {
   const res: any = await dataApi.getBars({
@@ -329,7 +327,7 @@ let cachedVolumeData: HistogramData[] = []
 const convertToChartData = (data: any[]) => {
   const candles: CandlestickData[] = [], volumes: HistogramData[] = []
   for (const item of data) {
-    const time = dayjs(item.timestamp).format('YYYY-MM-DD') as any
+    const time = formatDay(item.timestamp) as any
     candles.push({ time, open: item.open, high: item.high, low: item.low, close: item.close })
     volumes.push({ time, value: item.volume })
   }
@@ -452,8 +450,7 @@ const fetchLastSyncTime = async () => {
     const res: any = await dataApi.getSyncHistory({ sync_type: 'bars', page: 1, page_size: 1 })
     const items: any[] = res?.data ?? []
     if (items.length > 0 && items[0].completed_at) {
-      const d = new Date(items[0].completed_at)
-      lastSyncTime.value = d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+      lastSyncTime.value = formatDateTime(items[0].completed_at)
     }
   } catch { /* ignore */ }
 }

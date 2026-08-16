@@ -213,9 +213,9 @@
               <td>
                 <span
                   class="tag"
-                  :class="`tag-${getTypeColorClass(record.type)}`"
+                  :class="workerTypeTagClass(record.type)"
                 >
-                  {{ getTypeText(record.type) }}
+                  {{ workerTypeLabel(record.type) }}
                 </span>
               </td>
               <td>
@@ -266,6 +266,7 @@ import StatusTag from '@/components/common/StatusTag.vue'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { formatRelativeTime } from '@/utils/format'
+import { WORKER_TYPES, workerTypeTagClass, workerTypeLabel } from '@/constants/statusConfig'
 import { useSystemStore } from '@/stores'
 import type { WorkerInfo } from '@/api'
 
@@ -285,17 +286,7 @@ const INFRA_NAMES: Record<string, string> = {
   clickhouse: 'ClickHouse',
 }
 
-const COMPONENT_TYPES: Array<{ key: string; label: string; countsKey: string; tagColor: string }> = [
-  { key: 'data_worker', label: 'DataWorker', countsKey: 'data_workers', tagColor: 'purple' },
-  { key: 'backtest_worker', label: 'BacktestWorker', countsKey: 'backtest_workers', tagColor: 'blue' },
-  { key: 'execution_node', label: 'ExecutionNode', countsKey: 'execution_nodes', tagColor: 'green' },
-  { key: 'scheduler', label: 'Scheduler', countsKey: 'schedulers', tagColor: 'orange' },
-  { key: 'task_timer', label: 'TaskTimer', countsKey: 'task_timers', tagColor: 'magenta' },
-]
-
-const WORKER_TYPE_LABELS: Record<string, string> = Object.fromEntries(
-  COMPONENT_TYPES.map(t => [t.key, t.label]),
-)
+const COMPONENT_TYPES = WORKER_TYPES
 
 /** 异常严重度:越小越靠前(error > stale > stopped/idle > 其他) */
 const SEVERITY_RANK: Record<string, number> = {
@@ -365,7 +356,7 @@ const healthIssues = computed(() => {
   }
   for (const w of workers.value) {
     if (isAnomaly(w.status)) {
-      issues.push(`${WORKER_TYPE_LABELS[w.type] || w.type} ${w.id} 状态异常（${w.status}）`)
+      issues.push(`${workerTypeLabel(w.type)} ${w.id} 状态异常（${w.status}）`)
     }
   }
   return issues
@@ -407,12 +398,6 @@ const isHeartbeatStale = (record: WorkerInfo): boolean => {
   return Date.now() - ts > 60_000
 }
 
-const getTypeColorClass = (type: string): string =>
-  COMPONENT_TYPES.find(t => t.key === type)?.tagColor || 'gray'
-
-const getTypeText = (type: string): string =>
-  WORKER_TYPE_LABELS[type] || type
-
 const fetchStatus = async () => {
   try {
     await systemStore.fetchStatus()
@@ -441,6 +426,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
+/* 密度覆盖:紧凑 12px + 表头底色(公共基线见 styles/tables.less) */
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.data-table th {
+  background: hsl(var(--muted));
+}
+
 /* 开关 */
 .switch-label {
   display: flex;
@@ -612,34 +609,6 @@ onUnmounted(() => {
 .table-wrapper {
   padding: 20px;
   overflow-x: clip;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-  padding: 10px 12px;
-  text-align: left;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.data-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: hsl(var(--muted));
-  color: hsl(var(--foreground));
-  font-weight: 500;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.data-table td {
-  color: hsl(var(--foreground));
-  font-size: 12px;
 }
 
 .monospace {
