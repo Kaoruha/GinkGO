@@ -242,6 +242,7 @@ export interface NotificationTemplate {
   name: string
   type: 'email' | 'discord' | 'system'
   subject: string
+  content?: string
   enabled: boolean
   updated_at: string
 }

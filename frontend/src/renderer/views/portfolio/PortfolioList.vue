@@ -276,67 +276,52 @@
   </ListPage>
 
   <!-- 创建组合模态框 -->
-  <div
-    v-if="createModalVisible"
-    class="modal-overlay"
-    data-testid="create-portfolio-modal"
+  <FormModal
+    v-model:open="createModalVisible"
+    title="创建投资组合"
+    size="xl"
+    hide-footer
+    :close-on-overlay="false"
   >
-    <div class="modal-content modal-large">
-      <div class="modal-header">
-        <h3>创建投资组合</h3>
-        <button
-          class="btn-close"
-          @click="closeCreateModal"
-        >
-          ×
-        </button>
-      </div>
-      <div class="modal-body">
-        <PortfolioFormEditor
-          ref="formEditorRef"
-          :is-modal-mode="true"
-          @created="handleCreated"
-          @cancel="closeCreateModal"
-        />
-      </div>
+    <div data-testid="create-portfolio-modal">
+      <PortfolioFormEditor
+        ref="formEditorRef"
+        :is-modal-mode="true"
+        @created="handleCreated"
+        @cancel="closeCreateModal"
+      />
     </div>
-  </div>
+  </FormModal>
 
   <!-- 删除确认模态框 -->
-  <div
-    v-if="deleteModalVisible"
-    class="modal-overlay"
-    @click.self="closeDeleteModal"
+  <FormModal
+    v-model:open="deleteModalVisible"
+    title="确认删除"
+    size="sm"
+    :loading="deleting"
+    loading-text="删除中..."
+    @cancel="closeDeleteModal"
+    @submit="handleDelete"
   >
-    <div class="modal-content modal-small">
-      <div class="modal-header">
-        <h3>确认删除</h3>
-        <button
-          class="btn-close"
-          @click="closeDeleteModal"
-        >
-          ×
-        </button>
-      </div>
-      <div class="modal-body">
-        <p>确定要删除组合「{{ deletingPortfolio?.name }}」吗？此操作不可恢复。</p>
-      </div>
-      <div class="modal-footer">
-        <button
-          class="btn-secondary"
-          @click="closeDeleteModal"
-        >
-          取消
-        </button>
-        <button
-          class="btn-danger"
-          @click="handleDelete"
-        >
-          删除
-        </button>
-      </div>
-    </div>
-  </div>
+    <p>确定要删除组合「{{ deletingPortfolio?.name }}」吗？此操作不可恢复。</p>
+    <template #footer>
+      <button
+        type="button"
+        class="btn-secondary"
+        :disabled="deleting"
+        @click="closeDeleteModal"
+      >
+        取消
+      </button>
+      <button
+        type="submit"
+        class="btn-danger"
+        :disabled="deleting"
+      >
+        {{ deleting ? '删除中...' : '删除' }}
+      </button>
+    </template>
+  </FormModal>
 
   <!-- 部署模态框 -->
   <DeployModal
@@ -352,9 +337,10 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { storeToRefs } from 'pinia'
-import { usePortfolioMode, usePortfolioState, useContextMenu } from '@/composables'
+import { usePortfolioMode, usePortfolioState, useContextMenu, useAsyncAction } from '@/composables'
 import { formatMoney } from '@/utils/format'
 import ListPage from '@/components/common/ListPage.vue'
+import FormModal from '@/components/common/FormModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PortfolioFormEditor from './PortfolioFormEditor.vue'
 import DeployModal from '@/components/business/DeployModal.vue'
@@ -601,20 +587,24 @@ const closeDeleteModal = () => {
   deletingPortfolio.value = null
 }
 
-const handleDelete = async () => {
+const handleDelete = () => {
   if (!deletingPortfolio.value) return
-  try {
-    await deletePortfolio(deletingPortfolio.value.uuid)
+  runDelete()
+}
+
+const { running: deleting, run: runDelete } = useAsyncAction(async () => {
+  const target = deletingPortfolio.value
+  if (!target) return
+  await deletePortfolio(target.uuid)
+}, {
+  success: '删除成功',
+  onSuccess: () => {
     deleteModalVisible.value = false
     deletingPortfolio.value = null
     fetchPortfolios({ page: 0, append: false })
     fetchStats()
-    message.success('删除成功')
-  } catch (e: any) {
-    const reason = e?.response?.data?.message || e?.message || '未知错误'
-    message.error(`删除失败: ${reason}`)
-  }
-}
+  },
+})
 
 onMounted(() => {
   fetchPortfolios({ page: 0, append: false })
@@ -863,73 +853,7 @@ onUnmounted(() => {
   animation: spin 1s linear infinite;
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-}
-
-.modal-large { width: 960px; }
-.modal-small { width: 420px; }
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.modal-header h3 { margin: 0; color: hsl(var(--foreground)); font-size: 16px; }
-.btn-close { background: none; border: none; color: hsl(var(--muted-foreground)); font-size: 20px; cursor: pointer; }
-.btn-close:hover { color: hsl(var(--foreground)); }
-
-.modal-body { padding: 20px; overflow-y: auto; flex: 1; }
-.modal-body p { color: hsl(var(--foreground)); margin: 0; }
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid hsl(var(--border));
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  background: hsl(var(--border));
-  border: 1px solid hsl(var(--secondary));
-  border-radius: var(--radius-sm);
-  color: hsl(var(--foreground));
-  cursor: pointer;
-}
-
-.btn-secondary:hover { background: hsl(var(--secondary)); }
-
-.btn-danger {
-  padding: 8px 16px;
-  background: hsl(var(--error));
-  border: none;
-  border-radius: var(--radius-sm);
-  color: hsl(var(--foreground));
-  cursor: pointer;
-}
-
-.btn-danger:hover { background: hsl(var(--error)); }
+/* 弹窗/按钮走全局 modals.less + buttons.less */
 
 .spinner {
   width: 32px;

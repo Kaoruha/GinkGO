@@ -119,177 +119,87 @@
     </div>
 
     <!-- 创建/编辑用户 Modal -->
-    <div
-      v-if="showCreateModal"
-      class="modal-overlay"
-      @click.self="closeModal"
+    <FormModal
+      v-model:open="showCreateModal"
+      :title="editingUser ? '编辑用户' : '添加用户'"
+      :loading="submitting"
+      loading-text="提交中..."
+      @submit="handleSubmit"
+      @cancel="closeModal"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>{{ editingUser ? '编辑用户' : '添加用户' }}</h3>
-          <button
-            class="modal-close"
-            @click="closeModal"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <line
-                x1="18"
-                y1="6"
-                x2="6"
-                y2="18"
-              />
-              <line
-                x1="6"
-                y1="6"
-                x2="18"
-                y2="18"
-              />
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">用户名 <span class="required">*</span></label>
-            <input
-              v-model="userForm.username"
-              type="text"
-              class="form-input"
-              placeholder="输入用户名"
-              :disabled="!!editingUser"
-            >
-          </div>
-          <div
-            v-if="!editingUser"
-            class="form-group"
-          >
-            <label class="form-label">密码 <span class="required">*</span></label>
-            <input
-              v-model="userForm.password"
-              type="password"
-              class="form-input"
-              placeholder="输入密码"
-            >
-          </div>
-          <div class="form-group">
-            <label class="form-label">显示名 <span class="required">*</span></label>
-            <input
-              v-model="userForm.display_name"
-              type="text"
-              class="form-input"
-              placeholder="输入显示名"
-            >
-          </div>
-          <div class="form-group">
-            <label class="form-label">邮箱 <span class="required">*</span></label>
-            <input
-              v-model="userForm.email"
-              type="email"
-              class="form-input"
-              placeholder="输入邮箱"
-            >
-          </div>
-          <div class="form-group">
-            <label class="form-label">状态</label>
-            <label class="switch-label">
-              <input
-                v-model="userForm.active"
-                type="checkbox"
-                class="switch-input"
-              >
-              <span class="switch-slider" />
-              <span class="switch-text">{{ userForm.active ? '启用' : '禁用' }}</span>
-            </label>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button
-            class="btn btn-secondary"
-            @click="closeModal"
-          >
-            取消
-          </button>
-          <button
-            class="btn btn-primary"
-            @click="handleSubmit"
-          >
-            确定
-          </button>
-        </div>
+      <div class="form-group">
+        <label class="form-label">用户名 <span class="required">*</span></label>
+        <input
+          v-model="userForm.username"
+          type="text"
+          class="form-input"
+          placeholder="输入用户名"
+          :disabled="!!editingUser"
+        >
       </div>
-    </div>
+      <div
+        v-if="!editingUser"
+        class="form-group"
+      >
+        <label class="form-label">密码 <span class="required">*</span></label>
+        <input
+          v-model="userForm.password"
+          type="password"
+          class="form-input"
+          placeholder="输入密码"
+        >
+      </div>
+      <div class="form-group">
+        <label class="form-label">显示名 <span class="required">*</span></label>
+        <input
+          v-model="userForm.display_name"
+          type="text"
+          class="form-input"
+          placeholder="输入显示名"
+        >
+      </div>
+      <div class="form-group">
+        <label class="form-label">邮箱 <span class="required">*</span></label>
+        <input
+          v-model="userForm.email"
+          type="email"
+          class="form-input"
+          placeholder="输入邮箱"
+        >
+      </div>
+      <div class="form-group">
+        <label class="form-label">状态</label>
+        <label class="switch-label">
+          <input
+            v-model="userForm.active"
+            type="checkbox"
+            class="switch-input"
+          >
+          <span class="switch-slider" />
+          <span class="switch-text">{{ userForm.active ? '启用' : '禁用' }}</span>
+        </label>
+      </div>
+    </FormModal>
 
     <!-- 重置密码 Modal -->
-    <div
-      v-if="showResetModal"
-      class="modal-overlay"
-      @click.self="showResetModal = false"
+    <FormModal
+      v-model:open="showResetModal"
+      :title="`重置密码 - ${resetTarget?.username ?? ''}`"
+      size="sm"
+      :loading="resetting"
+      loading-text="重置中..."
+      @submit="handleResetPassword"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>重置密码 - {{ resetTarget?.username }}</h3>
-          <button
-            class="modal-close"
-            @click="showResetModal = false"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <line
-                x1="18"
-                y1="6"
-                x2="6"
-                y2="18"
-              />
-              <line
-                x1="6"
-                y1="6"
-                x2="18"
-                y2="18"
-              />
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">新密码 <span class="required">*</span></label>
-            <input
-              v-model="newPassword"
-              type="password"
-              class="form-input"
-              placeholder="输入新密码"
-            >
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button
-            class="btn btn-secondary"
-            @click="showResetModal = false"
-          >
-            取消
-          </button>
-          <button
-            class="btn btn-primary"
-            @click="handleResetPassword"
-          >
-            确定
-          </button>
-        </div>
+      <div class="form-group">
+        <label class="form-label">新密码 <span class="required">*</span></label>
+        <input
+          v-model="newPassword"
+          type="password"
+          class="form-input"
+          placeholder="输入新密码"
+        >
       </div>
-    </div>
+    </FormModal>
   </PageLayout>
 </template>
 
@@ -298,9 +208,10 @@ import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
+import FormModal from '@/components/common/FormModal.vue'
 import { usersApi, type UserInfo } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
-import { useContextMenu } from '@/composables/useContextMenu'
+import { useContextMenu, useAsyncAction } from '@/composables'
 import { formatDate } from '@/utils/format'
 
 /** 行右键菜单(替代操作列;删除走菜单内置确认) */
@@ -340,8 +251,8 @@ const loadUsers = async () => {
     const params: { status?: string; search?: string } = {}
     if (statusFilter.value) params.status = statusFilter.value
     if (searchText.value) params.search = searchText.value
-    const res = await usersApi.list(params) as any
-    users.value = res.data || res || []
+    const res = await usersApi.list(params)
+    users.value = res ?? []
   } catch (e: any) {
     toast.error(e.message || '加载用户失败')
   } finally {
@@ -372,7 +283,7 @@ const closeModal = () => {
   editingUser.value = null
 }
 
-const handleSubmit = async () => {
+const handleSubmit = () => {
   if (!userForm.username || !userForm.email) {
     toast.warning('请填写必填项')
     return
@@ -381,32 +292,34 @@ const handleSubmit = async () => {
     toast.warning('请输入密码')
     return
   }
+  runSubmitUser()
+}
 
-  try {
-    if (editingUser.value) {
-      await usersApi.update(editingUser.value.uuid, {
-        display_name: userForm.display_name,
-        email: userForm.email,
-        status: userForm.active ? 'active' : 'disabled',
-      })
-      toast.success('用户已更新')
-    } else {
-      await usersApi.create({
-        username: userForm.username,
-        password: userForm.password,
-        display_name: userForm.display_name,
-        email: userForm.email,
-        roles: userForm.roles,
-        status: userForm.active ? 'active' : 'disabled',
-      })
-      toast.success('用户已创建')
-    }
+const { running: submitting, run: runSubmitUser } = useAsyncAction(async () => {
+  if (editingUser.value) {
+    await usersApi.update(editingUser.value.uuid, {
+      display_name: userForm.display_name,
+      email: userForm.email,
+      status: userForm.active ? 'active' : 'disabled',
+    })
+    toast.success('用户已更新')
+  } else {
+    await usersApi.create({
+      username: userForm.username,
+      password: userForm.password,
+      display_name: userForm.display_name,
+      email: userForm.email,
+      roles: userForm.roles,
+      status: userForm.active ? 'active' : 'disabled',
+    })
+    toast.success('用户已创建')
+  }
+}, {
+  onSuccess: async () => {
     closeModal()
     await loadUsers()
-  } catch (e: any) {
-    toast.error(e.message || '操作失败')
-  }
-}
+  },
+})
 
 const openResetPassword = (record: UserInfo) => {
   resetTarget.value = record
@@ -414,19 +327,24 @@ const openResetPassword = (record: UserInfo) => {
   showResetModal.value = true
 }
 
-const handleResetPassword = async () => {
+const handleResetPassword = () => {
   if (!resetTarget.value || !newPassword.value) {
     toast.warning('请输入新密码')
     return
   }
-  try {
-    await usersApi.resetPassword(resetTarget.value.uuid, newPassword.value)
-    toast.success('密码已重置')
-    showResetModal.value = false
-  } catch (e: any) {
-    toast.error(e.message || '重置失败')
-  }
+  runResetPassword()
 }
+
+const { running: resetting, run: runResetPassword } = useAsyncAction(async () => {
+  const target = resetTarget.value
+  if (!target) return
+  await usersApi.resetPassword(target.uuid, newPassword.value)
+}, {
+  success: '密码已重置',
+  onSuccess: () => {
+    showResetModal.value = false
+  },
+})
 
 const deleteUser = async (record: UserInfo) => {
   try {

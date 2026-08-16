@@ -124,116 +124,105 @@
     </div>
 
     <!-- 创建/编辑 API Key 模态框 -->
-    <div
-      v-if="showCreateModal || editingKey"
-      class="modal-overlay"
-      @click.self="closeModal"
+    <FormModal
+      v-model:open="modalOpen"
+      :title="editingKey ? '编辑 API Key' : '创建 API Key'"
+      :loading="saving"
+      :loading-text="editingKey ? '保存中...' : '创建中...'"
+      @submit="saveApiKey"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>{{ editingKey ? '编辑 API Key' : '创建 API Key' }}</h2>
-          <button
-            class="modal-close"
-            @click="closeModal"
+      <div class="form-group">
+        <label class="form-label">名称 <span class="required">*</span></label>
+        <input
+          v-model="formData.name"
+          type="text"
+          class="form-input"
+          required
+          placeholder="如：Claw MCP Key"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">权限 <span class="required">*</span></label>
+        <div class="checkbox-group">
+          <label
+            v-for="perm in availablePermissions"
+            :key="perm"
+            class="checkbox-label"
           >
-            ×
-          </button>
-        </div>
-        <div class="modal-body">
-          <form @submit.prevent="saveApiKey">
-            <div class="form-group">
-              <label class="form-label">名称 <span class="required">*</span></label>
-              <input
-                v-model="formData.name"
-                type="text"
-                class="form-input"
-                required
-                placeholder="如：Claw MCP Key"
-              >
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">权限 <span class="required">*</span></label>
-              <div class="checkbox-group">
-                <label
-                  v-for="perm in availablePermissions"
-                  :key="perm"
-                  class="checkbox-label"
-                >
-                  <input
-                    v-model="formData.permissions"
-                    type="checkbox"
-                    :value="perm"
-                  >
-                  <span>{{ permLabels[perm] }}</span>
-                </label>
-              </div>
-            </div>
-
-            <div
-              v-if="!editingKey"
-              class="form-group"
+            <input
+              v-model="formData.permissions"
+              type="checkbox"
+              :value="perm"
             >
-              <label class="form-label">有效期（天）</label>
-              <input
-                v-model.number="formData.expires_days"
-                type="number"
-                class="form-input"
-                min="1"
-                placeholder="留空表示永不过期"
-              >
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">备注</label>
-              <textarea
-                v-model="formData.description"
-                rows="2"
-                class="form-textarea"
-                placeholder="用途说明（可选）"
-              />
-            </div>
-
-            <div
-              v-if="newKeyValue"
-              class="form-group success-message"
-            >
-              <label class="form-label">⚠️ 重要：请保存此 API Key</label>
-              <div class="key-display">
-                <code>{{ newKeyValue }}</code>
-                <button
-                  type="button"
-                  class="btn-copy"
-                  @click="copyKey"
-                >
-                  复制
-                </button>
-              </div>
-              <p class="help-text">
-                此 Key 仅显示一次，请立即保存
-              </p>
-            </div>
-
-            <div class="modal-footer">
-              <button
-                type="button"
-                class="btn-secondary"
-                @click="closeModal"
-              >
-                {{ newKeyValue ? '关闭' : '取消' }}
-              </button>
-              <button
-                v-if="!newKeyValue"
-                type="submit"
-                class="btn-primary"
-              >
-                {{ editingKey ? '保存' : '创建' }}
-              </button>
-            </div>
-          </form>
+            <span>{{ permLabels[perm] }}</span>
+          </label>
         </div>
       </div>
-    </div>
+
+      <div
+        v-if="!editingKey"
+        class="form-group"
+      >
+        <label class="form-label">有效期（天）</label>
+        <input
+          v-model.number="formData.expires_days"
+          type="number"
+          class="form-input"
+          min="1"
+          placeholder="留空表示永不过期"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">备注</label>
+        <textarea
+          v-model="formData.description"
+          rows="2"
+          class="form-textarea"
+          placeholder="用途说明（可选）"
+        />
+      </div>
+
+      <div
+        v-if="newKeyValue"
+        class="form-group success-message"
+      >
+        <label class="form-label">⚠️ 重要：请保存此 API Key</label>
+        <div class="key-display">
+          <code>{{ newKeyValue }}</code>
+          <button
+            type="button"
+            class="btn-copy"
+            @click="copyKey"
+          >
+            复制
+          </button>
+        </div>
+        <p class="help-text">
+          此 Key 仅显示一次，请立即保存
+        </p>
+      </div>
+
+      <template #footer>
+        <button
+          type="button"
+          class="btn-secondary"
+          :disabled="saving"
+          @click="closeModal"
+        >
+          {{ newKeyValue ? '关闭' : '取消' }}
+        </button>
+        <button
+          v-if="!newKeyValue"
+          type="submit"
+          class="btn-primary"
+          :disabled="saving"
+        >
+          {{ editingKey ? '保存' : '创建' }}
+        </button>
+      </template>
+    </FormModal>
   </PageLayout>
 </template>
 
@@ -247,7 +236,8 @@ import { apiKeyApi, type ApiKey, type CreateApiKeyRequest, type UpdateApiKeyRequ
 import { message } from '@/utils/toast'
 import { copyText } from '@/utils/clipboard'
 import { formatDate, formatDay } from '@/utils/format'
-import { useContextMenu } from '@/composables/useContextMenu'
+import { useContextMenu, useAsyncAction } from '@/composables'
+import FormModal from '@/components/common/FormModal.vue'
 
 /** 行右键菜单(替代操作列;删除走菜单内置确认) */
 const { open: openCtxMenu } = useContextMenu()
@@ -309,36 +299,37 @@ const loadApiKeys = async () => {
   }
 }
 
-const saveApiKey = async () => {
-  loading.value = true
-  error.value = null
-  try {
-    if (editingKey.value) {
-      // 更新
-      const updateData: UpdateApiKeyRequest = {
-        name: formData.value.name,
-        permissions: formData.value.permissions,
-        description: formData.value.description,
-        expires_days: formData.value.expires_days
-      }
-      await apiKeyApi.updateApiKey(editingKey.value.uuid, updateData)
-    } else {
-      // 创建
-      const res = await apiKeyApi.createApiKey(formData.value)
-      // request.ts 拦截器已拆包: res 即 CreateApiKeyResponse { key_value, ... }
-      newKeyValue.value = (res as any).key_value
-    }
-    await loadApiKeys()
-    if (!newKeyValue.value) closeModal()
-  } catch (err: any) {
-    error.value = err.message || '保存失败'
-    console.error('Failed to save API key:', err)
-    // 保存失败必须让用户感知(模态框内表单无错误提示,静默=假成功)
-    message.error(error.value || '保存失败')
-  } finally {
-    loading.value = false
-  }
+/** 弹窗开合:编辑态由 editingKey 驱动(showCreateModal 仅新建入口置位) */
+const modalOpen = computed({
+  get: () => showCreateModal.value || !!editingKey.value,
+  set: (v: boolean) => { if (!v) closeModal() },
+})
+
+const saveApiKey = () => {
+  runSaveApiKey()
 }
+
+const { running: saving, run: runSaveApiKey } = useAsyncAction(async () => {
+  if (editingKey.value) {
+    // 更新
+    const updateData: UpdateApiKeyRequest = {
+      name: formData.value.name,
+      permissions: formData.value.permissions,
+      description: formData.value.description,
+      expires_days: formData.value.expires_days
+    }
+    await apiKeyApi.updateApiKey(editingKey.value.uuid, updateData)
+  } else {
+    // 创建
+    const res = await apiKeyApi.createApiKey(formData.value)
+    // request.ts 拦截器已拆包: res 即 CreateApiKeyResponse { key_value, ... }
+    newKeyValue.value = (res as any).key_value
+  }
+  await loadApiKeys()
+  if (!newKeyValue.value) closeModal()
+}, {
+  error: '保存失败',
+})
 
 /** 裸删(确认由菜单内置 ConfirmDialog 承担) */
 const deleteKey = async (key: ApiKey) => {

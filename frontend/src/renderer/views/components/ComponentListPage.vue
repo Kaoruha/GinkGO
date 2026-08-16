@@ -33,49 +33,24 @@
   </ListPage>
 
   <!-- 新建文件对话框 -->
-  <div
-    v-if="createModalVisible"
-    class="modal-overlay"
-    @click.self="createModalVisible = false"
+  <FormModal
+    v-model:open="createModalVisible"
+    title="新建文件"
+    :loading="saving"
+    :disabled="!newFileName.trim()"
+    loading-text="创建中..."
+    @submit="handleCreateConfirm"
   >
-    <div class="modal">
-      <div class="modal-header">
-        <h3>新建文件</h3>
-        <button
-          class="modal-close"
-          @click="createModalVisible = false"
-        >
-          &times;
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">文件名</label>
-          <input
-            v-model="newFileName"
-            type="text"
-            placeholder="例如: my_strategy.py"
-            class="form-input"
-          >
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button
-          class="btn-secondary"
-          @click="createModalVisible = false"
-        >
-          取消
-        </button>
-        <button
-          class="btn-primary"
-          :disabled="saving || !newFileName.trim()"
-          @click="handleCreateConfirm"
-        >
-          {{ saving ? '创建中...' : '确定' }}
-        </button>
-      </div>
+    <div class="form-group">
+      <label class="form-label">文件名</label>
+      <input
+        v-model="newFileName"
+        type="text"
+        placeholder="例如: my_strategy.py"
+        class="form-input"
+      >
     </div>
-  </div>
+  </FormModal>
   <ConfirmDialog
     v-model:open="confirmOpen"
     title="确认删除"
@@ -93,7 +68,9 @@ import ListPage from '@/components/common/ListPage.vue'
 import { componentsApi } from '@/api/modules/components'
 import { message } from '@/utils/toast'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormModal from '@/components/common/FormModal.vue'
 import type { MenuItem } from '@/composables/useContextMenu'
+import { useAsyncAction } from '@/composables'
 
 const route = useRoute()
 const router = useRouter()
@@ -137,7 +114,6 @@ const files = ref<any[]>([])
 const searchText = ref('')
 const createModalVisible = ref(false)
 const newFileName = ref('')
-const saving = ref(false)
 
 const filteredFiles = computed(() => {
   if (!searchText.value) return files.value
@@ -168,25 +144,22 @@ async function loadFiles() {
   }
 }
 
-async function handleCreateConfirm() {
+function handleCreateConfirm() {
   if (!newFileName.value.trim()) return
-  if (saving.value) return
-  saving.value = true
-  try {
-    await componentsApi.create({
-      name: newFileName.value.trim(),
-      component_type: currentType.value,
-      code: `# ${newFileName.value.trim()}\n# TODO: implement\n`,
-    })
-    createModalVisible.value = false
-    message.success('创建成功')
-    await loadFiles()
-  } catch (e: any) {
-    message.error('创建失败: ' + (e?.message || e))
-  } finally {
-    saving.value = false
-  }
+  runCreate()
 }
+
+const { running: saving, run: runCreate } = useAsyncAction(async () => {
+  await componentsApi.create({
+    name: newFileName.value.trim(),
+    component_type: currentType.value,
+    code: `# ${newFileName.value.trim()}\n# TODO: implement\n`,
+  })
+  createModalVisible.value = false
+  await loadFiles()
+}, {
+  success: '创建成功',
+})
 
 const confirmOpen = ref(false)
 const confirmDesc = ref('')
@@ -231,24 +204,5 @@ watch(() => route.params.type, () => loadFiles(), { immediate: true })
   white-space: nowrap;
   vertical-align: bottom;
   color: hsl(var(--muted-foreground));
-}
-
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-lg);
-  min-width: 400px;
-  max-height: 90vh;
 }
 </style>

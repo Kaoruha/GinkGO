@@ -124,212 +124,183 @@
     </div>
 
     <!-- 添加/编辑账号模态框 -->
-    <div
-      v-if="modalVisible"
-      class="modal-overlay"
-      @click.self="handleModalCancel"
+    <FormModal
+      v-model:open="modalVisible"
+      :title="isEditMode ? '编辑账号' : '添加账号'"
+      :loading="saving"
+      loading-text="保存中..."
+      @submit="handleModalOk"
+      @cancel="handleModalCancel"
     >
-      <div class="modal">
-        <div class="modal-header">
-          <h3>{{ isEditMode ? '编辑账号' : '添加账号' }}</h3>
-          <button
-            class="modal-close"
-            @click="handleModalCancel"
-          >
-            ×
-          </button>
+      <div class="form-group">
+        <label class="form-label">账号名称</label>
+        <input
+          v-model="formData.name"
+          type="text"
+          placeholder="输入账号名称"
+          class="form-input"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">交易所</label>
+        <select
+          v-model="formData.exchange"
+          class="form-select"
+        >
+          <option value="okx">
+            OKX
+          </option>
+          <option value="binance">
+            Binance
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">环境</label>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input
+              v-model="formData.environment"
+              type="radio"
+              value="testnet"
+            >
+            测试网
+          </label>
+          <label class="radio-label">
+            <input
+              v-model="formData.environment"
+              type="radio"
+              value="production"
+            >
+            生产环境
+          </label>
         </div>
-        <div class="modal-body">
-          <form @submit.prevent="handleModalOk">
-            <div class="form-group">
-              <label class="form-label">账号名称</label>
-              <input
-                v-model="formData.name"
-                type="text"
-                placeholder="输入账号名称"
-                class="form-input"
-              >
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">交易所</label>
-              <select
-                v-model="formData.exchange"
-                class="form-select"
-              >
-                <option value="okx">
-                  OKX
-                </option>
-                <option value="binance">
-                  Binance
-                </option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">环境</label>
-              <div class="radio-group">
-                <label class="radio-label">
-                  <input
-                    v-model="formData.environment"
-                    type="radio"
-                    value="testnet"
-                  >
-                  测试网
-                </label>
-                <label class="radio-label">
-                  <input
-                    v-model="formData.environment"
-                    type="radio"
-                    value="production"
-                  >
-                  生产环境
-                </label>
-              </div>
-              <div class="form-tip">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                  />
-                  <line
-                    x1="12"
-                    y1="8"
-                    x2="12"
-                    y2="12"
-                  />
-                  <line
-                    x1="12"
-                    y1="16"
-                    x2="12.01"
-                    y2="16"
-                  />
-                </svg>
-                生产环境使用真实资金进行交易，请谨慎操作
-              </div>
-            </div>
-
-            <div class="form-divider">
-              API凭证
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">API Key</label>
-              <input
-                v-model="formData.api_key"
-                type="password"
-                placeholder="输入API Key"
-                class="form-input"
-              >
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">API Secret</label>
-              <input
-                v-model="formData.api_secret"
-                type="password"
-                placeholder="输入API Secret"
-                class="form-input"
-              >
-            </div>
-
-            <div
-              v-if="formData.exchange === 'okx'"
-              class="form-group"
-            >
-              <label class="form-label">Passphrase</label>
-              <input
-                v-model="formData.passphrase"
-                type="password"
-                placeholder="输入Passphrase (OKX需要)"
-                class="form-input"
-              >
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">描述</label>
-              <textarea
-                v-model="formData.description"
-                class="form-textarea"
-                rows="3"
-                placeholder="账号描述（可选）"
-              />
-            </div>
-
-            <!-- 验证结果 -->
-            <div
-              v-if="validationResult"
-              class="alert"
-              :class="validationResult.success ? 'alert-success' : 'alert-error'"
-            >
-              <div class="alert-icon">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line
-                    x1="12"
-                    y1="9"
-                    x2="12"
-                    y2="13"
-                  />
-                  <line
-                    x1="12"
-                    y1="17"
-                    x2="12.01"
-                    y2="17"
-                  />
-                </svg>
-              </div>
-              <div class="alert-content">
-                <div class="alert-message">
-                  {{ validationResult.message }}
-                </div>
-                <div
-                  v-if="validationResult.account_info"
-                  class="alert-description"
-                >
-                  <div>余额: {{ validationResult.account_info.balance }}</div>
-                  <div>环境: {{ validationResult.account_info.environment }}</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button
-                type="button"
-                class="btn-secondary"
-                @click="handleModalCancel"
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                class="btn-primary"
-                :disabled="saving"
-              >
-                {{ saving ? '保存中...' : '确定' }}
-              </button>
-            </div>
-          </form>
+        <div class="form-tip">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+            />
+            <line
+              x1="12"
+              y1="8"
+              x2="12"
+              y2="12"
+            />
+            <line
+              x1="12"
+              y1="16"
+              x2="12.01"
+              y2="16"
+            />
+          </svg>
+          生产环境使用真实资金进行交易，请谨慎操作
         </div>
       </div>
-    </div>
+
+      <div class="form-divider">
+        API凭证
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">API Key</label>
+        <input
+          v-model="formData.api_key"
+          type="password"
+          placeholder="输入API Key"
+          class="form-input"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">API Secret</label>
+        <input
+          v-model="formData.api_secret"
+          type="password"
+          placeholder="输入API Secret"
+          class="form-input"
+        >
+      </div>
+
+      <div
+        v-if="formData.exchange === 'okx'"
+        class="form-group"
+      >
+        <label class="form-label">Passphrase</label>
+        <input
+          v-model="formData.passphrase"
+          type="password"
+          placeholder="输入Passphrase (OKX需要)"
+          class="form-input"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">描述</label>
+        <textarea
+          v-model="formData.description"
+          class="form-textarea"
+          rows="3"
+          placeholder="账号描述（可选）"
+        />
+      </div>
+
+      <!-- 验证结果 -->
+      <div
+        v-if="validationResult"
+        class="alert"
+        :class="validationResult.success ? 'alert-success' : 'alert-error'"
+      >
+        <div class="alert-icon">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line
+              x1="12"
+              y1="9"
+              x2="12"
+              y2="13"
+            />
+            <line
+              x1="12"
+              y1="17"
+              x2="12.01"
+              y2="17"
+            />
+          </svg>
+        </div>
+        <div class="alert-content">
+          <div class="alert-message">
+            {{ validationResult.message }}
+          </div>
+          <div
+            v-if="validationResult.account_info"
+            class="alert-description"
+          >
+            <div>余额: {{ validationResult.account_info.balance }}</div>
+            <div>环境: {{ validationResult.account_info.environment }}</div>
+          </div>
+        </div>
+      </div>
+    </FormModal>
   </PageLayout>
 </template>
 
@@ -337,7 +308,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { liveAccountApi } from '@/api'
-import { useContextMenu } from '@/composables/useContextMenu'
+import { useContextMenu, useAsyncAction } from '@/composables'
+import FormModal from '@/components/common/FormModal.vue'
+import { message as toast } from '@/utils/toast'
 import { formatDate } from '@/utils/format'
 import { ACCOUNT_STATUS_CONFIG } from '@/constants/statusConfig'
 
@@ -358,7 +331,6 @@ const accounts = ref([])
 const testing = ref({})
 const modalVisible = ref(false)
 const isEditMode = ref(false)
-const saving = ref(false)
 const validationResult = ref(null)
 
 // 表单数据
@@ -451,47 +423,45 @@ const deleteAccountDirect = async (record) => {
 }
 
 // 处理模态框确认
-const handleModalOk = async () => {
+const handleModalOk = () => {
   if (!formData.name || !formData.exchange || !formData.environment || !formData.api_key || !formData.api_secret) {
-    console.warn('请填写必填字段')
+    toast.warning('请填写必填字段')
     return
   }
 
   if (formData.exchange === 'okx' && !formData.passphrase) {
-    console.warn('OKX需要Passphrase')
+    toast.warning('OKX 需要填写 Passphrase')
     return
   }
+  runSaveAccount()
+}
 
-  saving.value = true
-
-  try {
-    if (isEditMode.value) {
-      await liveAccountApi.updateAccount(formData.uuid, {
-        name: formData.name,
-        api_key: formData.api_key,
-        api_secret: formData.api_secret,
-        passphrase: formData.passphrase || undefined,
-        description: formData.description || undefined,
-      })
-    } else {
-      await liveAccountApi.createAccount({
-        exchange: formData.exchange,
-        name: formData.name,
-        api_key: formData.api_key,
-        api_secret: formData.api_secret,
-        passphrase: formData.passphrase || undefined,
-        environment: formData.environment,
-        description: formData.description || undefined,
-      })
-    }
+const { running: saving, run: runSaveAccount } = useAsyncAction(async () => {
+  if (isEditMode.value) {
+    await liveAccountApi.updateAccount(formData.uuid, {
+      name: formData.name,
+      api_key: formData.api_key,
+      api_secret: formData.api_secret,
+      passphrase: formData.passphrase || undefined,
+      description: formData.description || undefined,
+    })
+  } else {
+    await liveAccountApi.createAccount({
+      exchange: formData.exchange,
+      name: formData.name,
+      api_key: formData.api_key,
+      api_secret: formData.api_secret,
+      passphrase: formData.passphrase || undefined,
+      environment: formData.environment,
+      description: formData.description || undefined,
+    })
+  }
+}, {
+  onSuccess: async () => {
     modalVisible.value = false
     await fetchAccounts()
-  } catch (error) {
-    console.error('操作失败：', error)
-  } finally {
-    saving.value = false
-  }
-}
+  },
+})
 
 // 处理模态框取消
 const handleModalCancel = () => {
@@ -527,28 +497,9 @@ onMounted(() => {
 
 <style scoped>
 
-/* 字号覆盖:小屏 12px 见文末 @media;公共基线见 styles/tables.less */
+/* 字号覆盖:小屏 12px 见文末 @media;公共基线见 styles/tables.less;弹窗走全局 modals.less */
 .data-table td {
   font-size: 13px;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content, .modal {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
 }
 
 .card-title {

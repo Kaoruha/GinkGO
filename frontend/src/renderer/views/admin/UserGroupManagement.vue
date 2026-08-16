@@ -65,133 +65,80 @@
     </div>
 
     <!-- 用户组编辑/创建模态框 -->
-    <div
-      v-if="showCreateModal"
-      class="modal-overlay"
-      @click.self="closeModal"
+    <FormModal
+      v-model:open="showCreateModal"
+      :title="editingGroup ? '编辑用户组' : '添加用户组'"
+      :confirm-text="editingGroup ? '更新' : '创建'"
+      :loading="submitting"
+      loading-text="提交中..."
+      @submit="handleSubmit"
+      @cancel="closeModal"
     >
-      <div class="modal">
-        <div class="modal-header">
-          <h3>{{ editingGroup ? '编辑用户组' : '添加用户组' }}</h3>
-          <button
-            class="modal-close"
-            @click="closeModal"
+      <div class="form-group">
+        <label class="form-label">组名称 <span class="required">*</span></label>
+        <input
+          v-model="groupForm.name"
+          type="text"
+          placeholder="输入组名称"
+          class="form-input"
+          required
+        >
+      </div>
+      <div class="form-group">
+        <label class="form-label">描述</label>
+        <textarea
+          v-model="groupForm.description"
+          :rows="3"
+          placeholder="输入描述"
+          class="form-textarea"
+        />
+      </div>
+      <div class="form-group">
+        <label class="form-label">权限</label>
+        <div class="multi-select">
+          <label
+            v-for="perm in availablePermissions"
+            :key="perm.value"
+            class="checkbox-label"
           >
-            ×
-          </button>
-        </div>
-        <div class="modal-body">
-          <form @submit.prevent="handleSubmit">
-            <div class="form-group">
-              <label class="form-label">组名称 <span class="required">*</span></label>
-              <input
-                v-model="groupForm.name"
-                type="text"
-                placeholder="输入组名称"
-                class="form-input"
-                required
-              >
-            </div>
-            <div class="form-group">
-              <label class="form-label">描述</label>
-              <textarea
-                v-model="groupForm.description"
-                :rows="3"
-                placeholder="输入描述"
-                class="form-textarea"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label">权限</label>
-              <div class="multi-select">
-                <label
-                  v-for="perm in availablePermissions"
-                  :key="perm.value"
-                  class="checkbox-label"
-                >
-                  <input
-                    v-model="groupForm.permissions"
-                    type="checkbox"
-                    :value="perm.value"
-                  >
-                  {{ perm.label }}
-                </label>
-              </div>
-            </div>
-            <div class="modal-actions">
-              <button
-                type="button"
-                class="btn-secondary"
-                @click="closeModal"
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                class="btn-primary"
-              >
-                {{ editingGroup ? '更新' : '创建' }}
-              </button>
-            </div>
-          </form>
+            <input
+              v-model="groupForm.permissions"
+              type="checkbox"
+              :value="perm.value"
+            >
+            {{ perm.label }}
+          </label>
         </div>
       </div>
-    </div>
+    </FormModal>
 
     <!-- 权限管理模态框 -->
-    <div
-      v-if="showPermissionModal"
-      class="modal-overlay"
-      @click.self="closePermissionModal"
+    <FormModal
+      v-model:open="showPermissionModal"
+      :title="`权限管理 - ${permissionTarget?.name ?? ''}`"
+      size="xl"
+      confirm-text="保存"
+      :loading="savingPerms"
+      loading-text="保存中..."
+      @submit="savePermissions"
+      @cancel="closePermissionModal"
     >
-      <div class="modal modal-large">
-        <div class="modal-header">
-          <h3>权限管理 - {{ permissionTarget?.name }}</h3>
-          <button
-            class="modal-close"
-            @click="closePermissionModal"
+      <div class="multi-select">
+        <label
+          v-for="perm in availablePermissions"
+          :key="perm.value"
+          class="checkbox-label"
+          :class="{ selected: selectedPermissions.includes(perm.value) }"
+        >
+          <input
+            v-model="selectedPermissions"
+            type="checkbox"
+            :value="perm.value"
           >
-            ×
-          </button>
-        </div>
-        <div class="modal-body">
-          <div
-            class="multi-select"
-            style="margin-bottom: 16px"
-          >
-            <label
-              v-for="perm in availablePermissions"
-              :key="perm.value"
-              class="checkbox-label"
-              :class="{ selected: selectedPermissions.includes(perm.value) }"
-            >
-              <input
-                v-model="selectedPermissions"
-                type="checkbox"
-                :value="perm.value"
-              >
-              {{ perm.label }}
-            </label>
-          </div>
-          <div class="modal-actions">
-            <button
-              type="button"
-              class="btn-secondary"
-              @click="closePermissionModal"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              class="btn-primary"
-              @click="savePermissions"
-            >
-              保存
-            </button>
-          </div>
-        </div>
+          {{ perm.label }}
+        </label>
       </div>
-    </div>
+    </FormModal>
   </PageLayout>
 </template>
 
@@ -199,9 +146,10 @@
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import FormModal from '@/components/common/FormModal.vue'
 import { userGroupsApi, type UserGroupInfo } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
-import { useContextMenu } from '@/composables/useContextMenu'
+import { useContextMenu, useAsyncAction } from '@/composables'
 
 /** 行右键菜单(替代操作列;删除走菜单内置确认) */
 const { open: openCtxMenu } = useContextMenu()
@@ -237,8 +185,8 @@ const availablePermissions = [
 const loadGroups = async () => {
   loading.value = true
   try {
-    const res = await userGroupsApi.list() as any
-    userGroups.value = res.data || res || []
+    const res = await userGroupsApi.list()
+    userGroups.value = res ?? []
   } catch (e: any) {
     toast.error(e.message || '加载用户组失败')
   } finally {
@@ -286,48 +234,55 @@ const closePermissionModal = () => {
   permissionTarget.value = null
 }
 
-const handleSubmit = async () => {
+const handleSubmit = () => {
   if (!groupForm.name) {
     toast.warning('请输入组名称')
     return
   }
+  runSubmitGroup()
+}
 
-  try {
-    if (editingGroup.value) {
-      await userGroupsApi.update(editingGroup.value.uuid, {
-        name: groupForm.name,
-        description: groupForm.description,
-        permissions: groupForm.permissions,
-      })
-      toast.success('用户组已更新')
-    } else {
-      await userGroupsApi.create({
-        name: groupForm.name,
-        description: groupForm.description,
-        permissions: groupForm.permissions,
-      })
-      toast.success('用户组已创建')
-    }
+const { running: submitting, run: runSubmitGroup } = useAsyncAction(async () => {
+  if (editingGroup.value) {
+    await userGroupsApi.update(editingGroup.value.uuid, {
+      name: groupForm.name,
+      description: groupForm.description,
+      permissions: groupForm.permissions,
+    })
+    toast.success('用户组已更新')
+  } else {
+    await userGroupsApi.create({
+      name: groupForm.name,
+      description: groupForm.description,
+      permissions: groupForm.permissions,
+    })
+    toast.success('用户组已创建')
+  }
+}, {
+  onSuccess: async () => {
     closeModal()
     await loadGroups()
-  } catch (e: any) {
-    toast.error(e.message || '操作失败')
-  }
+  },
+})
+
+const savePermissions = () => {
+  if (!permissionTarget.value) return
+  runSavePermissions()
 }
 
-const savePermissions = async () => {
-  if (!permissionTarget.value) return
-  try {
-    await userGroupsApi.update(permissionTarget.value.uuid, {
-      permissions: selectedPermissions.value,
-    })
-    toast.success('权限已更新')
+const { running: savingPerms, run: runSavePermissions } = useAsyncAction(async () => {
+  const target = permissionTarget.value
+  if (!target) return
+  await userGroupsApi.update(target.uuid, {
+    permissions: selectedPermissions.value,
+  })
+}, {
+  success: '权限已更新',
+  onSuccess: async () => {
     closePermissionModal()
     await loadGroups()
-  } catch (e: any) {
-    toast.error(e.message || '保存失败')
-  }
-}
+  },
+})
 
 onMounted(() => {
   loadGroups()

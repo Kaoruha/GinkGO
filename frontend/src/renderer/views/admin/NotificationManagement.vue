@@ -202,160 +202,119 @@
     </div>
 
     <!-- 新建/编辑通知模板模态框 -->
-    <div
-      v-if="showTemplateModal"
-      class="modal-overlay"
-      @click.self="closeTemplateModal"
+    <FormModal
+      v-model:open="showTemplateModal"
+      :title="editingTemplate ? '编辑通知模板' : '新建通知模板'"
+      :confirm-text="editingTemplate ? '保存' : '创建'"
+      :loading="savingTemplate"
+      loading-text="保存中..."
+      @submit="handleTemplateSubmit"
+      @cancel="closeTemplateModal"
     >
-      <div class="modal">
-        <div class="modal-header">
-          <h3>{{ editingTemplate ? '编辑通知模板' : '新建通知模板' }}</h3>
-          <button
-            class="modal-close"
-            @click="closeTemplateModal"
-          >
-            ×
-          </button>
-        </div>
-        <div class="modal-body">
-          <form @submit.prevent="handleTemplateSubmit">
-            <div class="form-group">
-              <label class="form-label">模板名称 <span class="required">*</span></label>
-              <input
-                v-model="templateForm.name"
-                type="text"
-                placeholder="输入模板名称"
-                class="form-input"
-                required
-              >
-            </div>
-            <div class="form-group">
-              <label class="form-label">通知类型 <span class="required">*</span></label>
-              <select
-                v-model="templateForm.type"
-                class="form-select"
-              >
-                <option value="email">
-                  邮件
-                </option>
-                <option value="discord">
-                  Discord
-                </option>
-                <option value="system">
-                  系统通知
-                </option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">标题模板</label>
-              <input
-                v-model="templateForm.subject"
-                type="text"
-                placeholder="通知标题"
-                class="form-input"
-              >
-            </div>
-            <div class="modal-actions">
-              <button
-                type="button"
-                class="btn-secondary"
-                @click="closeTemplateModal"
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                class="btn-primary"
-              >
-                {{ editingTemplate ? '保存' : '创建' }}
-              </button>
-            </div>
-          </form>
-        </div>
+      <div class="form-group">
+        <label class="form-label">模板名称 <span class="required">*</span></label>
+        <input
+          v-model="templateForm.name"
+          type="text"
+          placeholder="输入模板名称"
+          class="form-input"
+          required
+        >
       </div>
-    </div>
+      <div class="form-group">
+        <label class="form-label">通知类型 <span class="required">*</span></label>
+        <select
+          v-model="templateForm.type"
+          class="form-select"
+        >
+          <option value="email">
+            邮件
+          </option>
+          <option value="discord">
+            Discord
+          </option>
+          <option value="system">
+            系统通知
+          </option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">标题模板</label>
+        <input
+          v-model="templateForm.subject"
+          type="text"
+          placeholder="通知标题"
+          class="form-input"
+        >
+      </div>
+      <!-- 后端 NotificationTemplateCreate.content 必填,原表单缺失致 422 -->
+      <div class="form-group">
+        <label class="form-label">内容模板 <span class="required">*</span></label>
+        <textarea
+          v-model="templateForm.content"
+          class="form-textarea"
+          rows="3"
+          placeholder="通知内容,支持 {{variable}} 占位符"
+          required
+        />
+      </div>
+    </FormModal>
 
     <!-- 添加/编辑接收人模态框 -->
-    <div
-      v-if="showRecipientModal"
-      class="modal-overlay"
-      @click.self="closeRecipientModal"
+    <FormModal
+      v-model:open="showRecipientModal"
+      :title="editingRecipient ? '编辑接收人' : '添加接收人'"
+      :confirm-text="editingRecipient ? '保存' : '创建'"
+      :loading="savingRecipient"
+      loading-text="保存中..."
+      @submit="handleRecipientSubmit"
+      @cancel="closeRecipientModal"
     >
-      <div class="modal">
-        <div class="modal-header">
-          <h3>{{ editingRecipient ? '编辑接收人' : '添加接收人' }}</h3>
-          <button
-            class="modal-close"
-            @click="closeRecipientModal"
-          >
-            ×
-          </button>
-        </div>
-        <div class="modal-body">
-          <form @submit.prevent="handleRecipientSubmit">
-            <div class="form-group">
-              <label class="form-label">名称 <span class="required">*</span></label>
-              <input
-                v-model="recipientForm.name"
-                type="text"
-                placeholder="接收人名称"
-                class="form-input"
-                required
-              >
-            </div>
-            <div class="form-group">
-              <label class="form-label">类型</label>
-              <select
-                v-model="recipientForm.recipient_type"
-                class="form-select"
-              >
-                <option value="USER">
-                  用户
-                </option>
-                <option value="USER_GROUP">
-                  用户组
-                </option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">描述</label>
-              <input
-                v-model="recipientForm.description"
-                type="text"
-                placeholder="描述（可选）"
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <label class="form-label">设为默认</label>
-              <label class="switch-label">
-                <input
-                  v-model="recipientForm.is_default"
-                  type="checkbox"
-                  class="switch-input-inline"
-                >
-                <span>{{ recipientForm.is_default ? '是' : '否' }}</span>
-              </label>
-            </div>
-            <div class="modal-actions">
-              <button
-                type="button"
-                class="btn-secondary"
-                @click="closeRecipientModal"
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                class="btn-primary"
-              >
-                {{ editingRecipient ? '保存' : '创建' }}
-              </button>
-            </div>
-          </form>
-        </div>
+      <div class="form-group">
+        <label class="form-label">名称 <span class="required">*</span></label>
+        <input
+          v-model="recipientForm.name"
+          type="text"
+          placeholder="接收人名称"
+          class="form-input"
+          required
+        >
       </div>
-    </div>
+      <div class="form-group">
+        <label class="form-label">类型</label>
+        <select
+          v-model="recipientForm.recipient_type"
+          class="form-select"
+        >
+          <option value="USER">
+            用户
+          </option>
+          <option value="USER_GROUP">
+            用户组
+          </option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">描述</label>
+        <input
+          v-model="recipientForm.description"
+          type="text"
+          placeholder="描述（可选）"
+          class="form-input"
+        >
+      </div>
+      <div class="form-group">
+        <label class="form-label">设为默认</label>
+        <label class="switch-label">
+          <input
+            v-model="recipientForm.is_default"
+            type="checkbox"
+            class="switch-input-inline"
+          >
+          <span>{{ recipientForm.is_default ? '是' : '否' }}</span>
+        </label>
+      </div>
+    </FormModal>
   </PageLayout>
 </template>
 
@@ -367,7 +326,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import { notificationsApi, type NotificationTemplate, type NotificationHistory, type NotificationRecipient } from '@/api/modules/settings'
 import { message as toast } from '@/utils/toast'
-import { useContextMenu } from '@/composables/useContextMenu'
+import { useContextMenu, useAsyncAction } from '@/composables'
+import FormModal from '@/components/common/FormModal.vue'
 import { formatDate } from '@/utils/format'
 import { NOTIFICATION_TYPE_CONFIG } from '@/constants/statusConfig'
 
@@ -402,7 +362,7 @@ const templates = ref<NotificationTemplate[]>([])
 const history = ref<NotificationHistory[]>([])
 const recipients = ref<NotificationRecipient[]>([])
 
-const templateForm = reactive({ name: '', type: 'email' as 'email' | 'discord' | 'system', subject: '' })
+const templateForm = reactive({ name: '', type: 'email' as 'email' | 'discord' | 'system', subject: '', content: '' })
 const recipientForm = reactive({
   name: '',
   recipient_type: 'USER' as 'USER' | 'USER_GROUP',
@@ -425,8 +385,7 @@ const getTypeLabel = (type: string) => NOTIFICATION_TYPE_CONFIG[type]?.label ?? 
 const loadTemplates = async () => {
   loading.value = true
   try {
-    const res = await notificationsApi.listTemplates() as any
-    templates.value = res.data || res || []
+    templates.value = (await notificationsApi.listTemplates()) ?? []
   } catch (e: any) {
     toast.error(e.message || '加载模板失败')
   } finally {
@@ -437,8 +396,7 @@ const loadTemplates = async () => {
 const loadHistory = async () => {
   loading.value = true
   try {
-    const res = await notificationsApi.listHistory() as any
-    history.value = res.data || res || []
+    history.value = (await notificationsApi.listHistory()) ?? []
   } catch (e: any) {
     toast.error(e.message || '加载记录失败')
   } finally {
@@ -449,8 +407,7 @@ const loadHistory = async () => {
 const loadRecipients = async () => {
   loading.value = true
   try {
-    const res = await notificationsApi.listRecipients() as any
-    recipients.value = res.data || res || []
+    recipients.value = (await notificationsApi.listRecipients()) ?? []
   } catch (e: any) {
     toast.error(e.message || '加载接收人失败')
   } finally {
@@ -469,13 +426,13 @@ const switchTab = (key: string) => {
 
 const openTemplateModal = () => {
   editingTemplate.value = null
-  Object.assign(templateForm, { name: '', type: 'email', subject: '' })
+  Object.assign(templateForm, { name: '', type: 'email', subject: '', content: '' })
   showTemplateModal.value = true
 }
 
 const editTemplate = (record: NotificationTemplate) => {
   editingTemplate.value = record
-  Object.assign(templateForm, { name: record.name, type: record.type, subject: record.subject })
+  Object.assign(templateForm, { name: record.name, type: record.type, subject: record.subject, content: record.content || '' })
   showTemplateModal.value = true
 }
 
@@ -513,26 +470,28 @@ const deleteTemplate = async (record: NotificationTemplate) => {
   }
 }
 
-const handleTemplateSubmit = async () => {
+const handleTemplateSubmit = () => {
   if (!templateForm.name) {
     toast.warning('请输入模板名称')
     return
   }
+  runSubmitTemplate()
+}
 
-  try {
-    if (editingTemplate.value) {
-      await notificationsApi.updateTemplate(editingTemplate.value.uuid, templateForm)
-      toast.success('模板已更新')
-    } else {
-      await notificationsApi.createTemplate(templateForm)
-      toast.success('模板创建成功')
-    }
+const { running: savingTemplate, run: runSubmitTemplate } = useAsyncAction(async () => {
+  if (editingTemplate.value) {
+    await notificationsApi.updateTemplate(editingTemplate.value.uuid, templateForm)
+    toast.success('模板已更新')
+  } else {
+    await notificationsApi.createTemplate(templateForm)
+    toast.success('模板创建成功')
+  }
+}, {
+  onSuccess: async () => {
     closeTemplateModal()
     await loadTemplates()
-  } catch (e: any) {
-    toast.error(e.message || '操作失败')
-  }
-}
+  },
+})
 
 // ===== 接收人操作 =====
 
@@ -560,9 +519,8 @@ const closeRecipientModal = () => {
 
 const testRecipient = async (record: NotificationRecipient) => {
   try {
-    const res = await notificationsApi.testRecipient(record.uuid) as any
-    const data = res.data || res
-    toast.success(`测试通知已发送 (${data.success_count || 0} 成功, ${data.failed_count || 0} 失败)`)
+    const data: any = await notificationsApi.testRecipient(record.uuid)
+    toast.success(`测试通知已发送 (${data?.success_count || 0} 成功, ${data?.failed_count || 0} 失败)`)
   } catch (e: any) {
     toast.error(e.message || '测试失败')
   }
@@ -578,26 +536,28 @@ const deleteRecipient = async (record: NotificationRecipient) => {
   }
 }
 
-const handleRecipientSubmit = async () => {
+const handleRecipientSubmit = () => {
   if (!recipientForm.name) {
     toast.warning('请输入接收人名称')
     return
   }
+  runSubmitRecipient()
+}
 
-  try {
-    if (editingRecipient.value) {
-      await notificationsApi.updateRecipient(editingRecipient.value.uuid, recipientForm)
-      toast.success('接收人已更新')
-    } else {
-      await notificationsApi.createRecipient(recipientForm)
-      toast.success('接收人已创建')
-    }
+const { running: savingRecipient, run: runSubmitRecipient } = useAsyncAction(async () => {
+  if (editingRecipient.value) {
+    await notificationsApi.updateRecipient(editingRecipient.value.uuid, recipientForm)
+    toast.success('接收人已更新')
+  } else {
+    await notificationsApi.createRecipient(recipientForm)
+    toast.success('接收人已创建')
+  }
+}, {
+  onSuccess: async () => {
     closeRecipientModal()
     await loadRecipients()
-  } catch (e: any) {
-    toast.error(e.message || '操作失败')
-  }
-}
+  },
+})
 
 onMounted(() => {
   loadTemplates()
