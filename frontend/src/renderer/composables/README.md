@@ -110,6 +110,9 @@ watch(isConnected, (connected) => {
 | `usePolling` | `usePolling.ts` | 可组合轮询（start/stop），断线兜底轮询用 |
 | `useStatusFormat` | `useStatusFormat.ts` | 回测状态/组合模式等枚举格式化 |
 | `useContextMenu` | `useContextMenu.ts` | 右键菜单（全局单例组件配套） |
+| `useAsyncAction` | `useAsyncAction.ts` | 提交态收敛（running+toast+成功回调），弹窗/表单提交复用 |
 | `useBacktestFormatters` | `useBacktestFormatters.ts` | 回测数值格式化（百分比/小数等） |
 | `useChartTheme` | `useChartTheme.ts` | 图表主题（跟随站点深浅色） |
+| `useECharts` | `useECharts.ts` | ECharts 实例生命周期（init/ResizeObserver/主题重绘/卸载清理）；动态多图用底层 `createChartController` |
+| `createReconnectingSocket` | `reconnectingSocket.ts` | 低层重连 WS 工厂（url 重解析/enabled 闸门），独立于 useWebSocket 单例 |
 | `useTheme` | `useTheme.ts` | 站点主题切换 |

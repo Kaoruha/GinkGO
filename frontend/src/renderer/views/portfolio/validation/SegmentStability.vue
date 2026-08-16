@@ -209,6 +209,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from
 import PageLayout from '@/components/common/PageLayout.vue'
 import * as echarts from 'echarts'
 import { useChartTheme, cssColor } from '@/composables/useChartTheme'
+import { useECharts, createChartController } from '@/composables/useECharts'
 import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
 import { message } from '@/utils/toast'
@@ -345,15 +346,11 @@ const fetchAvailableMetrics = async () => {
   finally { metricsLoading.value = false }
 }
 
-// 概览图
+// 概览图(useECharts: init/observer/主题重绘/卸载清理)
 const overviewChartRef = ref<HTMLDivElement | null>(null)
-let overviewChart: echarts.ECharts | null = null
 
-const initOverviewChart = () => {
-  if (!overviewChartRef.value || !result.value) return
-  if (overviewChart) overviewChart.dispose()
-
-  overviewChart = echarts.init(overviewChartRef.value)
+const buildOverviewOption = (): echarts.EChartsOption | null => {
+  if (!overviewChartRef.value || !result.value) return null
 
   const windows = result.value.windows
   const xData = windows.map((w: any) => `${w.n_segments}段`)
@@ -382,7 +379,7 @@ const initOverviewChart = () => {
     const axisIdx = i < 3 ? i : (i % 3)
     return {
       name: metricLabel(m),
-      type: 'line',
+      type: 'line' as const,
       data: windows.map((w: any) => {
         const segs = w.segments || []
         if (!segs.length) return null
@@ -397,7 +394,7 @@ const initOverviewChart = () => {
     }
   })
 
-  overviewChart.setOption({
+  return {
     backgroundColor: cssColor('--card'),
     tooltip: { trigger: 'axis' },
     legend: {
@@ -414,12 +411,14 @@ const initOverviewChart = () => {
     },
     yAxis: yAxisDefs.length ? yAxisDefs : [{ type: 'value' as const, splitLine: { lineStyle: { color: cssColor('--border') } } }],
     series,
-  })
+  }
 }
 
-// 详情图
+const { update: updateOverviewChart } = useECharts(() => overviewChartRef.value, buildOverviewOption)
+
+// 详情图(动态多图:底层 controller 手动管理,页面自持 Map)
 const detailChartRefs = ref<Map<number, HTMLDivElement>>(new Map())
-const detailCharts = new Map<number, echarts.ECharts>()
+const detailControllers = new Map<number, ReturnType<typeof createChartController>>()
 
 const setDetailChartRef = (nSegments: number) => (el: any) => {
   if (el) detailChartRefs.value.set(nSegments, el as HTMLDivElement)
@@ -427,17 +426,24 @@ const setDetailChartRef = (nSegments: number) => (el: any) => {
 
 const initDetailCharts = () => {
   if (!result.value) return
-  detailCharts.forEach(c => c.dispose())
-  detailCharts.clear()
+  detailControllers.forEach(c => c.dispose())
+  detailControllers.clear()
 
   for (const w of result.value.windows) {
     const el = detailChartRefs.value.get(w.n_segments)
     if (!el) continue
 
-    const chart = echarts.init(el)
-    detailCharts.set(w.n_segments, chart)
+    const buildDetailOption = (): echarts.EChartsOption | null => buildDetailOptionFor(w)
 
-    const xData = w.segments.map((seg: any) => `${seg._start?.slice(5) || ''}~${seg._end?.slice(5) || ''}`)
+    const controller = createChartController(() => el, buildDetailOption)
+    controller.update()
+    detailControllers.set(w.n_segments, controller)
+  }
+}
+
+// 单窗口详情图 option 构造(闭包捕获窗口数据,主题 token 每次重读)
+const buildDetailOptionFor = (w: any): echarts.EChartsOption | null => {
+  const xData = w.segments.map((seg: any) => `${seg._start?.slice(5) || ''}~${seg._end?.slice(5) || ''}`)
     const metrics = w.available_metrics || []
 
     const yAxisDefs = metrics.slice(0, 2).map((m: string, i: number) => ({
@@ -453,7 +459,7 @@ const initDetailCharts = () => {
       const axisIdx = i < 2 ? i : (i % 2)
       return {
         name: metricLabel(m),
-        type: 'line',
+        type: 'line' as const,
         data: w.segments.map((seg: any) => {
           const val = seg[m]
           return val !== undefined ? Number(val.toFixed(4)) : null
@@ -474,7 +480,7 @@ const initDetailCharts = () => {
       }
     })
 
-    chart.setOption({
+    return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis' },
       legend: {
@@ -491,8 +497,7 @@ const initDetailCharts = () => {
       },
       yAxis: yAxisDefs.length ? yAxisDefs : [{ type: 'value' as const, splitLine: { lineStyle: { color: cssColor('--border') } } }],
       series,
-    })
-  }
+    }
 }
 
 watch(() => config.taskId, () => {
@@ -501,35 +506,23 @@ watch(() => config.taskId, () => {
 
 watch(result, () => {
   nextTick(() => {
-    initOverviewChart()
+    updateOverviewChart()
     initDetailCharts()
   })
 })
 
-// 主题切换:重建两套图表(dispose+reinit),chrome token 重读生效;分类系列色板保持稳定
+// 详情图为动态集合(controller 非组件钩子),主题切换须页面级驱动重建
 watch(theme, () => {
-  nextTick(() => {
-    initOverviewChart()
-    initDetailCharts()
-  })
+  nextTick(initDetailCharts)
 })
-
-const handleResize = () => {
-  overviewChart?.resize()
-  detailCharts.forEach(c => c.resize())
-}
 
 onMounted(() => {
   fetchBacktestList()
-  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-  overviewChart?.dispose()
-  overviewChart = null
-  detailCharts.forEach(c => c.dispose())
-  detailCharts.clear()
+  detailControllers.forEach(c => c.dispose())
+  detailControllers.clear()
 })
 </script>
 

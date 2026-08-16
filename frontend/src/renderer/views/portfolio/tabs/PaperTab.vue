@@ -6,6 +6,7 @@ import StatCard from '@/components/common/StatCard.vue'
 import { RefreshCw, Settings } from 'lucide-vue-next'
 import * as echarts from 'echarts'
 import { useChartTheme, cssColor } from '@/composables/useChartTheme'
+import { useECharts } from '@/composables/useECharts'
 
 const route = useRoute()
 const portfolioId = route.params.id as string
@@ -110,32 +111,19 @@ const loadData = async () => {
   }
 }
 
-// ── ECharts 净值曲线 ──────────────────────
+// ── ECharts 净值曲线(useECharts: init/observer/主题重绘/卸载清理) ──
 const chartRef = ref<HTMLDivElement>()
-let chart: echarts.ECharts | null = null
-let resizeObs: ResizeObserver | null = null
 
-const initChart = () => {
-  if (!chartRef.value) return
-  if (chart) { chart.dispose(); chart = null }
-  chart = echarts.init(chartRef.value)
-  resizeObs?.disconnect()
-  resizeObs = new ResizeObserver(() => chart?.resize())
-  resizeObs.observe(chartRef.value)
-  updateChart()
-}
-
-const updateChart = () => {
-  if (!chart) return
+const buildChartOption = (): echarts.EChartsOption | null => {
   const data = netValueSeries.value
   if (!data.length) {
-    chart.setOption({
+    // 空态占位原样保留(画布内居中提示,非 dispose)
+    return {
       backgroundColor: cssColor('--card'),
       title: { text: '暂无净值数据', left: 'center', top: 'center', textStyle: { color: cssColor('--muted-foreground'), fontSize: 14 } },
-    })
-    return
+    }
   }
-  chart.setOption({
+  return {
     backgroundColor: cssColor('--card'),
     animation: true,
     tooltip: {
@@ -172,13 +160,12 @@ const updateChart = () => {
         ]),
       },
     }],
-  })
+  }
 }
 
-watch(netValueSeries, () => nextTick(updateChart))
+const { update: updateChart } = useECharts(() => chartRef.value, buildChartOption)
 
-// 主题切换重绘:setOption 全量替换,token 重读生效;事件 badge 走 DOM 由 getEventStyle 重算
-watch(theme, () => nextTick(updateChart))
+watch(netValueSeries, () => nextTick(updateChart))
 
 // ── 事件类型样式 ──────────────────────────
 // 事件语义色:走主题 token(ADR-045 去硬编码 hex);badge 底=同色 12% 透明。
@@ -244,15 +231,11 @@ const onDocClick = (ev: MouseEvent) => {
 onMounted(() => {
   loadConfig()
   loadData()
-  nextTick(initChart)
+  nextTick(updateChart) // useECharts 内部幂等 init
   document.addEventListener('click', onDocClick)
 })
 
 onUnmounted(() => {
-  chart?.dispose()
-  chart = null
-  resizeObs?.disconnect()
-  resizeObs = null
   document.removeEventListener('click', onDocClick)
 })
 </script>

@@ -30,8 +30,10 @@ export function cssColor(varName: string, alpha?: number): string {
   if (!v) return '' // token 缺失,调用方回退
   // canvas 图表库(lightweight-charts/ECharts)的颜色解析器只认 rgb()/hex,
   // 不认 hsl 的任何语法(空格/逗号都抛 "Cannot parse color")。
-  // 借浏览器原生 hsl→rgb 转换最可靠;按主题 attr 缓存,切换主题自动失效重算。
-  const themeAttr = document.documentElement.getAttribute('data-theme') || ''
+  // 借浏览器原生 hsl→rgb 转换最可靠;按主题缓存,切换主题自动失效重算。
+  // 注意:主题是 class-based(html.dark,见 useTheme.applyTheme),不是 data-theme
+  // attr——读 attr 恒为空会让缓存永不失效,切主题后图表拿旧色(既有 bug 修复)。
+  const themeAttr = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   const key = `${themeAttr}|${varName}|${alpha ?? ''}`
   const cached = _colorCache.get(key)
   if (cached) return cached

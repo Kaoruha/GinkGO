@@ -151,14 +151,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import PageTitle from '@/components/common/PageTitle.vue'
 import { useRoute } from 'vue-router'
 import ProTable from '@/components/common/ProTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
 import * as echarts from 'echarts'
-import { useChartTheme, cssColor, upColor, downColor } from '@/composables/useChartTheme'
+import { cssColor, upColor, downColor } from '@/composables/useChartTheme'
+import { useECharts } from '@/composables/useECharts'
 import { dataApi } from '@/api/modules/data'
 import type { TickData } from '@/api/modules/data'
 import dayjs from 'dayjs'
@@ -167,7 +168,6 @@ import { formatCompact, formatDate } from '@/utils/format'
 import type { MenuItem } from '@/composables/useContextMenu'
 
 const route = useRoute()
-const { theme } = useChartTheme()
 
 const loading = ref(false)
 const searched = ref(false)
@@ -254,8 +254,6 @@ function aggregateTicks(data: TickData[], bucketMinutes: number): OHLCBucket[] {
 const ohlcBuckets = computed(() => aggregateTicks(tickData.value, bucketSize.value))
 
 const chartContainer = ref<HTMLElement>()
-let chart: echarts.ECharts | null = null
-let resizeObserver: ResizeObserver | null = null
 
 const tickColumns = [
   { title: '时间', dataIndex: 'timestamp' },
@@ -376,23 +374,12 @@ async function autoSelectStock() {
   }
 }
 
-// ---- 图表 ----
-
-function initChart() {
-  if (!chartContainer.value) return
-  if (chart) { chart.dispose(); chart = null }
-  chart = echarts.init(chartContainer.value)
-  resizeObserver?.disconnect()
-  resizeObserver = new ResizeObserver(() => { chart?.resize() })
-  resizeObserver.observe(chartContainer.value)
-}
-
-function updateChart() {
-  if (!chartContainer.value || tickData.value.length === 0) return
-  if (!chart) initChart()
+// ---- 图表(useECharts: init/observer/主题重绘/卸载清理) ----
+const buildChartOption = (): echarts.EChartsOption | null => {
+  if (tickData.value.length === 0) return null
 
   const buckets = ohlcBuckets.value
-  if (buckets.length === 0) return
+  if (buckets.length === 0) return null
 
   const times = buckets.map(b => b.time)
   // ECharts candlestick: [open, close, low, high]
@@ -403,7 +390,7 @@ function updateChart() {
     return ratio >= 0.5 ? upColor(0.6) : downColor(0.6)
   })
 
-  chart!.setOption({
+  return {
     backgroundColor: cssColor('--card'),
     animation: false,
     tooltip: {
@@ -460,14 +447,13 @@ function updateChart() {
         },
       },
     ],
-  }, true)
+  }
 }
+
+const { update: updateChart } = useECharts(() => chartContainer.value, buildChartOption)
 
 // 桶大小变化时刷新图表（数据不变，只需重新聚合渲染）
 watch(bucketSize, () => { nextTick(() => updateChart()) })
-
-// 主题切换重绘:setOption 用 notMerge 全量替换,token 重读即生效
-watch(theme, () => { nextTick(() => updateChart()) })
 
 onMounted(async () => {
   const code = route.query.code as string
@@ -477,11 +463,6 @@ onMounted(async () => {
   } else {
     try { await autoSelectStock() } catch { /* ignore */ }
   }
-})
-
-onUnmounted(() => {
-  resizeObserver?.disconnect()
-  if (chart) { chart.dispose(); chart = null }
 })
 </script>
 
