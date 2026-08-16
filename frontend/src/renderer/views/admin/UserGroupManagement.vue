@@ -4,14 +4,25 @@
       用户组管理
     </template>
     <template #actions>
-      <button class="btn-primary" @click="openCreateModal">添加用户组</button>
+      <button
+        class="btn-primary"
+        @click="openCreateModal"
+      >
+        添加用户组
+      </button>
     </template>
 
     <div class="card">
-      <div v-if="loading" class="loading-container">
-        <div class="spinner"></div>
+      <div
+        v-if="loading"
+        class="loading-container"
+      >
+        <div class="spinner" />
       </div>
-      <div v-else-if="userGroups.length > 0" class="table-wrapper">
+      <div
+        v-else-if="userGroups.length > 0"
+        class="table-wrapper"
+      >
         <table class="data-table">
           <thead>
             <tr>
@@ -22,52 +33,105 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in userGroups" :key="record.uuid" @contextmenu="openGroupMenu($event, record)">
+            <tr
+              v-for="record in userGroups"
+              :key="record.uuid"
+              @contextmenu="openGroupMenu($event, record)"
+            >
               <td>{{ record.name }}</td>
               <td>{{ record.description || '-' }}</td>
               <td>{{ record.user_count }}</td>
               <td>
                 <div class="tags-wrapper">
-                  <span v-for="perm in record.permissions?.slice(0, 3)" :key="perm" class="tag tag-blue">{{ perm }}</span>
-                  <span v-if="record.permissions?.length > 3" class="tag tag-gray">+{{ record.permissions.length - 3 }}</span>
+                  <span
+                    v-for="perm in record.permissions?.slice(0, 3)"
+                    :key="perm"
+                    class="tag tag-blue"
+                  >{{ perm }}</span>
+                  <span
+                    v-if="record.permissions?.length > 3"
+                    class="tag tag-gray"
+                  >+{{ record.permissions.length - 3 }}</span>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <EmptyState v-else description="暂无用户组数据" />
+      <EmptyState
+        v-else
+        description="暂无用户组数据"
+      />
     </div>
 
     <!-- 用户组编辑/创建模态框 -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
+    <div
+      v-if="showCreateModal"
+      class="modal-overlay"
+      @click.self="closeModal"
+    >
       <div class="modal">
         <div class="modal-header">
           <h3>{{ editingGroup ? '编辑用户组' : '添加用户组' }}</h3>
-          <button class="modal-close" @click="closeModal">×</button>
+          <button
+            class="modal-close"
+            @click="closeModal"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="handleSubmit">
             <div class="form-group">
               <label class="form-label">组名称 <span class="required">*</span></label>
-              <input v-model="groupForm.name" type="text" placeholder="输入组名称" class="form-input" required />
+              <input
+                v-model="groupForm.name"
+                type="text"
+                placeholder="输入组名称"
+                class="form-input"
+                required
+              >
             </div>
             <div class="form-group">
               <label class="form-label">描述</label>
-              <textarea v-model="groupForm.description" :rows="3" placeholder="输入描述" class="form-textarea"></textarea>
+              <textarea
+                v-model="groupForm.description"
+                :rows="3"
+                placeholder="输入描述"
+                class="form-textarea"
+              />
             </div>
             <div class="form-group">
               <label class="form-label">权限</label>
               <div class="multi-select">
-                <label v-for="perm in availablePermissions" :key="perm.value" class="checkbox-label">
-                  <input v-model="groupForm.permissions" type="checkbox" :value="perm.value" />
+                <label
+                  v-for="perm in availablePermissions"
+                  :key="perm.value"
+                  class="checkbox-label"
+                >
+                  <input
+                    v-model="groupForm.permissions"
+                    type="checkbox"
+                    :value="perm.value"
+                  >
                   {{ perm.label }}
                 </label>
               </div>
             </div>
             <div class="modal-actions">
-              <button type="button" class="btn-secondary" @click="closeModal">取消</button>
-              <button type="submit" class="btn-primary">{{ editingGroup ? '更新' : '创建' }}</button>
+              <button
+                type="button"
+                class="btn-secondary"
+                @click="closeModal"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="btn-primary"
+              >
+                {{ editingGroup ? '更新' : '创建' }}
+              </button>
             </div>
           </form>
         </div>
@@ -75,22 +139,55 @@
     </div>
 
     <!-- 权限管理模态框 -->
-    <div v-if="showPermissionModal" class="modal-overlay" @click.self="closePermissionModal">
+    <div
+      v-if="showPermissionModal"
+      class="modal-overlay"
+      @click.self="closePermissionModal"
+    >
       <div class="modal modal-large">
         <div class="modal-header">
           <h3>权限管理 - {{ permissionTarget?.name }}</h3>
-          <button class="modal-close" @click="closePermissionModal">×</button>
+          <button
+            class="modal-close"
+            @click="closePermissionModal"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
-          <div class="multi-select" style="margin-bottom: 16px">
-            <label v-for="perm in availablePermissions" :key="perm.value" class="checkbox-label" :class="{ selected: selectedPermissions.includes(perm.value) }">
-              <input v-model="selectedPermissions" type="checkbox" :value="perm.value" />
+          <div
+            class="multi-select"
+            style="margin-bottom: 16px"
+          >
+            <label
+              v-for="perm in availablePermissions"
+              :key="perm.value"
+              class="checkbox-label"
+              :class="{ selected: selectedPermissions.includes(perm.value) }"
+            >
+              <input
+                v-model="selectedPermissions"
+                type="checkbox"
+                :value="perm.value"
+              >
               {{ perm.label }}
             </label>
           </div>
           <div class="modal-actions">
-            <button type="button" class="btn-secondary" @click="closePermissionModal">取消</button>
-            <button type="button" class="btn-primary" @click="savePermissions">保存</button>
+            <button
+              type="button"
+              class="btn-secondary"
+              @click="closePermissionModal"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              class="btn-primary"
+              @click="savePermissions"
+            >
+              保存
+            </button>
           </div>
         </div>
       </div>

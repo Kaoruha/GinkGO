@@ -32,7 +32,10 @@ const contentClass = computed(() =>
 </script>
 
 <template>
-  <DialogRoot :open="open" @update:open="handleOpenChange">
+  <DialogRoot
+    :open="open"
+    @update:open="handleOpenChange"
+  >
     <DialogPortal>
       <DialogOverlay />
       <DialogContent :class="contentClass">

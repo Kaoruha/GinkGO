@@ -16,7 +16,10 @@ const tableBodyClass = computed(() =>
 </script>
 
 <template>
-  <tbody :class="tableBodyClass" v-bind="$attrs">
+  <tbody
+    :class="tableBodyClass"
+    v-bind="$attrs"
+  >
     <slot />
   </tbody>
 </template>

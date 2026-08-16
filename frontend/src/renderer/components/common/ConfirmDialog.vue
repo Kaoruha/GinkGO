@@ -47,14 +47,23 @@ const onOpenChange = (v: boolean) => {
 </script>
 
 <template>
-  <DialogRoot :open="open" @update:open="onOpenChange">
+  <DialogRoot
+    :open="open"
+    @update:open="onOpenChange"
+  >
     <DialogPortal>
       <DialogOverlay />
-      <DialogContent class="confirm-dialog-content" @interact-outside.prevent>
+      <DialogContent
+        class="confirm-dialog-content"
+        @interact-outside.prevent
+      >
         <DialogTitle class="confirm-dialog-title">
           {{ title }}
         </DialogTitle>
-        <DialogDescription v-if="description" class="confirm-dialog-desc">
+        <DialogDescription
+          v-if="description"
+          class="confirm-dialog-desc"
+        >
           {{ description }}
         </DialogDescription>
         <div class="confirm-dialog-actions">

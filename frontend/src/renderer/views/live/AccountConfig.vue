@@ -1,12 +1,37 @@
 <template>
   <PageLayout>
-    <template #title>实盘账号配置</template>
-    <template #description>管理交易所API凭证，配置实盘交易账号</template>
+    <template #title>
+      实盘账号配置
+    </template>
+    <template #description>
+      管理交易所API凭证，配置实盘交易账号
+    </template>
     <template #actions>
-      <button class="btn-primary" @click="showAddModal">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
+      <button
+        class="btn-primary"
+        @click="showAddModal"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <line
+            x1="12"
+            y1="5"
+            x2="12"
+            y2="19"
+          />
+          <line
+            x1="5"
+            y1="12"
+            x2="19"
+            y2="12"
+          />
         </svg>
         添加账号
       </button>
@@ -22,8 +47,16 @@
       </div>
 
       <div class="card-body">
-        <div v-if="loading" class="loading-state">加载中...</div>
-        <div v-else class="table-wrapper">
+        <div
+          v-if="loading"
+          class="loading-state"
+        >
+          加载中...
+        </div>
+        <div
+          v-else
+          class="table-wrapper"
+        >
           <table class="data-table">
             <thead>
               <tr>
@@ -34,25 +67,43 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in accounts" :key="record.uuid" @contextmenu="openAccountMenu($event, record)">
+              <tr
+                v-for="record in accounts"
+                :key="record.uuid"
+                @contextmenu="openAccountMenu($event, record)"
+              >
                 <td>
                   <div class="account-name">
                     <span>{{ record.name }}</span>
-                    <span v-if="record.environment === 'production'" class="tag tag-red" style="margin-left: 8px">
+                    <span
+                      v-if="record.environment === 'production'"
+                      class="tag tag-red"
+                      style="margin-left: 8px"
+                    >
                       生产环境
                     </span>
-                    <span v-else class="tag tag-green" style="margin-left: 8px">
+                    <span
+                      v-else
+                      class="tag tag-green"
+                      style="margin-left: 8px"
+                    >
                       测试网
                     </span>
                   </div>
                 </td>
                 <td>
-                  <span class="tag" :class="record.exchange === 'okx' ? 'tag-cyan' : 'tag-yellow'">
+                  <span
+                    class="tag"
+                    :class="record.exchange === 'okx' ? 'tag-cyan' : 'tag-yellow'"
+                  >
                     {{ record.exchange.toUpperCase() }}
                   </span>
                 </td>
                 <td>
-                  <span class="tag" :class="getStatusTagClass(record.status)">
+                  <span
+                    class="tag"
+                    :class="getStatusTagClass(record.status)"
+                  >
                     {{ getStatusText(record.status) }}
                   </span>
                 </td>
@@ -60,7 +111,10 @@
                   <span v-if="record.last_validated_at">
                     {{ formatDateTime(record.last_validated_at) }}
                   </span>
-                  <span v-else class="text-muted">未验证</span>
+                  <span
+                    v-else
+                    class="text-muted"
+                  >未验证</span>
                 </td>
               </tr>
             </tbody>
@@ -70,24 +124,45 @@
     </div>
 
     <!-- 添加/编辑账号模态框 -->
-    <div v-if="modalVisible" class="modal-overlay" @click.self="handleModalCancel">
+    <div
+      v-if="modalVisible"
+      class="modal-overlay"
+      @click.self="handleModalCancel"
+    >
       <div class="modal">
         <div class="modal-header">
           <h3>{{ isEditMode ? '编辑账号' : '添加账号' }}</h3>
-          <button class="modal-close" @click="handleModalCancel">×</button>
+          <button
+            class="modal-close"
+            @click="handleModalCancel"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="handleModalOk">
             <div class="form-group">
               <label class="form-label">账号名称</label>
-              <input v-model="formData.name" type="text" placeholder="输入账号名称" class="form-input" />
+              <input
+                v-model="formData.name"
+                type="text"
+                placeholder="输入账号名称"
+                class="form-input"
+              >
             </div>
 
             <div class="form-group">
               <label class="form-label">交易所</label>
-              <select v-model="formData.exchange" class="form-select">
-                <option value="okx">OKX</option>
-                <option value="binance">Binance</option>
+              <select
+                v-model="formData.exchange"
+                class="form-select"
+              >
+                <option value="okx">
+                  OKX
+                </option>
+                <option value="binance">
+                  Binance
+                </option>
               </select>
             </div>
 
@@ -95,58 +170,140 @@
               <label class="form-label">环境</label>
               <div class="radio-group">
                 <label class="radio-label">
-                  <input v-model="formData.environment" type="radio" value="testnet" />
+                  <input
+                    v-model="formData.environment"
+                    type="radio"
+                    value="testnet"
+                  >
                   测试网
                 </label>
                 <label class="radio-label">
-                  <input v-model="formData.environment" type="radio" value="production" />
+                  <input
+                    v-model="formData.environment"
+                    type="radio"
+                    value="production"
+                  >
                   生产环境
                 </label>
               </div>
               <div class="form-tip">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                  />
+                  <line
+                    x1="12"
+                    y1="8"
+                    x2="12"
+                    y2="12"
+                  />
+                  <line
+                    x1="12"
+                    y1="16"
+                    x2="12.01"
+                    y2="16"
+                  />
                 </svg>
                 生产环境使用真实资金进行交易，请谨慎操作
               </div>
             </div>
 
-            <div class="form-divider">API凭证</div>
+            <div class="form-divider">
+              API凭证
+            </div>
 
             <div class="form-group">
               <label class="form-label">API Key</label>
-              <input v-model="formData.api_key" type="password" placeholder="输入API Key" class="form-input" />
+              <input
+                v-model="formData.api_key"
+                type="password"
+                placeholder="输入API Key"
+                class="form-input"
+              >
             </div>
 
             <div class="form-group">
               <label class="form-label">API Secret</label>
-              <input v-model="formData.api_secret" type="password" placeholder="输入API Secret" class="form-input" />
+              <input
+                v-model="formData.api_secret"
+                type="password"
+                placeholder="输入API Secret"
+                class="form-input"
+              >
             </div>
 
-            <div v-if="formData.exchange === 'okx'" class="form-group">
+            <div
+              v-if="formData.exchange === 'okx'"
+              class="form-group"
+            >
               <label class="form-label">Passphrase</label>
-              <input v-model="formData.passphrase" type="password" placeholder="输入Passphrase (OKX需要)" class="form-input" />
+              <input
+                v-model="formData.passphrase"
+                type="password"
+                placeholder="输入Passphrase (OKX需要)"
+                class="form-input"
+              >
             </div>
 
             <div class="form-group">
               <label class="form-label">描述</label>
-              <textarea v-model="formData.description" class="form-textarea" rows="3" placeholder="账号描述（可选）"></textarea>
+              <textarea
+                v-model="formData.description"
+                class="form-textarea"
+                rows="3"
+                placeholder="账号描述（可选）"
+              />
             </div>
 
             <!-- 验证结果 -->
-            <div v-if="validationResult" class="alert" :class="validationResult.success ? 'alert-success' : 'alert-error'">
+            <div
+              v-if="validationResult"
+              class="alert"
+              :class="validationResult.success ? 'alert-success' : 'alert-error'"
+            >
               <div class="alert-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                  <line x1="12" y1="9" x2="12" y2="13"></line>
-                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line
+                    x1="12"
+                    y1="9"
+                    x2="12"
+                    y2="13"
+                  />
+                  <line
+                    x1="12"
+                    y1="17"
+                    x2="12.01"
+                    y2="17"
+                  />
                 </svg>
               </div>
               <div class="alert-content">
-                <div class="alert-message">{{ validationResult.message }}</div>
-                <div v-if="validationResult.account_info" class="alert-description">
+                <div class="alert-message">
+                  {{ validationResult.message }}
+                </div>
+                <div
+                  v-if="validationResult.account_info"
+                  class="alert-description"
+                >
                   <div>余额: {{ validationResult.account_info.balance }}</div>
                   <div>环境: {{ validationResult.account_info.environment }}</div>
                 </div>
@@ -154,8 +311,18 @@
             </div>
 
             <div class="form-actions">
-              <button type="button" class="btn-secondary" @click="handleModalCancel">取消</button>
-              <button type="submit" class="btn-primary" :disabled="saving">
+              <button
+                type="button"
+                class="btn-secondary"
+                @click="handleModalCancel"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="btn-primary"
+                :disabled="saving"
+              >
                 {{ saving ? '保存中...' : '确定' }}
               </button>
             </div>
@@ -163,7 +330,6 @@
         </div>
       </div>
     </div>
-
   </PageLayout>
 </template>
 

@@ -1,5 +1,8 @@
 <template>
-  <div class="portfolio-form-editor" :class="{ 'modal-mode': isModalMode }">
+  <div
+    class="portfolio-form-editor"
+    :class="{ 'modal-mode': isModalMode }"
+  >
     <PageLayout>
       <template #title>
         <PageTitle
@@ -9,420 +12,816 @@
           @back="goBack"
         />
       </template>
-      <template v-if="!isModalMode" #description>配置交易策略、选股器、仓位管理和风控规则</template>
+      <template
+        v-if="!isModalMode"
+        #description
+      >
+        配置交易策略、选股器、仓位管理和风控规则
+      </template>
       <template #actions>
-        <button class="btn-secondary" data-testid="btn-cancel-form" @click="goBack">取消</button>
-        <button class="btn-primary" data-testid="btn-save-portfolio" :disabled="saving" @click="savePortfolio">
+        <button
+          class="btn-secondary"
+          data-testid="btn-cancel-form"
+          @click="goBack"
+        >
+          取消
+        </button>
+        <button
+          class="btn-primary"
+          data-testid="btn-save-portfolio"
+          :disabled="saving"
+          @click="savePortfolio"
+        >
           {{ isEditMode ? '保存' : '创建' }}
         </button>
       </template>
 
-      <div v-if="isEditMode" class="edit-mode-hint">
+      <div
+        v-if="isEditMode"
+        class="edit-mode-hint"
+      >
         编辑模式仅可保存名称、描述与初始资金;组件绑定与运行模式创建后不可更改(如需调整请新建组合)。
       </div>
 
-    <div class="form-layout">
-      <!-- 左侧面板 -->
-      <div class="left-panel">
-        <form @submit.prevent>
-          <!-- 基本信息卡片 -->
-          <div class="card form-card">
-            <div class="card-header-sm">
-              <h4>基本信息</h4>
-            </div>
-            <div class="card-body-sm">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">名称 <span class="required">*</span></label>
-                  <input v-model="formData.name" type="text" placeholder="组合名称" data-testid="input-portfolio-name" class="form-input" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">初始资金 <span class="required">*</span></label>
-                  <div class="input-group">
-                    <span class="input-prefix">¥</span>
+      <div class="form-layout">
+        <!-- 左侧面板 -->
+        <div class="left-panel">
+          <form @submit.prevent>
+            <!-- 基本信息卡片 -->
+            <div class="card form-card">
+              <div class="card-header-sm">
+                <h4>基本信息</h4>
+              </div>
+              <div class="card-body-sm">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">名称 <span class="required">*</span></label>
                     <input
+                      v-model="formData.name"
                       type="text"
-                      :value="formatNumber(formData.initial_cash)"
-                      @input="onInitialCashInput"
+                      placeholder="组合名称"
+                      data-testid="input-portfolio-name"
                       class="form-input"
-                    />
+                    >
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">初始资金 <span class="required">*</span></label>
+                    <div class="input-group">
+                      <span class="input-prefix">¥</span>
+                      <input
+                        type="text"
+                        :value="formatNumber(formData.initial_cash)"
+                        class="form-input"
+                        @input="onInitialCashInput"
+                      >
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">运行模式 <span class="required">*</span></label>
-                  <select v-model="formData.mode" class="form-select" :disabled="isEditMode">
-                    <option value="BACKTEST">回测</option>
-                    <option value="PAPER">模拟盘</option>
-                    <option value="LIVE">实盘</option>
-                  </select>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">运行模式 <span class="required">*</span></label>
+                    <select
+                      v-model="formData.mode"
+                      class="form-select"
+                      :disabled="isEditMode"
+                    >
+                      <option value="BACKTEST">
+                        回测
+                      </option>
+                      <option value="PAPER">
+                        模拟盘
+                      </option>
+                      <option value="LIVE">
+                        实盘
+                      </option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">基准</label>
+                    <input
+                      v-model="formData.benchmark"
+                      type="text"
+                      placeholder="000001.SZ（可选）"
+                      class="form-input"
+                      :disabled="isEditMode"
+                    >
+                  </div>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">基准</label>
-                  <input v-model="formData.benchmark" type="text" placeholder="000001.SZ（可选）" class="form-input" :disabled="isEditMode" />
+                  <label class="form-label">描述</label>
+                  <textarea
+                    v-model="formData.description"
+                    :rows="2"
+                    placeholder="组合描述"
+                    class="form-textarea"
+                  />
                 </div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">描述</label>
-                <textarea v-model="formData.description" :rows="2" placeholder="组合描述" class="form-textarea"></textarea>
               </div>
             </div>
-          </div>
 
-          <!-- 添加组件卡片 -->
-          <div class="card form-card">
+            <!-- 添加组件卡片 -->
+            <div class="card form-card">
+              <div class="card-header-sm">
+                <h4>添加组件</h4>
+              </div>
+              <div class="card-body-sm">
+                <div class="component-type-tabs">
+                  <button
+                    v-for="type in componentTypes"
+                    :key="type.key"
+                    :class="['type-btn', { active: activeComponentType === type.key }]"
+                    type="button"
+                    @click="activeComponentType = type.key"
+                  >
+                    {{ type.label }}
+                  </button>
+                </div>
+
+                <div class="component-selector">
+                  <SearchSelect
+                    v-if="activeComponentType === 'selector'"
+                    placeholder="搜索选股器..."
+                    :search-fn="q => searchComponents('selector', q)"
+                    :exclude-values="formData.selectors.map(s => s.uuid)"
+                    @select="o => addSelector(o.value)"
+                  />
+                  <SearchSelect
+                    v-else-if="activeComponentType === 'sizer'"
+                    placeholder="搜索仓位管理器..."
+                    :search-fn="q => searchComponents('sizer', q)"
+                    :exclude-values="formData.sizer ? [formData.sizer.uuid] : []"
+                    @select="o => addSizer(o.value)"
+                  />
+                  <SearchSelect
+                    v-else-if="activeComponentType === 'strategy'"
+                    placeholder="搜索策略..."
+                    :search-fn="q => searchComponents('strategy', q)"
+                    :exclude-values="formData.strategies.map(s => s.uuid)"
+                    @select="o => addStrategy(o.value)"
+                  />
+                  <SearchSelect
+                    v-else-if="activeComponentType === 'risk'"
+                    placeholder="搜索风控规则..."
+                    :search-fn="q => searchComponents('risk', q)"
+                    :exclude-values="formData.risk_managers.map(r => r.uuid)"
+                    @select="o => addRisk(o.value)"
+                  />
+                  <SearchSelect
+                    v-else-if="activeComponentType === 'analyzer'"
+                    placeholder="搜索分析器..."
+                    :search-fn="q => searchComponents('analyzer', q)"
+                    :exclude-values="formData.analyzers.map(a => a.uuid)"
+                    @select="o => addAnalyzer(o.value)"
+                  />
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- 右侧面板 -->
+        <div class="right-panel">
+          <div class="card config-card">
             <div class="card-header-sm">
-              <h4>添加组件</h4>
+              <h4>组件配置</h4>
             </div>
-            <div class="card-body-sm">
-              <div class="component-type-tabs">
-                <button
-                  v-for="type in componentTypes"
-                  :key="type.key"
-                  :class="['type-btn', { active: activeComponentType === type.key }]"
-                  type="button"
-                  @click="activeComponentType = type.key"
-                >
-                  {{ type.label }}
-                </button>
-              </div>
-
-              <div class="component-selector">
-                <SearchSelect
-                  v-if="activeComponentType === 'selector'"
-                  placeholder="搜索选股器..."
-                  :search-fn="q => searchComponents('selector', q)"
-                  :exclude-values="formData.selectors.map(s => s.uuid)"
-                  @select="o => addSelector(o.value)"
-                />
-                <SearchSelect
-                  v-else-if="activeComponentType === 'sizer'"
-                  placeholder="搜索仓位管理器..."
-                  :search-fn="q => searchComponents('sizer', q)"
-                  :exclude-values="formData.sizer ? [formData.sizer.uuid] : []"
-                  @select="o => addSizer(o.value)"
-                />
-                <SearchSelect
-                  v-else-if="activeComponentType === 'strategy'"
-                  placeholder="搜索策略..."
-                  :search-fn="q => searchComponents('strategy', q)"
-                  :exclude-values="formData.strategies.map(s => s.uuid)"
-                  @select="o => addStrategy(o.value)"
-                />
-                <SearchSelect
-                  v-else-if="activeComponentType === 'risk'"
-                  placeholder="搜索风控规则..."
-                  :search-fn="q => searchComponents('risk', q)"
-                  :exclude-values="formData.risk_managers.map(r => r.uuid)"
-                  @select="o => addRisk(o.value)"
-                />
-                <SearchSelect
-                  v-else-if="activeComponentType === 'analyzer'"
-                  placeholder="搜索分析器..."
-                  :search-fn="q => searchComponents('analyzer', q)"
-                  :exclude-values="formData.analyzers.map(a => a.uuid)"
-                  @select="o => addAnalyzer(o.value)"
-                />
-              </div>
-            </div>
-          </div>
-        </form>
-      </div>
-
-      <!-- 右侧面板 -->
-      <div class="right-panel">
-        <div class="card config-card">
-          <div class="card-header-sm">
-            <h4>组件配置</h4>
-          </div>
-          <div class="card-body-sm config-content">
-            <!-- 选股器配置 -->
-            <div v-if="formData.selectors.length > 0" class="config-section">
-              <div class="section-header">
-                <span class="section-title">选股器 ({{ formData.selectors.length }})</span>
-              </div>
-              <div class="config-list">
-                <div v-for="(selector, index) in formData.selectors" :key="selector.uuid" class="config-item">
-                  <div class="item-header">
-                    <div class="item-info">
-                      <span class="item-name">{{ selector.name }}</span>
-                      <select
-                        v-model="selector.version"
-                        class="version-select"
-                        :disabled="getComponentVersions(selector.name, 'selector').length <= 1"
-                        @change="onSelectorVersionChange(index)"
-                      >
-                        <option v-for="v in getComponentVersions(selector.name, 'selector')" :key="v.uuid" :value="v.version">
-                          {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
-                        </option>
-                      </select>
-                    </div>
-                    <button class="btn-icon text-red" @click="removeSelector(index)">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    </button>
-                  </div>
-                  <div v-if="selector.parameters && selector.parameters.length > 0" class="item-params">
-                    <div v-for="param in selector.parameters" :key="param.name" class="param-row">
-                      <label class="param-label">{{ param.label || param.name }}</label>
-                      <input
-                        v-if="param.type === 'number'"
-                        :value="formatNumber(selector.config[param.name] ?? 0)"
-                        type="text"
-                        inputmode="decimal"
-                        class="param-input"
-                        @focus="e => setInputValue(e, selector.config[param.name] ?? '')"
-                        @blur="e => { selector.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(selector.config[param.name])) }"
-                      />
-                      <div v-else-if="param.type === 'boolean'" class="switch-container">
-                        <input :id="`sel-${selector.uuid}-${param.name}`" v-model="selector.config[param.name]" type="checkbox" class="switch-input" />
-                        <label :for="`sel-${selector.uuid}-${param.name}`" class="switch-label"></label>
-                      </div>
-                      <select v-else-if="param.type === 'select'" v-model="selector.config[param.name]" class="param-select">
-                        <option v-for="opt in param.options" :key="opt" :value="opt">{{ opt }}</option>
-                      </select>
-                      <input v-else v-model="selector.config[param.name]" type="text" class="param-input" />
-                    </div>
-                  </div>
+            <div class="card-body-sm config-content">
+              <!-- 选股器配置 -->
+              <div
+                v-if="formData.selectors.length > 0"
+                class="config-section"
+              >
+                <div class="section-header">
+                  <span class="section-title">选股器 ({{ formData.selectors.length }})</span>
                 </div>
-              </div>
-            </div>
-
-            <!-- 仓位管理器配置 -->
-            <div v-if="formData.sizer" class="config-section">
-              <div class="section-header">
-                <span class="section-title">仓位管理器</span>
-                <button class="btn-icon text-red" @click="removeSizer">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-              </div>
-              <div class="config-list">
-                <div class="config-item">
-                  <div class="item-header">
-                    <div class="item-info">
-                      <span class="item-name">{{ formData.sizer.name }}</span>
-                      <select
-                        v-model="formData.sizer.version"
-                        class="version-select"
-                        :disabled="getComponentVersions(formData.sizer.name, 'sizer').length <= 1"
-                        @change="onSizerVersionChange"
-                      >
-                        <option v-for="v in getComponentVersions(formData.sizer.name, 'sizer')" :key="v.uuid" :value="v.version">
-                          {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                  <div v-if="formData.sizer.parameters && formData.sizer.parameters.length > 0" class="item-params">
-                    <div v-for="param in formData.sizer.parameters" :key="param.name" class="param-row">
-                      <label class="param-label">{{ param.label || param.name }}</label>
-                      <input
-                        v-if="param.type === 'number'"
-                        :value="formatNumber(formData.sizer.config[param.name] ?? 0)"
-                        type="text"
-                        inputmode="decimal"
-                        class="param-input"
-                        @focus="e => { if (formData.sizer) setInputValue(e, formData.sizer.config[param.name] ?? '') }"
-                        @blur="e => { if (formData.sizer) { formData.sizer.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(formData.sizer.config[param.name])) } }"
-                      />
-                      <div v-else-if="param.type === 'boolean'" class="switch-container">
-                        <input :id="`sizer-${param.name}`" v-model="formData.sizer.config[param.name]" type="checkbox" class="switch-input" />
-                        <label :for="`sizer-${param.name}`" class="switch-label"></label>
+                <div class="config-list">
+                  <div
+                    v-for="(selector, index) in formData.selectors"
+                    :key="selector.uuid"
+                    class="config-item"
+                  >
+                    <div class="item-header">
+                      <div class="item-info">
+                        <span class="item-name">{{ selector.name }}</span>
+                        <select
+                          v-model="selector.version"
+                          class="version-select"
+                          :disabled="getComponentVersions(selector.name, 'selector').length <= 1"
+                          @change="onSelectorVersionChange(index)"
+                        >
+                          <option
+                            v-for="v in getComponentVersions(selector.name, 'selector')"
+                            :key="v.uuid"
+                            :value="v.version"
+                          >
+                            {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                          </option>
+                        </select>
                       </div>
-                      <select v-else-if="param.type === 'select'" v-model="formData.sizer.config[param.name]" class="param-select">
-                        <option v-for="opt in param.options" :key="opt" :value="opt">{{ opt }}</option>
-                      </select>
-                      <input v-else v-model="formData.sizer.config[param.name]" type="text" class="param-input" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 策略配置 -->
-            <div v-if="formData.strategies.length > 0" class="config-section">
-              <div class="section-header">
-                <span class="section-title">策略 ({{ formData.strategies.length }})</span>
-              </div>
-              <div class="config-list">
-                <div v-for="(strategy, index) in formData.strategies" :key="strategy.uuid" class="config-item">
-                  <div class="item-header">
-                    <div class="item-info">
-                      <span class="item-name">{{ strategy.name }}</span>
-                      <select
-                        v-model="strategy.version"
-                        class="version-select"
-                        :disabled="getComponentVersions(strategy.name, 'strategy').length <= 1"
-                        @change="onStrategyVersionChange(index)"
+                      <button
+                        class="btn-icon text-red"
+                        @click="removeSelector(index)"
                       >
-                        <option v-for="v in getComponentVersions(strategy.name, 'strategy')" :key="v.uuid" :value="v.version">
-                          {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
-                        </option>
-                      </select>
-                    </div>
-                    <div class="item-actions">
-                      <input v-model.number="strategy.weight" type="number" :min="0" :max="100" class="weight-input" />
-                      <span class="unit">%</span>
-                      <button class="btn-icon text-red" @click="removeStrategy(index)">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <line x1="18" y1="6" x2="6" y2="18"></line>
-                          <line x1="6" y1="6" x2="18" y2="18"></line>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <line
+                            x1="18"
+                            y1="6"
+                            x2="6"
+                            y2="18"
+                          />
+                          <line
+                            x1="6"
+                            y1="6"
+                            x2="18"
+                            y2="18"
+                          />
                         </svg>
                       </button>
                     </div>
-                  </div>
-                  <div v-if="strategy.parameters && strategy.parameters.length > 0" class="item-params">
-                    <div v-for="param in strategy.parameters" :key="param.name" class="param-row">
-                      <label class="param-label">{{ param.label || param.name }}</label>
-                      <input
-                        v-if="param.type === 'number'"
-                        :value="formatNumber(strategy.config[param.name] ?? 0)"
-                        type="text"
-                        inputmode="decimal"
-                        class="param-input"
-                        @focus="e => setInputValue(e, strategy.config[param.name] ?? '')"
-                        @blur="e => { strategy.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(strategy.config[param.name])) }"
-                      />
-                      <div v-else-if="param.type === 'boolean'" class="switch-container">
-                        <input :id="`strat-${strategy.uuid}-${param.name}`" v-model="strategy.config[param.name]" type="checkbox" class="switch-input" />
-                        <label :for="`strat-${strategy.uuid}-${param.name}`" class="switch-label"></label>
-                      </div>
-                      <select v-else-if="param.type === 'select'" v-model="strategy.config[param.name]" class="param-select">
-                        <option v-for="opt in param.options" :key="opt" :value="opt">{{ opt }}</option>
-                      </select>
-                      <input v-else v-model="strategy.config[param.name]" type="text" class="param-input" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 风控配置 -->
-            <div v-if="formData.risk_managers.length > 0" class="config-section">
-              <div class="section-header">
-                <span class="section-title">风控 ({{ formData.risk_managers.length }})</span>
-              </div>
-              <div class="config-list">
-                <div v-for="(risk, index) in formData.risk_managers" :key="risk.uuid" class="config-item">
-                  <div class="item-header">
-                    <div class="item-info">
-                      <span class="item-name">{{ risk.name }}</span>
-                      <select
-                        v-model="risk.version"
-                        class="version-select"
-                        :disabled="getComponentVersions(risk.name, 'risk').length <= 1"
-                        @change="onRiskVersionChange(index)"
+                    <div
+                      v-if="selector.parameters && selector.parameters.length > 0"
+                      class="item-params"
+                    >
+                      <div
+                        v-for="param in selector.parameters"
+                        :key="param.name"
+                        class="param-row"
                       >
-                        <option v-for="v in getComponentVersions(risk.name, 'risk')" :key="v.uuid" :value="v.version">
-                          {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
-                        </option>
-                      </select>
-                    </div>
-                    <button class="btn-icon text-red" @click="removeRisk(index)">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    </button>
-                  </div>
-                  <div v-if="risk.parameters && risk.parameters.length > 0" class="item-params">
-                    <div v-for="param in risk.parameters" :key="param.name" class="param-row">
-                      <label class="param-label">{{ param.label || param.name }}</label>
-                      <input
-                        v-if="param.type === 'number'"
-                        :value="formatNumber(risk.config[param.name] ?? 0)"
-                        type="text"
-                        inputmode="decimal"
-                        class="param-input"
-                        @focus="e => setInputValue(e, risk.config[param.name] ?? '')"
-                        @blur="e => { risk.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(risk.config[param.name])) }"
-                      />
-                      <div v-else-if="param.type === 'boolean'" class="switch-container">
-                        <input :id="`risk-${risk.uuid}-${param.name}`" v-model="risk.config[param.name]" type="checkbox" class="switch-input" />
-                        <label :for="`risk-${risk.uuid}-${param.name}`" class="switch-label"></label>
+                        <label class="param-label">{{ param.label || param.name }}</label>
+                        <input
+                          v-if="param.type === 'number'"
+                          :value="formatNumber(selector.config[param.name] ?? 0)"
+                          type="text"
+                          inputmode="decimal"
+                          class="param-input"
+                          @focus="e => setInputValue(e, selector.config[param.name] ?? '')"
+                          @blur="e => { selector.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(selector.config[param.name])) }"
+                        >
+                        <div
+                          v-else-if="param.type === 'boolean'"
+                          class="switch-container"
+                        >
+                          <input
+                            :id="`sel-${selector.uuid}-${param.name}`"
+                            v-model="selector.config[param.name]"
+                            type="checkbox"
+                            class="switch-input"
+                          >
+                          <label
+                            :for="`sel-${selector.uuid}-${param.name}`"
+                            class="switch-label"
+                          />
+                        </div>
+                        <select
+                          v-else-if="param.type === 'select'"
+                          v-model="selector.config[param.name]"
+                          class="param-select"
+                        >
+                          <option
+                            v-for="opt in param.options"
+                            :key="opt"
+                            :value="opt"
+                          >
+                            {{ opt }}
+                          </option>
+                        </select>
+                        <input
+                          v-else
+                          v-model="selector.config[param.name]"
+                          type="text"
+                          class="param-input"
+                        >
                       </div>
-                      <select v-else-if="param.type === 'select'" v-model="risk.config[param.name]" class="param-select">
-                        <option v-for="opt in param.options" :key="opt" :value="opt">{{ opt }}</option>
-                      </select>
-                      <input v-else v-model="risk.config[param.name]" type="text" class="param-input" />
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- 分析器配置 -->
-            <div v-if="formData.analyzers.length > 0" class="config-section">
-              <div class="section-header">
-                <span class="section-title">分析器 ({{ formData.analyzers.length }})</span>
-              </div>
-              <div class="config-list">
-                <div v-for="(analyzer, index) in formData.analyzers" :key="analyzer.uuid" class="config-item">
-                  <div class="item-header">
-                    <div class="item-info">
-                      <span class="item-name">{{ analyzer.name }}</span>
-                      <select
-                        v-model="analyzer.version"
-                        class="version-select"
-                        :disabled="getComponentVersions(analyzer.name, 'analyzer').length <= 1"
-                        @change="onAnalyzerVersionChange(index)"
+              <!-- 仓位管理器配置 -->
+              <div
+                v-if="formData.sizer"
+                class="config-section"
+              >
+                <div class="section-header">
+                  <span class="section-title">仓位管理器</span>
+                  <button
+                    class="btn-icon text-red"
+                    @click="removeSizer"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <line
+                        x1="18"
+                        y1="6"
+                        x2="6"
+                        y2="18"
+                      />
+                      <line
+                        x1="6"
+                        y1="6"
+                        x2="18"
+                        y2="18"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <div class="config-list">
+                  <div class="config-item">
+                    <div class="item-header">
+                      <div class="item-info">
+                        <span class="item-name">{{ formData.sizer.name }}</span>
+                        <select
+                          v-model="formData.sizer.version"
+                          class="version-select"
+                          :disabled="getComponentVersions(formData.sizer.name, 'sizer').length <= 1"
+                          @change="onSizerVersionChange"
+                        >
+                          <option
+                            v-for="v in getComponentVersions(formData.sizer.name, 'sizer')"
+                            :key="v.uuid"
+                            :value="v.version"
+                          >
+                            {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                    <div
+                      v-if="formData.sizer.parameters && formData.sizer.parameters.length > 0"
+                      class="item-params"
+                    >
+                      <div
+                        v-for="param in formData.sizer.parameters"
+                        :key="param.name"
+                        class="param-row"
                       >
-                        <option v-for="v in getComponentVersions(analyzer.name, 'analyzer')" :key="v.uuid" :value="v.version">
-                          {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
-                        </option>
-                      </select>
-                    </div>
-                    <button class="btn-icon text-red" @click="removeAnalyzer(index)">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    </button>
-                  </div>
-                  <div v-if="analyzer.parameters && analyzer.parameters.length > 0" class="item-params">
-                    <div v-for="param in analyzer.parameters" :key="param.name" class="param-row">
-                      <label class="param-label">{{ param.label || param.name }}</label>
-                      <input
-                        v-if="param.type === 'number'"
-                        :value="formatNumber(analyzer.config[param.name] ?? 0)"
-                        type="text"
-                        inputmode="decimal"
-                        class="param-input"
-                        @focus="e => setInputValue(e, analyzer.config[param.name] ?? '')"
-                        @blur="e => { analyzer.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(analyzer.config[param.name])) }"
-                      />
-                      <div v-else-if="param.type === 'boolean'" class="switch-container">
-                        <input :id="`ana-${analyzer.uuid}-${param.name}`" v-model="analyzer.config[param.name]" type="checkbox" class="switch-input" />
-                        <label :for="`ana-${analyzer.uuid}-${param.name}`" class="switch-label"></label>
+                        <label class="param-label">{{ param.label || param.name }}</label>
+                        <input
+                          v-if="param.type === 'number'"
+                          :value="formatNumber(formData.sizer.config[param.name] ?? 0)"
+                          type="text"
+                          inputmode="decimal"
+                          class="param-input"
+                          @focus="e => { if (formData.sizer) setInputValue(e, formData.sizer.config[param.name] ?? '') }"
+                          @blur="e => { if (formData.sizer) { formData.sizer.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(formData.sizer.config[param.name])) } }"
+                        >
+                        <div
+                          v-else-if="param.type === 'boolean'"
+                          class="switch-container"
+                        >
+                          <input
+                            :id="`sizer-${param.name}`"
+                            v-model="formData.sizer.config[param.name]"
+                            type="checkbox"
+                            class="switch-input"
+                          >
+                          <label
+                            :for="`sizer-${param.name}`"
+                            class="switch-label"
+                          />
+                        </div>
+                        <select
+                          v-else-if="param.type === 'select'"
+                          v-model="formData.sizer.config[param.name]"
+                          class="param-select"
+                        >
+                          <option
+                            v-for="opt in param.options"
+                            :key="opt"
+                            :value="opt"
+                          >
+                            {{ opt }}
+                          </option>
+                        </select>
+                        <input
+                          v-else
+                          v-model="formData.sizer.config[param.name]"
+                          type="text"
+                          class="param-input"
+                        >
                       </div>
-                      <select v-else-if="param.type === 'select'" v-model="analyzer.config[param.name]" class="param-select">
-                        <option v-for="opt in param.options" :key="opt" :value="opt">{{ opt }}</option>
-                      </select>
-                      <input v-else v-model="analyzer.config[param.name]" type="text" class="param-input" />
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- 空状态 -->
-            <div v-if="isConfigEmpty" class="empty-state">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="9" y1="3" x2="9" y2="21"></line>
-              </svg>
-              <p>暂未配置组件</p>
+              <!-- 策略配置 -->
+              <div
+                v-if="formData.strategies.length > 0"
+                class="config-section"
+              >
+                <div class="section-header">
+                  <span class="section-title">策略 ({{ formData.strategies.length }})</span>
+                </div>
+                <div class="config-list">
+                  <div
+                    v-for="(strategy, index) in formData.strategies"
+                    :key="strategy.uuid"
+                    class="config-item"
+                  >
+                    <div class="item-header">
+                      <div class="item-info">
+                        <span class="item-name">{{ strategy.name }}</span>
+                        <select
+                          v-model="strategy.version"
+                          class="version-select"
+                          :disabled="getComponentVersions(strategy.name, 'strategy').length <= 1"
+                          @change="onStrategyVersionChange(index)"
+                        >
+                          <option
+                            v-for="v in getComponentVersions(strategy.name, 'strategy')"
+                            :key="v.uuid"
+                            :value="v.version"
+                          >
+                            {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                          </option>
+                        </select>
+                      </div>
+                      <div class="item-actions">
+                        <input
+                          v-model.number="strategy.weight"
+                          type="number"
+                          :min="0"
+                          :max="100"
+                          class="weight-input"
+                        >
+                        <span class="unit">%</span>
+                        <button
+                          class="btn-icon text-red"
+                          @click="removeStrategy(index)"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <line
+                              x1="18"
+                              y1="6"
+                              x2="6"
+                              y2="18"
+                            />
+                            <line
+                              x1="6"
+                              y1="6"
+                              x2="18"
+                              y2="18"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div
+                      v-if="strategy.parameters && strategy.parameters.length > 0"
+                      class="item-params"
+                    >
+                      <div
+                        v-for="param in strategy.parameters"
+                        :key="param.name"
+                        class="param-row"
+                      >
+                        <label class="param-label">{{ param.label || param.name }}</label>
+                        <input
+                          v-if="param.type === 'number'"
+                          :value="formatNumber(strategy.config[param.name] ?? 0)"
+                          type="text"
+                          inputmode="decimal"
+                          class="param-input"
+                          @focus="e => setInputValue(e, strategy.config[param.name] ?? '')"
+                          @blur="e => { strategy.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(strategy.config[param.name])) }"
+                        >
+                        <div
+                          v-else-if="param.type === 'boolean'"
+                          class="switch-container"
+                        >
+                          <input
+                            :id="`strat-${strategy.uuid}-${param.name}`"
+                            v-model="strategy.config[param.name]"
+                            type="checkbox"
+                            class="switch-input"
+                          >
+                          <label
+                            :for="`strat-${strategy.uuid}-${param.name}`"
+                            class="switch-label"
+                          />
+                        </div>
+                        <select
+                          v-else-if="param.type === 'select'"
+                          v-model="strategy.config[param.name]"
+                          class="param-select"
+                        >
+                          <option
+                            v-for="opt in param.options"
+                            :key="opt"
+                            :value="opt"
+                          >
+                            {{ opt }}
+                          </option>
+                        </select>
+                        <input
+                          v-else
+                          v-model="strategy.config[param.name]"
+                          type="text"
+                          class="param-input"
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 风控配置 -->
+              <div
+                v-if="formData.risk_managers.length > 0"
+                class="config-section"
+              >
+                <div class="section-header">
+                  <span class="section-title">风控 ({{ formData.risk_managers.length }})</span>
+                </div>
+                <div class="config-list">
+                  <div
+                    v-for="(risk, index) in formData.risk_managers"
+                    :key="risk.uuid"
+                    class="config-item"
+                  >
+                    <div class="item-header">
+                      <div class="item-info">
+                        <span class="item-name">{{ risk.name }}</span>
+                        <select
+                          v-model="risk.version"
+                          class="version-select"
+                          :disabled="getComponentVersions(risk.name, 'risk').length <= 1"
+                          @change="onRiskVersionChange(index)"
+                        >
+                          <option
+                            v-for="v in getComponentVersions(risk.name, 'risk')"
+                            :key="v.uuid"
+                            :value="v.version"
+                          >
+                            {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                          </option>
+                        </select>
+                      </div>
+                      <button
+                        class="btn-icon text-red"
+                        @click="removeRisk(index)"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <line
+                            x1="18"
+                            y1="6"
+                            x2="6"
+                            y2="18"
+                          />
+                          <line
+                            x1="6"
+                            y1="6"
+                            x2="18"
+                            y2="18"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div
+                      v-if="risk.parameters && risk.parameters.length > 0"
+                      class="item-params"
+                    >
+                      <div
+                        v-for="param in risk.parameters"
+                        :key="param.name"
+                        class="param-row"
+                      >
+                        <label class="param-label">{{ param.label || param.name }}</label>
+                        <input
+                          v-if="param.type === 'number'"
+                          :value="formatNumber(risk.config[param.name] ?? 0)"
+                          type="text"
+                          inputmode="decimal"
+                          class="param-input"
+                          @focus="e => setInputValue(e, risk.config[param.name] ?? '')"
+                          @blur="e => { risk.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(risk.config[param.name])) }"
+                        >
+                        <div
+                          v-else-if="param.type === 'boolean'"
+                          class="switch-container"
+                        >
+                          <input
+                            :id="`risk-${risk.uuid}-${param.name}`"
+                            v-model="risk.config[param.name]"
+                            type="checkbox"
+                            class="switch-input"
+                          >
+                          <label
+                            :for="`risk-${risk.uuid}-${param.name}`"
+                            class="switch-label"
+                          />
+                        </div>
+                        <select
+                          v-else-if="param.type === 'select'"
+                          v-model="risk.config[param.name]"
+                          class="param-select"
+                        >
+                          <option
+                            v-for="opt in param.options"
+                            :key="opt"
+                            :value="opt"
+                          >
+                            {{ opt }}
+                          </option>
+                        </select>
+                        <input
+                          v-else
+                          v-model="risk.config[param.name]"
+                          type="text"
+                          class="param-input"
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 分析器配置 -->
+              <div
+                v-if="formData.analyzers.length > 0"
+                class="config-section"
+              >
+                <div class="section-header">
+                  <span class="section-title">分析器 ({{ formData.analyzers.length }})</span>
+                </div>
+                <div class="config-list">
+                  <div
+                    v-for="(analyzer, index) in formData.analyzers"
+                    :key="analyzer.uuid"
+                    class="config-item"
+                  >
+                    <div class="item-header">
+                      <div class="item-info">
+                        <span class="item-name">{{ analyzer.name }}</span>
+                        <select
+                          v-model="analyzer.version"
+                          class="version-select"
+                          :disabled="getComponentVersions(analyzer.name, 'analyzer').length <= 1"
+                          @change="onAnalyzerVersionChange(index)"
+                        >
+                          <option
+                            v-for="v in getComponentVersions(analyzer.name, 'analyzer')"
+                            :key="v.uuid"
+                            :value="v.version"
+                          >
+                            {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                          </option>
+                        </select>
+                      </div>
+                      <button
+                        class="btn-icon text-red"
+                        @click="removeAnalyzer(index)"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <line
+                            x1="18"
+                            y1="6"
+                            x2="6"
+                            y2="18"
+                          />
+                          <line
+                            x1="6"
+                            y1="6"
+                            x2="18"
+                            y2="18"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div
+                      v-if="analyzer.parameters && analyzer.parameters.length > 0"
+                      class="item-params"
+                    >
+                      <div
+                        v-for="param in analyzer.parameters"
+                        :key="param.name"
+                        class="param-row"
+                      >
+                        <label class="param-label">{{ param.label || param.name }}</label>
+                        <input
+                          v-if="param.type === 'number'"
+                          :value="formatNumber(analyzer.config[param.name] ?? 0)"
+                          type="text"
+                          inputmode="decimal"
+                          class="param-input"
+                          @focus="e => setInputValue(e, analyzer.config[param.name] ?? '')"
+                          @blur="e => { analyzer.config[param.name] = parseNumber(getInputValue(e)); setInputValue(e, formatNumber(analyzer.config[param.name])) }"
+                        >
+                        <div
+                          v-else-if="param.type === 'boolean'"
+                          class="switch-container"
+                        >
+                          <input
+                            :id="`ana-${analyzer.uuid}-${param.name}`"
+                            v-model="analyzer.config[param.name]"
+                            type="checkbox"
+                            class="switch-input"
+                          >
+                          <label
+                            :for="`ana-${analyzer.uuid}-${param.name}`"
+                            class="switch-label"
+                          />
+                        </div>
+                        <select
+                          v-else-if="param.type === 'select'"
+                          v-model="analyzer.config[param.name]"
+                          class="param-select"
+                        >
+                          <option
+                            v-for="opt in param.options"
+                            :key="opt"
+                            :value="opt"
+                          >
+                            {{ opt }}
+                          </option>
+                        </select>
+                        <input
+                          v-else
+                          v-model="analyzer.config[param.name]"
+                          type="text"
+                          class="param-input"
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 空状态 -->
+              <div
+                v-if="isConfigEmpty"
+                class="empty-state"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1"
+                >
+                  <rect
+                    x="3"
+                    y="3"
+                    width="18"
+                    height="18"
+                    rx="2"
+                    ry="2"
+                  />
+                  <line
+                    x1="9"
+                    y1="3"
+                    x2="9"
+                    y2="21"
+                  />
+                </svg>
+                <p>暂未配置组件</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
     </PageLayout>
   </div>
 </template>

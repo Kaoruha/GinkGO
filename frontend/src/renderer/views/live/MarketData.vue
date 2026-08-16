@@ -5,37 +5,66 @@
       交易对订阅管理
     </template>
     <template #actions>
-      <button class="btn-primary" @click="refreshPairs">刷新交易对</button>
-      <button class="btn-secondary" @click="toggleWebSocket">
+      <button
+        class="btn-primary"
+        @click="refreshPairs"
+      >
+        刷新交易对
+      </button>
+      <button
+        class="btn-secondary"
+        @click="toggleWebSocket"
+      >
         {{ wsConnected ? '已连接' : '连接' }}
       </button>
     </template>
 
     <!-- 行情服务不可用:后端 market 模块缺失,已停自动轮询/重连,手动刷新可重试 -->
-    <div v-if="serviceUnavailable" class="service-unavailable">
+    <div
+      v-if="serviceUnavailable"
+      class="service-unavailable"
+    >
       行情服务不可用：后端尚未提供 market 接口（/api/v1/market/* 404）。已停止自动轮询与实时连接，可点"刷新交易对"重试。
     </div>
 
     <!-- 订阅统计 -->
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-label">总交易对</div>
-        <div class="stat-value">{{ totalPairs }}</div>
+        <div class="stat-label">
+          总交易对
+        </div>
+        <div class="stat-value">
+          {{ totalPairs }}
+        </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">已订阅</div>
-        <div class="stat-value stat-primary">{{ subscriptions.length }}</div>
+        <div class="stat-label">
+          已订阅
+        </div>
+        <div class="stat-value stat-primary">
+          {{ subscriptions.length }}
+        </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">API 连接</div>
-        <div class="stat-value" :class="wsConnected ? 'stat-success' : 'stat-danger'">
+        <div class="stat-label">
+          API 连接
+        </div>
+        <div
+          class="stat-value"
+          :class="wsConnected ? 'stat-success' : 'stat-danger'"
+        >
           {{ wsConnected ? '已连接' : '未连接' }}
         </div>
       </div>
       <!-- 实时数据状态 -->
       <div class="stat-card">
-        <div class="stat-label">实时数据</div>
-        <div class="stat-value" :class="tickerDataKeysCount > 0 ? 'stat-success' : 'stat-danger'">
+        <div class="stat-label">
+          实时数据
+        </div>
+        <div
+          class="stat-value"
+          :class="tickerDataKeysCount > 0 ? 'stat-success' : 'stat-danger'"
+        >
           {{ tickerDataKeysCount }} / {{ subscriptions.length }}
         </div>
       </div>
@@ -48,13 +77,28 @@
         <div class="card-header">
           <h3>交易对列表</h3>
           <div class="header-controls">
-            <select v-model="selectedQuoteCurrency" class="filter-select">
-              <option value="">全部币种</option>
-              <option value="USDT">USDT</option>
-              <option value="USD">USD</option>
-              <option value="BTC">BTC</option>
-              <option value="ETH">ETH</option>
-              <option value="USDC">USDC</option>
+            <select
+              v-model="selectedQuoteCurrency"
+              class="filter-select"
+            >
+              <option value="">
+                全部币种
+              </option>
+              <option value="USDT">
+                USDT
+              </option>
+              <option value="USD">
+                USD
+              </option>
+              <option value="BTC">
+                BTC
+              </option>
+              <option value="ETH">
+                ETH
+              </option>
+              <option value="USDC">
+                USDC
+              </option>
             </select>
             <input
               v-model="searchQuery"
@@ -65,8 +109,16 @@
           </div>
         </div>
         <div class="card-body">
-          <div v-if="loadingPairs" class="loading">加载中...</div>
-          <div v-else class="pairs-list">
+          <div
+            v-if="loadingPairs"
+            class="loading"
+          >
+            加载中...
+          </div>
+          <div
+            v-else
+            class="pairs-list"
+          >
             <div
               v-for="pair in filteredPairs"
               :key="pair.symbol"
@@ -78,9 +130,15 @@
                 <span class="pair-symbol">{{ pair.symbol }}</span>
                 <span class="pair-state">{{ pair.state }}</span>
               </div>
-              <div class="pair-price" v-if="getPairTicker(pair.symbol)">
+              <div
+                v-if="getPairTicker(pair.symbol)"
+                class="pair-price"
+              >
                 <span class="price-label">价格:</span>
-                <span class="price-value" :class="getPairPriceClass(pair.symbol)">
+                <span
+                  class="price-value"
+                  :class="getPairPriceClass(pair.symbol)"
+                >
                   {{ formatPrice(getPairPrice(pair.symbol)) }}
                 </span>
                 <span class="volume-label">成交量:</span>
@@ -108,49 +166,85 @@
           </div>
           <div class="ws-controls">
             <button
-              @click="toggleWebSocket"
               :class="{ connected: wsConnected, disconnected: !wsConnected }"
               class="ws-toggle-btn"
+              @click="toggleWebSocket"
             >
               {{ wsConnected ? '🟢 已连接' : '🔴 未连接' }}
             </button>
           </div>
         </div>
         <div class="card-body">
-          <div v-if="!wsConnected" class="disconnected">
+          <div
+            v-if="!wsConnected"
+            class="disconnected"
+          >
             WebSocket 未连接，无法获取实时数据
           </div>
-          <div v-else-if="activeTickers.length === 0" class="empty">
+          <div
+            v-else-if="activeTickers.length === 0"
+            class="empty"
+          >
             暂无数据，请先订阅交易对
           </div>
-          <div v-else class="ticker-table" v-if="tickerDataForTemplate">
+          <div
+            v-else-if="tickerDataForTemplate"
+            class="ticker-table"
+          >
             <table>
               <thead>
                 <tr>
                   <th>交易对</th>
-                  <th class="num">最新价</th>
-                  <th class="num">买一价</th>
-                  <th class="num">卖一价</th>
-                  <th class="num">24H涨跌</th>
-                  <th class="num">24H成交量</th>
+                  <th class="num">
+                    最新价
+                  </th>
+                  <th class="num">
+                    买一价
+                  </th>
+                  <th class="num">
+                    卖一价
+                  </th>
+                  <th class="num">
+                    24H涨跌
+                  </th>
+                  <th class="num">
+                    24H成交量
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="sub in subscriptions" :key="sub.symbol">
+                <tr
+                  v-for="sub in subscriptions"
+                  :key="sub.symbol"
+                >
                   <td>{{ sub.symbol }}</td>
-                  <td class="price-cell num" :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]">
+                  <td
+                    class="price-cell num"
+                    :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]"
+                  >
                     {{ tickerDataForTemplate[sub.symbol]?.price ? tickerDataForTemplate[sub.symbol].price.toFixed(3) : '-' }}
                   </td>
-                  <td class="price-cell num" :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]">
+                  <td
+                    class="price-cell num"
+                    :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]"
+                  >
                     {{ tickerDataForTemplate[sub.symbol]?.bid_price ? tickerDataForTemplate[sub.symbol].bid_price.toFixed(3) : '-' }}
                   </td>
-                  <td class="price-cell num" :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]">
+                  <td
+                    class="price-cell num"
+                    :class="[getPriceAnimationClass(sub.symbol), getPairPriceClass(sub.symbol)]"
+                  >
                     {{ tickerDataForTemplate[sub.symbol]?.ask_price ? tickerDataForTemplate[sub.symbol].ask_price.toFixed(3) : '-' }}
                   </td>
-                  <td class="change-cell num" :class="get24hChangeClass(sub.symbol)">
+                  <td
+                    class="change-cell num"
+                    :class="get24hChangeClass(sub.symbol)"
+                  >
                     {{ format24hChange(tickerDataForTemplate[sub.symbol]) }}
                   </td>
-                  <td class="num">{{ formatTickerVolume(tickerDataForTemplate[sub.symbol]?.volume_24h) }}</td>
+                  <td class="num">
+                    {{ formatTickerVolume(tickerDataForTemplate[sub.symbol]?.volume_24h) }}
+                  </td>
                 </tr>
               </tbody>
             </table>

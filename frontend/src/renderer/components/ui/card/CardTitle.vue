@@ -15,7 +15,10 @@ const cardTitleClass = computed(() =>
 </script>
 
 <template>
-  <h3 :class="cardTitleClass" v-bind="$attrs">
+  <h3
+    :class="cardTitleClass"
+    v-bind="$attrs"
+  >
     <slot />
   </h3>
 </template>

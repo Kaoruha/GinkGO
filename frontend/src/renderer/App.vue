@@ -1,14 +1,20 @@
 <template>
   <!-- 登录页等全屏页面 -->
   <EmptyLayout v-if="isFullPage">
-    <div :key="route.path" class="m-page">
+    <div
+      :key="route.path"
+      class="m-page"
+    >
       <router-view />
     </div>
   </EmptyLayout>
 
   <!-- 带布局的主页面（需要登录） -->
   <AppLayout v-else-if="authStore.isLoggedIn">
-    <div :key="route.path" class="m-page">
+    <div
+      :key="route.path"
+      class="m-page"
+    >
       <router-view />
     </div>
   </AppLayout>

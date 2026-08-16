@@ -16,7 +16,10 @@ const footerClass = computed(() =>
 </script>
 
 <template>
-  <div :class="footerClass" v-bind="$attrs">
+  <div
+    :class="footerClass"
+    v-bind="$attrs"
+  >
     <slot />
   </div>
 </template>

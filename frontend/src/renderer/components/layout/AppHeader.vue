@@ -5,17 +5,63 @@
         class="trigger"
         @click="$emit('toggle')"
       >
-        <svg v-if="collapsed" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="9" y1="3" x2="9" y2="21"></line>
+        <svg
+          v-if="collapsed"
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="2"
+            ry="2"
+          />
+          <line
+            x1="9"
+            y1="3"
+            x2="9"
+            y2="21"
+          />
         </svg>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="15" y1="3" x2="15" y2="21"></line>
+        <svg
+          v-else
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="2"
+            ry="2"
+          />
+          <line
+            x1="15"
+            y1="3"
+            x2="15"
+            y2="21"
+          />
         </svg>
       </button>
       <nav class="breadcrumb">
-        <span v-for="item in breadcrumbs" :key="item.path" class="breadcrumb-item">
+        <span
+          v-for="item in breadcrumbs"
+          :key="item.path"
+          class="breadcrumb-item"
+        >
           {{ item.title }}
         </span>
       </nav>
@@ -25,44 +71,121 @@
         class="notification-btn"
         @click="showNotifications"
       >
-        <span class="notification-badge" :class="{ 'has-count': notificationCount > 0 }">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        <span
+          class="notification-badge"
+          :class="{ 'has-count': notificationCount > 0 }"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
-          <span v-if="notificationCount > 0" class="count">{{ notificationCount }}</span>
+          <span
+            v-if="notificationCount > 0"
+            class="count"
+          >{{ notificationCount }}</span>
         </span>
       </button>
       <ThemeToggle />
       <div class="user-dropdown">
-        <button class="avatar-btn" data-testid="user-menu-btn" @click="toggleUserMenu">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
+        <button
+          class="avatar-btn"
+          data-testid="user-menu-btn"
+          @click="toggleUserMenu"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle
+              cx="12"
+              cy="7"
+              r="4"
+            />
           </svg>
         </button>
-        <div class="dropdown-menu" :class="{ show: showUserMenu }">
+        <div
+          class="dropdown-menu"
+          :class="{ show: showUserMenu }"
+        >
           <div class="dropdown-item user-info">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle
+                cx="12"
+                cy="7"
+                r="4"
+              />
             </svg>
             {{ authStore.displayName || '用户' }}
           </div>
-          <div class="dropdown-divider"></div>
-          <button class="dropdown-item" @click="goSettings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M12 1v6m0 6v6"></path>
-              <path d="m19 21-7-5 7-5"></path>
+          <div class="dropdown-divider" />
+          <button
+            class="dropdown-item"
+            @click="goSettings"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="3"
+              />
+              <path d="M12 1v6m0 6v6" />
+              <path d="m19 21-7-5 7-5" />
             </svg>
             系统设置
           </button>
-          <button class="dropdown-item text-danger" data-testid="logout-btn" @click="handleLogout">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16 17 21 12 16 7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
+          <button
+            class="dropdown-item text-danger"
+            data-testid="logout-btn"
+            @click="handleLogout"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line
+                x1="21"
+                y1="12"
+                x2="9"
+                y2="12"
+              />
             </svg>
             退出登录
           </button>

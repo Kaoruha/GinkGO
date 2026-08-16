@@ -42,23 +42,43 @@
       >
         {{ record.portfolio_name || record.portfolio_id?.slice(0, 8) }}
       </router-link>
-      <span v-else class="val-muted">-</span>
+      <span
+        v-else
+        class="val-muted"
+      >-</span>
     </template>
 
     <template #status="{ record }">
       <div class="status-cell">
-        <StatusTag :status="record.status" type="backtest" />
+        <StatusTag
+          :status="record.status"
+          type="backtest"
+        />
         <!-- 进行中/排队中显示实时进度条(WS 就地更新,参照 BacktestTab) -->
-        <span v-if="record.status === 'running' || record.status === 'pending'" class="progress-info">
-          <div class="progress-bar-sm"><div class="progress-fill" :style="{ width: (record.progress || 0) + '%' }"></div></div>
+        <span
+          v-if="record.status === 'running' || record.status === 'pending'"
+          class="progress-info"
+        >
+          <div class="progress-bar-sm"><div
+            class="progress-fill"
+            :style="{ width: (record.progress || 0) + '%' }"
+          /></div>
           <span class="progress-text">{{ (record.progress || 0).toFixed(0) }}%</span>
         </span>
       </div>
     </template>
 
     <template #sparkline="{ record }">
-      <Sparkline v-if="sparklines[record.uuid]?.length >= 2" :points="sparklines[record.uuid]" :width="110" :height="30" />
-      <span v-else class="val-muted">-</span>
+      <Sparkline
+        v-if="sparklines[record.uuid]?.length >= 2"
+        :points="sparklines[record.uuid]"
+        :width="110"
+        :height="30"
+      />
+      <span
+        v-else
+        class="val-muted"
+      >-</span>
     </template>
 
     <template #annual_return="{ record }">
@@ -88,15 +108,33 @@
     </template>
 
     <template #update_at="{ record }">
-      <span class="val-muted" :title="formatTime(record.update_at || record.created_at)">{{ formatRelativeTime(record.update_at || record.created_at) }}</span>
+      <span
+        class="val-muted"
+        :title="formatTime(record.update_at || record.created_at)"
+      >{{ formatRelativeTime(record.update_at || record.created_at) }}</span>
     </template>
 
     <!-- 无限滚动触发器 -->
     <template #afterTable>
-      <div v-if="tasks.length > 0" ref="loadMoreTrigger" class="load-more-trigger">
-        <div v-if="loadingMore" class="spinner spinner-small"></div>
-        <div v-else-if="!hasMore" class="no-more">没有更多了</div>
-        <div v-else class="load-more-sentinel"></div>
+      <div
+        v-if="tasks.length > 0"
+        ref="loadMoreTrigger"
+        class="load-more-trigger"
+      >
+        <div
+          v-if="loadingMore"
+          class="spinner spinner-small"
+        />
+        <div
+          v-else-if="!hasMore"
+          class="no-more"
+        >
+          没有更多了
+        </div>
+        <div
+          v-else
+          class="load-more-sentinel"
+        />
       </div>
     </template>
   </ListPage>

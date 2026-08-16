@@ -1,20 +1,58 @@
 <template>
   <PageLayout>
     <template #title>
-      <PageTitle :title="portfolioName" back-to="/portfolios" back-label="组合列表" />
+      <PageTitle
+        :title="portfolioName"
+        back-to="/portfolios"
+        back-label="组合列表"
+      />
     </template>
     <template #meta>
-      <span class="portfolio-id" :title="`${portfolioId}（点击复制）`" @click="copyPortfolioId">{{ portfolioId.slice(0, 8) }}</span>
-      <span v-if="portfolioStatus" class="status-tag" :class="portfolioStatus">{{ statusLabel }}</span>
-      <span v-if="deploymentSource" class="deploy-source">
+      <span
+        class="portfolio-id"
+        :title="`${portfolioId}（点击复制）`"
+        @click="copyPortfolioId"
+      >{{ portfolioId.slice(0, 8) }}</span>
+      <span
+        v-if="portfolioStatus"
+        class="status-tag"
+        :class="portfolioStatus"
+      >{{ statusLabel }}</span>
+      <span
+        v-if="deploymentSource"
+        class="deploy-source"
+      >
         来源：{{ deploymentSource.source_task_id?.slice(0, 8) }}
       </span>
     </template>
     <template #actions>
-      <button class="btn-secondary" @click="$router.push(`/portfolios/${portfolioId}/edit`)">编辑</button>
-      <button v-if="portfolioStatus === 'idle'" class="btn-deploy" @click="openDeploy">部署</button>
-      <button v-if="portfolioStatus === 'paper' || portfolioStatus === 'live'" class="btn-stop" @click="handleStop">停止</button>
-      <button v-if="portfolioStatus === 'idle'" class="btn-primary" @click="startBacktest">新建回测</button>
+      <button
+        class="btn-secondary"
+        @click="$router.push(`/portfolios/${portfolioId}/edit`)"
+      >
+        编辑
+      </button>
+      <button
+        v-if="portfolioStatus === 'idle'"
+        class="btn-deploy"
+        @click="openDeploy"
+      >
+        部署
+      </button>
+      <button
+        v-if="portfolioStatus === 'paper' || portfolioStatus === 'live'"
+        class="btn-stop"
+        @click="handleStop"
+      >
+        停止
+      </button>
+      <button
+        v-if="portfolioStatus === 'idle'"
+        class="btn-primary"
+        @click="startBacktest"
+      >
+        新建回测
+      </button>
     </template>
 
     <!-- Tab navigation(标准 #tabs 槽,容器由 PageLayout 提供) -->
@@ -25,7 +63,10 @@
     <!-- Tab content -->
     <div class="tab-content">
       <router-view v-slot="{ Component }">
-        <component :is="Component" :key="route.fullPath" />
+        <component
+          :is="Component"
+          :key="route.fullPath"
+        />
       </router-view>
     </div>
     <DeployModal

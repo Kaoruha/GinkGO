@@ -2,9 +2,19 @@
   <div class="page-title">
     <!-- 返回:路由式(router-link)或函数式(button + emit back),二选一。
          统一位置(标题行最左)与样式,替代各页 back-link / back-btn / btn-text 三派漂移 -->
-    <router-link v-if="backTo" :to="backTo" class="page-back">
-      <span class="page-back-arrow" aria-hidden="true">←</span>
-      <span v-if="backLabel" class="page-back-label">{{ backLabel }}</span>
+    <router-link
+      v-if="backTo"
+      :to="backTo"
+      class="page-back"
+    >
+      <span
+        class="page-back-arrow"
+        aria-hidden="true"
+      >←</span>
+      <span
+        v-if="backLabel"
+        class="page-back-label"
+      >{{ backLabel }}</span>
     </router-link>
     <button
       v-else-if="backAction"
@@ -12,8 +22,14 @@
       class="page-back"
       @click="emit('back')"
     >
-      <span class="page-back-arrow" aria-hidden="true">←</span>
-      <span v-if="backLabel" class="page-back-label">{{ backLabel }}</span>
+      <span
+        class="page-back-arrow"
+        aria-hidden="true"
+      >←</span>
+      <span
+        v-if="backLabel"
+        class="page-back-label"
+      >{{ backLabel }}</span>
     </button>
     <!-- 标题前分类 tag(验证 / API / Tick 等页面类型标识) -->
     <slot name="prefix" />

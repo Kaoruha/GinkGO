@@ -8,47 +8,90 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">信号类型</label>
-            <select v-model="form.signalType" class="form-select">
-              <option value="price_cross">价格交叉</option>
-              <option value="momentum">动量</option>
-              <option value="mean_reversion">均值回归</option>
+            <select
+              v-model="form.signalType"
+              class="form-select"
+            >
+              <option value="price_cross">
+                价格交叉
+              </option>
+              <option value="momentum">
+                动量
+              </option>
+              <option value="mean_reversion">
+                均值回归
+              </option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">触发条件</label>
-            <select v-model="form.trigger" class="form-select">
-              <option value="above">突破上方</option>
-              <option value="below">跌破下方</option>
-              <option value="percent">涨跌幅</option>
+            <select
+              v-model="form.trigger"
+              class="form-select"
+            >
+              <option value="above">
+                突破上方
+              </option>
+              <option value="below">
+                跌破下方
+              </option>
+              <option value="percent">
+                涨跌幅
+              </option>
             </select>
           </div>
         </div>
 
-        <div class="divider"></div>
+        <div class="divider" />
 
         <div class="form-group">
           <label class="form-label">第一资产</label>
-          <select v-model="form.asset1" class="form-select">
-            <option value="">请选择</option>
-            <option value="000001.SZ">平安银行</option>
-            <option value="000002.SZ">招商银行</option>
+          <select
+            v-model="form.asset1"
+            class="form-select"
+          >
+            <option value="">
+              请选择
+            </option>
+            <option value="000001.SZ">
+              平安银行
+            </option>
+            <option value="000002.SZ">
+              招商银行
+            </option>
           </select>
         </div>
 
         <div class="form-group">
           <label class="form-label">第二资产</label>
-          <select v-model="form.asset2" class="form-select">
-            <option value="">请选择</option>
-            <option value="510300.SH">上证50ETF</option>
-            <option value="159919.SH">深证100ETF</option>
+          <select
+            v-model="form.asset2"
+            class="form-select"
+          >
+            <option value="">
+              请选择
+            </option>
+            <option value="510300.SH">
+              上证50ETF
+            </option>
+            <option value="159919.SH">
+              深证100ETF
+            </option>
           </select>
         </div>
 
-        <div class="divider"></div>
+        <div class="divider" />
 
         <div class="form-group">
           <label class="form-label">价差阈值 (%)</label>
-          <input v-model.number="form.threshold" type="number" min="0.1" max="5" step="0.1" class="form-input" />
+          <input
+            v-model.number="form.threshold"
+            type="number"
+            min="0.1"
+            max="5"
+            step="0.1"
+            class="form-input"
+          >
         </div>
 
         <div class="form-group">
@@ -65,7 +108,12 @@
         </div>
 
         <div class="form-actions">
-          <button class="btn-primary" @click="generateSignal">生成信号</button>
+          <button
+            class="btn-primary"
+            @click="generateSignal"
+          >
+            生成信号
+          </button>
         </div>
       </div>
     </div>

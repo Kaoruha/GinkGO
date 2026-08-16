@@ -66,7 +66,10 @@ const isLoading = computed(() => props.loading)
     :disabled="disabled || loading"
     v-bind="$attrs"
   >
-    <span v-if="isLoading" class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+    <span
+      v-if="isLoading"
+      class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+    />
     <slot />
   </button>
 </template>

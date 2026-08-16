@@ -16,7 +16,10 @@ const tableHeaderClass = computed(() =>
 </script>
 
 <template>
-  <tr :class="tableHeaderClass" v-bind="$attrs">
+  <tr
+    :class="tableHeaderClass"
+    v-bind="$attrs"
+  >
     <slot />
   </tr>
 </template>

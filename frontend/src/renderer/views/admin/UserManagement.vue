@@ -4,15 +4,32 @@
       用户管理
     </template>
     <template #actions>
-      <button class="btn btn-primary" @click="openCreateModal">添加用户</button>
+      <button
+        class="btn btn-primary"
+        @click="openCreateModal"
+      >
+        添加用户
+      </button>
     </template>
 
     <div class="card">
       <div class="filter-row">
         <div class="search-input-wrapper">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="m21 21-4.35-4.35"></path>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle
+              cx="11"
+              cy="11"
+              r="8"
+            />
+            <path d="m21 21-4.35-4.35" />
           </svg>
           <input
             v-model="searchText"
@@ -20,20 +37,41 @@
             placeholder="搜索用户名"
             class="search-input"
             @keyup.enter="loadUsers"
-          />
-          <button class="search-btn" @click="loadUsers">搜索</button>
+          >
+          <button
+            class="search-btn"
+            @click="loadUsers"
+          >
+            搜索
+          </button>
         </div>
-        <select v-model="statusFilter" class="form-select" @change="loadUsers">
-          <option value="">全部状态</option>
-          <option value="active">启用</option>
-          <option value="disabled">禁用</option>
+        <select
+          v-model="statusFilter"
+          class="form-select"
+          @change="loadUsers"
+        >
+          <option value="">
+            全部状态
+          </option>
+          <option value="active">
+            启用
+          </option>
+          <option value="disabled">
+            禁用
+          </option>
         </select>
       </div>
 
-      <div v-if="loading" class="loading-container">
-        <div class="spinner"></div>
+      <div
+        v-if="loading"
+        class="loading-container"
+      >
+        <div class="spinner" />
       </div>
-      <div v-else-if="users.length > 0" class="table-wrapper">
+      <div
+        v-else-if="users.length > 0"
+        class="table-wrapper"
+      >
         <table class="data-table">
           <thead>
             <tr>
@@ -46,15 +84,26 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in users" :key="record.uuid" @contextmenu="openRowMenu($event, record)">
+            <tr
+              v-for="record in users"
+              :key="record.uuid"
+              @contextmenu="openRowMenu($event, record)"
+            >
               <td>{{ record.username }}</td>
               <td>{{ record.display_name || '-' }}</td>
               <td>{{ record.email }}</td>
               <td>
-                <StatusTag type="enable" :status="record.status" />
+                <StatusTag
+                  type="enable"
+                  :status="record.status"
+                />
               </td>
               <td>
-                <span v-for="role in record.roles" :key="role" class="tag tag-blue role-tag">
+                <span
+                  v-for="role in record.roles"
+                  :key="role"
+                  class="tag tag-blue role-tag"
+                >
                   {{ role }}
                 </span>
               </td>
@@ -63,75 +112,181 @@
           </tbody>
         </table>
       </div>
-      <EmptyState v-else description="暂无用户数据" />
+      <EmptyState
+        v-else
+        description="暂无用户数据"
+      />
     </div>
 
     <!-- 创建/编辑用户 Modal -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
+    <div
+      v-if="showCreateModal"
+      class="modal-overlay"
+      @click.self="closeModal"
+    >
       <div class="modal-content">
         <div class="modal-header">
           <h3>{{ editingUser ? '编辑用户' : '添加用户' }}</h3>
-          <button class="modal-close" @click="closeModal">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
+          <button
+            class="modal-close"
+            @click="closeModal"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line
+                x1="18"
+                y1="6"
+                x2="6"
+                y2="18"
+              />
+              <line
+                x1="6"
+                y1="6"
+                x2="18"
+                y2="18"
+              />
             </svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
             <label class="form-label">用户名 <span class="required">*</span></label>
-            <input v-model="userForm.username" type="text" class="form-input" placeholder="输入用户名" :disabled="!!editingUser" />
+            <input
+              v-model="userForm.username"
+              type="text"
+              class="form-input"
+              placeholder="输入用户名"
+              :disabled="!!editingUser"
+            >
           </div>
-          <div v-if="!editingUser" class="form-group">
+          <div
+            v-if="!editingUser"
+            class="form-group"
+          >
             <label class="form-label">密码 <span class="required">*</span></label>
-            <input v-model="userForm.password" type="password" class="form-input" placeholder="输入密码" />
+            <input
+              v-model="userForm.password"
+              type="password"
+              class="form-input"
+              placeholder="输入密码"
+            >
           </div>
           <div class="form-group">
             <label class="form-label">显示名 <span class="required">*</span></label>
-            <input v-model="userForm.display_name" type="text" class="form-input" placeholder="输入显示名" />
+            <input
+              v-model="userForm.display_name"
+              type="text"
+              class="form-input"
+              placeholder="输入显示名"
+            >
           </div>
           <div class="form-group">
             <label class="form-label">邮箱 <span class="required">*</span></label>
-            <input v-model="userForm.email" type="email" class="form-input" placeholder="输入邮箱" />
+            <input
+              v-model="userForm.email"
+              type="email"
+              class="form-input"
+              placeholder="输入邮箱"
+            >
           </div>
           <div class="form-group">
             <label class="form-label">状态</label>
             <label class="switch-label">
-              <input type="checkbox" v-model="userForm.active" class="switch-input" />
-              <span class="switch-slider"></span>
+              <input
+                v-model="userForm.active"
+                type="checkbox"
+                class="switch-input"
+              >
+              <span class="switch-slider" />
               <span class="switch-text">{{ userForm.active ? '启用' : '禁用' }}</span>
             </label>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="handleSubmit">确定</button>
+          <button
+            class="btn btn-secondary"
+            @click="closeModal"
+          >
+            取消
+          </button>
+          <button
+            class="btn btn-primary"
+            @click="handleSubmit"
+          >
+            确定
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 重置密码 Modal -->
-    <div v-if="showResetModal" class="modal-overlay" @click.self="showResetModal = false">
+    <div
+      v-if="showResetModal"
+      class="modal-overlay"
+      @click.self="showResetModal = false"
+    >
       <div class="modal-content">
         <div class="modal-header">
           <h3>重置密码 - {{ resetTarget?.username }}</h3>
-          <button class="modal-close" @click="showResetModal = false">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
+          <button
+            class="modal-close"
+            @click="showResetModal = false"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line
+                x1="18"
+                y1="6"
+                x2="6"
+                y2="18"
+              />
+              <line
+                x1="6"
+                y1="6"
+                x2="18"
+                y2="18"
+              />
             </svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
             <label class="form-label">新密码 <span class="required">*</span></label>
-            <input v-model="newPassword" type="password" class="form-input" placeholder="输入新密码" />
+            <input
+              v-model="newPassword"
+              type="password"
+              class="form-input"
+              placeholder="输入新密码"
+            >
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showResetModal = false">取消</button>
-          <button class="btn btn-primary" @click="handleResetPassword">确定</button>
+          <button
+            class="btn btn-secondary"
+            @click="showResetModal = false"
+          >
+            取消
+          </button>
+          <button
+            class="btn btn-primary"
+            @click="handleResetPassword"
+          >
+            确定
+          </button>
         </div>
       </div>
     </div>

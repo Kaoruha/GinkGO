@@ -16,7 +16,10 @@ const titleClass = computed(() =>
 </script>
 
 <template>
-  <RadixDialogTitle v-bind="props" :class="titleClass">
+  <RadixDialogTitle
+    v-bind="props"
+    :class="titleClass"
+  >
     <slot />
   </RadixDialogTitle>
 </template>

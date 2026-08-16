@@ -1,10 +1,21 @@
 <template>
   <div class="validation-tab">
-    <TabsNav v-model="activeSub" size="small" :items="subTabs" class="validation-subtabs" />
+    <TabsNav
+      v-model="activeSub"
+      size="small"
+      :items="subTabs"
+      class="validation-subtabs"
+    />
 
     <div class="sub-tab-content">
-      <SegmentStability v-if="activeSub === 'segment'" :portfolio-id="portfolioId" />
-      <MonteCarlo v-else-if="activeSub === 'montecarlo'" :portfolio-id="portfolioId" />
+      <SegmentStability
+        v-if="activeSub === 'segment'"
+        :portfolio-id="portfolioId"
+      />
+      <MonteCarlo
+        v-else-if="activeSub === 'montecarlo'"
+        :portfolio-id="portfolioId"
+      />
       <WalkForward v-else-if="activeSub === 'walkforward'" />
       <Sensitivity v-else-if="activeSub === 'sensitivity'" />
     </div>

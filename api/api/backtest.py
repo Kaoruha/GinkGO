@@ -474,6 +474,45 @@ async def get_portfolio_backtest_stats(portfolio_id: str):
         raise BusinessError(f"Error getting portfolio backtest stats: {str(e)}")
 
 
+@router.get("/netvalue-sparklines")
+async def get_backtest_netvalue_sparklines(
+    task_ids: str = Query("", description="逗号分隔的任务ID列表,返回各自的降采样净值序列"),
+):
+    """回测列表净值缩略图数据(2026-08-17)。
+
+    每任务返回 ~40 点降采样序列,供列表内联 sparkline;
+    避免前端逐行调全量 netvalue(N 行 = N 次全量查询)。
+
+    路由声明位置约束:必须位于 `/{uuid}` 之前——FastAPI 按声明顺序匹配,
+    单段静态路径若排在 `/{uuid}` 后会被当作 uuid="netvalue-sparklines"
+    吞掉(2026-08-17 实例:列表缩略图全列空,接口 404)。
+    """
+    try:
+        task_service = get_backtest_task_service()
+        ids = [t.strip() for t in task_ids.split(",") if t.strip()][:50]
+        out = {}
+        for tid in ids:
+            try:
+                r = task_service.get_netvalue(tid)
+                if not r.is_success() or not r.data or not r.data.strategy:
+                    out[tid] = []
+                    continue
+                pts = [p.value for p in r.data.strategy]
+                n = len(pts)
+                if n <= 40:
+                    out[tid] = pts
+                else:
+                    # 均匀降采样:首尾必含(起点=1.0 语境,终点=最终净值)
+                    step = (n - 1) / 39
+                    out[tid] = [pts[round(i * step)] for i in range(40)]
+            except Exception:
+                out[tid] = []
+        return ok(data=out, message="Sparklines retrieved")
+    except Exception as e:
+        logger.error(f"Error getting sparklines: {str(e)}")
+        raise BusinessError(f"Error getting sparklines: {str(e)}")
+
+
 @router.get("/{uuid}")
 async def get_backtest(uuid: str):
     """获取回测任务详情"""
@@ -909,41 +948,6 @@ async def get_backtest_positions(uuid: str):
     except Exception as e:
         logger.error(f"Error getting positions for {uuid}: {str(e)}")
         raise BusinessError(f"Error getting positions: {str(e)}")
-
-
-@router.get("/netvalue-sparklines")
-async def get_backtest_netvalue_sparklines(
-    task_ids: str = Query("", description="逗号分隔的任务ID列表,返回各自的降采样净值序列"),
-):
-    """回测列表净值缩略图数据(2026-08-17)。
-
-    每任务返回 ~40 点降采样序列,供列表内联 sparkline;
-    避免前端逐行调全量 netvalue(N 行 = N 次全量查询)。
-    """
-    try:
-        task_service = get_backtest_task_service()
-        ids = [t.strip() for t in task_ids.split(",") if t.strip()][:50]
-        out = {}
-        for tid in ids:
-            try:
-                r = task_service.get_netvalue(tid)
-                if not r.is_success() or not r.data or not r.data.strategy:
-                    out[tid] = []
-                    continue
-                pts = [p.value for p in r.data.strategy]
-                n = len(pts)
-                if n <= 40:
-                    out[tid] = pts
-                else:
-                    # 均匀降采样:首尾必含(起点=1.0 语境,终点=最终净值)
-                    step = (n - 1) / 39
-                    out[tid] = [pts[round(i * step)] for i in range(40)]
-            except Exception:
-                out[tid] = []
-        return ok(data=out, message="Sparklines retrieved")
-    except Exception as e:
-        logger.error(f"Error getting sparklines: {str(e)}")
-        raise BusinessError(f"Error getting sparklines: {str(e)}")
 
 
 @router.get("/{uuid}/netvalue")

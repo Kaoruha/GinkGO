@@ -10,7 +10,9 @@
       class="seg-btn"
       :class="{ on: modelValue === opt.key }"
       @click="emit('update:modelValue', opt.key)"
-    >{{ opt.label }}</button>
+    >
+      {{ opt.label }}
+    </button>
   </div>
 </template>
 

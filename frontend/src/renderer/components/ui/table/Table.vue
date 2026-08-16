@@ -17,7 +17,10 @@ const tableClass = computed(() =>
 
 <template>
   <div class="relative w-full overflow-auto">
-    <table :class="tableClass" v-bind="$attrs">
+    <table
+      :class="tableClass"
+      v-bind="$attrs"
+    >
       <slot />
     </table>
   </div>

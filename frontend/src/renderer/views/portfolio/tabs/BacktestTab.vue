@@ -16,20 +16,38 @@
             placeholder="搜索任务..."
             class="search-input"
             @keyup.enter="loadList()"
-          />
+          >
         </div>
       </div>
-      <button class="btn-primary" @click="showCreateModal = true">新建回测</button>
+      <button
+        class="btn-primary"
+        @click="showCreateModal = true"
+      >
+        新建回测
+      </button>
     </div>
 
     <!-- 加载 -->
-    <div v-if="loading" class="loading-center"><div class="spinner"></div></div>
+    <div
+      v-if="loading"
+      class="loading-center"
+    >
+      <div class="spinner" />
+    </div>
 
     <!-- 空状态 -->
-    <EmptyState v-else-if="tasks.length === 0" description="暂无回测任务" action-text="创建第一个回测" :on-action="() => showCreateModal = true" />
+    <EmptyState
+      v-else-if="tasks.length === 0"
+      description="暂无回测任务"
+      action-text="创建第一个回测"
+      :on-action="() => showCreateModal = true"
+    />
 
     <!-- 任务卡片列表 -->
-    <div v-else class="task-list">
+    <div
+      v-else
+      class="task-list"
+    >
       <div
         v-for="task in tasks"
         :key="task.uuid"
@@ -39,21 +57,48 @@
         <div class="task-card-main">
           <div class="task-name">
             {{ task.name || '(未命名)' }}
-            <span class="task-uuid" :title="task.uuid">{{ task.uuid.slice(0, 8) }}</span>
+            <span
+              class="task-uuid"
+              :title="task.uuid"
+            >{{ task.uuid.slice(0, 8) }}</span>
             <!-- PnL 主锚点:9 项指标平铺无主次,收益数字提级放大,其余降为次级 -->
-            <span class="pnl-anchor" :style="{ color: getPnLColor(task.total_pnl) }" title="总盈亏（最终资产 − 初始资金）">
+            <span
+              class="pnl-anchor"
+              :style="{ color: getPnLColor(task.total_pnl) }"
+              title="总盈亏（最终资产 − 初始资金）"
+            >
               {{ task.total_pnl > 0 ? '+' : '' }}{{ formatDecimal(task.total_pnl) }}
             </span>
           </div>
-          <div v-if="task.backtest_start_date" class="task-date-range">{{ formatShortDate(task.backtest_start_date) }} ~ {{ formatShortDate(task.backtest_end_date) }}</div>
+          <div
+            v-if="task.backtest_start_date"
+            class="task-date-range"
+          >
+            {{ formatShortDate(task.backtest_start_date) }} ~ {{ formatShortDate(task.backtest_end_date) }}
+          </div>
           <div class="task-meta">
-            <span class="tag" :class="statusTagClass(task.status)">{{ statusLabel(task.status) }}</span>
-            <span v-if="task.status === 'running' || task.status === 'pending'" class="progress-info">
-              <div class="progress-bar-sm"><div class="progress-fill" :style="{ width: (task.progress || 0) + '%' }"></div></div>
+            <span
+              class="tag"
+              :class="statusTagClass(task.status)"
+            >{{ statusLabel(task.status) }}</span>
+            <span
+              v-if="task.status === 'running' || task.status === 'pending'"
+              class="progress-info"
+            >
+              <div class="progress-bar-sm"><div
+                class="progress-fill"
+                :style="{ width: (task.progress || 0) + '%' }"
+              /></div>
               <span class="progress-text">{{ (task.progress || 0).toFixed(0) }}%</span>
             </span>
-            <span class="meta-item" :style="{ color: getSharpeColor(task.sharpe_ratio) }">Sharpe {{ formatDecimal(task.sharpe_ratio) }}</span>
-            <span class="meta-item" :style="{ color: getDrawdownColor(task.max_drawdown) }">回撤 {{ formatPercent(task.max_drawdown) }}</span>
+            <span
+              class="meta-item"
+              :style="{ color: getSharpeColor(task.sharpe_ratio) }"
+            >Sharpe {{ formatDecimal(task.sharpe_ratio) }}</span>
+            <span
+              class="meta-item"
+              :style="{ color: getDrawdownColor(task.max_drawdown) }"
+            >回撤 {{ formatPercent(task.max_drawdown) }}</span>
             <span class="meta-item">年化 {{ formatPercent(task.annual_return) }}</span>
             <span class="meta-item">胜率 {{ formatPercent(task.win_rate) }}</span>
             <span class="meta-item">{{ task.total_orders || 0 }} 单</span>
@@ -62,48 +107,150 @@
         </div>
         <div class="task-card-right">
           <span class="task-date">{{ formatShortDate(task.created_at) }}</span>
-          <div class="task-actions" @click.stop>
-            <button v-if="canStartByState(task.status)" class="link-btn" @click="handleStart(task)">启动</button>
-            <button v-if="canStopByState(task.status)" class="link-btn link-danger" @click="handleStop(task)">停止</button>
-            <button v-if="canCancelByState(task.status)" class="link-btn" @click="handleCancel(task)">取消</button>
+          <div
+            class="task-actions"
+            @click.stop
+          >
+            <button
+              v-if="canStartByState(task.status)"
+              class="link-btn"
+              @click="handleStart(task)"
+            >
+              启动
+            </button>
+            <button
+              v-if="canStopByState(task.status)"
+              class="link-btn link-danger"
+              @click="handleStop(task)"
+            >
+              停止
+            </button>
+            <button
+              v-if="canCancelByState(task.status)"
+              class="link-btn"
+              @click="handleCancel(task)"
+            >
+              取消
+            </button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 分页 -->
-    <div v-if="tasks.length > 0" class="pagination">
-      <button class="btn-sm" :disabled="page === 0" @click="page--; loadList()">上一页</button>
+    <div
+      v-if="tasks.length > 0"
+      class="pagination"
+    >
+      <button
+        class="btn-sm"
+        :disabled="page === 0"
+        @click="page--; loadList()"
+      >
+        上一页
+      </button>
       <span class="page-info">{{ page * size + 1 }}-{{ Math.min((page + 1) * size, total) }} / {{ total }}</span>
-      <button class="btn-sm" :disabled="(page + 1) * size >= total" @click="page++; loadList()">下一页</button>
+      <button
+        class="btn-sm"
+        :disabled="(page + 1) * size >= total"
+        @click="page++; loadList()"
+      >
+        下一页
+      </button>
     </div>
 
     <!-- 创建模态框 -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+    <div
+      v-if="showCreateModal"
+      class="modal-overlay"
+      @click.self="showCreateModal = false"
+    >
       <div class="modal-box">
         <div class="modal-header">
           <h3>新建回测</h3>
-          <button class="btn-close" @click="showCreateModal = false">×</button>
+          <button
+            class="btn-close"
+            @click="showCreateModal = false"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
           <div class="form-item">
             <label>任务名称</label>
-            <input v-model="createForm.name" type="text" placeholder="例如：沪深300回测" class="form-input" />
+            <input
+              v-model="createForm.name"
+              type="text"
+              placeholder="例如：沪深300回测"
+              class="form-input"
+            >
           </div>
           <div class="form-row">
             <div class="form-item">
               <label>开始日期</label>
-              <div class="date-field" @click="startPickerOpen = !startPickerOpen">
+              <div
+                class="date-field"
+                @click="startPickerOpen = !startPickerOpen"
+              >
                 <span :class="{ placeholder: !createForm.start_date }">{{ createForm.start_date || '选择日期' }}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <div v-if="startPickerOpen" class="picker-panel" @click.stop>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                ><rect
+                  x="3"
+                  y="4"
+                  width="18"
+                  height="18"
+                  rx="2"
+                /><line
+                  x1="16"
+                  y1="2"
+                  x2="16"
+                  y2="6"
+                /><line
+                  x1="8"
+                  y1="2"
+                  x2="8"
+                  y2="6"
+                /><line
+                  x1="3"
+                  y1="10"
+                  x2="21"
+                  y2="10"
+                /></svg>
+                <div
+                  v-if="startPickerOpen"
+                  class="picker-panel"
+                  @click.stop
+                >
                   <div class="picker-header">
-                    <button type="button" class="picker-nav" @click="startPickerMonth--">‹</button>
+                    <button
+                      type="button"
+                      class="picker-nav"
+                      @click="startPickerMonth--"
+                    >
+                      ‹
+                    </button>
                     <span class="picker-title">{{ startPickerYear }}年{{ startPickerMonth + 1 }}月</span>
-                    <button type="button" class="picker-nav" @click="startPickerMonth++">›</button>
+                    <button
+                      type="button"
+                      class="picker-nav"
+                      @click="startPickerMonth++"
+                    >
+                      ›
+                    </button>
                   </div>
                   <div class="picker-weekdays">
-                    <span v-for="d in ['一','二','三','四','五','六','日']" :key="d" class="picker-wd">{{ d }}</span>
+                    <span
+                      v-for="d in ['一','二','三','四','五','六','日']"
+                      :key="d"
+                      class="picker-wd"
+                    >{{ d }}</span>
                   </div>
                   <div class="picker-days">
                     <button
@@ -118,24 +265,78 @@
                       }"
                       :disabled="!day"
                       @click="if (day) { createForm.start_date = formatPickerDay(day, startPickerYear, startPickerMonth); startPickerOpen = false }"
-                    >{{ day || '' }}</button>
+                    >
+                      {{ day || '' }}
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
             <div class="form-item">
               <label>结束日期</label>
-              <div class="date-field" @click="endPickerOpen = !endPickerOpen">
+              <div
+                class="date-field"
+                @click="endPickerOpen = !endPickerOpen"
+              >
                 <span :class="{ placeholder: !createForm.end_date }">{{ createForm.end_date || '选择日期' }}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <div v-if="endPickerOpen" class="picker-panel" @click.stop>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                ><rect
+                  x="3"
+                  y="4"
+                  width="18"
+                  height="18"
+                  rx="2"
+                /><line
+                  x1="16"
+                  y1="2"
+                  x2="16"
+                  y2="6"
+                /><line
+                  x1="8"
+                  y1="2"
+                  x2="8"
+                  y2="6"
+                /><line
+                  x1="3"
+                  y1="10"
+                  x2="21"
+                  y2="10"
+                /></svg>
+                <div
+                  v-if="endPickerOpen"
+                  class="picker-panel"
+                  @click.stop
+                >
                   <div class="picker-header">
-                    <button type="button" class="picker-nav" @click="endPickerMonth--">‹</button>
+                    <button
+                      type="button"
+                      class="picker-nav"
+                      @click="endPickerMonth--"
+                    >
+                      ‹
+                    </button>
                     <span class="picker-title">{{ endPickerYear }}年{{ endPickerMonth + 1 }}月</span>
-                    <button type="button" class="picker-nav" @click="endPickerMonth++">›</button>
+                    <button
+                      type="button"
+                      class="picker-nav"
+                      @click="endPickerMonth++"
+                    >
+                      ›
+                    </button>
                   </div>
                   <div class="picker-weekdays">
-                    <span v-for="d in ['一','二','三','四','五','六','日']" :key="d" class="picker-wd">{{ d }}</span>
+                    <span
+                      v-for="d in ['一','二','三','四','五','六','日']"
+                      :key="d"
+                      class="picker-wd"
+                    >{{ d }}</span>
                   </div>
                   <div class="picker-days">
                     <button
@@ -150,7 +351,9 @@
                       }"
                       :disabled="!day"
                       @click="if (day) { createForm.end_date = formatPickerDay(day, endPickerYear, endPickerMonth); endPickerOpen = false }"
-                    >{{ day || '' }}</button>
+                    >
+                      {{ day || '' }}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -158,39 +361,84 @@
           </div>
           <div class="form-item">
             <label>初始资金</label>
-            <input :value="formatCash(createForm.initial_cash)" type="text" inputmode="numeric" class="form-input" placeholder="1,000,000" @input="onCashInput($event)" @blur="onCashBlur" />
+            <input
+              :value="formatCash(createForm.initial_cash)"
+              type="text"
+              inputmode="numeric"
+              class="form-input"
+              placeholder="1,000,000"
+              @input="onCashInput($event)"
+              @blur="onCashBlur"
+            >
           </div>
           <!-- 高级设置:费率/滑点/频率等成本与口径参数。留空=后端默认(占位符注明),
                不显式传值避免覆盖快照默认;频率与 CLI 对齐(#5386) -->
           <div class="form-item advanced">
-            <button type="button" class="advanced-toggle" @click="advancedOpen = !advancedOpen">
+            <button
+              type="button"
+              class="advanced-toggle"
+              @click="advancedOpen = !advancedOpen"
+            >
               高级设置（费率/滑点/频率）{{ advancedOpen ? '▲' : '▼' }}
             </button>
-            <div v-if="advancedOpen" class="advanced-body">
+            <div
+              v-if="advancedOpen"
+              class="advanced-body"
+            >
               <div class="form-row">
                 <div class="form-item">
                   <label>佣金率</label>
-                  <input v-model="createForm.commission_rate" type="text" class="form-input" placeholder="0.0003" />
+                  <input
+                    v-model="createForm.commission_rate"
+                    type="text"
+                    class="form-input"
+                    placeholder="0.0003"
+                  >
                 </div>
                 <div class="form-item">
                   <label>滑点率</label>
-                  <input v-model="createForm.slippage_rate" type="text" class="form-input" placeholder="0.0001" />
+                  <input
+                    v-model="createForm.slippage_rate"
+                    type="text"
+                    class="form-input"
+                    placeholder="0.0001"
+                  >
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-item">
                   <label>最低佣金（元）</label>
-                  <input v-model="createForm.commission_min" type="text" class="form-input" placeholder="5" />
+                  <input
+                    v-model="createForm.commission_min"
+                    type="text"
+                    class="form-input"
+                    placeholder="5"
+                  >
                 </div>
                 <div class="form-item">
                   <label>数据频率</label>
-                  <select v-model="createForm.frequency" class="form-select">
-                    <option value="">日频（默认）</option>
-                    <option value="1MIN">1 分钟</option>
-                    <option value="5MIN">5 分钟</option>
-                    <option value="15MIN">15 分钟</option>
-                    <option value="30MIN">30 分钟</option>
-                    <option value="60MIN">60 分钟</option>
+                  <select
+                    v-model="createForm.frequency"
+                    class="form-select"
+                  >
+                    <option value="">
+                      日频（默认）
+                    </option>
+                    <option value="1MIN">
+                      1 分钟
+                    </option>
+                    <option value="5MIN">
+                      5 分钟
+                    </option>
+                    <option value="15MIN">
+                      15 分钟
+                    </option>
+                    <option value="30MIN">
+                      30 分钟
+                    </option>
+                    <option value="60MIN">
+                      60 分钟
+                    </option>
                   </select>
                 </div>
               </div>
@@ -198,8 +446,17 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" @click="showCreateModal = false">取消</button>
-          <button class="btn-primary" :disabled="creating" @click="handleCreate">
+          <button
+            class="btn-secondary"
+            @click="showCreateModal = false"
+          >
+            取消
+          </button>
+          <button
+            class="btn-primary"
+            :disabled="creating"
+            @click="handleCreate"
+          >
             {{ creating ? '创建中...' : '创建并启动' }}
           </button>
         </div>

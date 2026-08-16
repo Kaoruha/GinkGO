@@ -5,26 +5,50 @@
         <h4>订单簿</h4>
       </div>
       <div class="card-body">
-        <div v-if="orders.length === 0" class="empty-state">
+        <div
+          v-if="orders.length === 0"
+          class="empty-state"
+        >
           <p>暂无订单</p>
         </div>
-        <div v-else class="table-wrapper">
+        <div
+          v-else
+          class="table-wrapper"
+        >
           <table class="data-table">
             <thead>
               <tr>
-                <th width="100">代码</th>
-                <th width="80">方向</th>
-                <th width="100">数量</th>
-                <th width="100">价格</th>
-                <th width="120">金额</th>
-                <th width="100">状态</th>
+                <th width="100">
+                  代码
+                </th>
+                <th width="80">
+                  方向
+                </th>
+                <th width="100">
+                  数量
+                </th>
+                <th width="100">
+                  价格
+                </th>
+                <th width="120">
+                  金额
+                </th>
+                <th width="100">
+                  状态
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(record, index) in orders" :key="index">
+              <tr
+                v-for="(record, index) in orders"
+                :key="index"
+              >
                 <td>{{ record.code }}</td>
                 <td>
-                  <span class="tag" :class="record.direction === 'buy' ? 'tag-green' : 'tag-red'">
+                  <span
+                    class="tag"
+                    :class="record.direction === 'buy' ? 'tag-green' : 'tag-red'"
+                  >
                     {{ record.direction === 'buy' ? '买入' : '卖出' }}
                   </span>
                 </td>
@@ -32,7 +56,10 @@
                 <td>{{ record.price?.toFixed(2) || '-' }}</td>
                 <td>{{ record.amount?.toFixed(2) || '-' }}</td>
                 <td>
-                  <span class="status-badge" :class="`status-${record.status}`">
+                  <span
+                    class="status-badge"
+                    :class="`status-${record.status}`"
+                  >
                     {{ getStatusLabel(record.status) }}
                   </span>
                 </td>

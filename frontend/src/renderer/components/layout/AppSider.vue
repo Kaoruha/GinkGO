@@ -1,16 +1,31 @@
 <template>
-  <div class="sider" :class="{ collapsed }">
+  <div
+    class="sider"
+    :class="{ collapsed }"
+  >
     <div class="logo">
       <!-- 内联银杏叶品牌标:极简剪影,与 public/favicon.svg 同源 -->
-      <svg class="logo-mark" viewBox="8 6 84 96" aria-hidden="true">
-        <path class="leaf-body" d="M50 64
+      <svg
+        class="logo-mark"
+        viewBox="8 6 84 96"
+        aria-hidden="true"
+      >
+        <path
+          class="leaf-body"
+          d="M50 64
           C38 58 12 50 12 30
           C12 14 26 8 36 14
           C42 17 46 22 50 30
           C54 22 58 17 64 14
           C74 8 88 14 88 30
-          C88 50 62 58 50 64 Z"/>
-        <path class="leaf-stem" d="M50 64 C50 75 50 86 50 98" fill="none" stroke-linecap="round"/>
+          C88 50 62 58 50 64 Z"
+        />
+        <path
+          class="leaf-stem"
+          d="M50 64 C50 75 50 86 50 98"
+          fill="none"
+          stroke-linecap="round"
+        />
       </svg>
       <span v-if="!collapsed">Ginkgo</span>
     </div>
@@ -33,7 +48,12 @@
           @click="onSelect(item)"
         >
           <div class="menu-item-content">
-            <component :is="item.icon" class="menu-icon" :size="16" v-if="item.icon" />
+            <component
+              :is="item.icon"
+              v-if="item.icon"
+              class="menu-icon"
+              :size="16"
+            />
             <span class="menu-label">{{ item.label }}</span>
           </div>
         </router-link>
@@ -48,7 +68,12 @@
           @click="toggleExpand(item)"
         >
           <div class="menu-item-content">
-            <component :is="item.icon" class="menu-icon" :size="16" v-if="item.icon" />
+            <component
+              :is="item.icon"
+              v-if="item.icon"
+              class="menu-icon"
+              :size="16"
+            />
             <span class="menu-label">{{ item.label }}</span>
           </div>
           <ChevronRight
@@ -74,14 +99,21 @@
               class="submenu-item"
               :class="{ active: isChildActive(child) }"
               :tabindex="isExpanded(item) ? undefined : -1"
-            >{{ child.label }}</router-link>
+            >
+              {{ child.label }}
+            </router-link>
           </div>
         </div>
 
         <!-- 折叠态:hover 弹出二级 flyout -->
         <Transition name="flyout">
-          <div v-if="collapsed && item.children && hoverKey === item.key" class="flyout">
-            <div class="flyout-title">{{ item.label }}</div>
+          <div
+            v-if="collapsed && item.children && hoverKey === item.key"
+            class="flyout"
+          >
+            <div class="flyout-title">
+              {{ item.label }}
+            </div>
             <router-link
               v-for="(child, i) in item.children"
               :key="i"
@@ -89,7 +121,9 @@
               class="flyout-item"
               :class="{ active: isChildActive(child) }"
               @click="onSelect(item)"
-            >{{ child.label }}</router-link>
+            >
+              {{ child.label }}
+            </router-link>
           </div>
         </Transition>
       </div>

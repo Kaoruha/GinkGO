@@ -223,8 +223,12 @@ onMounted(() => {
 
 <template>
   <PageLayout>
-    <template #title>Broker 管理</template>
-    <template #description>管理实盘 Broker 实例的生命周期</template>
+    <template #title>
+      Broker 管理
+    </template>
+    <template #description>
+      管理实盘 Broker 实例的生命周期
+    </template>
     <template #actions>
       <Button
         variant="destructive"
@@ -250,9 +254,14 @@ onMounted(() => {
     <Card class="broker-card">
       <CardContent class="broker-content">
         <!-- 加载状态 -->
-        <div v-if="loading" class="loading-state">
+        <div
+          v-if="loading"
+          class="loading-state"
+        >
           <RefreshCw class="w-8 h-8 animate-spin text-muted-foreground" />
-          <p class="text-muted-foreground">加载中...</p>
+          <p class="text-muted-foreground">
+            加载中...
+          </p>
         </div>
 
         <!-- 功能未实现(后端接口 404) -->
@@ -261,7 +270,9 @@ onMounted(() => {
           title="实盘 Broker 管理功能开发中"
           description="实盘引擎就绪后启用(后端接口待实现)"
         >
-          <template #icon><AlertTriangle class="w-16 h-16" /></template>
+          <template #icon>
+            <AlertTriangle class="w-16 h-16" />
+          </template>
         </EmptyState>
 
         <!-- 空状态 -->
@@ -270,11 +281,16 @@ onMounted(() => {
           title="暂无 Broker 实例"
           description="Broker 实例会在创建实盘组合后自动创建"
         >
-          <template #icon><Settings class="w-16 h-16" /></template>
+          <template #icon>
+            <Settings class="w-16 h-16" />
+          </template>
         </EmptyState>
 
         <!-- Broker 列表 -->
-        <div v-else class="broker-list">
+        <div
+          v-else
+          class="broker-list"
+        >
           <div
             v-for="broker in brokers"
             :key="broker.uuid"
@@ -283,15 +299,24 @@ onMounted(() => {
             @contextmenu="openBrokerMenu($event, broker)"
           >
             <!-- 状态指示器 -->
-            <div class="broker-status-indicator" :style="{ backgroundColor: stateConfig[broker.state]?.bgColor }">
-              <component :is="stateConfig[broker.state]?.icon" class="status-icon" :style="{ color: stateConfig[broker.state]?.color }" />
+            <div
+              class="broker-status-indicator"
+              :style="{ backgroundColor: stateConfig[broker.state]?.bgColor }"
+            >
+              <component
+                :is="stateConfig[broker.state]?.icon"
+                class="status-icon"
+                :style="{ color: stateConfig[broker.state]?.color }"
+              />
             </div>
 
             <!-- Broker 主要信息 -->
             <div class="broker-main">
               <div class="broker-header-row">
                 <div class="broker-title-row">
-                  <h3 class="broker-name">Broker {{ getBrokerId(broker.uuid) }}</h3>
+                  <h3 class="broker-name">
+                    Broker {{ getBrokerId(broker.uuid) }}
+                  </h3>
                   <Badge
                     :variant="stateConfig[broker.state]?.variant || 'secondary'"
                     class="state-badge"
@@ -301,15 +326,24 @@ onMounted(() => {
                       border: 'none'
                     }"
                   >
-                    <component :is="stateConfig[broker.state]?.icon" class="w-3 h-3 mr-1" />
+                    <component
+                      :is="stateConfig[broker.state]?.icon"
+                      class="w-3 h-3 mr-1"
+                    />
                     {{ stateConfig[broker.state]?.label || broker.state }}
                   </Badge>
                 </div>
 
                 <!-- 账号信息 -->
-                <div v-if="broker.live_account" class="account-info">
+                <div
+                  v-if="broker.live_account"
+                  class="account-info"
+                >
                   <span class="account-name">{{ broker.live_account.name }}</span>
-                  <Badge variant="outline" class="exchange-badge">
+                  <Badge
+                    variant="outline"
+                    class="exchange-badge"
+                  >
                     {{ broker.live_account.exchange.toUpperCase() }}
                   </Badge>
                   <Badge
@@ -321,16 +355,21 @@ onMounted(() => {
                 </div>
 
                 <!-- 进程信息 -->
-                <div v-if="broker.process_id" class="process-info">
+                <div
+                  v-if="broker.process_id"
+                  class="process-info"
+                >
                   <Clock class="w-3 h-3 mr-1" />
                   <span class="text-xs text-muted-foreground">PID: {{ broker.process_id }}</span>
                 </div>
               </div>
-
             </div>
 
             <!-- 错误信息 -->
-            <div v-if="broker.error_message" class="error-message">
+            <div
+              v-if="broker.error_message"
+              class="error-message"
+            >
               <AlertTriangle class="w-4 h-4 mr-2" />
               {{ broker.error_message }}
             </div>
@@ -338,7 +377,10 @@ onMounted(() => {
             <!-- 时间信息 -->
             <div class="broker-time">
               <span class="time-label">创建于 {{ formatTime(broker.create_at) }}</span>
-              <span v-if="broker.update_at" class="time-label">更新于 {{ formatTime(broker.update_at) }}</span>
+              <span
+                v-if="broker.update_at"
+                class="time-label"
+              >更新于 {{ formatTime(broker.update_at) }}</span>
             </div>
           </div>
         </div>

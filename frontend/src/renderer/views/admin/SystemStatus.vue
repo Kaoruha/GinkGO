@@ -2,7 +2,10 @@
   <PageLayout>
     <template #title>
       系统状态
-      <StatusTag type="system" :status="systemStore.systemHealth" />
+      <StatusTag
+        type="system"
+        :status="systemStore.systemHealth"
+      />
     </template>
     <template #meta>
       <!-- 低价值元信息降级到副行:不再占统计卡 -->
@@ -12,42 +15,108 @@
     </template>
     <template #actions>
       <label class="switch-label">
-        <input type="checkbox" v-model="autoRefreshModel" @change="toggleAutoRefresh" class="switch-input" />
-        <span class="switch-slider"></span>
+        <input
+          v-model="autoRefreshModel"
+          type="checkbox"
+          class="switch-input"
+          @change="toggleAutoRefresh"
+        >
+        <span class="switch-slider" />
         <span class="switch-text">自动刷新</span>
       </label>
-      <button class="btn-secondary" @click="fetchStatus">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-          <path d="M3 3v5h5"></path>
-          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
-          <path d="M16 21h5v-5"></path>
+      <button
+        class="btn-secondary"
+        @click="fetchStatus"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+          <path d="M16 21h5v-5" />
         </svg>
         刷新
       </button>
     </template>
 
     <!-- 异常横幅:降级/异常时置顶,健康时不占空间 -->
-    <div v-if="healthIssues.length" class="alert-banner" :class="`alert-${systemStore.systemHealth}`">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-        <line x1="12" y1="9" x2="12" y2="13"></line>
-        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    <div
+      v-if="healthIssues.length"
+      class="alert-banner"
+      :class="`alert-${systemStore.systemHealth}`"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line
+          x1="12"
+          y1="9"
+          x2="12"
+          y2="13"
+        />
+        <line
+          x1="12"
+          y1="17"
+          x2="12.01"
+          y2="17"
+        />
       </svg>
       <div class="alert-body">
-        <div class="alert-title">{{ systemStore.systemHealth === 'unhealthy' ? '系统异常' : '系统降级' }}</div>
+        <div class="alert-title">
+          {{ systemStore.systemHealth === 'unhealthy' ? '系统异常' : '系统降级' }}
+        </div>
         <ul class="alert-list">
-          <li v-for="(issue, i) in healthIssues" :key="i">{{ issue }}</li>
+          <li
+            v-for="(issue, i) in healthIssues"
+            :key="i"
+          >
+            {{ issue }}
+          </li>
         </ul>
       </div>
     </div>
 
     <!-- 核心指标:4 张数值卡(复用全局 .stats-grid + StatCard) -->
     <div class="stats-grid">
-      <StatCard title="基础设施" :value="okInfraCount" suffix="/ 4 已连接" :color="okInfraCount === infraTotal ? 'neutral' : 'negative'" />
-      <StatCard title="在线组件" :value="onlineWorkerCount" :suffix="`/ ${systemStore.totalWorkerCount}`" :color="onlineWorkerCount === systemStore.totalWorkerCount ? 'neutral' : 'negative'" />
-      <StatCard title="异常组件" :value="anomalyWorkerCount" :color="anomalyWorkerCount > 0 ? 'negative' : 'positive'" />
-      <StatCard title="运行中任务" :value="runningTaskCount" />
+      <StatCard
+        title="基础设施"
+        :value="okInfraCount"
+        suffix="/ 4 已连接"
+        :color="okInfraCount === infraTotal ? 'neutral' : 'negative'"
+      />
+      <StatCard
+        title="在线组件"
+        :value="onlineWorkerCount"
+        :suffix="`/ ${systemStore.totalWorkerCount}`"
+        :color="onlineWorkerCount === systemStore.totalWorkerCount ? 'neutral' : 'negative'"
+      />
+      <StatCard
+        title="异常组件"
+        :value="anomalyWorkerCount"
+        :color="anomalyWorkerCount > 0 ? 'negative' : 'positive'"
+      />
+      <StatCard
+        title="运行中任务"
+        :value="runningTaskCount"
+      />
     </div>
 
     <!-- 基础设施状态 -->
@@ -56,16 +125,34 @@
         <h3>基础设施</h3>
       </div>
       <div class="infra-grid">
-        <div v-for="(info, name) in infrastructure" :key="name" class="infra-card">
+        <div
+          v-for="(info, name) in infrastructure"
+          :key="name"
+          class="infra-card"
+        >
           <div class="infra-header">
             <span class="infra-name">{{ INFRA_NAMES[name] || name }}</span>
-            <StatusTag type="infra" :status="info.status" />
+            <StatusTag
+              type="infra"
+              :status="info.status"
+            />
           </div>
-          <div v-if="info.error" class="infra-error">{{ info.error }}</div>
-          <div v-if="info.latency_ms !== undefined" class="infra-info">
+          <div
+            v-if="info.error"
+            class="infra-error"
+          >
+            {{ info.error }}
+          </div>
+          <div
+            v-if="info.latency_ms !== undefined"
+            class="infra-info"
+          >
             延迟: {{ info.latency_ms }}ms
           </div>
-          <div v-if="info.topics !== undefined" class="infra-info">
+          <div
+            v-if="info.topics !== undefined"
+            class="infra-info"
+          >
             Topics: {{ info.topics }}
           </div>
         </div>
@@ -95,10 +182,16 @@
           </button>
         </div>
       </div>
-      <div v-if="workerLoading" class="loading-container">
-        <div class="spinner"></div>
+      <div
+        v-if="workerLoading"
+        class="loading-container"
+      >
+        <div class="spinner" />
       </div>
-      <div v-else-if="filteredWorkers.length > 0" class="table-wrapper">
+      <div
+        v-else-if="filteredWorkers.length > 0"
+        class="table-wrapper"
+      >
         <table class="data-table">
           <thead>
             <tr>
@@ -110,15 +203,26 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in filteredWorkers" :key="`${record.type}-${record.id}`">
-              <td class="monospace">{{ record.id }}</td>
+            <tr
+              v-for="record in filteredWorkers"
+              :key="`${record.type}-${record.id}`"
+            >
+              <td class="monospace">
+                {{ record.id }}
+              </td>
               <td>
-                <span class="tag" :class="`tag-${getTypeColorClass(record.type)}`">
+                <span
+                  class="tag"
+                  :class="`tag-${getTypeColorClass(record.type)}`"
+                >
                   {{ getTypeText(record.type) }}
                 </span>
               </td>
               <td>
-                <StatusTag type="worker" :status="record.status" />
+                <StatusTag
+                  type="worker"
+                  :status="record.status"
+                />
               </td>
               <td class="detail-text">
                 <template v-if="record.type === 'backtest_worker'">
@@ -137,14 +241,20 @@
                   已处理: {{ record.task_count || 0 }}
                 </template>
               </td>
-              <td class="monospace" :class="{ 'heartbeat-stale': isHeartbeatStale(record) }">
+              <td
+                class="monospace"
+                :class="{ 'heartbeat-stale': isHeartbeatStale(record) }"
+              >
                 {{ formatRelativeTime(record.last_heartbeat) }}
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <EmptyState v-else :description="typeFilter === 'all' ? '暂无组件' : '该类型暂无组件'" />
+      <EmptyState
+        v-else
+        :description="typeFilter === 'all' ? '暂无组件' : '该类型暂无组件'"
+      />
     </div>
   </PageLayout>
 </template>

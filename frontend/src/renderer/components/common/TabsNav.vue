@@ -9,16 +9,24 @@
     - size: default=L1(14px/600/2px) | small=L2(13px/500/1px)
     active 样式自包含,不依赖全局收口。
   -->
-  <div class="tabs-nav" :style="sizeVars">
+  <div
+    class="tabs-nav"
+    :style="sizeVars"
+  >
     <template v-if="isRoute">
       <RouterLink
         v-for="item in items"
         :key="item.key"
+        v-slot="{ navigate }"
         :to="item.to!"
         custom
-        v-slot="{ navigate }"
       >
-        <a class="tab" :class="{ on: activeKey === item.key }" @click="navigate" @keypress.enter.prevent="() => navigate()">{{ item.label }}</a>
+        <a
+          class="tab"
+          :class="{ on: activeKey === item.key }"
+          @click="navigate"
+          @keypress.enter.prevent="() => navigate()"
+        >{{ item.label }}</a>
       </RouterLink>
     </template>
     <template v-else>
@@ -28,7 +36,9 @@
         class="tab"
         :class="{ on: modelValue === item.key }"
         @click="emit('update:modelValue', item.key)"
-      >{{ item.label }}</button>
+      >
+        {{ item.label }}
+      </button>
     </template>
   </div>
 </template>

@@ -217,28 +217,55 @@ onMounted(() => {
 
 <template>
   <PageLayout>
-    <template #title>交易历史</template>
-    <template #description>查看实盘交易记录和统计数据</template>
+    <template #title>
+      交易历史
+    </template>
+    <template #description>
+      查看实盘交易记录和统计数据
+    </template>
     <template #actions>
       <select
         v-model="selectedAccount"
-        @change="onAccountChange"
         class="px-3 py-1.5 border rounded-md text-sm bg-background"
+        @change="onAccountChange"
       >
-        <option :value="null" disabled>选择账户</option>
-        <option v-for="acc in accounts" :key="acc.uuid" :value="acc.uuid">
+        <option
+          :value="null"
+          disabled
+        >
+          选择账户
+        </option>
+        <option
+          v-for="acc in accounts"
+          :key="acc.uuid"
+          :value="acc.uuid"
+        >
           {{ acc.name }} ({{ acc.exchange.toUpperCase() }})
         </option>
       </select>
-      <Button variant="outline" size="sm" @click="showFilterDialog = true">
+      <Button
+        variant="outline"
+        size="sm"
+        @click="showFilterDialog = true"
+      >
         <Filter class="w-4 h-4 mr-2" />
         筛选
       </Button>
-      <Button variant="outline" size="sm" @click="exportCSV" :disabled="!selectedAccount">
+      <Button
+        variant="outline"
+        size="sm"
+        :disabled="!selectedAccount"
+        @click="exportCSV"
+      >
         <Download class="w-4 h-4 mr-2" />
         导出CSV
       </Button>
-      <Button variant="outline" size="sm" @click="loadTrades" :disabled="!selectedAccount">
+      <Button
+        variant="outline"
+        size="sm"
+        :disabled="!selectedAccount"
+        @click="loadTrades"
+      >
         <RefreshCw class="w-4 h-4 mr-2" />
         刷新
       </Button>
@@ -247,11 +274,18 @@ onMounted(() => {
     <Card>
       <CardContent>
         <!-- 统计卡片 -->
-        <div v-if="statistics" class="grid grid-cols-5 gap-4 mb-6">
+        <div
+          v-if="statistics"
+          class="grid grid-cols-5 gap-4 mb-6"
+        >
           <Card>
             <CardContent class="p-4">
-              <div class="text-2xl font-bold">{{ statistics.total_trades }}</div>
-              <div class="text-sm text-muted-foreground">总交易次数</div>
+              <div class="text-2xl font-bold">
+                {{ statistics.total_trades }}
+              </div>
+              <div class="text-sm text-muted-foreground">
+                总交易次数
+              </div>
             </CardContent>
           </Card>
 
@@ -260,45 +294,72 @@ onMounted(() => {
               <div class="text-2xl font-bold text-success">
                 {{ statistics.buy_trades }} / {{ statistics.sell_trades }}
               </div>
-              <div class="text-sm text-muted-foreground">买入 / 卖出</div>
+              <div class="text-sm text-muted-foreground">
+                买入 / 卖出
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent class="p-4">
-              <div class="text-2xl font-bold">{{ formatNumber(totalVolume) }}</div>
-              <div class="text-sm text-muted-foreground">总成交量</div>
+              <div class="text-2xl font-bold">
+                {{ formatNumber(totalVolume) }}
+              </div>
+              <div class="text-sm text-muted-foreground">
+                总成交量
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent class="p-4">
-              <div class="text-2xl font-bold text-primary">{{ formatNumber(totalValue) }}</div>
-              <div class="text-sm text-muted-foreground">总成交额</div>
+              <div class="text-2xl font-bold text-primary">
+                {{ formatNumber(totalValue) }}
+              </div>
+              <div class="text-sm text-muted-foreground">
+                总成交额
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent class="p-4">
-              <div class="text-2xl font-bold text-error">{{ formatNumber(totalFees) }}</div>
-              <div class="text-sm text-muted-foreground">总手续费</div>
+              <div class="text-2xl font-bold text-error">
+                {{ formatNumber(totalFees) }}
+              </div>
+              <div class="text-sm text-muted-foreground">
+                总手续费
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <!-- 加载状态 -->
-        <div v-if="loading" class="text-center py-8">
+        <div
+          v-if="loading"
+          class="text-center py-8"
+        >
           <p>加载中...</p>
         </div>
 
         <!-- 未选择账户 -->
-        <div v-else-if="!selectedAccount" class="text-center py-8">
-          <p class="text-muted-foreground">{{ accounts.length === 0 ? '暂无交易账户，请先在账号配置中添加' : '请选择一个交易账户' }}</p>
+        <div
+          v-else-if="!selectedAccount"
+          class="text-center py-8"
+        >
+          <p class="text-muted-foreground">
+            {{ accounts.length === 0 ? '暂无交易账户，请先在账号配置中添加' : '请选择一个交易账户' }}
+          </p>
         </div>
 
         <!-- 成交查询功能未实现(后端接口 404) -->
-        <div v-else-if="loadError" class="text-center py-8">
-          <p class="text-muted-foreground">成交查询功能开发中(实盘引擎就绪后启用)</p>
+        <div
+          v-else-if="loadError"
+          class="text-center py-8"
+        >
+          <p class="text-muted-foreground">
+            成交查询功能开发中(实盘引擎就绪后启用)
+          </p>
         </div>
 
         <!-- 交易记录表格 -->
@@ -322,7 +383,9 @@ onMounted(() => {
               @contextmenu="openTradeMenu($event, trade)"
             >
               <TableCell>{{ formatDate(trade.trade_time) }}</TableCell>
-              <TableCell class="font-medium">{{ trade.symbol }}</TableCell>
+              <TableCell class="font-medium">
+                {{ trade.symbol }}
+              </TableCell>
               <TableCell>
                 <Badge :variant="getSideBadgeVariant(trade.side)">
                   {{ trade.side === 'buy' ? '买入' : '卖出' }}
@@ -340,17 +403,28 @@ onMounted(() => {
         </Table>
 
         <!-- 每日汇总 -->
-        <div v-if="dailySummary.length > 0" class="mt-6">
-          <h3 class="text-lg font-semibold mb-4">每日汇总</h3>
+        <div
+          v-if="dailySummary.length > 0"
+          class="mt-6"
+        >
+          <h3 class="text-lg font-semibold mb-4">
+            每日汇总
+          </h3>
           <div class="grid grid-cols-7 gap-2">
             <div
               v-for="day in dailySummary"
               :key="day.date"
               class="p-3 border rounded-lg"
             >
-              <div class="text-xs text-muted-foreground">{{ day.date.slice(5, 10) }}</div>
-              <div class="text-lg font-bold">{{ day.total_trades }}</div>
-              <div class="text-xs text-muted-foreground">笔交易</div>
+              <div class="text-xs text-muted-foreground">
+                {{ day.date.slice(5, 10) }}
+              </div>
+              <div class="text-lg font-bold">
+                {{ day.total_trades }}
+              </div>
+              <div class="text-xs text-muted-foreground">
+                笔交易
+              </div>
             </div>
           </div>
         </div>
@@ -358,7 +432,10 @@ onMounted(() => {
     </Card>
 
     <!-- 筛选对话框 -->
-    <DialogRoot :open="showFilterDialog" @update:open="showFilterDialog = false">
+    <DialogRoot
+      :open="showFilterDialog"
+      @update:open="showFilterDialog = false"
+    >
       <DialogPortal>
         <DialogOverlay />
         <DialogContent>
@@ -371,24 +448,31 @@ onMounted(() => {
             <div>
               <label class="text-sm font-medium">开始日期</label>
               <input
-                type="date"
                 v-model="dateFilter.start_date"
+                type="date"
                 class="w-full mt-1 px-3 py-2 border rounded-md"
-              />
+              >
             </div>
             <div>
               <label class="text-sm font-medium">结束日期</label>
               <input
-                type="date"
                 v-model="dateFilter.end_date"
+                type="date"
                 class="w-full mt-1 px-3 py-2 border rounded-md"
-              />
+              >
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" @click="showFilterDialog = false">取消</Button>
-            <Button @click="applyDateFilter">应用</Button>
+            <Button
+              variant="outline"
+              @click="showFilterDialog = false"
+            >
+              取消
+            </Button>
+            <Button @click="applyDateFilter">
+              应用
+            </Button>
           </DialogFooter>
         </DialogContent>
       </DialogPortal>

@@ -11,11 +11,19 @@
         placeholder="搜索代码或名称"
         class="search-input"
         @keyup.enter="loadStocks"
-      />
-      <button class="btn-primary" :disabled="loading" @click="loadStocks">
+      >
+      <button
+        class="btn-primary"
+        :disabled="loading"
+        @click="loadStocks"
+      >
         刷新
       </button>
-      <button class="btn-success" :disabled="syncing" @click="syncStockInfo">
+      <button
+        class="btn-success"
+        :disabled="syncing"
+        @click="syncStockInfo"
+      >
         同步数据
       </button>
     </template>
@@ -23,16 +31,28 @@
     <!-- 统计 -->
     <div class="stats-grid-three">
       <div class="stat-card">
-        <div class="stat-value">{{ pagination.total }}</div>
-        <div class="stat-label">股票总数</div>
+        <div class="stat-value">
+          {{ pagination.total }}
+        </div>
+        <div class="stat-label">
+          股票总数
+        </div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{{ exchangeStats.sh }}</div>
-        <div class="stat-label">沪市</div>
+        <div class="stat-value">
+          {{ exchangeStats.sh }}
+        </div>
+        <div class="stat-label">
+          沪市
+        </div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{{ exchangeStats.sz }}</div>
-        <div class="stat-label">深市</div>
+        <div class="stat-value">
+          {{ exchangeStats.sz }}
+        </div>
+        <div class="stat-label">
+          深市
+        </div>
       </div>
     </div>
 
@@ -42,13 +62,22 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th @click="sortBy('code')" style="cursor: pointer">
+              <th
+                style="cursor: pointer"
+                @click="sortBy('code')"
+              >
                 代码 {{ sortField === 'code' ? (sortAsc ? '↑' : '↓') : '' }}
               </th>
-              <th @click="sortBy('name')" style="cursor: pointer">
+              <th
+                style="cursor: pointer"
+                @click="sortBy('name')"
+              >
                 名称 {{ sortField === 'name' ? (sortAsc ? '↑' : '↓') : '' }}
               </th>
-              <th @click="sortBy('exchange')" style="cursor: pointer">
+              <th
+                style="cursor: pointer"
+                @click="sortBy('exchange')"
+              >
                 交易所 {{ sortField === 'exchange' ? (sortAsc ? '↑' : '↓') : '' }}
               </th>
               <th>行业</th>
@@ -63,19 +92,30 @@
               @click="viewStockDetail(stock)"
               @contextmenu="openStockMenu($event, stock)"
             >
-              <td class="link">{{ stock.code }}</td>
-              <td>
-                {{ stock.name }}
-                <span v-if="stock.is_st" class="tag tag-st">ST</span>
+              <td class="link">
+                {{ stock.code }}
               </td>
               <td>
-                <span class="tag" :class="stock.exchange === 'SH' ? 'tag-sh' : 'tag-sz'">
+                {{ stock.name }}
+                <span
+                  v-if="stock.is_st"
+                  class="tag tag-st"
+                >ST</span>
+              </td>
+              <td>
+                <span
+                  class="tag"
+                  :class="stock.exchange === 'SH' ? 'tag-sh' : 'tag-sz'"
+                >
                   {{ stock.exchange === 'SH' ? '沪市' : '深市' }}
                 </span>
               </td>
               <td>{{ stock.industry || '-' }}</td>
               <td>
-                <span class="tag" :class="stock.is_active === false ? 'tag-st' : 'tag-sh'">
+                <span
+                  class="tag"
+                  :class="stock.is_active === false ? 'tag-st' : 'tag-sh'"
+                >
                   {{ stock.is_active === false ? '退市' : '上市' }}
                 </span>
               </td>
@@ -83,40 +123,87 @@
           </tbody>
           <tbody v-else-if="loading">
             <tr>
-              <td colspan="6" class="text-center">加载中...</td>
+              <td
+                colspan="6"
+                class="text-center"
+              >
+                加载中...
+              </td>
             </tr>
           </tbody>
           <tbody v-else>
             <tr>
-              <td colspan="6" class="text-center">暂无数据</td>
+              <td
+                colspan="6"
+                class="text-center"
+              >
+                暂无数据
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div v-if="filteredTotal > 0" class="pagination">
-        <button @click="prevPage" :disabled="pagination.current === 1" class="btn-small">上一页</button>
+      <div
+        v-if="filteredTotal > 0"
+        class="pagination"
+      >
+        <button
+          :disabled="pagination.current === 1"
+          class="btn-small"
+          @click="prevPage"
+        >
+          上一页
+        </button>
         <span class="pagination-info">
           {{ (pagination.current - 1) * pagination.pageSize + 1 }} -
           {{ Math.min(pagination.current * pagination.pageSize, filteredTotal) }} / {{ filteredTotal }}
         </span>
-        <button @click="nextPage" :disabled="pagination.current * pagination.pageSize >= filteredTotal" class="btn-small">下一页</button>
-        <select v-model="pagination.pageSize" @change="onPageSizeChange" class="page-size-select">
-          <option :value="20">20条/页</option>
-          <option :value="50">50条/页</option>
-          <option :value="100">100条/页</option>
+        <button
+          :disabled="pagination.current * pagination.pageSize >= filteredTotal"
+          class="btn-small"
+          @click="nextPage"
+        >
+          下一页
+        </button>
+        <select
+          v-model="pagination.pageSize"
+          class="page-size-select"
+          @change="onPageSizeChange"
+        >
+          <option :value="20">
+            20条/页
+          </option>
+          <option :value="50">
+            50条/页
+          </option>
+          <option :value="100">
+            100条/页
+          </option>
         </select>
       </div>
     </div>
 
     <!-- 股票详情抽屉 -->
-    <div v-if="detailDrawerVisible" class="drawer-overlay" @click.self="closeDrawer">
+    <div
+      v-if="detailDrawerVisible"
+      class="drawer-overlay"
+      @click.self="closeDrawer"
+    >
       <div class="drawer">
         <div class="drawer-header">
           <h3>{{ currentStock?.name }}</h3>
-          <button @click="closeDrawer" class="btn-close">×</button>
+          <button
+            class="btn-close"
+            @click="closeDrawer"
+          >
+            ×
+          </button>
         </div>
         <div class="drawer-content">
-          <div v-if="currentStock" class="stock-details">
+          <div
+            v-if="currentStock"
+            class="stock-details"
+          >
             <div class="detail-row">
               <span class="detail-label">代码</span>
               <span class="detail-value">{{ currentStock.code }}</span>
@@ -139,10 +226,17 @@
             </div>
           </div>
           <div class="drawer-actions">
-            <button class="btn-success" :disabled="syncing" @click="syncSingleStock">
+            <button
+              class="btn-success"
+              :disabled="syncing"
+              @click="syncSingleStock"
+            >
               同步K线数据
             </button>
-            <button class="btn-primary" @click="viewBarData">
+            <button
+              class="btn-primary"
+              @click="viewBarData"
+            >
               查看K线
             </button>
           </div>

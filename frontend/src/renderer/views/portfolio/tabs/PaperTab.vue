@@ -260,7 +260,10 @@ onUnmounted(() => {
 <template>
   <div class="paper-tab">
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading-state">
+    <div
+      v-if="loading"
+      class="loading-state"
+    >
       <RefreshCw class="w-5 h-5 animate-spin" />
       <span>加载中...</span>
     </div>
@@ -271,21 +274,42 @@ onUnmounted(() => {
         <div class="section-header">
           <h3>绩效指标</h3>
           <div class="header-actions">
-            <button class="btn-ghost" @click="loadData"><RefreshCw class="w-3.5 h-3.5" /></button>
-            <div ref="configWrapperRef" class="config-wrapper">
-              <button class="btn-ghost" @click.stop="showConfig = !showConfig">
+            <button
+              class="btn-ghost"
+              @click="loadData"
+            >
+              <RefreshCw class="w-3.5 h-3.5" />
+            </button>
+            <div
+              ref="configWrapperRef"
+              class="config-wrapper"
+            >
+              <button
+                class="btn-ghost"
+                @click.stop="showConfig = !showConfig"
+              >
                 <Settings class="w-3.5 h-3.5" />
               </button>
               <Transition name="dropdown">
-                <div v-if="showConfig" class="config-dropdown" @click.stop>
-                  <div class="config-title">选择指标 ({{ selectedKeys.length }}/{{ MAX_METRICS }})</div>
-                  <label v-for="m in ALL_METRICS" :key="m.key" class="config-item">
+                <div
+                  v-if="showConfig"
+                  class="config-dropdown"
+                  @click.stop
+                >
+                  <div class="config-title">
+                    选择指标 ({{ selectedKeys.length }}/{{ MAX_METRICS }})
+                  </div>
+                  <label
+                    v-for="m in ALL_METRICS"
+                    :key="m.key"
+                    class="config-item"
+                  >
                     <input
                       type="checkbox"
                       :checked="selectedKeys.includes(m.key)"
                       :disabled="!selectedKeys.includes(m.key) && selectedKeys.length >= MAX_METRICS"
                       @change="toggleMetric(m.key)"
-                    />
+                    >
                     <span>{{ m.label }}</span>
                   </label>
                 </div>
@@ -311,18 +335,36 @@ onUnmounted(() => {
         <div class="section-header">
           <h3>净值曲线</h3>
         </div>
-        <div ref="chartRef" class="chart-container"></div>
+        <div
+          ref="chartRef"
+          class="chart-container"
+        />
       </div>
 
       <!-- ═══ 事件时间线 ═══ -->
       <div class="section">
         <div class="section-header">
           <h3>事件时间线</h3>
-          <span v-if="eventsTotal > 0" class="events-count">共 {{ eventsTotal }} 条</span>
+          <span
+            v-if="eventsTotal > 0"
+            class="events-count"
+          >共 {{ eventsTotal }} 条</span>
         </div>
-        <div v-if="events.length === 0" class="empty-hint">暂无事件</div>
-        <div v-else class="event-list">
-          <div v-for="(e, i) in events" :key="i" class="event-item">
+        <div
+          v-if="events.length === 0"
+          class="empty-hint"
+        >
+          暂无事件
+        </div>
+        <div
+          v-else
+          class="event-list"
+        >
+          <div
+            v-for="(e, i) in events"
+            :key="i"
+            class="event-item"
+          >
             <span class="event-icon">{{ getEventStyle(e.event_type).icon }}</span>
             <span
               class="event-badge"

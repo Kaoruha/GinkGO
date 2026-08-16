@@ -1,32 +1,57 @@
 <template>
-  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap"
+    rel="stylesheet"
+  >
 
   <div class="login-container">
     <!-- 开机日志 - 左下角 -->
     <div class="boot-log">
-      <div class="boot-line" v-for="(line, index) in displayLines" :key="index">
+      <div
+        v-for="(line, index) in displayLines"
+        :key="index"
+        class="boot-line"
+      >
         <span class="boot-line-text">{{ line }}</span>
       </div>
       <span class="boot-cursor">_</span>
     </div>
 
     <!-- 像素网格背景 -->
-    <div class="pixel-grid"></div>
+    <div class="pixel-grid" />
 
     <!-- 浮动粒子 -->
     <div class="particles">
-      <div v-for="i in 20" :key="i" class="particle" :style="getParticleStyle(i)"></div>
+      <div
+        v-for="i in 20"
+        :key="i"
+        class="particle"
+        :style="getParticleStyle(i)"
+      />
     </div>
 
     <!-- 股票代码滚动条 -->
     <div class="stock-ticker">
-      <div class="ticker-content" :style="{ animationDuration: tickerDuration + 's' }">
-        <span v-for="(stock, index) in stockList" :key="index" class="stock-item">
+      <div
+        class="ticker-content"
+        :style="{ animationDuration: tickerDuration + 's' }"
+      >
+        <span
+          v-for="(stock, index) in stockList"
+          :key="index"
+          class="stock-item"
+        >
           <span class="stock-code">{{ stock.code }}</span>
-          <span class="stock-price" :class="stock.change >= 0 ? 'up' : 'down'">
+          <span
+            class="stock-price"
+            :class="stock.change >= 0 ? 'up' : 'down'"
+          >
             {{ stock.price.toFixed(2) }}
           </span>
-          <span class="stock-change" :class="stock.change >= 0 ? 'up' : 'down'">
+          <span
+            class="stock-change"
+            :class="stock.change >= 0 ? 'up' : 'down'"
+          >
             {{ stock.change >= 0 ? '+' : '' }}{{ stock.change.toFixed(2) }}%
           </span>
         </span>
@@ -34,26 +59,47 @@
     </div>
 
     <!-- 登录卡片 -->
-    <div class="login-card" @mousemove="handleCardMouseMove" @mouseleave="handleCardMouseLeave" :style="cardStyle">
+    <div
+      class="login-card"
+      :style="cardStyle"
+      @mousemove="handleCardMouseMove"
+      @mouseleave="handleCardMouseLeave"
+    >
       <div class="login-card-header">
         <div class="logo-wrapper">
           <div class="pixel-logo">
             <span class="letter">G</span>
           </div>
         </div>
-        <h1 class="title" :class="{ 'glitching': isGlitching }">
-          <span class="glitch-text" data-text="GINKGO">GINKGO</span>
+        <h1
+          class="title"
+          :class="{ 'glitching': isGlitching }"
+        >
+          <span
+            class="glitch-text"
+            data-text="GINKGO"
+          >GINKGO</span>
         </h1>
         <div class="terminal-display">
           <span class="prompt">$</span>
           <span class="terminal-text">{{ displayText }}</span>
-          <span class="cursor" :class="{ 'cursor-visible': showCursor }">_</span>
+          <span
+            class="cursor"
+            :class="{ 'cursor-visible': showCursor }"
+          >_</span>
         </div>
       </div>
 
-      <form @submit.prevent="handleLogin" class="login-form" data-testid="login-form">
+      <form
+        class="login-form"
+        data-testid="login-form"
+        @submit.prevent="handleLogin"
+      >
         <div class="input-group">
-          <label class="input-label" for="username">&gt; username</label>
+          <label
+            class="input-label"
+            for="username"
+          >&gt; username</label>
           <div class="pixel-input-wrapper">
             <input
               id="username"
@@ -63,13 +109,20 @@
               autocomplete="off"
               :class="{ 'has-error': errors.username }"
               data-testid="username-input"
-            />
+            >
           </div>
-          <span v-if="errors.username" class="error-message" data-testid="username-error">{{ errors.username }}</span>
+          <span
+            v-if="errors.username"
+            class="error-message"
+            data-testid="username-error"
+          >{{ errors.username }}</span>
         </div>
 
         <div class="input-group">
-          <label class="input-label" for="password">&gt; password</label>
+          <label
+            class="input-label"
+            for="password"
+          >&gt; password</label>
           <div class="pixel-input-wrapper password-wrapper">
             <input
               id="password"
@@ -78,27 +131,62 @@
               placeholder="enter password"
               :class="{ 'has-error': errors.password }"
               data-testid="password-input"
-            />
+            >
             <button
               type="button"
               class="password-toggle"
-              @click="showPassword = !showPassword"
               :aria-label="showPassword ? 'Hide password' : 'Show password'"
               data-testid="password-toggle"
+              @click="showPassword = !showPassword"
             >
-              <svg v-if="showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
-                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
-                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
-                <line x1="2" x2="22" y1="2" y2="22"/>
+              <svg
+                v-if="showPassword"
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                <line
+                  x1="2"
+                  x2="22"
+                  y1="2"
+                  y2="22"
+                />
               </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-                <circle cx="12" cy="12" r="3"/>
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                />
               </svg>
             </button>
           </div>
-          <span v-if="errors.password" class="error-message" data-testid="password-error">{{ errors.password }}</span>
+          <span
+            v-if="errors.password"
+            class="error-message"
+            data-testid="password-error"
+          >{{ errors.password }}</span>
         </div>
 
         <button
@@ -113,7 +201,12 @@
       </form>
 
       <!-- Toast 消息 -->
-      <div v-if="toastMessage" class="toast-message" :class="toastType" data-testid="toast">
+      <div
+        v-if="toastMessage"
+        class="toast-message"
+        :class="toastType"
+        data-testid="toast"
+      >
         {{ toastMessage }}
       </div>
 

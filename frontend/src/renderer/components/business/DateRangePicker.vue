@@ -8,33 +8,80 @@
         <!-- 快捷选择 -->
         <div class="quick-select">
           <div class="btn-group">
-            <button class="btn-small" @click="setRange('recent1M')">最近1月</button>
-            <button class="btn-small" @click="setRange('recent3M')">最近3月</button>
-            <button class="btn-small" @click="setRange('ytd')">今年</button>
-            <button class="btn-small" @click="setRange('lastYear')">去年</button>
-            <button class="btn-small" @click="setRange('all')">全部</button>
+            <button
+              class="btn-small"
+              @click="setRange('recent1M')"
+            >
+              最近1月
+            </button>
+            <button
+              class="btn-small"
+              @click="setRange('recent3M')"
+            >
+              最近3月
+            </button>
+            <button
+              class="btn-small"
+              @click="setRange('ytd')"
+            >
+              今年
+            </button>
+            <button
+              class="btn-small"
+              @click="setRange('lastYear')"
+            >
+              去年
+            </button>
+            <button
+              class="btn-small"
+              @click="setRange('all')"
+            >
+              全部
+            </button>
           </div>
         </div>
 
-        <div class="divider"></div>
+        <div class="divider" />
 
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">开始日期</label>
-            <input v-model="startDate" type="date" class="form-input" />
+            <input
+              v-model="startDate"
+              type="date"
+              class="form-input"
+            >
           </div>
           <div class="form-group">
             <label class="form-label">结束日期</label>
-            <input v-model="endDate" type="date" class="form-input" />
+            <input
+              v-model="endDate"
+              type="date"
+              class="form-input"
+            >
           </div>
         </div>
 
         <div class="form-actions">
-          <button class="btn-primary" :disabled="!canConfirm" @click="handleConfirm">确定</button>
-          <button class="btn-secondary" @click="handleCancel">取消</button>
+          <button
+            class="btn-primary"
+            :disabled="!canConfirm"
+            @click="handleConfirm"
+          >
+            确定
+          </button>
+          <button
+            class="btn-secondary"
+            @click="handleCancel"
+          >
+            取消
+          </button>
         </div>
 
-        <div v-if="startDate && endDate" class="range-stats">
+        <div
+          v-if="startDate && endDate"
+          class="range-stats"
+        >
           <div class="stat-item">
             <span class="stat-label">天数</span>
             <span class="stat-value">{{ daysCount }}</span>

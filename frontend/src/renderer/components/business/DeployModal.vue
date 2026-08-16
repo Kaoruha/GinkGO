@@ -1,9 +1,18 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="close">
+  <div
+    v-if="visible"
+    class="modal-overlay"
+    @click.self="close"
+  >
     <div class="modal-box">
       <div class="modal-header">
         <h3>部署到模拟盘/实盘</h3>
-        <button class="btn-close" @click="close">×</button>
+        <button
+          class="btn-close"
+          @click="close"
+        >
+          ×
+        </button>
       </div>
       <div class="modal-body">
         <div class="form-item">
@@ -14,24 +23,55 @@
             @update:model-value="(v) => (mode = v as 'paper' | 'live')"
           />
         </div>
-        <div v-if="mode === 'live'" class="form-item">
+        <div
+          v-if="mode === 'live'"
+          class="form-item"
+        >
           <label>实盘账号</label>
-          <select v-model="accountId" class="form-select">
-            <option value="">选择实盘账号</option>
-            <option v-for="acc in liveAccounts" :key="acc.uuid" :value="acc.uuid">
+          <select
+            v-model="accountId"
+            class="form-select"
+          >
+            <option value="">
+              选择实盘账号
+            </option>
+            <option
+              v-for="acc in liveAccounts"
+              :key="acc.uuid"
+              :value="acc.uuid"
+            >
               {{ acc.name }} ({{ acc.exchange }} - {{ acc.environment }})
             </option>
           </select>
-          <p v-if="liveAccounts.length === 0" class="form-hint">暂无可用实盘账号，请先在实盘账号管理中添加</p>
+          <p
+            v-if="liveAccounts.length === 0"
+            class="form-hint"
+          >
+            暂无可用实盘账号，请先在实盘账号管理中添加
+          </p>
         </div>
         <div class="form-item">
           <label>组合名称（可选）</label>
-          <input v-model="name" type="text" placeholder="留空自动生成" class="form-input" />
+          <input
+            v-model="name"
+            type="text"
+            placeholder="留空自动生成"
+            class="form-input"
+          >
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" @click="close">取消</button>
-        <button class="btn-primary" :disabled="deploying || (mode === 'live' && !accountId)" @click="handleDeploy">
+        <button
+          class="btn-secondary"
+          @click="close"
+        >
+          取消
+        </button>
+        <button
+          class="btn-primary"
+          :disabled="deploying || (mode === 'live' && !accountId)"
+          @click="handleDeploy"
+        >
           {{ deploying ? '部署中...' : '确认部署' }}
         </button>
       </div>

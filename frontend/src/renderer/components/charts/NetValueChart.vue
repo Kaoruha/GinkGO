@@ -1,5 +1,8 @@
 <template>
-  <div ref="chartContainer" class="tv-chart-container"></div>
+  <div
+    ref="chartContainer"
+    class="tv-chart-container"
+  />
 </template>
 
 <script setup lang="ts">

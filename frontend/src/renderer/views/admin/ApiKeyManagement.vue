@@ -4,22 +4,43 @@
       API Key 管理
     </template>
     <template #actions>
-      <button class="btn-primary" @click="showCreateModal = true">
-        <i class="icon-plus"></i>
+      <button
+        class="btn-primary"
+        @click="showCreateModal = true"
+      >
+        <i class="icon-plus" />
         创建 API Key
       </button>
-      <button class="btn-secondary" @click="loadApiKeys">
-        <i class="icon-refresh"></i>
+      <button
+        class="btn-secondary"
+        @click="loadApiKeys"
+      >
+        <i class="icon-refresh" />
         刷新
       </button>
     </template>
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <StatCard title="总 API Key" :value="apiKeys.length" />
-      <StatCard title="激活" :value="activeCount" :color="activeCount > 0 ? 'positive' : 'neutral'" />
-      <StatCard title="已过期" :value="expiredCount" :color="expiredCount > 0 ? 'negative' : 'positive'" />
-      <StatCard title="禁用" :value="inactiveCount" color="neutral" />
+      <StatCard
+        title="总 API Key"
+        :value="apiKeys.length"
+      />
+      <StatCard
+        title="激活"
+        :value="activeCount"
+        :color="activeCount > 0 ? 'positive' : 'neutral'"
+      />
+      <StatCard
+        title="已过期"
+        :value="expiredCount"
+        :color="expiredCount > 0 ? 'negative' : 'positive'"
+      />
+      <StatCard
+        title="禁用"
+        :value="inactiveCount"
+        color="neutral"
+      />
     </div>
 
     <!-- API Keys 表格 -->
@@ -28,8 +49,11 @@
         <h3>API Keys</h3>
       </div>
       <div class="card-body">
-        <div v-if="loading" class="loading-container">
-          <div class="spinner"></div>
+        <div
+          v-if="loading"
+          class="loading-container"
+        >
+          <div class="spinner" />
         </div>
         <EmptyState
           v-else-if="error"
@@ -38,7 +62,10 @@
           action-text="重试"
           :on-action="loadApiKeys"
         />
-        <table v-else-if="apiKeys.length > 0" class="data-table">
+        <table
+          v-else-if="apiKeys.length > 0"
+          class="data-table"
+        >
           <thead>
             <tr>
               <th>名称</th>
@@ -50,23 +77,37 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="key in apiKeys" :key="key.uuid" @contextmenu="openKeyMenu($event, key)">
+            <tr
+              v-for="key in apiKeys"
+              :key="key.uuid"
+              @contextmenu="openKeyMenu($event, key)"
+            >
               <td>
                 <div class="key-name">
                   {{ key.name }}
-                  <span v-if="key.description" class="key-desc">{{ key.description }}</span>
+                  <span
+                    v-if="key.description"
+                    class="key-desc"
+                  >{{ key.description }}</span>
                 </div>
               </td>
               <td><code class="key-prefix">{{ key.key_prefix }}***</code></td>
               <td>
                 <span class="permission-tags">
-                  <span v-for="perm in key.permissions_list" :key="perm" :class="`perm-tag perm-${perm}`">
+                  <span
+                    v-for="perm in key.permissions_list"
+                    :key="perm"
+                    :class="`perm-tag perm-${perm}`"
+                  >
                     {{ perm }}
                   </span>
                 </span>
               </td>
               <td>
-                <StatusTag type="enable" :status="keyStatus(key)">
+                <StatusTag
+                  type="enable"
+                  :status="keyStatus(key)"
+                >
                   {{ key.is_expired ? '已过期' : key.is_active ? '激活' : '禁用' }}
                 </StatusTag>
               </td>
@@ -75,39 +116,64 @@
             </tr>
           </tbody>
         </table>
-        <EmptyState v-else description="暂无 API Key" />
+        <EmptyState
+          v-else
+          description="暂无 API Key"
+        />
       </div>
     </div>
 
     <!-- 创建/编辑 API Key 模态框 -->
-    <div v-if="showCreateModal || editingKey" class="modal-overlay" @click.self="closeModal">
+    <div
+      v-if="showCreateModal || editingKey"
+      class="modal-overlay"
+      @click.self="closeModal"
+    >
       <div class="modal-content">
         <div class="modal-header">
           <h2>{{ editingKey ? '编辑 API Key' : '创建 API Key' }}</h2>
-          <button class="modal-close" @click="closeModal">×</button>
+          <button
+            class="modal-close"
+            @click="closeModal"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="saveApiKey">
             <div class="form-group">
               <label class="form-label">名称 <span class="required">*</span></label>
-              <input v-model="formData.name" type="text" class="form-input" required placeholder="如：Claw MCP Key" />
+              <input
+                v-model="formData.name"
+                type="text"
+                class="form-input"
+                required
+                placeholder="如：Claw MCP Key"
+              >
             </div>
 
             <div class="form-group">
               <label class="form-label">权限 <span class="required">*</span></label>
               <div class="checkbox-group">
-                <label v-for="perm in availablePermissions" :key="perm" class="checkbox-label">
+                <label
+                  v-for="perm in availablePermissions"
+                  :key="perm"
+                  class="checkbox-label"
+                >
                   <input
+                    v-model="formData.permissions"
                     type="checkbox"
                     :value="perm"
-                    v-model="formData.permissions"
-                  />
+                  >
                   <span>{{ permLabels[perm] }}</span>
                 </label>
               </div>
             </div>
 
-            <div class="form-group" v-if="!editingKey">
+            <div
+              v-if="!editingKey"
+              class="form-group"
+            >
               <label class="form-label">有效期（天）</label>
               <input
                 v-model.number="formData.expires_days"
@@ -115,28 +181,52 @@
                 class="form-input"
                 min="1"
                 placeholder="留空表示永不过期"
-              />
+              >
             </div>
 
             <div class="form-group">
               <label class="form-label">备注</label>
-              <textarea v-model="formData.description" rows="2" class="form-textarea" placeholder="用途说明（可选）"></textarea>
+              <textarea
+                v-model="formData.description"
+                rows="2"
+                class="form-textarea"
+                placeholder="用途说明（可选）"
+              />
             </div>
 
-            <div v-if="newKeyValue" class="form-group success-message">
+            <div
+              v-if="newKeyValue"
+              class="form-group success-message"
+            >
               <label class="form-label">⚠️ 重要：请保存此 API Key</label>
               <div class="key-display">
                 <code>{{ newKeyValue }}</code>
-                <button type="button" class="btn-copy" @click="copyKey">复制</button>
+                <button
+                  type="button"
+                  class="btn-copy"
+                  @click="copyKey"
+                >
+                  复制
+                </button>
               </div>
-              <p class="help-text">此 Key 仅显示一次，请立即保存</p>
+              <p class="help-text">
+                此 Key 仅显示一次，请立即保存
+              </p>
             </div>
 
             <div class="modal-footer">
-              <button type="button" class="btn-secondary" @click="closeModal">
+              <button
+                type="button"
+                class="btn-secondary"
+                @click="closeModal"
+              >
                 {{ newKeyValue ? '关闭' : '取消' }}
               </button>
-              <button v-if="!newKeyValue" type="submit" class="btn-primary">
+              <button
+                v-if="!newKeyValue"
+                type="submit"
+                class="btn-primary"
+              >
                 {{ editingKey ? '保存' : '创建' }}
               </button>
             </div>
@@ -155,6 +245,7 @@ import StatCard from '@/components/common/StatCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import { apiKeyApi, type ApiKey, type CreateApiKeyRequest, type UpdateApiKeyRequest, PermissionType } from '@/api/modules/apiKey'
 import { message } from '@/utils/toast'
+import { copyText } from '@/utils/clipboard'
 import { useContextMenu } from '@/composables/useContextMenu'
 
 /** 行右键菜单(替代操作列;删除走菜单内置确认) */
@@ -313,29 +404,10 @@ const copyApiKey = async (key: ApiKey) => {
   }
 }
 
-// 复制到剪贴板的兼容方法
-const copyToClipboard = (text: string) => {
-  // 优先使用现代 Clipboard API
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text)
-    return
-  }
-
-  // Fallback: 使用传统方法
-  const textArea = document.createElement('textarea')
-  textArea.value = text
-  textArea.style.position = 'fixed'
-  textArea.style.left = '-999999px'
-  document.body.appendChild(textArea)
-  textArea.focus()
-  textArea.select()
-  try {
-    document.execCommand('copy')
-  } catch (err) {
-    console.error('复制失败:', err)
-    throw new Error('复制失败，请手动复制')
-  }
-  document.body.removeChild(textArea)
+// 复制到剪贴板(降级兼容见 utils/clipboard)
+const copyToClipboard = async (text: string) => {
+  const ok = await copyText(text)
+  if (!ok) message.error('复制失败，请手动复制')
 }
 
 const formatDate = (dateStr: string) => {

@@ -3,67 +3,144 @@
     <!-- 顶部工具栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
-        <button class="btn-back" @click="goBack">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"></polyline>
+        <button
+          class="btn-back"
+          @click="goBack"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <polyline points="15 18 9 12 15 6" />
           </svg>
           返回列表
         </button>
-        <div class="toolbar-divider"></div>
+        <div class="toolbar-divider" />
         <span class="file-info">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px">
-            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-            <polyline points="13 2 13 9 20 9"></polyline>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            style="margin-right: 6px"
+          >
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+            <polyline points="13 2 13 9 20 9" />
           </svg>
           <span class="file-name">{{ fileName }}</span>
-          <span v-if="fileTypeLabel" class="tag" :class="`tag-${fileTypeColorClass}`" style="margin-left: 8px">
+          <span
+            v-if="fileTypeLabel"
+            class="tag"
+            :class="`tag-${fileTypeColorClass}`"
+            style="margin-left: 8px"
+          >
             {{ fileTypeLabel }}
           </span>
         </span>
-        <span v-if="hasUnsavedChanges" class="unsaved-badge">未保存</span>
+        <span
+          v-if="hasUnsavedChanges"
+          class="unsaved-badge"
+        >未保存</span>
       </div>
       <div class="toolbar-right">
-        <button class="btn-secondary" :disabled="!hasUnsavedChanges" @click="handleReset">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-            <path d="M3 3v5h5"></path>
-            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
-            <path d="M16 21h5v-5"></path>
+        <button
+          class="btn-secondary"
+          :disabled="!hasUnsavedChanges"
+          @click="handleReset"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 21h5v-5" />
           </svg>
           重置
         </button>
-        <button class="btn-primary" :disabled="!hasUnsavedChanges || saving" @click="handleSave">
-          <svg v-if="!saving" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-            <polyline points="7 3 7 8 15 8"></polyline>
+        <button
+          class="btn-primary"
+          :disabled="!hasUnsavedChanges || saving"
+          @click="handleSave"
+        >
+          <svg
+            v-if="!saving"
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
           </svg>
-          <span v-else class="loading-spinner"></span>
+          <span
+            v-else
+            class="loading-spinner"
+          />
           {{ saving ? '保存中...' : '保存' }}
         </button>
       </div>
     </div>
 
     <!-- 描述栏:列表页展示的 desc 在此编辑 -->
-    <div class="desc-bar" v-if="!loading && !loadError">
+    <div
+      v-if="!loading && !loadError"
+      class="desc-bar"
+    >
       <input
         v-model="currentDesc"
         type="text"
         class="desc-input"
         placeholder="添加组件描述（列表页展示）"
         maxlength="255"
-      />
+      >
     </div>
 
     <!-- 加载失败占位:避免空白编辑器让用户误判为空文件 -->
-    <div v-if="loadError" class="editor-loading">
-      <p class="load-error">{{ loadError }}</p>
-      <button class="btn-back" @click="loadFile">重试</button>
-      <button class="btn-back" @click="goBack">返回列表</button>
+    <div
+      v-if="loadError"
+      class="editor-loading"
+    >
+      <p class="load-error">
+        {{ loadError }}
+      </p>
+      <button
+        class="btn-back"
+        @click="loadFile"
+      >
+        重试
+      </button>
+      <button
+        class="btn-back"
+        @click="goBack"
+      >
+        返回列表
+      </button>
     </div>
 
     <!-- 编辑器区域 -->
-    <div class="editor-container" v-else-if="!loading">
+    <div
+      v-else-if="!loading"
+      class="editor-container"
+    >
       <vue-monaco-editor
         v-model:value="currentContent"
         language="python"
@@ -73,8 +150,11 @@
         @mount="handleEditorMount"
       />
     </div>
-    <div v-else class="editor-loading">
-      <div class="spinner"></div>
+    <div
+      v-else
+      class="editor-loading"
+    >
+      <div class="spinner" />
       <p>加载中...</p>
     </div>
 

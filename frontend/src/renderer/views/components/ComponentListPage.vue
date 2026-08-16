@@ -17,29 +17,62 @@
     @create="handleCreate"
   >
     <template #name="{ record }">
-      <router-link :to="getDetailUrl(record)" class="file-link">{{ record.name }}</router-link>
+      <router-link
+        :to="getDetailUrl(record)"
+        class="file-link"
+      >
+        {{ record.name }}
+      </router-link>
     </template>
     <template #description="{ record }">
-      <span class="desc-cell" :title="record.description">{{ record.description }}</span>
+      <span
+        class="desc-cell"
+        :title="record.description"
+      >{{ record.description }}</span>
     </template>
   </ListPage>
 
   <!-- 新建文件对话框 -->
-  <div v-if="createModalVisible" class="modal-overlay" @click.self="createModalVisible = false">
+  <div
+    v-if="createModalVisible"
+    class="modal-overlay"
+    @click.self="createModalVisible = false"
+  >
     <div class="modal">
       <div class="modal-header">
         <h3>新建文件</h3>
-        <button class="modal-close" @click="createModalVisible = false">&times;</button>
+        <button
+          class="modal-close"
+          @click="createModalVisible = false"
+        >
+          &times;
+        </button>
       </div>
       <div class="modal-body">
         <div class="form-group">
           <label class="form-label">文件名</label>
-          <input v-model="newFileName" type="text" placeholder="例如: my_strategy.py" class="form-input" />
+          <input
+            v-model="newFileName"
+            type="text"
+            placeholder="例如: my_strategy.py"
+            class="form-input"
+          >
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" @click="createModalVisible = false">取消</button>
-        <button class="btn-primary" :disabled="saving || !newFileName.trim()" @click="handleCreateConfirm">{{ saving ? '创建中...' : '确定' }}</button>
+        <button
+          class="btn-secondary"
+          @click="createModalVisible = false"
+        >
+          取消
+        </button>
+        <button
+          class="btn-primary"
+          :disabled="saving || !newFileName.trim()"
+          @click="handleCreateConfirm"
+        >
+          {{ saving ? '创建中...' : '确定' }}
+        </button>
       </div>
     </div>
   </div>

@@ -44,7 +44,7 @@ const onInput = (e: Event) => {
     :placeholder="placeholder"
     :disabled="disabled"
     :readonly="readonly"
-    @input="onInput"
     v-bind="$attrs"
-  />
+    @input="onInput"
+  >
 </template>

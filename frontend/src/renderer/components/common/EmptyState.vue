@@ -1,21 +1,72 @@
 <template>
-  <div class="empty-state m-scale-in" :class="{ 'has-action': hasAction, 'has-title': title }">
-    <div v-if="image" class="empty-image">
-      <img :src="image" :alt="title || description" />
+  <div
+    class="empty-state m-scale-in"
+    :class="{ 'has-action': hasAction, 'has-title': title }"
+  >
+    <div
+      v-if="image"
+      class="empty-image"
+    >
+      <img
+        :src="image"
+        :alt="title || description"
+      >
     </div>
-    <div v-else class="empty-icon">
+    <div
+      v-else
+      class="empty-icon"
+    >
       <slot name="icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="9" y1="9" x2="15" y2="15"></line>
-          <line x1="15" y1="9" x2="9" y2="15"></line>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="64"
+          height="64"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1"
+        >
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="2"
+            ry="2"
+          />
+          <line
+            x1="9"
+            y1="9"
+            x2="15"
+            y2="15"
+          />
+          <line
+            x1="15"
+            y1="9"
+            x2="9"
+            y2="15"
+          />
         </svg>
       </slot>
     </div>
-    <p v-if="title" class="empty-title">{{ title }}</p>
-    <p v-if="description" class="empty-description">{{ description }}</p>
+    <p
+      v-if="title"
+      class="empty-title"
+    >
+      {{ title }}
+    </p>
+    <p
+      v-if="description"
+      class="empty-description"
+    >
+      {{ description }}
+    </p>
     <slot />
-    <button v-if="hasAction" class="btn-primary" @click="handleAction">
+    <button
+      v-if="hasAction"
+      class="btn-primary"
+      @click="handleAction"
+    >
       {{ actionText }}
     </button>
   </div>

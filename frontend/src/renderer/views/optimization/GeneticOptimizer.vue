@@ -1,11 +1,18 @@
 <template>
   <PageLayout>
-    <template #title>遗传算法优化</template>
-    <template #description>模拟生物进化进行参数搜索，适合高维参数空间。可能陷入局部最优。</template>
+    <template #title>
+      遗传算法优化
+    </template>
+    <template #description>
+      模拟生物进化进行参数搜索，适合高维参数空间。可能陷入局部最优。
+    </template>
 
     <!-- 功能开发中:研究/优化/验证后端 API 未实现(记忆 arch_parameter_optimization_unwired / arch_factor_subsystem_dormant_75pct);
          此为占位骨架,配置后不会产出真实结果,加横幅以免用户误判可用(#4652 静默失败纪律) -->
-    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;">
+    <div
+      role="alert"
+      style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;"
+    >
       <span aria-hidden="true">🚧</span>
       <span>该功能后端接口开发中，当前为预览骨架，暂不可用。</span>
     </div>
@@ -19,25 +26,59 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">策略选择</label>
-            <select v-model="config.strategyId" class="form-select">
-              <option value="">选择策略</option>
-              <option v-for="s in strategyList" :key="s.id" :value="s.id">{{ s.name }}</option>
+            <select
+              v-model="config.strategyId"
+              class="form-select"
+            >
+              <option value="">
+                选择策略
+              </option>
+              <option
+                v-for="s in strategyList"
+                :key="s.id"
+                :value="s.id"
+              >
+                {{ s.name }}
+              </option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">种群大小</label>
-            <input v-model.number="config.populationSize" type="number" min="10" max="200" class="form-input" />
+            <input
+              v-model.number="config.populationSize"
+              type="number"
+              min="10"
+              max="200"
+              class="form-input"
+            >
           </div>
           <div class="form-group">
             <label class="form-label">迭代次数</label>
-            <input v-model.number="config.generations" type="number" min="10" max="500" class="form-input" />
+            <input
+              v-model.number="config.generations"
+              type="number"
+              min="10"
+              max="500"
+              class="form-input"
+            >
           </div>
           <div class="form-group">
             <label class="form-label">变异率</label>
-            <input v-model.number="config.mutationRate" type="number" min="0.01" max="0.5" step="0.01" class="form-input" />
+            <input
+              v-model.number="config.mutationRate"
+              type="number"
+              min="0.01"
+              max="0.5"
+              step="0.01"
+              class="form-input"
+            >
           </div>
           <div class="form-group">
-            <button class="btn-primary" :disabled="loading" @click="runOptimization">
+            <button
+              class="btn-primary"
+              :disabled="loading"
+              @click="runOptimization"
+            >
               {{ loading ? '优化中...' : '开始优化' }}
             </button>
           </div>
@@ -54,46 +95,87 @@
         <div v-if="result">
           <div class="stats-grid">
             <div class="stat-card">
-              <div class="stat-label">总迭代</div>
-              <div class="stat-value">{{ result.generations }}</div>
+              <div class="stat-label">
+                总迭代
+              </div>
+              <div class="stat-value">
+                {{ result.generations }}
+              </div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">最佳收益</div>
-              <div class="stat-value" :class="result.best_fitness >= 0 ? 'stat-danger' : 'stat-success'">
+              <div class="stat-label">
+                最佳收益
+              </div>
+              <div
+                class="stat-value"
+                :class="result.best_fitness >= 0 ? 'stat-danger' : 'stat-success'"
+              >
                 {{ (result.best_fitness * 100).toFixed(2) }}%
               </div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">收敛代数</div>
-              <div class="stat-value">{{ result.convergence_gen }}</div>
+              <div class="stat-label">
+                收敛代数
+              </div>
+              <div class="stat-value">
+                {{ result.convergence_gen }}
+              </div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">最优参数</div>
-              <div class="stat-value stat-small">{{ result.best_params }}</div>
+              <div class="stat-label">
+                最优参数
+              </div>
+              <div class="stat-value stat-small">
+                {{ result.best_params }}
+              </div>
             </div>
           </div>
 
-          <div v-if="result.history && result.history.length > 0" class="table-wrapper">
+          <div
+            v-if="result.history && result.history.length > 0"
+            class="table-wrapper"
+          >
             <table class="data-table">
               <thead>
                 <tr>
-                  <th class="num">代数</th>
-                  <th class="num">最佳适应度</th>
-                  <th class="num">平均适应度</th>
-                  <th class="num">多样性</th>
+                  <th class="num">
+                    代数
+                  </th>
+                  <th class="num">
+                    最佳适应度
+                  </th>
+                  <th class="num">
+                    平均适应度
+                  </th>
+                  <th class="num">
+                    多样性
+                  </th>
                 </tr>
               </thead>
-                <tr v-for="(record, i) in result.history" :key="`gen-${i}`">
-                  <td class="num">{{ record.generation }}</td>
-                  <td class="num">{{ record.best_fitness?.toFixed(4) || '-' }}</td>
-                  <td class="num">{{ record.avg_fitness?.toFixed(4) || '-' }}</td>
-                  <td class="num">{{ record.diversity?.toFixed(4) || '-' }}</td>
-                </tr>
-              
+              <tr
+                v-for="(record, i) in result.history"
+                :key="`gen-${i}`"
+              >
+                <td class="num">
+                  {{ record.generation }}
+                </td>
+                <td class="num">
+                  {{ record.best_fitness?.toFixed(4) || '-' }}
+                </td>
+                <td class="num">
+                  {{ record.avg_fitness?.toFixed(4) || '-' }}
+                </td>
+                <td class="num">
+                  {{ record.diversity?.toFixed(4) || '-' }}
+                </td>
+              </tr>
             </table>
           </div>
         </div>
-        <EmptyState v-else description="请配置参数并开始优化" />
+        <EmptyState
+          v-else
+          description="请配置参数并开始优化"
+        />
       </div>
     </div>
   </PageLayout>

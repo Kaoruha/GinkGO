@@ -16,7 +16,10 @@ const descriptionClass = computed(() =>
 </script>
 
 <template>
-  <RadixDialogDescription v-bind="props" :class="descriptionClass">
+  <RadixDialogDescription
+    v-bind="props"
+    :class="descriptionClass"
+  >
     <slot />
   </RadixDialogDescription>
 </template>

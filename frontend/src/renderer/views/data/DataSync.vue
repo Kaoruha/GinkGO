@@ -7,15 +7,31 @@
     <div class="two-column-grid">
       <!-- 发送命令 -->
       <div class="card">
-        <h3 class="card-title">发送同步命令</h3>
-        <form @submit.prevent="sendCommand" class="sync-form">
+        <h3 class="card-title">
+          发送同步命令
+        </h3>
+        <form
+          class="sync-form"
+          @submit.prevent="sendCommand"
+        >
           <div class="form-group">
             <label class="form-label">命令类型</label>
-            <select v-model="command.type" class="form-select">
-              <option value="bars">K线数据</option>
-              <option value="ticks">Tick数据</option>
-              <option value="stockinfo">股票信息</option>
-              <option value="adjustfactor">复权因子</option>
+            <select
+              v-model="command.type"
+              class="form-select"
+            >
+              <option value="bars">
+                K线数据
+              </option>
+              <option value="ticks">
+                Tick数据
+              </option>
+              <option value="stockinfo">
+                股票信息
+              </option>
+              <option value="adjustfactor">
+                复权因子
+              </option>
             </select>
           </div>
 
@@ -26,25 +42,43 @@
               class="form-textarea"
               rows="4"
               placeholder="输入股票代码，每行一个&#10;例如：&#10;000001.SZ&#10;000002.SZ"
-            ></textarea>
+            />
           </div>
 
           <div class="form-group">
             <label class="checkbox-label">
-              <input type="checkbox" v-model="command.fullSync" class="checkbox" />
+              <input
+                v-model="command.fullSync"
+                type="checkbox"
+                class="checkbox"
+              >
               全量同步
             </label>
             <label class="checkbox-label">
-              <input type="checkbox" v-model="command.overwrite" class="checkbox" />
+              <input
+                v-model="command.overwrite"
+                type="checkbox"
+                class="checkbox"
+              >
               覆盖已有数据
             </label>
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary" :disabled="sending">
+            <button
+              type="submit"
+              class="btn-primary"
+              :disabled="sending"
+            >
               {{ sending ? '发送中...' : '发送命令' }}
             </button>
-            <button type="button" class="btn-secondary" @click="clearForm">清空</button>
+            <button
+              type="button"
+              class="btn-secondary"
+              @click="clearForm"
+            >
+              清空
+            </button>
           </div>
         </form>
       </div>
@@ -52,45 +86,93 @@
       <!-- 命令历史 -->
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">已发送命令</h3>
-          <button class="btn-small" @click="clearHistory">清空历史</button>
+          <h3 class="card-title">
+            已发送命令
+          </h3>
+          <button
+            class="btn-small"
+            @click="clearHistory"
+          >
+            清空历史
+          </button>
         </div>
-        <div v-if="commandHistory.length > 0" class="timeline">
-          <div v-for="(cmd, index) in commandHistory" :key="index" class="timeline-item" @contextmenu="openCmdMenu($event, cmd)">
-            <div class="timeline-dot" :class="cmd.success ? 'success' : 'error'"></div>
+        <div
+          v-if="commandHistory.length > 0"
+          class="timeline"
+        >
+          <div
+            v-for="(cmd, index) in commandHistory"
+            :key="index"
+            class="timeline-item"
+            @contextmenu="openCmdMenu($event, cmd)"
+          >
+            <div
+              class="timeline-dot"
+              :class="cmd.success ? 'success' : 'error'"
+            />
             <div class="timeline-content">
-              <div class="timeline-title">{{ cmd.type }}</div>
-              <div class="timeline-time">{{ cmd.time }}</div>
-              <div class="timeline-codes">代码: {{ truncateText(cmd.codes, 50) }}</div>
-              <div class="timeline-status" :class="cmd.success ? 'success' : 'error'">
+              <div class="timeline-title">
+                {{ cmd.type }}
+              </div>
+              <div class="timeline-time">
+                {{ cmd.time }}
+              </div>
+              <div class="timeline-codes">
+                代码: {{ truncateText(cmd.codes, 50) }}
+              </div>
+              <div
+                class="timeline-status"
+                :class="cmd.success ? 'success' : 'error'"
+              >
                 状态: {{ cmd.success ? '成功' : '失败' }}
               </div>
             </div>
           </div>
         </div>
-        <EmptyState v-else description="暂无命令记录" />
+        <EmptyState
+          v-else
+          description="暂无命令记录"
+        />
       </div>
     </div>
 
     <!-- 同步状态概览 -->
     <div class="card">
-      <h3 class="card-title">数据同步状态</h3>
+      <h3 class="card-title">
+        数据同步状态
+      </h3>
       <div class="stats-grid-four">
         <div class="stat-item">
-          <div class="stat-value">{{ formatNumber(syncStatus.bar_count) }}</div>
-          <div class="stat-label">K线数据 <span class="stat-suffix">条</span></div>
+          <div class="stat-value">
+            {{ formatNumber(syncStatus.bar_count) }}
+          </div>
+          <div class="stat-label">
+            K线数据 <span class="stat-suffix">条</span>
+          </div>
         </div>
         <div class="stat-item">
-          <div class="stat-value">{{ formatNumber(syncStatus.tick_count) }}</div>
-          <div class="stat-label">Tick数据 <span class="stat-suffix">条</span></div>
+          <div class="stat-value">
+            {{ formatNumber(syncStatus.tick_count) }}
+          </div>
+          <div class="stat-label">
+            Tick数据 <span class="stat-suffix">条</span>
+          </div>
         </div>
         <div class="stat-item">
-          <div class="stat-value">{{ formatNumber(syncStatus.stock_count) }}</div>
-          <div class="stat-label">股票信息 <span class="stat-suffix">只</span></div>
+          <div class="stat-value">
+            {{ formatNumber(syncStatus.stock_count) }}
+          </div>
+          <div class="stat-label">
+            股票信息 <span class="stat-suffix">只</span>
+          </div>
         </div>
         <div class="stat-item">
-          <div class="stat-value">{{ syncStatus.last_sync }}</div>
-          <div class="stat-label">最后同步</div>
+          <div class="stat-value">
+            {{ syncStatus.last_sync }}
+          </div>
+          <div class="stat-label">
+            最后同步
+          </div>
         </div>
       </div>
     </div>

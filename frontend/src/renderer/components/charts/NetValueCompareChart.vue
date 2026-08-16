@@ -1,13 +1,27 @@
 <template>
   <div class="compare-chart-wrap">
-    <div v-if="series.length > 0" class="compare-legend">
-      <span v-for="s in legend" :key="s.name" class="legend-item" :title="s.name">
-        <span class="legend-dot" :style="{ background: s.color }"></span>
+    <div
+      v-if="series.length > 0"
+      class="compare-legend"
+    >
+      <span
+        v-for="s in legend"
+        :key="s.name"
+        class="legend-item"
+        :title="s.name"
+      >
+        <span
+          class="legend-dot"
+          :style="{ background: s.color }"
+        />
         <span class="legend-name">{{ s.name }}</span>
         <span class="legend-val">{{ s.latest }}</span>
       </span>
     </div>
-    <div ref="chartContainer" class="tv-chart-container"></div>
+    <div
+      ref="chartContainer"
+      class="tv-chart-container"
+    />
   </div>
 </template>
 

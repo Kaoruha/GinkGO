@@ -16,7 +16,10 @@ const cellClass = computed(() =>
 </script>
 
 <template>
-  <td :class="cellClass" v-bind="$attrs">
+  <td
+    :class="cellClass"
+    v-bind="$attrs"
+  >
     <slot />
   </td>
 </template>

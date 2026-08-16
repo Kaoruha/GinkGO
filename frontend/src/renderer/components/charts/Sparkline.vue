@@ -1,11 +1,32 @@
 <template>
-  <svg v-if="points.length >= 2" :width="width" :height="height" :viewBox="`0 0 ${width} ${height}`"
-       preserveAspectRatio="none" class="sparkline">
-    <path :d="pathD" fill="none" :stroke="color" stroke-width="1.5" />
-    <line v-if="baseline !== null" x1="0" :x2="width" :y1="baseline" :y2="baseline"
-          class="spark-baseline" stroke-dasharray="2,3" />
+  <svg
+    v-if="points.length >= 2"
+    :width="width"
+    :height="height"
+    :viewBox="`0 0 ${width} ${height}`"
+    preserveAspectRatio="none"
+    class="sparkline"
+  >
+    <path
+      :d="pathD"
+      fill="none"
+      :stroke="color"
+      stroke-width="1.5"
+    />
+    <line
+      v-if="baseline !== null"
+      x1="0"
+      :x2="width"
+      :y1="baseline"
+      :y2="baseline"
+      class="spark-baseline"
+      stroke-dasharray="2,3"
+    />
   </svg>
-  <span v-else class="spark-empty">-</span>
+  <span
+    v-else
+    class="spark-empty"
+  >-</span>
 </template>
 
 <script setup lang="ts">

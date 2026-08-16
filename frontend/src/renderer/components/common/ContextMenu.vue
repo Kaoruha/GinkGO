@@ -8,15 +8,23 @@
         :style="{ left: pos.x + 'px', top: pos.y + 'px' }"
         data-testid="context-menu"
       >
-        <template v-for="(item, i) in state.items" :key="i">
-          <div v-if="item.divider" class="ctx-divider"></div>
+        <template
+          v-for="(item, i) in state.items"
+          :key="i"
+        >
+          <div
+            v-if="item.divider"
+            class="ctx-divider"
+          />
           <button
             v-else
             class="ctx-item"
             :class="{ danger: item.danger }"
             :disabled="item.disabled"
             @click="invoke(item)"
-          >{{ item.label }}</button>
+          >
+            {{ item.label }}
+          </button>
         </template>
       </div>
     </Transition>

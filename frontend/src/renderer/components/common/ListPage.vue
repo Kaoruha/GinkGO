@@ -8,10 +8,25 @@
     </template>
 
     <template #actions>
-      <div v-if="searchable" class="search-box">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"></circle>
-          <path d="m21 21-4.35-4.35"></path>
+      <div
+        v-if="searchable"
+        class="search-box"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r="8"
+          />
+          <path d="m21 21-4.35-4.35" />
         </svg>
         <input
           :value="searchValue"
@@ -19,67 +34,182 @@
           :placeholder="searchPlaceholder"
           class="search-input"
           @input="$emit('update:searchValue', ($event.target as HTMLInputElement).value)"
-        />
-        <button v-if="searchValue" class="clear-btn" @click="$emit('update:searchValue', '')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
+        >
+        <button
+          v-if="searchValue"
+          class="clear-btn"
+          @click="$emit('update:searchValue', '')"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <line
+              x1="18"
+              y1="6"
+              x2="6"
+              y2="18"
+            />
+            <line
+              x1="6"
+              y1="6"
+              x2="18"
+              y2="18"
+            />
           </svg>
         </button>
       </div>
-      <button v-if="creatable" class="btn-primary" @click="$emit('create')">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
+      <button
+        v-if="creatable"
+        class="btn-primary"
+        @click="$emit('create')"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <line
+            x1="12"
+            y1="5"
+            x2="12"
+            y2="19"
+          />
+          <line
+            x1="5"
+            y1="12"
+            x2="19"
+            y2="12"
+          />
         </svg>
         {{ createLabel }}
       </button>
       <slot name="header-actions" />
     </template>
 
-    <template v-if="$slots.filters" #filters>
+    <template
+      v-if="$slots.filters"
+      #filters
+    >
       <slot name="filters" />
     </template>
 
     <!-- 统计条(固定不随表格滚动,PortfolioList 在用) -->
-    <div v-if="$slots.stats" class="list-stats">
+    <div
+      v-if="$slots.stats"
+      class="list-stats"
+    >
       <slot name="stats" />
     </div>
 
     <!-- 可滚动内容区 -->
     <div class="list-content">
       <!-- 加载状态 -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
+      <div
+        v-if="loading"
+        class="loading-state"
+      >
+        <div class="spinner" />
       </div>
 
       <!-- 列表加载失败:区别于空态,提供重试 -->
-      <div v-else-if="errorText" class="empty-state">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      <div
+        v-else-if="errorText"
+        class="empty-state"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="10"
+          />
+          <line
+            x1="12"
+            y1="8"
+            x2="12"
+            y2="12"
+          />
+          <line
+            x1="12"
+            y1="16"
+            x2="12.01"
+            y2="16"
+          />
         </svg>
-        <p class="error-text">{{ errorText }}</p>
-        <button class="btn-primary" @click="$emit('retry')">重试</button>
+        <p class="error-text">
+          {{ errorText }}
+        </p>
+        <button
+          class="btn-primary"
+          @click="$emit('retry')"
+        >
+          重试
+        </button>
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="isEmpty && !$slots.default" class="empty-state">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-          <circle cx="8.5" cy="8.5" r="1.5"></circle>
-          <path d="m21 15-5-5L5 21"></path>
+      <div
+        v-else-if="isEmpty && !$slots.default"
+        class="empty-state"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1"
+        >
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="2"
+          />
+          <circle
+            cx="8.5"
+            cy="8.5"
+            r="1.5"
+          />
+          <path d="m21 15-5-5L5 21" />
         </svg>
         <p>{{ emptyText }}</p>
-        <button v-if="creatable" class="btn-primary" @click="$emit('create')">{{ emptyActionText }}</button>
+        <button
+          v-if="creatable"
+          class="btn-primary"
+          @click="$emit('create')"
+        >
+          {{ emptyActionText }}
+        </button>
       </div>
 
       <!-- 自定义内容 (替换表格) -->
       <slot v-else-if="$slots.default" />
 
       <!-- 数据表格 (默认) -->
-      <div v-else class="table-card">
+      <div
+        v-else
+        class="table-card"
+      >
         <table class="pro-table">
           <thead>
             <tr>
@@ -91,7 +221,10 @@
                 @click="col.sortable && handleSort(col.dataIndex)"
               >
                 {{ col.title }}
-                <span v-if="col.sortable" class="sort-icon">
+                <span
+                  v-if="col.sortable"
+                  class="sort-icon"
+                >
                   <template v-if="innerSortBy === col.dataIndex">
                     {{ innerSortOrder === 'asc' ? '↑' : '↓' }}
                   </template>
@@ -108,14 +241,28 @@
               @click="$emit('rowClick', record)"
               @contextmenu="onRowContextMenu($event, record, idx)"
             >
-              <td v-for="col in resolvedColumns" :key="col.key">
+              <td
+                v-for="col in resolvedColumns"
+                :key="col.key"
+              >
                 <!-- 操作列:flex 容器给按钮间距,避免多按钮紧贴 -->
-                <div v-if="col.key === '__actions'" class="actions-cell">
-                  <slot name="actions" :record="record" :index="idx" />
+                <div
+                  v-if="col.key === '__actions'"
+                  class="actions-cell"
+                >
+                  <slot
+                    name="actions"
+                    :record="record"
+                    :index="idx"
+                  />
                 </div>
                 <!-- 自定义列 -->
                 <template v-else-if="$slots[col.key]">
-                  <slot :name="col.key" :record="record" :index="idx" />
+                  <slot
+                    :name="col.key"
+                    :record="record"
+                    :index="idx"
+                  />
                 </template>
                 <!-- 默认渲染 -->
                 <template v-else>
@@ -127,25 +274,76 @@
         </table>
 
         <!-- 分页 -->
-        <div v-if="totalCount > 0 && !infiniteScroll" class="pagination-bar">
+        <div
+          v-if="totalCount > 0 && !infiniteScroll"
+          class="pagination-bar"
+        >
           <div class="pagination-info">
             共 {{ totalCount }} 条{{ totalPages > 1 ? `，第 ${innerPage} / ${totalPages} 页` : '' }}
           </div>
-          <div v-if="totalPages > 1" class="pagination-controls">
-            <button class="pg-btn" :disabled="innerPage <= 1" @click="goPage(1)">«</button>
-            <button class="pg-btn" :disabled="innerPage <= 1" @click="goPage(innerPage - 1)">‹</button>
-            <template v-for="p in visiblePages" :key="p">
-              <span v-if="p === '...'" class="pg-ellipsis">…</span>
-              <button v-else class="pg-btn" :class="{ active: p === innerPage }" @click="goPage(p as number)">{{ p }}</button>
+          <div
+            v-if="totalPages > 1"
+            class="pagination-controls"
+          >
+            <button
+              class="pg-btn"
+              :disabled="innerPage <= 1"
+              @click="goPage(1)"
+            >
+              «
+            </button>
+            <button
+              class="pg-btn"
+              :disabled="innerPage <= 1"
+              @click="goPage(innerPage - 1)"
+            >
+              ‹
+            </button>
+            <template
+              v-for="p in visiblePages"
+              :key="p"
+            >
+              <span
+                v-if="p === '...'"
+                class="pg-ellipsis"
+              >…</span>
+              <button
+                v-else
+                class="pg-btn"
+                :class="{ active: p === innerPage }"
+                @click="goPage(p as number)"
+              >
+                {{ p }}
+              </button>
             </template>
-            <button class="pg-btn" :disabled="innerPage >= totalPages" @click="goPage(innerPage + 1)">›</button>
-            <button class="pg-btn" :disabled="innerPage >= totalPages" @click="goPage(totalPages)">»</button>
-            <select v-model.number="innerPageSize" class="pg-size">
-              <option v-for="s in pageSizes" :key="s" :value="s">{{ s }} 条/页</option>
+            <button
+              class="pg-btn"
+              :disabled="innerPage >= totalPages"
+              @click="goPage(innerPage + 1)"
+            >
+              ›
+            </button>
+            <button
+              class="pg-btn"
+              :disabled="innerPage >= totalPages"
+              @click="goPage(totalPages)"
+            >
+              »
+            </button>
+            <select
+              v-model.number="innerPageSize"
+              class="pg-size"
+            >
+              <option
+                v-for="s in pageSizes"
+                :key="s"
+                :value="s"
+              >
+                {{ s }} 条/页
+              </option>
             </select>
           </div>
         </div>
-
       </div>
 
       <!-- 无限滚动触发器插槽（在 list-content 内、table-card 外） -->

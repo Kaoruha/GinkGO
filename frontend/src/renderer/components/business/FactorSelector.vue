@@ -4,9 +4,21 @@
       <div class="card-header">
         <h4>因子选择</h4>
         <div class="search-box">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="m21 21-4.35-4.35"></path>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle
+              cx="11"
+              cy="11"
+              r="8"
+            />
+            <path d="m21 21-4.35-4.35" />
           </svg>
           <input
             v-model="searchText"
@@ -14,12 +26,16 @@
             placeholder="搜索因子"
             class="search-input"
             @input="handleSearch"
-          />
+          >
         </div>
       </div>
 
       <div class="card-body">
-        <TabsNav v-model="categoryTab" size="small" :items="categoryTabs" />
+        <TabsNav
+          v-model="categoryTab"
+          size="small"
+          :items="categoryTabs"
+        />
 
         <div class="tab-content">
           <div class="factor-list">
@@ -33,7 +49,10 @@
               <span class="factor-name">{{ factor.label || factor.name }}</span>
               <span class="factor-category">{{ getCategoryLabel(factor.category) }}</span>
             </div>
-            <div v-if="currentFactors.length === 0" class="empty-state">
+            <div
+              v-if="currentFactors.length === 0"
+              class="empty-state"
+            >
               <p>暂无因子</p>
             </div>
           </div>

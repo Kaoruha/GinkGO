@@ -15,7 +15,10 @@ const dialogClass = computed(() =>
 </script>
 
 <template>
-  <div :class="dialogClass" v-bind="$attrs">
+  <div
+    :class="dialogClass"
+    v-bind="$attrs"
+  >
     <slot />
   </div>
 </template>

@@ -1,5 +1,8 @@
 <template>
-  <div ref="containerRef" class="search-select">
+  <div
+    ref="containerRef"
+    class="search-select"
+  >
     <div class="search-input-wrap">
       <input
         ref="inputRef"
@@ -11,12 +14,39 @@
         @keydown.up.prevent="highlightPrev"
         @keydown.enter.prevent="selectHighlighted"
         @keydown.esc="close"
-      />
-      <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      >
+      <svg
+        class="search-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      ><circle
+        cx="11"
+        cy="11"
+        r="8"
+      /><line
+        x1="21"
+        y1="21"
+        x2="16.65"
+        y2="16.65"
+      /></svg>
     </div>
     <Teleport to="body">
-      <div v-if="open && (filteredOptions.length > 0 || loading)" class="search-select-dropdown" :style="dropdownStyle">
-        <div v-if="loading" class="dropdown-loading">搜索中...</div>
+      <div
+        v-if="open && (filteredOptions.length > 0 || loading)"
+        class="search-select-dropdown"
+        :style="dropdownStyle"
+      >
+        <div
+          v-if="loading"
+          class="dropdown-loading"
+        >
+          搜索中...
+        </div>
         <div
           v-for="(opt, idx) in filteredOptions"
           :key="opt.value"
@@ -26,7 +56,17 @@
           @mouseenter="highlightIndex = idx"
         >
           <span class="item-label">{{ opt.label }}</span>
-          <svg v-if="isDisabled(opt)" class="item-check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg
+            v-if="isDisabled(opt)"
+            class="item-check"
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          ><polyline points="20 6 9 17 4 12" /></svg>
         </div>
       </div>
     </Teleport>

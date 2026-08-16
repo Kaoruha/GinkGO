@@ -1,10 +1,17 @@
 <template>
   <PageLayout>
-    <template #title>实盘交易</template>
-    <template #description>所有实盘运行实例</template>
+    <template #title>
+      实盘交易
+    </template>
+    <template #description>
+      所有实盘运行实例
+    </template>
 
     <div class="table-container">
-      <table v-if="portfolios.length" class="data-table">
+      <table
+        v-if="portfolios.length"
+        class="data-table"
+      >
         <thead>
           <tr>
             <th>组合名称</th>
@@ -13,16 +20,28 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="p in portfolios" :key="p.uuid" @contextmenu="openPortfolioMenu($event, p)">
+          <tr
+            v-for="p in portfolios"
+            :key="p.uuid"
+            @contextmenu="openPortfolioMenu($event, p)"
+          >
             <td>
-              <router-link :to="`/portfolios/${p.uuid}`" class="link">{{ p.name || p.uuid?.slice(0, 8) }}</router-link>
+              <router-link
+                :to="`/portfolios/${p.uuid}`"
+                class="link"
+              >
+                {{ p.name || p.uuid?.slice(0, 8) }}
+              </router-link>
             </td>
             <td>{{ p.mode }}</td>
             <td>{{ p.created_at?.replace('T', ' ').slice(0, 19) || '-' }}</td>
           </tr>
         </tbody>
       </table>
-      <EmptyState v-else description="暂无实盘实例" />
+      <EmptyState
+        v-else
+        description="暂无实盘实例"
+      />
     </div>
   </PageLayout>
 </template>

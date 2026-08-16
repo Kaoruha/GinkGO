@@ -213,7 +213,10 @@ const hasErrors = computed(() => Object.keys(errors.value).length > 0)
 </script>
 
 <template>
-  <DialogRoot :open="open" @update:open="emit('update:open', $event)">
+  <DialogRoot
+    :open="open"
+    @update:open="emit('update:open', $event)"
+  >
     <DialogPortal>
       <DialogOverlay />
       <DialogContent class="sm:max-w-[600px]">
@@ -229,20 +232,26 @@ const hasErrors = computed(() => Object.keys(errors.value).length > 0)
           <DialogTitle>{{ isEdit ? '编辑账号' : '添加账号' }}</DialogTitle>
         </DialogHeader>
 
-        <form @submit.prevent="handleSubmit" class="space-y-4">
+        <form
+          class="space-y-4"
+          @submit.prevent="handleSubmit"
+        >
           <!-- 账号名称 -->
           <div class="space-y-2">
             <Label for="name">账号名称 <span class="text-destructive">*</span></Label>
             <Input
               id="name"
-              name="name"
               v-model="formData.name"
+              name="name"
               placeholder="输入账号名称"
               :class="{ 'border-destructive': errors.name }"
               @blur="handleBlur('name')"
               @input="handleInput('name', $event)"
             />
-            <p v-if="errors.name" class="text-sm text-destructive flex items-center gap-1">
+            <p
+              v-if="errors.name"
+              class="text-sm text-destructive flex items-center gap-1"
+            >
               <AlertCircle class="h-3 w-3" />
               {{ errors.name }}
             </p>
@@ -308,29 +317,37 @@ const hasErrors = computed(() => Object.keys(errors.value).length > 0)
                 生产环境
               </button>
             </div>
-            <p v-if="formData.environment === 'production'" class="text-sm text-warning flex items-center gap-1">
+            <p
+              v-if="formData.environment === 'production'"
+              class="text-sm text-warning flex items-center gap-1"
+            >
               <AlertCircle class="h-3 w-3" />
               生产环境使用真实资金进行交易，请谨慎操作
             </p>
           </div>
 
           <div class="border-t pt-4">
-            <h4 class="text-sm font-medium mb-4">API凭证</h4>
+            <h4 class="text-sm font-medium mb-4">
+              API凭证
+            </h4>
 
             <!-- API Key -->
             <div class="space-y-2">
               <Label for="api_key">API Key <span class="text-destructive">*</span></Label>
               <Input
                 id="api_key"
-                name="api_key"
                 v-model="formData.api_key"
+                name="api_key"
                 type="password"
                 placeholder="输入API Key"
                 :class="{ 'border-destructive': errors.api_key }"
                 @blur="handleBlur('api_key')"
                 @input="handleInput('api_key', $event)"
               />
-              <p v-if="errors.api_key" class="text-sm text-destructive flex items-center gap-1">
+              <p
+                v-if="errors.api_key"
+                class="text-sm text-destructive flex items-center gap-1"
+              >
                 <AlertCircle class="h-3 w-3" />
                 {{ errors.api_key }}
               </p>
@@ -341,34 +358,43 @@ const hasErrors = computed(() => Object.keys(errors.value).length > 0)
               <Label for="api_secret">API Secret <span class="text-destructive">*</span></Label>
               <Input
                 id="api_secret"
-                name="api_secret"
                 v-model="formData.api_secret"
+                name="api_secret"
                 type="password"
                 placeholder="输入API Secret"
                 :class="{ 'border-destructive': errors.api_secret }"
                 @blur="handleBlur('api_secret')"
                 @input="handleInput('api_secret', $event)"
               />
-              <p v-if="errors.api_secret" class="text-sm text-destructive flex items-center gap-1">
+              <p
+                v-if="errors.api_secret"
+                class="text-sm text-destructive flex items-center gap-1"
+              >
                 <AlertCircle class="h-3 w-3" />
                 {{ errors.api_secret }}
               </p>
             </div>
 
             <!-- Passphrase (OKX only) -->
-            <div v-if="formData.exchange === 'okx'" class="space-y-2 mt-4">
+            <div
+              v-if="formData.exchange === 'okx'"
+              class="space-y-2 mt-4"
+            >
               <Label for="passphrase">Passphrase <span class="text-destructive">*</span></Label>
               <Input
                 id="passphrase"
-                name="passphrase"
                 v-model="formData.passphrase"
+                name="passphrase"
                 type="password"
                 placeholder="输入Passphrase (OKX需要)"
                 :class="{ 'border-destructive': errors.passphrase }"
                 @blur="handleBlur('passphrase')"
                 @input="handleInput('passphrase', $event)"
               />
-              <p v-if="errors.passphrase" class="text-sm text-destructive flex items-center gap-1">
+              <p
+                v-if="errors.passphrase"
+                class="text-sm text-destructive flex items-center gap-1"
+              >
                 <AlertCircle class="h-3 w-3" />
                 {{ errors.passphrase }}
               </p>
@@ -390,9 +416,18 @@ const hasErrors = computed(() => Object.keys(errors.value).length > 0)
           <!-- 按钮 -->
           <div class="flex justify-end gap-2 pt-4">
             <DialogClose as-child>
-              <Button type="button" variant="outline">取消</Button>
+              <Button
+                type="button"
+                variant="outline"
+              >
+                取消
+              </Button>
             </DialogClose>
-            <Button type="submit" :disabled="hasErrors || isSubmitting" :loading="isSubmitting">
+            <Button
+              type="submit"
+              :disabled="hasErrors || isSubmitting"
+              :loading="isSubmitting"
+            >
               {{ isEdit ? '保存' : '创建' }}
             </Button>
           </div>

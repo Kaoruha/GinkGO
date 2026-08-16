@@ -2,6 +2,7 @@
 
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Vue 官方 *.vue shim 惯用写法
   const component: DefineComponent<{}, {}, any>
   export default component
 }

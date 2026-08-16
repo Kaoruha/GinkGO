@@ -4,16 +4,33 @@
       <PageTitle
         title="Tick 数据"
       >
-        <template #prefix><span class="tag tag-orange">Tick</span></template>
+        <template #prefix>
+          <span class="tag tag-orange">Tick</span>
+        </template>
       </PageTitle>
     </template>
     <template #meta>
-      <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
+      <span
+        v-if="selectedCode"
+        class="tag tag-blue"
+      >{{ selectedLabel || selectedCode }}</span>
     </template>
     <template #actions>
-      <input v-model="startDate" type="date" class="control-input" />
-      <input v-model="endDate" type="date" class="control-input" />
-      <button class="btn-query" :disabled="!selectedCode || loading" @click="loadData">
+      <input
+        v-model="startDate"
+        type="date"
+        class="control-input"
+      >
+      <input
+        v-model="endDate"
+        type="date"
+        class="control-input"
+      >
+      <button
+        class="btn-query"
+        :disabled="!selectedCode || loading"
+        @click="loadData"
+      >
         {{ loading ? '查询中' : '查询' }}
       </button>
       <SearchSelect
@@ -25,35 +42,53 @@
     </template>
 
     <!-- K线图 + 成交量 -->
-    <div class="card" v-if="tickData.length > 0">
+    <div
+      v-if="tickData.length > 0"
+      class="card"
+    >
       <div class="chart-header">
         <div class="stats-inline">
           <span class="stat-item">最新 <strong>{{ stats.latestPrice }}</strong></span>
           <span class="stat-item">总量 {{ formatVolume(stats.totalVolume) }}</span>
-          <span class="stat-item" :class="stats.buyRatio >= 0.5 ? 'text-up' : 'text-down'">
+          <span
+            class="stat-item"
+            :class="stats.buyRatio >= 0.5 ? 'text-up' : 'text-down'"
+          >
             买入 {{ (stats.buyRatio * 100).toFixed(1) }}%
           </span>
           <span class="stat-item">{{ stats.totalTicks }} 条</span>
-          <span class="stat-item" v-if="ohlcBuckets.length > 0">
+          <span
+            v-if="ohlcBuckets.length > 0"
+            class="stat-item"
+          >
             聚合为 {{ ohlcBuckets.length }} 根K线
           </span>
         </div>
         <div class="bucket-selector">
           <button
-            v-for="b in bucketOptions" :key="b.value"
-            class="bucket-btn" :class="{ active: bucketSize === b.value }"
+            v-for="b in bucketOptions"
+            :key="b.value"
+            class="bucket-btn"
+            :class="{ active: bucketSize === b.value }"
             @click="bucketSize = b.value"
-          >{{ b.label }}</button>
+          >
+            {{ b.label }}
+          </button>
         </div>
       </div>
       <div class="chart-wrapper">
-        <div ref="chartContainer" class="chart-container"></div>
+        <div
+          ref="chartContainer"
+          class="chart-container"
+        />
       </div>
     </div>
 
     <!-- 数据表格 -->
     <div class="card">
-      <h3 class="card-title">数据明细</h3>
+      <h3 class="card-title">
+        数据明细
+      </h3>
       <DataTable
         :columns="tickColumns"
         :data-source="tickData"
@@ -66,22 +101,44 @@
         @update:page="tablePage = $event"
         @update:page-size="tablePageSize = $event"
       >
-        <template #colTime="{ record }">{{ formatTime(record.timestamp) }}</template>
-        <template #colPrice="{ record }">{{ record.price?.toFixed(2) }}</template>
-        <template #colVolume="{ record }">{{ formatVolume(record.volume) }}</template>
+        <template #colTime="{ record }">
+          {{ formatTime(record.timestamp) }}
+        </template>
+        <template #colPrice="{ record }">
+          {{ record.price?.toFixed(2) }}
+        </template>
+        <template #colVolume="{ record }">
+          {{ formatVolume(record.volume) }}
+        </template>
         <template #colDirection="{ record }">
           <span :class="directionClass(record.direction)">{{ directionLabel(record.direction) }}</span>
         </template>
       </DataTable>
       <!-- 查询失败:区别于"无数据",提供重试 -->
-      <div v-if="!loading && loadError" class="empty-state">
-        <p class="error-text">{{ loadError }}</p>
-        <button class="btn-retry" @click="loadData">重试</button>
+      <div
+        v-if="!loading && loadError"
+        class="empty-state"
+      >
+        <p class="error-text">
+          {{ loadError }}
+        </p>
+        <button
+          class="btn-retry"
+          @click="loadData"
+        >
+          重试
+        </button>
       </div>
-      <div v-else-if="!loading && selectedCode && tickData.length === 0 && searched" class="empty-state">
+      <div
+        v-else-if="!loading && selectedCode && tickData.length === 0 && searched"
+        class="empty-state"
+      >
         当前股票在所选日期范围内无 Tick 数据，请尝试其他股票
       </div>
-      <div v-if="!loading && !selectedCode" class="empty-state">
+      <div
+        v-if="!loading && !selectedCode"
+        class="empty-state"
+      >
         请搜索并选择一只股票
       </div>
     </div>

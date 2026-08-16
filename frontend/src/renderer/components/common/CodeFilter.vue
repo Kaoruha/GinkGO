@@ -1,18 +1,28 @@
 <template>
-  <div v-if="codes.length > 0" class="code-filter">
+  <div
+    v-if="codes.length > 0"
+    class="code-filter"
+  >
     <button
       class="chip"
       :class="{ active: selected.length === 0 }"
       @click="$emit('update:selected', [])"
-    >全部</button>
+    >
+      全部
+    </button>
     <button
       v-for="c in codes"
       :key="c"
       class="chip"
       :class="{ active: selected.includes(c) }"
       @click="toggle(c)"
-    >{{ c }}</button>
-    <span v-if="selected.length > 0" class="hint">{{ selected.length }}/{{ codes.length }}</span>
+    >
+      {{ c }}
+    </button>
+    <span
+      v-if="selected.length > 0"
+      class="hint"
+    >{{ selected.length }}/{{ codes.length }}</span>
   </div>
 </template>
 

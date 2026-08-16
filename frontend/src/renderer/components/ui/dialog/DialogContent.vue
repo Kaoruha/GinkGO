@@ -23,7 +23,10 @@ const contentClass = computed(() =>
 </script>
 
 <template>
-  <RadixDialogContent v-bind="forwarded" :class="contentClass">
+  <RadixDialogContent
+    v-bind="forwarded"
+    :class="contentClass"
+  >
     <slot />
 
     <button

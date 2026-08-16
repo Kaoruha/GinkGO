@@ -1,6 +1,9 @@
 <template>
   <div class="data-table">
-    <div class="table-wrapper" :style="wrapperStyle">
+    <div
+      class="table-wrapper"
+      :style="wrapperStyle"
+    >
       <table class="pro-table">
         <thead>
           <tr>
@@ -41,18 +44,39 @@
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="table-loading">
-      <div class="spinner"></div>
+    <div
+      v-if="loading"
+      class="table-loading"
+    >
+      <div class="spinner" />
     </div>
 
     <!-- Pagination -->
-    <div v-if="showPagination && totalCount > 0" class="table-pagination">
+    <div
+      v-if="showPagination && totalCount > 0"
+      class="table-pagination"
+    >
       <div class="pagination-info">
         共 {{ totalCount }} 条{{ totalPages > 1 ? `，第 ${currentPage} / ${totalPages} 页` : '' }}
       </div>
-      <div v-if="totalPages > 1" class="pagination-controls">
-        <button class="pagination-btn" :disabled="currentPage === 1" @click="changePage(1)">首页</button>
-        <button class="pagination-btn" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">上一页</button>
+      <div
+        v-if="totalPages > 1"
+        class="pagination-controls"
+      >
+        <button
+          class="pagination-btn"
+          :disabled="currentPage === 1"
+          @click="changePage(1)"
+        >
+          首页
+        </button>
+        <button
+          class="pagination-btn"
+          :disabled="currentPage === 1"
+          @click="changePage(currentPage - 1)"
+        >
+          上一页
+        </button>
         <input
           v-model.number="jumpInput"
           type="number"
@@ -60,15 +84,43 @@
           :max="totalPages"
           class="pagination-input"
           @keyup.enter="changePage(jumpInput)"
-        />
-        <button class="pagination-btn" @click="changePage(jumpInput)">跳转</button>
-        <button class="pagination-btn" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">下一页</button>
-        <button class="pagination-btn" :disabled="currentPage === totalPages" @click="changePage(totalPages)">末页</button>
-        <select v-model.number="innerPageSize" class="pagination-select">
-          <option :value="10">10 条/页</option>
-          <option :value="20">20 条/页</option>
-          <option :value="50">50 条/页</option>
-          <option :value="100">100 条/页</option>
+        >
+        <button
+          class="pagination-btn"
+          @click="changePage(jumpInput)"
+        >
+          跳转
+        </button>
+        <button
+          class="pagination-btn"
+          :disabled="currentPage === totalPages"
+          @click="changePage(currentPage + 1)"
+        >
+          下一页
+        </button>
+        <button
+          class="pagination-btn"
+          :disabled="currentPage === totalPages"
+          @click="changePage(totalPages)"
+        >
+          末页
+        </button>
+        <select
+          v-model.number="innerPageSize"
+          class="pagination-select"
+        >
+          <option :value="10">
+            10 条/页
+          </option>
+          <option :value="20">
+            20 条/页
+          </option>
+          <option :value="50">
+            50 条/页
+          </option>
+          <option :value="100">
+            100 条/页
+          </option>
         </select>
       </div>
     </div>

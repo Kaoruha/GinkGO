@@ -269,14 +269,16 @@ usePolling(refreshAll, 10000)
       </div>
       实盘账户信息
     </template>
-    <template #description>实时监控账户余额与持仓</template>
+    <template #description>
+      实时监控账户余额与持仓
+    </template>
     <template #actions>
       <Button
         variant="outline"
         size="sm"
         :disabled="refreshing"
-        @click="refreshAll"
         class="refresh-button"
+        @click="refreshAll"
       >
         <RefreshCw :class="['w-4 h-4 mr-2', refreshing && 'animate-spin']" />
         刷新
@@ -284,27 +286,52 @@ usePolling(refreshAll, 10000)
     </template>
 
     <!-- 加载状态：仅首次加载且无账户时显示 -->
-    <div v-if="loading && accounts.length === 0" class="loading-state">
-      <div class="loading-spinner"></div>
+    <div
+      v-if="loading && accounts.length === 0"
+      class="loading-state"
+    >
+      <div class="loading-spinner" />
       <p>加载账户信息...</p>
     </div>
 
     <!-- 加载失败:区别于空态,提供重试 -->
-    <div v-else-if="!loading && listError" class="empty-state">
+    <div
+      v-else-if="!loading && listError"
+      class="empty-state"
+    >
       <AlertCircle class="w-16 h-16 mx-auto mb-4 opacity-30" />
-      <p class="empty-text">{{ listError }}</p>
-      <Button variant="outline" size="sm" class="mt-4" @click="loadAccountInfo">重试</Button>
+      <p class="empty-text">
+        {{ listError }}
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        class="mt-4"
+        @click="loadAccountInfo"
+      >
+        重试
+      </Button>
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="!loading && accounts.length === 0" class="empty-state">
+    <div
+      v-else-if="!loading && accounts.length === 0"
+      class="empty-state"
+    >
       <Wallet class="w-16 h-16 mx-auto mb-4 opacity-30" />
-      <p class="empty-text">暂无实盘账户</p>
-      <p class="empty-hint">请先配置实盘账号</p>
+      <p class="empty-text">
+        暂无实盘账户
+      </p>
+      <p class="empty-hint">
+        请先配置实盘账号
+      </p>
     </div>
 
     <!-- 账户内容 -->
-    <div v-else class="account-content">
+    <div
+      v-else
+      class="account-content"
+    >
       <!-- 全局统计卡片 -->
       <div class="stats-section">
         <div class="stats-grid">
@@ -313,8 +340,12 @@ usePolling(refreshAll, 10000)
               <DollarSign class="w-5 h-5" />
             </div>
             <div class="stat-content">
-              <div class="stat-label">总权益</div>
-              <div class="stat-value">${{ formatNumber(totalEquity) }}</div>
+              <div class="stat-label">
+                总权益
+              </div>
+              <div class="stat-value">
+                ${{ formatNumber(totalEquity) }}
+              </div>
             </div>
           </div>
 
@@ -323,8 +354,12 @@ usePolling(refreshAll, 10000)
               <Coins class="w-5 h-5" />
             </div>
             <div class="stat-content">
-              <div class="stat-label">可用余额</div>
-              <div class="stat-value">${{ formatNumber(totalAvailable) }}</div>
+              <div class="stat-label">
+                可用余额
+              </div>
+              <div class="stat-value">
+                ${{ formatNumber(totalAvailable) }}
+              </div>
             </div>
           </div>
 
@@ -333,8 +368,12 @@ usePolling(refreshAll, 10000)
               <Activity class="w-5 h-5" />
             </div>
             <div class="stat-content">
-              <div class="stat-label">持仓数量</div>
-              <div class="stat-value">{{ totalPositions }}</div>
+              <div class="stat-label">
+                持仓数量
+              </div>
+              <div class="stat-value">
+                {{ totalPositions }}
+              </div>
             </div>
           </div>
 
@@ -343,8 +382,12 @@ usePolling(refreshAll, 10000)
               <Clock class="w-5 h-5" />
             </div>
             <div class="stat-content">
-              <div class="stat-label">账户数量</div>
-              <div class="stat-value">{{ accounts.length }}</div>
+              <div class="stat-label">
+                账户数量
+              </div>
+              <div class="stat-value">
+                {{ accounts.length }}
+              </div>
             </div>
           </div>
         </div>
@@ -366,10 +409,16 @@ usePolling(refreshAll, 10000)
                 <h3>{{ account.name }}</h3>
               </div>
               <div class="account-meta">
-                <Badge :variant="getEnvironmentVariant(account.environment)" class="env-badge">
+                <Badge
+                  :variant="getEnvironmentVariant(account.environment)"
+                  class="env-badge"
+                >
                   {{ account.environment }}
                 </Badge>
-                <Badge :variant="account.status === 'enabled' ? 'success' : 'secondary'" class="status-badge">
+                <Badge
+                  :variant="account.status === 'enabled' ? 'success' : 'secondary'"
+                  class="status-badge"
+                >
                   {{ account.status === 'enabled' ? '运行中' : '已停用' }}
                 </Badge>
               </div>
@@ -377,7 +426,10 @@ usePolling(refreshAll, 10000)
           </div>
 
           <!-- 错误提示 -->
-          <div v-if="account.error" class="error-banner">
+          <div
+            v-if="account.error"
+            class="error-banner"
+          >
             <AlertCircle class="w-4 h-4" />
             <span>{{ account.error }}</span>
           </div>
@@ -385,121 +437,164 @@ usePolling(refreshAll, 10000)
           <!-- 余额信息 -->
           <div class="balance-section">
             <!-- 骨架屏：余额加载中 -->
-            <div v-if="accountLoadingStates[account.uuid]?.balance && !account.balance" class="skeleton-grid">
-              <div v-for="i in 3" :key="i" class="skeleton-item">
-                <div class="skeleton-line skeleton-label"></div>
-                <div class="skeleton-line skeleton-value"></div>
+            <div
+              v-if="accountLoadingStates[account.uuid]?.balance && !account.balance"
+              class="skeleton-grid"
+            >
+              <div
+                v-for="i in 3"
+                :key="i"
+                class="skeleton-item"
+              >
+                <div class="skeleton-line skeleton-label" />
+                <div class="skeleton-line skeleton-value" />
               </div>
             </div>
 
             <!-- 实际余额数据 -->
             <div v-else-if="account.balance">
-            <div class="balance-grid">
-              <div class="balance-item">
-                <div class="balance-label">总权益</div>
-                <div class="balance-value primary">
-                  ${{ formatCurrency(account.balance.total_equity) }}
+              <div class="balance-grid">
+                <div class="balance-item">
+                  <div class="balance-label">
+                    总权益
+                  </div>
+                  <div class="balance-value primary">
+                    ${{ formatCurrency(account.balance.total_equity) }}
+                  </div>
+                </div>
+                <div class="balance-item">
+                  <div class="balance-label">
+                    可用余额
+                  </div>
+                  <div class="balance-value success">
+                    ${{ formatCurrency(account.balance.available_balance) }}
+                  </div>
+                </div>
+                <div class="balance-item">
+                  <div class="balance-label">
+                    冻结余额
+                  </div>
+                  <div class="balance-value warning">
+                    ${{ formatCurrency(account.balance.frozen_balance) }}
+                  </div>
                 </div>
               </div>
-              <div class="balance-item">
-                <div class="balance-label">可用余额</div>
-                <div class="balance-value success">
-                  ${{ formatCurrency(account.balance.available_balance) }}
-                </div>
-              </div>
-              <div class="balance-item">
-                <div class="balance-label">冻结余额</div>
-                <div class="balance-value warning">
-                  ${{ formatCurrency(account.balance.frozen_balance) }}
-                </div>
-              </div>
-            </div>
 
-            <!-- 币种余额 -->
-            <div v-if="account.balance.currency_balances?.length > 0" class="currency-balances">
+              <!-- 币种余额 -->
               <div
-                v-for="cb in account.balance.currency_balances.filter(c => parseFloat(c.available) > 0 || parseFloat(c.frozen) > 0)"
-                :key="cb.currency"
-                class="currency-item"
+                v-if="account.balance.currency_balances?.length > 0"
+                class="currency-balances"
               >
-                <span class="currency-name">{{ cb.currency }}</span>
-                <span class="currency-amount">
-                  <span class="available">{{ formatNumber(cb.available) }}</span>
-                  <span v-if="parseFloat(cb.frozen) > 0" class="frozen">
-                    (冻结: {{ formatNumber(cb.frozen) }})
+                <div
+                  v-for="cb in account.balance.currency_balances.filter(c => parseFloat(c.available) > 0 || parseFloat(c.frozen) > 0)"
+                  :key="cb.currency"
+                  class="currency-item"
+                >
+                  <span class="currency-name">{{ cb.currency }}</span>
+                  <span class="currency-amount">
+                    <span class="available">{{ formatNumber(cb.available) }}</span>
+                    <span
+                      v-if="parseFloat(cb.frozen) > 0"
+                      class="frozen"
+                    >
+                      (冻结: {{ formatNumber(cb.frozen) }})
+                    </span>
                   </span>
-                </span>
+                </div>
               </div>
-            </div>
             </div>
           </div>
 
           <!-- 持仓信息（包含现货余额） -->
           <div class="positions-section">
             <!-- 骨架屏：持仓加载中 -->
-            <div v-if="accountLoadingStates[account.uuid]?.positions && !account.positions" class="skeleton-positions">
-              <div v-for="i in 2" :key="i" class="skeleton-position">
-                <div class="skeleton-line skeleton-position-title"></div>
+            <div
+              v-if="accountLoadingStates[account.uuid]?.positions && !account.positions"
+              class="skeleton-positions"
+            >
+              <div
+                v-for="i in 2"
+                :key="i"
+                class="skeleton-position"
+              >
+                <div class="skeleton-line skeleton-position-title" />
                 <div class="skeleton-position-details">
-                  <div v-for="j in 4" :key="j" class="skeleton-line"></div>
+                  <div
+                    v-for="j in 4"
+                    :key="j"
+                    class="skeleton-line"
+                  />
                 </div>
               </div>
             </div>
 
             <!-- 实际持仓数据 -->
             <template v-else-if="account.positions && account.positions.length > 0">
-            <div class="section-title">
-              <Activity class="w-4 h-4 mr-2" />
-              持仓信息 ({{ account.positions!.length }})
-            </div>
-            <div class="positions-list">
-              <div
-                v-for="position in account.positions"
-                :key="position.symbol"
-                :class="['position-item', position.is_spot ? 'spot-position' : 'contract-position']"
-              >
-                <div class="position-header">
-                  <div class="position-title">
-                    <span class="position-symbol">{{ position.symbol }}</span>
-                    <!-- 现货持仓特殊标识 -->
-                    <Badge v-if="position.is_spot" variant="secondary" class="spot-badge">
-                      💰 现货
-                    </Badge>
-                    <Badge :variant="position.side === 'long' ? 'success' : 'destructive'">
-                      {{ position.side === 'long' ? '做多' : '做空' }}
-                    </Badge>
+              <div class="section-title">
+                <Activity class="w-4 h-4 mr-2" />
+                持仓信息 ({{ account.positions!.length }})
+              </div>
+              <div class="positions-list">
+                <div
+                  v-for="position in account.positions"
+                  :key="position.symbol"
+                  :class="['position-item', position.is_spot ? 'spot-position' : 'contract-position']"
+                >
+                  <div class="position-header">
+                    <div class="position-title">
+                      <span class="position-symbol">{{ position.symbol }}</span>
+                      <!-- 现货持仓特殊标识 -->
+                      <Badge
+                        v-if="position.is_spot"
+                        variant="secondary"
+                        class="spot-badge"
+                      >
+                        💰 现货
+                      </Badge>
+                      <Badge :variant="position.side === 'long' ? 'success' : 'destructive'">
+                        {{ position.side === 'long' ? '做多' : '做空' }}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-                <div class="position-details">
-                  <!-- 统一的持仓信息显示 -->
-                  <div class="position-stat">
-                    <span class="stat-label">数量</span>
-                    <span class="stat-value">{{ formatNumber(position.size) }}</span>
-                  </div>
-                  <div class="position-stat">
-                    <span class="stat-label">成本价</span>
-                    <span class="stat-value">${{ formatNumber(position.avg_price) }}</span>
-                  </div>
-                  <div class="position-stat">
-                    <span class="stat-label">现价</span>
-                    <span class="stat-value">${{ formatNumber(position.current_price) }}</span>
-                  </div>
-                  <div class="position-stat pnl">
-                    <span class="stat-label">盈亏</span>
-                    <span :class="['stat-value', getPnLColor(position.unrealized_pnl)]">
-                      <TrendingUp v-if="parseFloat(position.unrealized_pnl) > 0" class="w-3 h-3 inline mr-1" />
-                      <TrendingDown v-else-if="parseFloat(position.unrealized_pnl) < 0" class="w-3 h-3 inline mr-1" />
-                      {{ formatNumber(position.unrealized_pnl) }}
-                      <span class="pnl-percent">({{ formatNumber(position.unrealized_pnl_percentage, 3) }}%)</span>
-                    </span>
+                  <div class="position-details">
+                    <!-- 统一的持仓信息显示 -->
+                    <div class="position-stat">
+                      <span class="stat-label">数量</span>
+                      <span class="stat-value">{{ formatNumber(position.size) }}</span>
+                    </div>
+                    <div class="position-stat">
+                      <span class="stat-label">成本价</span>
+                      <span class="stat-value">${{ formatNumber(position.avg_price) }}</span>
+                    </div>
+                    <div class="position-stat">
+                      <span class="stat-label">现价</span>
+                      <span class="stat-value">${{ formatNumber(position.current_price) }}</span>
+                    </div>
+                    <div class="position-stat pnl">
+                      <span class="stat-label">盈亏</span>
+                      <span :class="['stat-value', getPnLColor(position.unrealized_pnl)]">
+                        <TrendingUp
+                          v-if="parseFloat(position.unrealized_pnl) > 0"
+                          class="w-3 h-3 inline mr-1"
+                        />
+                        <TrendingDown
+                          v-else-if="parseFloat(position.unrealized_pnl) < 0"
+                          class="w-3 h-3 inline mr-1"
+                        />
+                        {{ formatNumber(position.unrealized_pnl) }}
+                        <span class="pnl-percent">({{ formatNumber(position.unrealized_pnl_percentage, 3) }}%)</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
             </template>
 
             <!-- 无持仓 -->
-            <div v-else-if="!accountLoadingStates[account.uuid]?.positions" class="no-positions">
+            <div
+              v-else-if="!accountLoadingStates[account.uuid]?.positions"
+              class="no-positions"
+            >
               <Activity class="w-4 h-4 mr-2" />
               <span class="text-muted-foreground">暂无持仓</span>
             </div>

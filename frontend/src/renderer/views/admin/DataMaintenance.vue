@@ -1,36 +1,87 @@
 <template>
   <div class="maintenance-page">
     <h3>数据清理</h3>
-    <p class="desc">扫描并清理孤儿数据：引用断裂的映射/参数/引擎，以及（可选）引用已删组合的回测任务及其 CH 流水。预览不删任何数据。</p>
+    <p class="desc">
+      扫描并清理孤儿数据：引用断裂的映射/参数/引擎，以及（可选）引用已删组合的回测任务及其 CH 流水。预览不删任何数据。
+    </p>
 
     <div class="card">
       <div class="opts">
         <label class="opt">
-          <input type="checkbox" v-model="includeBacktests" />
+          <input
+            v-model="includeBacktests"
+            type="checkbox"
+          >
           <span>包含孤儿回测（任务引用已删组合 + CH 流水指向已删任务，<strong>量大且不可逆</strong>）</span>
         </label>
       </div>
       <div class="actions">
-        <button class="btn-secondary" :disabled="loading" @click="runCleanup(true)">预览（dry-run）</button>
-        <button class="btn-danger" :disabled="loading || !previewed" @click="runCleanup(false)">执行清理</button>
+        <button
+          class="btn-secondary"
+          :disabled="loading"
+          @click="runCleanup(true)"
+        >
+          预览（dry-run）
+        </button>
+        <button
+          class="btn-danger"
+          :disabled="loading || !previewed"
+          @click="runCleanup(false)"
+        >
+          执行清理
+        </button>
       </div>
-      <p v-if="!previewed" class="hint">先预览确认各域计数，再执行。</p>
+      <p
+        v-if="!previewed"
+        class="hint"
+      >
+        先预览确认各域计数，再执行。
+      </p>
     </div>
 
-    <div v-if="loading" class="loading-center"><div class="spinner"></div></div>
+    <div
+      v-if="loading"
+      class="loading-center"
+    >
+      <div class="spinner" />
+    </div>
 
     <template v-if="result">
-      <div v-for="(data, domain) in (result.domains as Record<string, any>)" :key="String(domain)" class="card domain-card">
+      <div
+        v-for="(data, domain) in (result.domains as Record<string, any>)"
+        :key="String(domain)"
+        class="card domain-card"
+      >
         <h4>{{ domainLabel(String(domain)) }}</h4>
         <template v-if="data && !data.error">
-          <div class="kv"><span>待清理</span><strong>{{ countOf(String(domain), data) }}</strong></div>
-          <ul v-if="detailListOf(data).length" class="detail-list">
-            <li v-for="(d, i) in detailListOf(data)" :key="i">{{ d }}</li>
+          <div class="kv">
+            <span>待清理</span><strong>{{ countOf(String(domain), data) }}</strong>
+          </div>
+          <ul
+            v-if="detailListOf(data).length"
+            class="detail-list"
+          >
+            <li
+              v-for="(d, i) in detailListOf(data)"
+              :key="i"
+            >
+              {{ d }}
+            </li>
           </ul>
         </template>
-        <p v-else class="err">{{ data?.error || '未知错误' }}</p>
+        <p
+          v-else
+          class="err"
+        >
+          {{ data?.error || '未知错误' }}
+        </p>
       </div>
-      <p v-if="result.errors?.length" class="err">错误：{{ result.errors.join('；') }}</p>
+      <p
+        v-if="result.errors?.length"
+        class="err"
+      >
+        错误：{{ result.errors.join('；') }}
+      </p>
     </template>
   </div>
 </template>

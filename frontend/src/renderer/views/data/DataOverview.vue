@@ -5,15 +5,36 @@
       数据概览
     </template>
     <template #actions>
-      <button class="btn-primary" :disabled="refreshing" @click="refreshStats">
-        <svg v-if="!refreshing" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 2v6h-6"/>
-          <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
-          <path d="M3 22v-6h6"/>
-          <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+      <button
+        class="btn-primary"
+        :disabled="refreshing"
+        @click="refreshStats"
+      >
+        <svg
+          v-if="!refreshing"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M21 2v6h-6" />
+          <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+          <path d="M3 22v-6h6" />
+          <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
         </svg>
-        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
-          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        <svg
+          v-else
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          class="spin"
+        >
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
         </svg>
         {{ refreshing ? '刷新中...' : '刷新统计' }}
       </button>
@@ -23,55 +44,121 @@
     <div class="stats-grid">
       <div class="stat-card stat-blue">
         <div class="stat-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect
+              x="2"
+              y="7"
+              width="20"
+              height="14"
+              rx="2"
+              ry="2"
+            />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
           </svg>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ formatNumber(dataStats.totalStocks) }}</div>
-          <div class="stat-label">股票总数</div>
+          <div class="stat-value">
+            {{ formatNumber(dataStats.totalStocks) }}
+          </div>
+          <div class="stat-label">
+            股票总数
+          </div>
         </div>
       </div>
 
       <div class="stat-card stat-green">
         <div class="stat-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 3v18h18"/>
-            <path d="M18 17V9"/>
-            <path d="M13 17V5"/>
-            <path d="M8 17v-3"/>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M3 3v18h18" />
+            <path d="M18 17V9" />
+            <path d="M13 17V5" />
+            <path d="M8 17v-3" />
           </svg>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ formatNumber(dataStats.totalBars) }}</div>
-          <div class="stat-label">K线数据量</div>
+          <div class="stat-value">
+            {{ formatNumber(dataStats.totalBars) }}
+          </div>
+          <div class="stat-label">
+            K线数据量
+          </div>
         </div>
       </div>
 
       <div class="stat-card stat-orange">
         <div class="stat-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" />
           </svg>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ formatNumber(dataStats.totalTicks) }}</div>
-          <div class="stat-label">Tick数据量</div>
+          <div class="stat-value">
+            {{ formatNumber(dataStats.totalTicks) }}
+          </div>
+          <div class="stat-label">
+            Tick数据量
+          </div>
         </div>
       </div>
 
       <div class="stat-card stat-purple">
         <div class="stat-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="20" x2="12" y2="10"/>
-            <line x1="18" y1="20" x2="18" y2="4"/>
-            <line x1="6" y1="20" x2="6" y2="16"/>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <line
+              x1="12"
+              y1="20"
+              x2="12"
+              y2="10"
+            />
+            <line
+              x1="18"
+              y1="20"
+              x2="18"
+              y2="4"
+            />
+            <line
+              x1="6"
+              y1="20"
+              x2="6"
+              y2="16"
+            />
           </svg>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ formatNumber(dataStats.totalAdjustFactors) }}</div>
-          <div class="stat-label">复权因子</div>
+          <div class="stat-value">
+            {{ formatNumber(dataStats.totalAdjustFactors) }}
+          </div>
+          <div class="stat-label">
+            复权因子
+          </div>
         </div>
       </div>
     </div>
@@ -79,28 +166,61 @@
     <!-- 最近更新 -->
     <div class="two-column-grid">
       <div class="card">
-        <h3 class="card-title">最近同步记录</h3>
-        <div v-if="recentSyncs.length > 0" class="timeline">
-          <div v-for="(item, index) in recentSyncs" :key="index" class="timeline-item" @contextmenu="openSyncMenu($event, item)">
-            <div class="timeline-dot" :class="item.status"></div>
+        <h3 class="card-title">
+          最近同步记录
+        </h3>
+        <div
+          v-if="recentSyncs.length > 0"
+          class="timeline"
+        >
+          <div
+            v-for="(item, index) in recentSyncs"
+            :key="index"
+            class="timeline-item"
+            @contextmenu="openSyncMenu($event, item)"
+          >
+            <div
+              class="timeline-dot"
+              :class="item.status"
+            />
             <div class="timeline-content">
-              <div class="timeline-title">{{ item.type }} - {{ item.code }}</div>
-              <div class="timeline-time">{{ item.time }}</div>
+              <div class="timeline-title">
+                {{ item.type }} - {{ item.code }}
+              </div>
+              <div class="timeline-time">
+                {{ item.time }}
+              </div>
             </div>
           </div>
         </div>
-        <EmptyState v-else description="暂无同步记录" />
+        <EmptyState
+          v-else
+          description="暂无同步记录"
+        />
       </div>
 
       <div class="card">
-        <h3 class="card-title">数据源状态</h3>
+        <h3 class="card-title">
+          数据源状态
+        </h3>
         <div class="data-sources">
-          <div v-for="source in dataSources" :key="source.name" class="data-source-item">
+          <div
+            v-for="source in dataSources"
+            :key="source.name"
+            class="data-source-item"
+          >
             <div class="source-info">
-              <div class="source-name">{{ source.name }}</div>
-              <div class="source-desc">{{ source.description }}</div>
+              <div class="source-name">
+                {{ source.name }}
+              </div>
+              <div class="source-desc">
+                {{ source.description }}
+              </div>
             </div>
-            <span class="status-tag" :class="source.status">
+            <span
+              class="status-tag"
+              :class="source.status"
+            >
               {{ source.status === 'online' ? '在线' : '离线' }}
             </span>
           </div>

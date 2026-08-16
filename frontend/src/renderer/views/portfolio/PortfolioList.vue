@@ -60,17 +60,28 @@
         :on-action="showCreateModal"
       />
       <!-- 列表视图:复用全局 .pro-table(styles/tables.less),与其他列表页视觉一致 -->
-      <div v-else-if="viewMode === 'table'" class="table-card">
+      <div
+        v-else-if="viewMode === 'table'"
+        class="table-card"
+      >
         <table class="pro-table">
           <thead>
             <tr>
               <th>名称</th>
               <th>模式</th>
               <th>状态</th>
-              <th class="col-num">{{ firstMetricLabel }}</th>
-              <th class="col-num">Sharpe</th>
-              <th class="col-num">最大回撤</th>
-              <th class="col-num">胜率</th>
+              <th class="col-num">
+                {{ firstMetricLabel }}
+              </th>
+              <th class="col-num">
+                Sharpe
+              </th>
+              <th class="col-num">
+                最大回撤
+              </th>
+              <th class="col-num">
+                胜率
+              </th>
               <th>操作</th>
             </tr>
           </thead>
@@ -84,24 +95,41 @@
               @click="viewDetail(portfolio)"
               @contextmenu="openPortfolioMenu($event, portfolio)"
             >
-              <td class="cell-name">{{ portfolio.name }}</td>
-              <td>
-                <span class="tag" :class="`tag-${getModeColorClass(portfolio.mode)}`">{{ formatMode(portfolio.mode) }}</span>
+              <td class="cell-name">
+                {{ portfolio.name }}
               </td>
               <td>
-                <span class="status-dot" :class="getStateDotClass(portfolio.state)"></span>
+                <span
+                  class="tag"
+                  :class="`tag-${getModeColorClass(portfolio.mode)}`"
+                >{{ formatMode(portfolio.mode) }}</span>
+              </td>
+              <td>
+                <span
+                  class="status-dot"
+                  :class="getStateDotClass(portfolio.state)"
+                />
                 {{ formatState(portfolio.state) }}
               </td>
-              <td class="col-num" :class="getValueClass(portfolio.annual_return)">
+              <td
+                class="col-num"
+                :class="getValueClass(portfolio.annual_return)"
+              >
                 {{ formatPercent(portfolio.annual_return) }}
               </td>
-              <td class="col-num" :class="getSharpeClass(portfolio.sharpe_ratio)">
+              <td
+                class="col-num"
+                :class="getSharpeClass(portfolio.sharpe_ratio)"
+              >
                 {{ formatDecimal(portfolio.sharpe_ratio) }}
               </td>
               <td class="col-num negative">
                 {{ formatDrawdown(portfolio.max_drawdown) }}
               </td>
-              <td class="col-num" :class="getWinRateClass(portfolio.win_rate)">
+              <td
+                class="col-num"
+                :class="getWinRateClass(portfolio.win_rate)"
+              >
                 {{ formatPercent(portfolio.win_rate) }}
               </td>
               <td @click.stop>
@@ -110,7 +138,9 @@
                     v-if="portfolio.mode === 0 || portfolio.mode === 'BACKTEST'"
                     class="deploy-link"
                     @click="openDeploy(portfolio)"
-                  >部署</button>
+                  >
+                    部署
+                  </button>
                 </div>
               </td>
             </tr>
@@ -132,8 +162,14 @@
               <div class="card-title">
                 <span class="name">{{ portfolio.name }}</span>
                 <div class="card-tags">
-                  <span class="tag" :class="`tag-${getModeColorClass(portfolio.mode)}`">{{ formatMode(portfolio.mode) }}</span>
-                  <span class="tag" :class="`tag-${getStateColorClass(portfolio.state)}`">{{ formatState(portfolio.state) }}</span>
+                  <span
+                    class="tag"
+                    :class="`tag-${getModeColorClass(portfolio.mode)}`"
+                  >{{ formatMode(portfolio.mode) }}</span>
+                  <span
+                    class="tag"
+                    :class="`tag-${getStateColorClass(portfolio.state)}`"
+                  >{{ formatState(portfolio.state) }}</span>
                 </div>
               </div>
             </div>
@@ -141,14 +177,20 @@
             <div class="card-body">
               <div class="metric-primary">
                 <span class="label">{{ getReturnLabel(portfolio.mode) }}</span>
-                <span class="value" :class="getValueClass(portfolio.annual_return)">
+                <span
+                  class="value"
+                  :class="getValueClass(portfolio.annual_return)"
+                >
                   {{ formatPercent(portfolio.annual_return) }}
                 </span>
               </div>
               <div class="metrics-grid">
                 <div class="metric">
                   <span class="label">Sharpe</span>
-                  <span class="value" :class="getSharpeClass(portfolio.sharpe_ratio)">
+                  <span
+                    class="value"
+                    :class="getSharpeClass(portfolio.sharpe_ratio)"
+                  >
                     {{ formatDecimal(portfolio.sharpe_ratio) }}
                   </span>
                 </div>
@@ -160,7 +202,10 @@
                 </div>
                 <div class="metric">
                   <span class="label">胜率</span>
-                  <span class="value" :class="getWinRateClass(portfolio.win_rate)">
+                  <span
+                    class="value"
+                    :class="getWinRateClass(portfolio.win_rate)"
+                  >
                     {{ formatPercent(portfolio.win_rate) }}
                   </span>
                 </div>
@@ -175,11 +220,19 @@
                 v-if="portfolio.mode === 0 || portfolio.mode === 'BACKTEST'"
                 class="deploy-link"
                 @click.stop="openDeploy(portfolio)"
-              >部署 →</button>
-              <span v-else class="footer-spacer"></span>
+              >
+                部署 →
+              </button>
+              <span
+                v-else
+                class="footer-spacer"
+              />
               <span class="date">{{ formatShortDate(portfolio.created_at) }}</span>
             </div>
-            <div v-if="portfolio.related && portfolio.related.length > 0" class="related-bar">
+            <div
+              v-if="portfolio.related && portfolio.related.length > 0"
+              class="related-bar"
+            >
               <div
                 v-for="rel in portfolio.related"
                 :key="rel.uuid"
@@ -189,7 +242,10 @@
               >
                 <div class="related-header">
                   <span class="related-mode">{{ formatRelatedMode(rel.mode) }}</span>
-                  <span v-if="rel.state" class="related-state">{{ rel.state }}</span>
+                  <span
+                    v-if="rel.state"
+                    class="related-state"
+                  >{{ rel.state }}</span>
                 </div>
                 <div class="related-metrics">
                   <span>收益 <strong :class="getValueClass(rel.annual_return)">{{ formatPercent(rel.annual_return) }}</strong></span>
@@ -199,40 +255,85 @@
             </div>
           </div>
         </div>
-        <div v-if="displayPortfolios.length > 0" ref="loadMoreTrigger" class="load-more-trigger">
-          <div v-if="loadingMore" class="spinner spinner-small"></div>
-          <div v-else-if="!hasMore" class="no-more">没有更多了</div>
+        <div
+          v-if="displayPortfolios.length > 0"
+          ref="loadMoreTrigger"
+          class="load-more-trigger"
+        >
+          <div
+            v-if="loadingMore"
+            class="spinner spinner-small"
+          />
+          <div
+            v-else-if="!hasMore"
+            class="no-more"
+          >
+            没有更多了
+          </div>
         </div>
       </template>
     </template>
   </ListPage>
 
   <!-- 创建组合模态框 -->
-  <div v-if="createModalVisible" class="modal-overlay" data-testid="create-portfolio-modal">
+  <div
+    v-if="createModalVisible"
+    class="modal-overlay"
+    data-testid="create-portfolio-modal"
+  >
     <div class="modal-content modal-large">
       <div class="modal-header">
         <h3>创建投资组合</h3>
-        <button class="btn-close" @click="closeCreateModal">×</button>
+        <button
+          class="btn-close"
+          @click="closeCreateModal"
+        >
+          ×
+        </button>
       </div>
       <div class="modal-body">
-        <PortfolioFormEditor ref="formEditorRef" :is-modal-mode="true" @created="handleCreated" @cancel="closeCreateModal" />
+        <PortfolioFormEditor
+          ref="formEditorRef"
+          :is-modal-mode="true"
+          @created="handleCreated"
+          @cancel="closeCreateModal"
+        />
       </div>
     </div>
   </div>
 
   <!-- 删除确认模态框 -->
-  <div v-if="deleteModalVisible" class="modal-overlay" @click.self="closeDeleteModal">
+  <div
+    v-if="deleteModalVisible"
+    class="modal-overlay"
+    @click.self="closeDeleteModal"
+  >
     <div class="modal-content modal-small">
       <div class="modal-header">
         <h3>确认删除</h3>
-        <button class="btn-close" @click="closeDeleteModal">×</button>
+        <button
+          class="btn-close"
+          @click="closeDeleteModal"
+        >
+          ×
+        </button>
       </div>
       <div class="modal-body">
         <p>确定要删除组合「{{ deletingPortfolio?.name }}」吗？此操作不可恢复。</p>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" @click="closeDeleteModal">取消</button>
-        <button class="btn-danger" @click="handleDelete">删除</button>
+        <button
+          class="btn-secondary"
+          @click="closeDeleteModal"
+        >
+          取消
+        </button>
+        <button
+          class="btn-danger"
+          @click="handleDelete"
+        >
+          删除
+        </button>
       </div>
     </div>
   </div>

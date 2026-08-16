@@ -6,15 +6,34 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <StatCard title="总执行次数" :value="summary.total" />
-      <StatCard title="成功" :value="summary.success" :color="summary.success > 0 ? 'positive' : 'neutral'" />
-      <StatCard title="失败" :value="summary.failed" :color="summary.failed > 0 ? 'negative' : 'positive'" />
-      <StatCard title="执行中" :value="summary.triggered" />
+      <StatCard
+        title="总执行次数"
+        :value="summary.total"
+      />
+      <StatCard
+        title="成功"
+        :value="summary.success"
+        :color="summary.success > 0 ? 'positive' : 'neutral'"
+      />
+      <StatCard
+        title="失败"
+        :value="summary.failed"
+        :color="summary.failed > 0 ? 'negative' : 'positive'"
+      />
+      <StatCard
+        title="执行中"
+        :value="summary.triggered"
+      />
     </div>
 
     <!-- 已注册任务 -->
-    <div class="card" v-if="tasks.length > 0">
-      <div class="card-header"><h3>已注册任务</h3></div>
+    <div
+      v-if="tasks.length > 0"
+      class="card"
+    >
+      <div class="card-header">
+        <h3>已注册任务</h3>
+      </div>
       <div class="table-wrapper">
         <table class="data-table">
           <thead>
@@ -26,12 +45,20 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="t in tasks" :key="t.name">
+            <tr
+              v-for="t in tasks"
+              :key="t.name"
+            >
               <td>{{ t.name }}</td>
               <td><span class="tag tag-blue">{{ t.command }}</span></td>
-              <td class="mono">{{ t.cron }}</td>
+              <td class="mono">
+                {{ t.cron }}
+              </td>
               <td>
-                <StatusTag type="enable" :status="t.enabled ? 'active' : 'disabled'" />
+                <StatusTag
+                  type="enable"
+                  :status="t.enabled ? 'active' : 'disabled'"
+                />
               </td>
             </tr>
           </tbody>
@@ -41,24 +68,54 @@
 
     <!-- 执行历史 -->
     <div class="card">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div
+        class="card-header"
+        style="display: flex; justify-content: space-between; align-items: center;"
+      >
         <h3>执行历史</h3>
         <div class="filter-bar">
-          <select v-model="filterJobName" class="control-input" @change="loadExecutions">
-            <option value="">全部任务</option>
-            <option v-for="t in tasks" :key="t.name" :value="t.name">{{ t.name }}</option>
+          <select
+            v-model="filterJobName"
+            class="control-input"
+            @change="loadExecutions"
+          >
+            <option value="">
+              全部任务
+            </option>
+            <option
+              v-for="t in tasks"
+              :key="t.name"
+              :value="t.name"
+            >
+              {{ t.name }}
+            </option>
           </select>
-          <select v-model="filterStatus" class="control-input" @change="loadExecutions">
-            <option value="">全部状态</option>
-            <option value="triggered">执行中</option>
-            <option value="success">成功</option>
-            <option value="failed">失败</option>
+          <select
+            v-model="filterStatus"
+            class="control-input"
+            @change="loadExecutions"
+          >
+            <option value="">
+              全部状态
+            </option>
+            <option value="triggered">
+              执行中
+            </option>
+            <option value="success">
+              成功
+            </option>
+            <option value="failed">
+              失败
+            </option>
           </select>
         </div>
       </div>
 
       <div class="table-wrapper">
-        <table class="data-table" v-if="executions.length > 0">
+        <table
+          v-if="executions.length > 0"
+          class="data-table"
+        >
           <thead>
             <tr>
               <th>任务名称</th>
@@ -70,15 +127,28 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="e in executions" :key="e.uuid" @contextmenu="openExecMenu($event, e)">
+            <tr
+              v-for="e in executions"
+              :key="e.uuid"
+              @contextmenu="openExecMenu($event, e)"
+            >
               <td>{{ e.job_name }}</td>
               <td><span class="tag tag-blue">{{ e.command }}</span></td>
               <td>
-                <StatusTag type="execution" :status="e.status" />
+                <StatusTag
+                  type="execution"
+                  :status="e.status"
+                />
               </td>
-              <td class="mono">{{ formatTime(e.triggered_at) }}</td>
-              <td class="mono">{{ e.duration_ms > 0 ? e.duration_ms + 'ms' : '-' }}</td>
-              <td class="mono">{{ e.cron_expr || '-' }}</td>
+              <td class="mono">
+                {{ formatTime(e.triggered_at) }}
+              </td>
+              <td class="mono">
+                {{ e.duration_ms > 0 ? e.duration_ms + 'ms' : '-' }}
+              </td>
+              <td class="mono">
+                {{ e.cron_expr || '-' }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -90,24 +160,59 @@
           action-text="重试"
           :on-action="loadExecutions"
         />
-        <EmptyState v-else-if="!loading" description="暂无执行记录" />
+        <EmptyState
+          v-else-if="!loading"
+          description="暂无执行记录"
+        />
       </div>
 
       <!-- 分页 -->
-      <div class="pagination" v-if="pagination.total > 0">
+      <div
+        v-if="pagination.total > 0"
+        class="pagination"
+      >
         <span class="pagination-info">
           共 {{ pagination.total }} 条，第 {{ pagination.current }} / {{ totalPages }} 页
         </span>
         <div class="pagination-controls">
-          <button class="pg-btn" :disabled="pagination.current <= 1" @click="goPage(1)">«</button>
-          <button class="pg-btn" :disabled="pagination.current <= 1" @click="goPage(pagination.current - 1)">‹</button>
-          <button class="pg-btn" :disabled="pagination.current >= totalPages" @click="goPage(pagination.current + 1)">›</button>
-          <button class="pg-btn" :disabled="pagination.current >= totalPages" @click="goPage(totalPages)">»</button>
+          <button
+            class="pg-btn"
+            :disabled="pagination.current <= 1"
+            @click="goPage(1)"
+          >
+            «
+          </button>
+          <button
+            class="pg-btn"
+            :disabled="pagination.current <= 1"
+            @click="goPage(pagination.current - 1)"
+          >
+            ‹
+          </button>
+          <button
+            class="pg-btn"
+            :disabled="pagination.current >= totalPages"
+            @click="goPage(pagination.current + 1)"
+          >
+            ›
+          </button>
+          <button
+            class="pg-btn"
+            :disabled="pagination.current >= totalPages"
+            @click="goPage(totalPages)"
+          >
+            »
+          </button>
         </div>
       </div>
     </div>
 
-    <div v-if="loading" class="loading-overlay"><div class="spinner"></div></div>
+    <div
+      v-if="loading"
+      class="loading-overlay"
+    >
+      <div class="spinner" />
+    </div>
   </PageLayout>
 </template>
 

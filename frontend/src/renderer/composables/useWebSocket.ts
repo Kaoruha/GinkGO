@@ -133,7 +133,9 @@ function openSocket(wsUrl: string) {
         const topicHandlers = handlers.get(`topic:${data.topic}`)
         if (topicHandlers) topicHandlers.forEach(h => h(data))
       }
-    } catch {}
+    } catch {
+      // 单个 handler 异常不影响其余 handler
+    }
   }
 }
 

@@ -1,10 +1,17 @@
 <template>
   <PageLayout>
-    <template #title>因子正交化</template>
-    <template #description>消除多因子之间的相关性，避免信息重复。正交化后因子相互独立，组合效果更好。</template>
+    <template #title>
+      因子正交化
+    </template>
+    <template #description>
+      消除多因子之间的相关性，避免信息重复。正交化后因子相互独立，组合效果更好。
+    </template>
 
     <!-- 骨架页横幅(#4652 纪律:后端 orthogonalize 接口未实现,禁止伪造 API 假装可用) -->
-    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;">
+    <div
+      role="alert"
+      style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;"
+    >
       <span aria-hidden="true">🚧</span>
       <span>该功能后端接口开发中，当前为预览骨架，暂不可用。</span>
     </div>
@@ -17,21 +24,43 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">回测任务</label>
-            <select v-model="config.backtestId" class="form-select">
-              <option value="">选择回测任务</option>
-              <option v-for="bt in backtestList" :key="bt.task_id" :value="bt.task_id">{{ bt.task_id }}</option>
+            <select
+              v-model="config.backtestId"
+              class="form-select"
+            >
+              <option value="">
+                选择回测任务
+              </option>
+              <option
+                v-for="bt in backtestList"
+                :key="bt.task_id"
+                :value="bt.task_id"
+              >
+                {{ bt.task_id }}
+              </option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">正交化方法</label>
-            <select v-model="config.method" class="form-select">
-              <option value="gram_schmidt">Gram-Schmidt</option>
-              <option value="pca">PCA</option>
+            <select
+              v-model="config.method"
+              class="form-select"
+            >
+              <option value="gram_schmidt">
+                Gram-Schmidt
+              </option>
+              <option value="pca">
+                PCA
+              </option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">&nbsp;</label>
-            <button class="btn-primary" :disabled="loading" @click="runAnalysis">
+            <button
+              class="btn-primary"
+              :disabled="loading"
+              @click="runAnalysis"
+            >
               {{ loading ? '分析中...' : '开始分析' }}
             </button>
           </div>
@@ -44,7 +73,10 @@
         <h4>相关性矩阵对比</h4>
       </div>
       <div class="card-body">
-        <div v-if="result" class="stats-grid">
+        <div
+          v-if="result"
+          class="stats-grid"
+        >
           <div class="stat-card">
             <span class="stat-value">{{ result.original_avg_corr?.toFixed(4) || '-' }}</span>
             <span class="stat-label">原始平均相关系数</span>
@@ -54,7 +86,10 @@
             <span class="stat-label">正交后平均相关系数</span>
           </div>
         </div>
-        <EmptyState v-else description="请先选择回测任务并开始分析" />
+        <EmptyState
+          v-else
+          description="请先选择回测任务并开始分析"
+        />
       </div>
     </div>
   </PageLayout>

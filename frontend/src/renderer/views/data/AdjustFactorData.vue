@@ -5,35 +5,70 @@
       复权因子
     </template>
     <template #actions>
-      <input v-model="selectedCode" type="text" placeholder="股票代码 (可选)" class="control-input" />
-      <button class="btn-primary" @click="loadData" :disabled="loading">查询</button>
+      <input
+        v-model="selectedCode"
+        type="text"
+        placeholder="股票代码 (可选)"
+        class="control-input"
+      >
+      <button
+        class="btn-primary"
+        :disabled="loading"
+        @click="loadData"
+      >
+        查询
+      </button>
     </template>
 
     <!-- 统计卡片 -->
-    <div class="stats-grid" v-if="factors.length > 0">
+    <div
+      v-if="factors.length > 0"
+      class="stats-grid"
+    >
       <div class="stat-card-small">
-        <div class="stat-value-small">{{ pagination.total.toLocaleString() }}</div>
-        <div class="stat-label-small">记录数</div>
+        <div class="stat-value-small">
+          {{ pagination.total.toLocaleString() }}
+        </div>
+        <div class="stat-label-small">
+          记录数
+        </div>
       </div>
       <div class="stat-card-small">
-        <div class="stat-value-small">{{ stats.codeCount }}</div>
-        <div class="stat-label-small">股票数</div>
+        <div class="stat-value-small">
+          {{ stats.codeCount }}
+        </div>
+        <div class="stat-label-small">
+          股票数
+        </div>
       </div>
       <div class="stat-card-small">
-        <div class="stat-value-small">{{ stats.latestFore }}</div>
-        <div class="stat-label-small">最新前复权因子</div>
+        <div class="stat-value-small">
+          {{ stats.latestFore }}
+        </div>
+        <div class="stat-label-small">
+          最新前复权因子
+        </div>
       </div>
       <div class="stat-card-small">
-        <div class="stat-value-small">{{ stats.latestBack }}</div>
-        <div class="stat-label-small">最新后复权因子</div>
+        <div class="stat-value-small">
+          {{ stats.latestBack }}
+        </div>
+        <div class="stat-label-small">
+          最新后复权因子
+        </div>
       </div>
     </div>
 
     <!-- 数据表格 -->
     <div class="card">
-      <div class="card-header-simple">复权因子数据</div>
+      <div class="card-header-simple">
+        复权因子数据
+      </div>
       <div class="table-wrapper">
-        <table class="data-table" v-if="factors.length > 0">
+        <table
+          v-if="factors.length > 0"
+          class="data-table"
+        >
           <thead>
             <tr>
               <th>日期</th>
@@ -44,39 +79,101 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="f in factors" :key="f.uuid" @contextmenu="openFactorMenu($event, f)">
+            <tr
+              v-for="f in factors"
+              :key="f.uuid"
+              @contextmenu="openFactorMenu($event, f)"
+            >
               <td>{{ formatDate(f.timestamp) }}</td>
               <td>{{ f.code }}</td>
-              <td class="num">{{ f.foreadjustfactor?.toFixed(6) }}</td>
-              <td class="num">{{ f.backadjustfactor?.toFixed(6) }}</td>
-              <td class="num">{{ f.adjustfactor?.toFixed(6) }}</td>
+              <td class="num">
+                {{ f.foreadjustfactor?.toFixed(6) }}
+              </td>
+              <td class="num">
+                {{ f.backadjustfactor?.toFixed(6) }}
+              </td>
+              <td class="num">
+                {{ f.adjustfactor?.toFixed(6) }}
+              </td>
             </tr>
           </tbody>
         </table>
         <!-- 加载失败:区别于空态,提供重试 -->
-        <div v-else-if="!loading && loadError" class="empty-state-small">
-          <p class="error-text">{{ loadError }}</p>
-          <button class="btn-primary btn-retry" @click="loadData">重试</button>
+        <div
+          v-else-if="!loading && loadError"
+          class="empty-state-small"
+        >
+          <p class="error-text">
+            {{ loadError }}
+          </p>
+          <button
+            class="btn-primary btn-retry"
+            @click="loadData"
+          >
+            重试
+          </button>
         </div>
-        <div v-else-if="!loading && hasSearched" class="empty-state-small">查询无结果，请调整股票代码或分页</div>
-        <div v-else-if="!loading" class="empty-state-small">点击查询加载数据</div>
+        <div
+          v-else-if="!loading && hasSearched"
+          class="empty-state-small"
+        >
+          查询无结果，请调整股票代码或分页
+        </div>
+        <div
+          v-else-if="!loading"
+          class="empty-state-small"
+        >
+          点击查询加载数据
+        </div>
       </div>
 
       <!-- 分页 -->
-      <div class="pagination" v-if="pagination.total > 0">
+      <div
+        v-if="pagination.total > 0"
+        class="pagination"
+      >
         <span class="pagination-info">
           共 {{ pagination.total.toLocaleString() }} 条，第 {{ pagination.current }} / {{ totalPages }} 页
         </span>
         <div class="pagination-controls">
-          <button class="pg-btn" :disabled="pagination.current <= 1" @click="goPage(1)">«</button>
-          <button class="pg-btn" :disabled="pagination.current <= 1" @click="goPage(pagination.current - 1)">‹</button>
-          <button class="pg-btn" :disabled="pagination.current >= totalPages" @click="goPage(pagination.current + 1)">›</button>
-          <button class="pg-btn" :disabled="pagination.current >= totalPages" @click="goPage(totalPages)">»</button>
+          <button
+            class="pg-btn"
+            :disabled="pagination.current <= 1"
+            @click="goPage(1)"
+          >
+            «
+          </button>
+          <button
+            class="pg-btn"
+            :disabled="pagination.current <= 1"
+            @click="goPage(pagination.current - 1)"
+          >
+            ‹
+          </button>
+          <button
+            class="pg-btn"
+            :disabled="pagination.current >= totalPages"
+            @click="goPage(pagination.current + 1)"
+          >
+            ›
+          </button>
+          <button
+            class="pg-btn"
+            :disabled="pagination.current >= totalPages"
+            @click="goPage(totalPages)"
+          >
+            »
+          </button>
         </div>
       </div>
     </div>
 
-    <div v-if="loading" class="loading-overlay"><div class="spinner"></div></div>
+    <div
+      v-if="loading"
+      class="loading-overlay"
+    >
+      <div class="spinner" />
+    </div>
   </PageLayout>
 </template>
 

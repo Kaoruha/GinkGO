@@ -1,9 +1,20 @@
 <template>
   <div class="layering-chart">
-    <div ref="chartRef" class="chart-container" :style="{ height: height }"></div>
+    <div
+      ref="chartRef"
+      class="chart-container"
+      :style="{ height: height }"
+    />
     <div class="legend">
-      <div v-for="group in groups" :key="group.name" class="legend-item">
-        <span class="color-box" :style="{ background: group.color }"></span>
+      <div
+        v-for="group in groups"
+        :key="group.name"
+        class="legend-item"
+      >
+        <span
+          class="color-box"
+          :style="{ background: group.color }"
+        />
         <span>{{ group.name }}</span>
       </div>
     </div>

@@ -2,7 +2,10 @@
   <div class="strategy-card">
     <div class="card-header">
       <span class="card-title">{{ strategy.name }}</span>
-      <span class="tag" :class="`tag-${getCategoryColorClass(strategy.category)}`">{{ getCategoryLabel(strategy.category) }}</span>
+      <span
+        class="tag"
+        :class="`tag-${getCategoryColorClass(strategy.category)}`"
+      >{{ getCategoryLabel(strategy.category) }}</span>
       <div class="card-meta">
         <span class="card-description">{{ strategy.description }}</span>
         <span class="card-stats">
@@ -14,15 +17,26 @@
 
     <div class="card-body">
       <div class="param-list">
-        <div class="param-item" v-for="param in strategy.params" :key="param.name">
+        <div
+          v-for="param in strategy.params"
+          :key="param.name"
+          class="param-item"
+        >
           <span class="param-name">{{ param.label }}</span>
           <span class="param-value">{{ param.value }}</span>
         </div>
       </div>
 
       <div class="card-actions">
-        <button class="btn-primary" @click="handleSelect()">使用策略</button>
-        <button class="btn-secondary">查看详情</button>
+        <button
+          class="btn-primary"
+          @click="handleSelect()"
+        >
+          使用策略
+        </button>
+        <button class="btn-secondary">
+          查看详情
+        </button>
       </div>
     </div>
   </div>

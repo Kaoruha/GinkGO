@@ -1,17 +1,46 @@
 <template>
   <PageLayout>
-    <template #title>数据同步 <span class="demo-badge">演示稿</span></template>
-    <template #meta><span class="updated-at">更新于 {{ lastUpdated || '--' }}</span></template>
+    <template #title>
+      数据同步 <span class="demo-badge">演示稿</span>
+    </template>
+    <template #meta>
+      <span class="updated-at">更新于 {{ lastUpdated || '--' }}</span>
+    </template>
 
     <div class="page-content">
       <!-- ① 数据存量统计行 -->
-      <div class="stats-grid m-stagger" data-testid="demo-stats">
-        <div v-for="s in statCards" :key="s.label" class="stat-card">
-          <div class="stat-icon" v-html="s.icon"></div>
+      <div
+        class="stats-grid m-stagger"
+        data-testid="demo-stats"
+      >
+        <div
+          v-for="s in statCards"
+          :key="s.label"
+          class="stat-card"
+        >
+          <div
+            class="stat-icon"
+            v-html="s.icon"
+          />
           <div class="stat-content">
-            <div class="stat-label">{{ s.label }}</div>
-            <div class="stat-value" v-if="!loading">{{ s.value }}<span v-if="s.suffix" class="stat-suffix"> {{ s.suffix }}</span></div>
-            <div class="stat-value" v-else>--</div>
+            <div class="stat-label">
+              {{ s.label }}
+            </div>
+            <div
+              v-if="!loading"
+              class="stat-value"
+            >
+              {{ s.value }}<span
+                v-if="s.suffix"
+                class="stat-suffix"
+              > {{ s.suffix }}</span>
+            </div>
+            <div
+              v-else
+              class="stat-value"
+            >
+              --
+            </div>
           </div>
         </div>
       </div>
@@ -19,24 +48,48 @@
       <div class="two-column-grid">
         <!-- ② 发送同步命令 -->
         <div class="card">
-          <h3 class="card-title">发送同步命令</h3>
-          <form class="sync-form" @submit.prevent="onSubmit">
+          <h3 class="card-title">
+            发送同步命令
+          </h3>
+          <form
+            class="sync-form"
+            @submit.prevent="onSubmit"
+          >
             <div class="form-group">
               <label class="form-label">命令类型</label>
-              <select v-model="command.type" class="form-select">
-                <option value="bars">K线数据</option>
-                <option value="ticks">Tick数据</option>
-                <option value="stockinfo">股票信息</option>
-                <option value="adjustfactor">复权因子</option>
+              <select
+                v-model="command.type"
+                class="form-select"
+              >
+                <option value="bars">
+                  K线数据
+                </option>
+                <option value="ticks">
+                  Tick数据
+                </option>
+                <option value="stockinfo">
+                  股票信息
+                </option>
+                <option value="adjustfactor">
+                  复权因子
+                </option>
               </select>
             </div>
 
             <div class="form-group">
               <label class="form-label">日期范围 <span class="form-hint">留空 = 全量</span></label>
               <div class="date-range">
-                <input v-model="command.startDate" type="date" class="form-input" />
+                <input
+                  v-model="command.startDate"
+                  type="date"
+                  class="form-input"
+                >
                 <span class="range-sep">至</span>
-                <input v-model="command.endDate" type="date" class="form-input" />
+                <input
+                  v-model="command.endDate"
+                  type="date"
+                  class="form-input"
+                >
               </div>
             </div>
 
@@ -47,12 +100,23 @@
                 class="form-textarea"
                 rows="4"
                 placeholder="输入股票代码，每行一个&#10;例如：&#10;000001.SZ&#10;000002.SZ"
-              ></textarea>
+              />
             </div>
 
             <div class="form-actions">
-              <button type="submit" class="btn-primary">发送命令</button>
-              <button type="button" class="btn-secondary" @click="clearForm">清空</button>
+              <button
+                type="submit"
+                class="btn-primary"
+              >
+                发送命令
+              </button>
+              <button
+                type="button"
+                class="btn-secondary"
+                @click="clearForm"
+              >
+                清空
+              </button>
             </div>
           </form>
         </div>
@@ -60,8 +124,15 @@
         <!-- ③ 同步历史（服务端落库记录） -->
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">同步历史 <span class="history-total">共 {{ total }} 条</span></h3>
-            <button class="btn-small" @click="fetchHistory(false)">刷新</button>
+            <h3 class="card-title">
+              同步历史 <span class="history-total">共 {{ total }} 条</span>
+            </h3>
+            <button
+              class="btn-small"
+              @click="fetchHistory(false)"
+            >
+              刷新
+            </button>
           </div>
 
           <div class="filter-row">
@@ -72,8 +143,18 @@
             />
           </div>
 
-          <p v-if="historyLoading && records.length === 0" class="loading-text">加载中...</p>
-          <p v-else-if="listError" class="error-text">{{ listError }}</p>
+          <p
+            v-if="historyLoading && records.length === 0"
+            class="loading-text"
+          >
+            加载中...
+          </p>
+          <p
+            v-else-if="listError"
+            class="error-text"
+          >
+            {{ listError }}
+          </p>
 
           <template v-else-if="records.length > 0">
             <div class="hist-table">
@@ -91,26 +172,48 @@
                 class="hist-row"
                 :title="r.error_message || ''"
               >
-                <span class="c-type"><span class="tag" :class="typeTagClass(r.sync_type)">{{ typeLabel(r.sync_type) }}</span></span>
+                <span class="c-type"><span
+                  class="tag"
+                  :class="typeTagClass(r.sync_type)"
+                >{{ typeLabel(r.sync_type) }}</span></span>
                 <span class="c-code">{{ r.code }}</span>
-                <span class="c-status"><span class="st-dot" :class="'st-' + r.status"></span>{{ statusLabel(r.status) }}</span>
+                <span class="c-status"><span
+                  class="st-dot"
+                  :class="'st-' + r.status"
+                />{{ statusLabel(r.status) }}</span>
                 <span class="c-dur">{{ formatDuration(r.duration_ms) }}</span>
                 <span class="c-rec">
                   <span class="rec-main">{{ formatNumber(r.records_processed) }}</span>
-                  <span class="rec-detail" :class="{ 'rec-fail': r.records_failed > 0 }">
+                  <span
+                    class="rec-detail"
+                    :class="{ 'rec-fail': r.records_failed > 0 }"
+                  >
                     +{{ formatNumber(r.records_added) }}<template v-if="r.records_updated > 0"> ~{{ formatNumber(r.records_updated) }}</template><template v-if="r.records_failed > 0"> ✕{{ r.records_failed }}</template>
                   </span>
                 </span>
-                <span class="c-time" :title="r.completed_at || r.started_at || ''">{{ formatRelativeTime(r.completed_at || r.started_at) }}</span>
+                <span
+                  class="c-time"
+                  :title="r.completed_at || r.started_at || ''"
+                >{{ formatRelativeTime(r.completed_at || r.started_at) }}</span>
               </div>
             </div>
-            <div v-if="hasMore" class="load-more">
-              <button class="btn-small" :disabled="historyLoading" @click="loadMore">
+            <div
+              v-if="hasMore"
+              class="load-more"
+            >
+              <button
+                class="btn-small"
+                :disabled="historyLoading"
+                @click="loadMore"
+              >
                 {{ historyLoading ? '加载中...' : '加载更多' }}
               </button>
             </div>
           </template>
-          <EmptyState v-else description="暂无同步记录" />
+          <EmptyState
+            v-else
+            description="暂无同步记录"
+          />
         </div>
       </div>
     </div>

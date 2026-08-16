@@ -4,124 +4,201 @@
       <span class="tag tag-green">验证</span>
       分段稳定性
     </template>
-    <template #description>将回测区间等分为多段，对比各段表现是否一致</template>
+    <template #description>
+      将回测区间等分为多段，对比各段表现是否一致
+    </template>
 
     <div class="page-content">
-    <div class="card">
-      <div class="card-header"><h3>分析配置</h3></div>
-      <div class="card-body">
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">回测任务</label>
-            <select class="form-select" v-model="config.taskId">
-              <option value="">请选择任务</option>
-              <option v-for="t in backtestList" :key="t.uuid" :value="t.uuid">
-                {{ t.name || t.uuid?.slice(0, 8) }} ({{ t.status }})
-              </option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">分段数</label>
-            <div class="segment-tags">
-              <button
-                v-for="opt in allSegmentOptions"
-                :key="opt"
-                class="segment-tag"
-                :class="{ active: selectedSegments.has(opt) }"
-                @click="toggleSegment(opt)"
-              >{{ opt }}</button>
-              <input
-                v-if="showCustomInput"
-                ref="customInputRef"
-                class="segment-tag-input"
-                v-model.number="customValue"
-                type="number"
-                min="2"
-                placeholder="输入"
-                @keydown.enter.prevent="addCustomSegment"
-                @blur="nextTick(addCustomSegment)"
-              />
-              <button v-else class="segment-tag segment-tag-add" @click="openCustomInput">+</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">
-              分析指标
-              <span v-if="availableMetrics.length" class="metric-count">已选 {{ selectedMetrics.size }} / {{ availableMetrics.length }}</span>
-            </label>
-            <div class="segment-tags" v-if="availableMetrics.length">
-              <button
-                v-for="m in availableMetrics"
-                :key="m.name"
-                class="segment-tag"
-                :class="{ active: selectedMetrics.has(m.name) }"
-                @click="toggleMetric(m.name)"
-              >{{ m.label }}</button>
-            </div>
-            <div v-else class="metric-placeholder">
-              {{ config.taskId ? '加载中...' : '请先选择任务' }}
-            </div>
-          </div>
-          <div class="form-group" style="align-self: flex-end;">
-            <button class="btn-primary" :disabled="loading || !config.taskId" @click="runAnalysis">
-              {{ loading ? '分析中...' : '开始分析' }}
-            </button>
-          </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>分析配置</h3>
         </div>
-      </div>
-    </div>
-
-    <template v-if="result">
-      <div class="stats-grid">
-        <div class="stat-card" v-for="w in result.windows" :key="w.n_segments">
-          <div class="stat-value">{{ w.n_segments }} 段</div>
-          <div class="stat-label">稳定性评分</div>
-          <div class="stat-value" :class="scoreClass(w.stability_score)">
-            {{ (w.stability_score * 100).toFixed(1) }}%
-          </div>
-        </div>
-      </div>
-
-      <!-- 跨 window 对比概览图 -->
-      <div class="card overview-chart-card">
-        <div class="card-header"><h3>跨分段对比概览</h3></div>
         <div class="card-body">
-          <div ref="overviewChartRef" class="overview-chart"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">回测任务</label>
+              <select
+                v-model="config.taskId"
+                class="form-select"
+              >
+                <option value="">
+                  请选择任务
+                </option>
+                <option
+                  v-for="t in backtestList"
+                  :key="t.uuid"
+                  :value="t.uuid"
+                >
+                  {{ t.name || t.uuid?.slice(0, 8) }} ({{ t.status }})
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">分段数</label>
+              <div class="segment-tags">
+                <button
+                  v-for="opt in allSegmentOptions"
+                  :key="opt"
+                  class="segment-tag"
+                  :class="{ active: selectedSegments.has(opt) }"
+                  @click="toggleSegment(opt)"
+                >
+                  {{ opt }}
+                </button>
+                <input
+                  v-if="showCustomInput"
+                  ref="customInputRef"
+                  v-model.number="customValue"
+                  class="segment-tag-input"
+                  type="number"
+                  min="2"
+                  placeholder="输入"
+                  @keydown.enter.prevent="addCustomSegment"
+                  @blur="nextTick(addCustomSegment)"
+                >
+                <button
+                  v-else
+                  class="segment-tag segment-tag-add"
+                  @click="openCustomInput"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">
+                分析指标
+                <span
+                  v-if="availableMetrics.length"
+                  class="metric-count"
+                >已选 {{ selectedMetrics.size }} / {{ availableMetrics.length }}</span>
+              </label>
+              <div
+                v-if="availableMetrics.length"
+                class="segment-tags"
+              >
+                <button
+                  v-for="m in availableMetrics"
+                  :key="m.name"
+                  class="segment-tag"
+                  :class="{ active: selectedMetrics.has(m.name) }"
+                  @click="toggleMetric(m.name)"
+                >
+                  {{ m.label }}
+                </button>
+              </div>
+              <div
+                v-else
+                class="metric-placeholder"
+              >
+                {{ config.taskId ? '加载中...' : '请先选择任务' }}
+              </div>
+            </div>
+            <div
+              class="form-group"
+              style="align-self: flex-end;"
+            >
+              <button
+                class="btn-primary"
+                :disabled="loading || !config.taskId"
+                @click="runAnalysis"
+              >
+                {{ loading ? '分析中...' : '开始分析' }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- 双列详情网格 -->
-      <div class="detail-grid">
-        <div class="card" v-for="w in result.windows" :key="'detail-' + w.n_segments">
+      <template v-if="result">
+        <div class="stats-grid">
+          <div
+            v-for="w in result.windows"
+            :key="w.n_segments"
+            class="stat-card"
+          >
+            <div class="stat-value">
+              {{ w.n_segments }} 段
+            </div>
+            <div class="stat-label">
+              稳定性评分
+            </div>
+            <div
+              class="stat-value"
+              :class="scoreClass(w.stability_score)"
+            >
+              {{ (w.stability_score * 100).toFixed(1) }}%
+            </div>
+          </div>
+        </div>
+
+        <!-- 跨 window 对比概览图 -->
+        <div class="card overview-chart-card">
           <div class="card-header">
-            <h3>{{ w.n_segments }} 段分析</h3>
-            <span :class="scoreClass(w.stability_score)">评分 {{ (w.stability_score * 100).toFixed(1) }}%</span>
+            <h3>跨分段对比概览</h3>
           </div>
           <div class="card-body">
-            <div :ref="(el: any) => setDetailChartRef(w.n_segments)(el)" class="detail-chart"></div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>时间段</th>
-                  <th class="num" v-for="metric in (w.available_metrics || [])" :key="metric">{{ metricLabel(metric) }}</th>
-                </tr>
-              </thead>
-                <tr v-for="(seg, i) in w.segments" :key="i">
+            <div
+              ref="overviewChartRef"
+              class="overview-chart"
+            />
+          </div>
+        </div>
+
+        <!-- 双列详情网格 -->
+        <div class="detail-grid">
+          <div
+            v-for="w in result.windows"
+            :key="'detail-' + w.n_segments"
+            class="card"
+          >
+            <div class="card-header">
+              <h3>{{ w.n_segments }} 段分析</h3>
+              <span :class="scoreClass(w.stability_score)">评分 {{ (w.stability_score * 100).toFixed(1) }}%</span>
+            </div>
+            <div class="card-body">
+              <div
+                :ref="(el: any) => setDetailChartRef(w.n_segments)(el)"
+                class="detail-chart"
+              />
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>时间段</th>
+                    <th
+                      v-for="metric in (w.available_metrics || [])"
+                      :key="metric"
+                      class="num"
+                    >
+                      {{ metricLabel(metric) }}
+                    </th>
+                  </tr>
+                </thead>
+                <tr
+                  v-for="(seg, i) in w.segments"
+                  :key="i"
+                >
                   <td>{{ seg._start?.slice(5) || '' }} ~ {{ seg._end?.slice(5) || '' }}</td>
-                  <td class="num" v-for="metric in (w.available_metrics || [])" :key="metric">
+                  <td
+                    v-for="metric in (w.available_metrics || [])"
+                    :key="metric"
+                    class="num"
+                  >
                     {{ formatMetricValue(seg[metric]) }}
                   </td>
                 </tr>
-              
-            </table>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
-    </template>
+      </template>
 
-    <div v-else-if="!loading" class="card">
-      <EmptyState description="选择回测任务并点击分析" />
-    </div>
+      <div
+        v-else-if="!loading"
+        class="card"
+      >
+        <EmptyState description="选择回测任务并点击分析" />
+      </div>
     </div>
   </PageLayout>
 </template>

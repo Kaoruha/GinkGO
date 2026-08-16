@@ -1,5 +1,8 @@
 <template>
-  <span class="status-tag" :class="tagClass">
+  <span
+    class="status-tag"
+    :class="tagClass"
+  >
     <slot>{{ label }}</slot>
   </span>
 </template>

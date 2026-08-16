@@ -15,7 +15,10 @@ const headerClass = computed(() =>
 </script>
 
 <template>
-  <div :class="headerClass" v-bind="$attrs">
+  <div
+    :class="headerClass"
+    v-bind="$attrs"
+  >
     <slot />
   </div>
 </template>

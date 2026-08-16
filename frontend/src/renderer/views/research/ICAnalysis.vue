@@ -1,11 +1,18 @@
 <template>
   <PageLayout>
-    <template #title>IC 分析</template>
-    <template #description>评估因子对未来收益的预测能力。IC均值>0.05为强因子，ICIR>0.5为优秀因子。</template>
+    <template #title>
+      IC 分析
+    </template>
+    <template #description>
+      评估因子对未来收益的预测能力。IC均值>0.05为强因子，ICIR>0.5为优秀因子。
+    </template>
 
     <!-- 功能开发中:研究/优化/验证后端 API 未实现(记忆 arch_parameter_optimization_unwired / arch_factor_subsystem_dormant_75pct);
          此为占位骨架,配置后不会产出真实结果,加横幅以免用户误判可用(#4652 静默失败纪律) -->
-    <div role="alert" style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;">
+    <div
+      role="alert"
+      style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:16px;background:hsl(var(--primary) / 0.08);border:1px solid hsl(var(--primary) / 0.3);border-left-width:3px;border-radius: var(--radius);color:hsl(var(--foreground));font-size:13px;"
+    >
       <span aria-hidden="true">🚧</span>
       <span>该功能后端接口开发中，当前为预览骨架，暂不可用。</span>
     </div>
@@ -19,22 +26,48 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">回测任务</label>
-            <select v-model="config.backtestId" class="form-select">
-              <option value="">选择回测任务</option>
-              <option v-for="bt in backtestList" :key="bt.task_id" :value="bt.task_id">{{ bt.task_id }}</option>
+            <select
+              v-model="config.backtestId"
+              class="form-select"
+            >
+              <option value="">
+                选择回测任务
+              </option>
+              <option
+                v-for="bt in backtestList"
+                :key="bt.task_id"
+                :value="bt.task_id"
+              >
+                {{ bt.task_id }}
+              </option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">收益周期</label>
-            <select v-model.number="config.returnPeriod" class="form-select">
-              <option :value="1">1日</option>
-              <option :value="5">5日</option>
-              <option :value="10">10日</option>
-              <option :value="20">20日</option>
+            <select
+              v-model.number="config.returnPeriod"
+              class="form-select"
+            >
+              <option :value="1">
+                1日
+              </option>
+              <option :value="5">
+                5日
+              </option>
+              <option :value="10">
+                10日
+              </option>
+              <option :value="20">
+                20日
+              </option>
             </select>
           </div>
           <div class="form-group">
-            <button class="btn-primary" :disabled="loading" @click="runAnalysis">
+            <button
+              class="btn-primary"
+              :disabled="loading"
+              @click="runAnalysis"
+            >
               {{ loading ? '分析中...' : '开始分析' }}
             </button>
           </div>
@@ -51,42 +84,74 @@
         <div v-if="result">
           <div class="stats-grid">
             <div class="stat-card">
-              <div class="stat-label">IC 均值</div>
-              <div class="stat-value">{{ result.ic_mean?.toFixed(4) || '-' }}</div>
+              <div class="stat-label">
+                IC 均值
+              </div>
+              <div class="stat-value">
+                {{ result.ic_mean?.toFixed(4) || '-' }}
+              </div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">IC 标准差</div>
-              <div class="stat-value">{{ result.ic_std?.toFixed(4) || '-' }}</div>
+              <div class="stat-label">
+                IC 标准差
+              </div>
+              <div class="stat-value">
+                {{ result.ic_std?.toFixed(4) || '-' }}
+              </div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">ICIR</div>
-              <div class="stat-value">{{ result.icir?.toFixed(4) || '-' }}</div>
+              <div class="stat-label">
+                ICIR
+              </div>
+              <div class="stat-value">
+                {{ result.icir?.toFixed(4) || '-' }}
+              </div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">IC > 0 比例</div>
-              <div class="stat-value">{{ ((result.ic_positive_ratio || 0) * 100).toFixed(2) }}%</div>
+              <div class="stat-label">
+                IC > 0 比例
+              </div>
+              <div class="stat-value">
+                {{ ((result.ic_positive_ratio || 0) * 100).toFixed(2) }}%
+              </div>
             </div>
           </div>
 
-          <div v-if="result.ic_series && result.ic_series.length > 0" class="table-wrapper">
+          <div
+            v-if="result.ic_series && result.ic_series.length > 0"
+            class="table-wrapper"
+          >
             <table class="data-table">
               <thead>
                 <tr>
                   <th>日期</th>
-                  <th class="num">IC</th>
-                  <th class="num">Rank IC</th>
+                  <th class="num">
+                    IC
+                  </th>
+                  <th class="num">
+                    Rank IC
+                  </th>
                 </tr>
               </thead>
-                <tr v-for="(record, i) in result.ic_series" :key="`ic-${i}`">
-                  <td>{{ record.date }}</td>
-                  <td class="num">{{ record.ic?.toFixed(4) || '-' }}</td>
-                  <td class="num">{{ record.rank_ic?.toFixed(4) || '-' }}</td>
-                </tr>
-              
+              <tr
+                v-for="(record, i) in result.ic_series"
+                :key="`ic-${i}`"
+              >
+                <td>{{ record.date }}</td>
+                <td class="num">
+                  {{ record.ic?.toFixed(4) || '-' }}
+                </td>
+                <td class="num">
+                  {{ record.rank_ic?.toFixed(4) || '-' }}
+                </td>
+              </tr>
             </table>
           </div>
         </div>
-        <EmptyState v-else description="请配置参数并开始分析" />
+        <EmptyState
+          v-else
+          description="请配置参数并开始分析"
+        />
       </div>
     </div>
   </PageLayout>

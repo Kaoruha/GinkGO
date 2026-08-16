@@ -14,5 +14,8 @@ const overlayClass = computed(() =>
 </script>
 
 <template>
-  <RadixDialogOverlay v-bind="props" :class="overlayClass" />
+  <RadixDialogOverlay
+    v-bind="props"
+    :class="overlayClass"
+  />
 </template>

@@ -7,29 +7,44 @@
       <div class="page-layout-title">
         <slot name="title" />
       </div>
-      <div v-if="$slots.actions" class="page-layout-actions">
+      <div
+        v-if="$slots.actions"
+        class="page-layout-actions"
+      >
         <slot name="actions" />
       </div>
     </header>
 
     <!-- 标题下元信息副行(可选):id / 状态 / 来源等。负 margin 上拉贴标题,
          与 #description 互斥(详情页用 meta,列表/功能页用 description) -->
-    <div v-if="$slots.meta" class="page-layout-meta">
+    <div
+      v-if="$slots.meta"
+      class="page-layout-meta"
+    >
       <slot name="meta" />
     </div>
 
     <!-- 标题下描述(可选,仅 PaperTrading 等用):负 margin 上拉贴标题 -->
-    <div v-if="$slots.description" class="page-layout-description">
+    <div
+      v-if="$slots.description"
+      class="page-layout-description"
+    >
       <slot name="description" />
     </div>
 
     <!-- 标准 tab 行(可选):概况 / 回测 / 组件。详情页统一槽,不再 body 内各自自写 -->
-    <nav v-if="$slots.tabs" class="page-layout-tabs">
+    <nav
+      v-if="$slots.tabs"
+      class="page-layout-tabs"
+    >
       <slot name="tabs" />
     </nav>
 
     <!-- 筛选/统计条(可选,header 下方) -->
-    <div v-if="$slots.filters" class="page-layout-filters">
+    <div
+      v-if="$slots.filters"
+      class="page-layout-filters"
+    >
       <slot name="filters" />
     </div>
 

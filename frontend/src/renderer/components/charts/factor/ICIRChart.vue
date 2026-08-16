@@ -1,6 +1,10 @@
 <template>
   <div class="icir-chart">
-    <div ref="chartRef" class="chart-container" :style="{ height: height }"></div>
+    <div
+      ref="chartRef"
+      class="chart-container"
+      :style="{ height: height }"
+    />
   </div>
 </template>
 

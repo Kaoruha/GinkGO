@@ -60,7 +60,9 @@ function bootstrap() {
     reconnectCallbacks.forEach(cb => {
       try {
         cb()
-      } catch {}
+      } catch {
+        // 单个回调异常不中断其余回调
+      }
     })
   })
 }
@@ -97,7 +99,9 @@ function scheduleRefetch(key: string, fn: () => void, delay = DEFAULT_REFETCH_DE
     refetchTimers.delete(key)
     try {
       fn()
-    } catch {}
+    } catch {
+      // 合并刷新失败静默,下轮事件会再触发
+    }
   }, delay))
 }
 

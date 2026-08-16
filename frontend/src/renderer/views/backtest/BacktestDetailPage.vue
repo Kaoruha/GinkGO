@@ -1,72 +1,167 @@
 <template>
   <PageLayout>
     <template #title>
-      <PageTitle :title="pageTitle" back-to="/backtests" back-label="回测中心" />
+      <PageTitle
+        :title="pageTitle"
+        back-to="/backtests"
+        back-label="回测中心"
+      />
     </template>
     <template #meta>
       <template v-if="currentTask">
-        <span class="tag" :class="statusTagClass(currentTask.status)">{{ statusLabel(currentTask.status) }}</span>
-        <span class="task-uuid" :title="`${currentTask.uuid}（点击复制）`" @click="copyUuid">{{ currentTask.uuid.slice(0, 8) }}</span>
+        <span
+          class="tag"
+          :class="statusTagClass(currentTask.status)"
+        >{{ statusLabel(currentTask.status) }}</span>
+        <span
+          class="task-uuid"
+          :title="`${currentTask.uuid}（点击复制）`"
+          @click="copyUuid"
+        >{{ currentTask.uuid.slice(0, 8) }}</span>
         <router-link
           v-if="currentTask.portfolio_id"
           :to="`/portfolios/${currentTask.portfolio_id}`"
           class="portfolio-link"
-        >组合：{{ portfolioLabel }}</router-link>
+        >
+          组合：{{ portfolioLabel }}
+        </router-link>
       </template>
     </template>
     <template #actions>
-      <div v-if="currentTask" class="detail-actions">
-        <button v-if="canStartByState(currentTask.status)" class="btn-primary" @click="handleReRun">重新运行</button>
-        <button v-if="canStopByState(currentTask.status)" class="btn-danger" @click="handleStop">停止</button>
-        <button v-if="currentTask.status !== 'running'" class="btn-danger-outline" @click="handleDelete">删除</button>
+      <div
+        v-if="currentTask"
+        class="detail-actions"
+      >
+        <button
+          v-if="canStartByState(currentTask.status)"
+          class="btn-primary"
+          @click="handleReRun"
+        >
+          重新运行
+        </button>
+        <button
+          v-if="canStopByState(currentTask.status)"
+          class="btn-danger"
+          @click="handleStop"
+        >
+          停止
+        </button>
+        <button
+          v-if="currentTask.status !== 'running'"
+          class="btn-danger-outline"
+          @click="handleDelete"
+        >
+          删除
+        </button>
       </div>
     </template>
 
     <!-- 详情内容 -->
-    <div v-if="detailLoading" class="loading-center"><div class="spinner"></div></div>
+    <div
+      v-if="detailLoading"
+      class="loading-center"
+    >
+      <div class="spinner" />
+    </div>
 
-    <div v-else-if="currentTask" class="detail-content">
+    <div
+      v-else-if="currentTask"
+      class="detail-content"
+    >
       <!-- 回测区间 + 配置摘要(可折叠):config 来自任务 config_snapshot,口径对齐依据) -->
-      <div v-if="currentTask.backtest_start_date || currentTask.backtest_end_date" class="date-range-bar">
+      <div
+        v-if="currentTask.backtest_start_date || currentTask.backtest_end_date"
+        class="date-range-bar"
+      >
         <span class="date-range-label">回测区间</span>
         <span class="date-range-value">{{ formatShortDate(currentTask.backtest_start_date) }} ~ {{ formatShortDate(currentTask.backtest_end_date) }}</span>
-        <button v-if="configItems.length" class="config-toggle" @click="showConfig = !showConfig">
+        <button
+          v-if="configItems.length"
+          class="config-toggle"
+          @click="showConfig = !showConfig"
+        >
           回测配置 {{ showConfig ? '▲' : '▼' }}
         </button>
       </div>
-      <div v-if="showConfig && configItems.length" class="config-summary">
-        <div v-for="item in configItems" :key="item.label" class="config-cell">
+      <div
+        v-if="showConfig && configItems.length"
+        class="config-summary"
+      >
+        <div
+          v-for="item in configItems"
+          :key="item.label"
+          class="config-cell"
+        >
           <span class="config-label">{{ item.label }}</span>
           <span class="config-val">{{ item.value }}</span>
         </div>
       </div>
 
       <!-- 进度 -->
-      <div v-if="currentTask.status === 'running' || currentTask.status === 'pending'" class="card">
+      <div
+        v-if="currentTask.status === 'running' || currentTask.status === 'pending'"
+        class="card"
+      >
         <div class="progress-section">
           <span>{{ currentTask.current_stage || '处理中' }}</span>
           <span>{{ (currentTask.progress || 0).toFixed(1) }}%</span>
         </div>
-        <div class="progress-bar-lg"><div class="progress-fill active" :style="{ width: (currentTask.progress || 0) + '%' }"></div></div>
+        <div class="progress-bar-lg">
+          <div
+            class="progress-fill active"
+            :style="{ width: (currentTask.progress || 0) + '%' }"
+          />
+        </div>
       </div>
 
       <!-- 详情 tab(L2,状态进 URL query: ?tab=) -->
-      <TabsNav v-model="activeDetailTab" size="small" :items="detailTabs" class="bt-subtabs" />
+      <TabsNav
+        v-model="activeDetailTab"
+        size="small"
+        :items="detailTabs"
+        class="bt-subtabs"
+      />
 
       <!-- 概览 -->
-      <div v-if="activeDetailTab === 'overview'" class="tab-panel">
+      <div
+        v-if="activeDetailTab === 'overview'"
+        class="tab-panel"
+      >
         <!-- 净值曲线 -->
         <div class="card">
           <h4>净值曲线</h4>
-          <NetValueChart v-if="netValueData.length > 0" :data="netValueData" :benchmark-data="benchmarkData" :height="300" />
-          <p v-else class="empty-hint">暂无净值数据</p>
+          <NetValueChart
+            v-if="netValueData.length > 0"
+            :data="netValueData"
+            :benchmark-data="benchmarkData"
+            :height="300"
+          />
+          <p
+            v-else
+            class="empty-hint"
+          >
+            暂无净值数据
+          </p>
         </div>
 
         <!-- 指标(hover 出口径说明;'—'=分析器未产出该指标,与真实 0 区分) -->
         <div class="metrics-grid">
-          <div v-for="m in metrics" :key="m.label" class="metric-card" :title="m.hint">
-            <div class="metric-label">{{ m.label }}</div>
-            <div class="metric-value" :class="{ 'metric-empty': m.empty }" :style="!m.empty && m.color ? { color: m.color } : undefined">{{ m.value }}</div>
+          <div
+            v-for="m in metrics"
+            :key="m.label"
+            class="metric-card"
+            :title="m.hint"
+          >
+            <div class="metric-label">
+              {{ m.label }}
+            </div>
+            <div
+              class="metric-value"
+              :class="{ 'metric-empty': m.empty }"
+              :style="!m.empty && m.color ? { color: m.color } : undefined"
+            >
+              {{ m.value }}
+            </div>
           </div>
         </div>
 
@@ -82,14 +177,22 @@
         </div>
 
         <!-- 分析器 -->
-        <div v-if="analyzers.length > 0" class="card">
+        <div
+          v-if="analyzers.length > 0"
+          class="card"
+        >
           <h4>分析器</h4>
           <table class="data-table">
             <thead><tr><th>名称</th><th>最新值</th><th>记录数</th><th>变化</th></tr></thead>
             <tbody>
-              <tr v-for="a in analyzers" :key="a.name">
+              <tr
+                v-for="a in analyzers"
+                :key="a.name"
+              >
                 <td><span class="tag tag-blue">{{ a.name }}</span></td>
-                <td :style="{ color: getAnalyzerColor(a.name, a.latest_value) }">{{ fmtAnalyzer(a.name, a.latest_value) }}</td>
+                <td :style="{ color: getAnalyzerColor(a.name, a.latest_value) }">
+                  {{ fmtAnalyzer(a.name, a.latest_value) }}
+                </td>
                 <td>{{ a.stats?.count || 0 }}</td>
                 <td :style="{ color: (a.stats?.change || 0) >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
                   {{ (a.stats?.change || 0) >= 0 ? '↑' : '↓' }} {{ fmtAnalyzer(a.name, Math.abs(a.stats?.change || 0)) }}
@@ -100,21 +203,46 @@
         </div>
 
         <!-- 错误 -->
-        <div v-if="currentTask.error_message" class="card card-error">
+        <div
+          v-if="currentTask.error_message"
+          class="card card-error"
+        >
           <h4>错误信息</h4>
           <pre>{{ currentTask.error_message }}</pre>
         </div>
       </div>
 
       <!-- 分析器详情 -->
-      <div v-if="activeDetailTab === 'analyzers'" class="tab-panel">
+      <div
+        v-if="activeDetailTab === 'analyzers'"
+        class="tab-panel"
+      >
         <div class="card">
-          <div v-if="analyzerLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
+          <div
+            v-if="analyzerLoading"
+            class="loading-center"
+          >
+            <div class="spinner spinner-sm" />
+          </div>
           <template v-else-if="analyzerStats">
-            <NetValueChart v-if="analyzerChartData.length > 0" :data="analyzerChartData" :height="250" />
+            <NetValueChart
+              v-if="analyzerChartData.length > 0"
+              :data="analyzerChartData"
+              :height="250"
+            />
             <div class="analyzer-header">
-              <select v-model="selectedAnalyzer" class="form-select" @change="loadAnalyzerData">
-                <option v-for="a in analyzers" :key="a.name" :value="a.name">{{ a.name }}</option>
+              <select
+                v-model="selectedAnalyzer"
+                class="form-select"
+                @change="loadAnalyzerData"
+              >
+                <option
+                  v-for="a in analyzers"
+                  :key="a.name"
+                  :value="a.name"
+                >
+                  {{ a.name }}
+                </option>
               </select>
             </div>
             <div class="stats-row">
@@ -124,36 +252,81 @@
               <span>Avg: {{ fmtAnalyzer(selectedAnalyzer, analyzerStats.avg) }}</span>
               <span>Change: {{ fmtAnalyzer(selectedAnalyzer, analyzerStats.change) }}</span>
             </div>
-            <table v-if="analyzerTimeseries.length > 0" class="data-table">
+            <table
+              v-if="analyzerTimeseries.length > 0"
+              class="data-table"
+            >
               <thead><tr><th>时间</th><th>值</th></tr></thead>
               <tbody>
-                <tr v-for="(row, i) in analyzerTimeseries.slice(-50)" :key="i">
+                <tr
+                  v-for="(row, i) in analyzerTimeseries.slice(-50)"
+                  :key="i"
+                >
                   <td>{{ row.time }}</td>
-                  <td :style="{ color: getAnalyzerColor(selectedAnalyzer, row.value) }">{{ fmtAnalyzer(selectedAnalyzer, row.value) }}</td>
+                  <td :style="{ color: getAnalyzerColor(selectedAnalyzer, row.value) }">
+                    {{ fmtAnalyzer(selectedAnalyzer, row.value) }}
+                  </td>
                 </tr>
               </tbody>
             </table>
-            <p v-else class="empty-hint">暂无时序数据</p>
+            <p
+              v-else
+              class="empty-hint"
+            >
+              暂无时序数据
+            </p>
           </template>
-          <p v-else class="empty-hint">请选择分析器</p>
+          <p
+            v-else
+            class="empty-hint"
+          >
+            请选择分析器
+          </p>
         </div>
       </div>
 
       <!-- 交易记录 -->
-      <div v-if="activeDetailTab === 'trades'" class="tab-panel">
+      <div
+        v-if="activeDetailTab === 'trades'"
+        class="tab-panel"
+      >
         <!-- 交易子 tab(L3,状态进 URL query: &trade=) -->
-        <TabsNav v-model="activeTradeTab" size="small" :items="tradeSubTabs" class="bt-subtabs" />
+        <TabsNav
+          v-model="activeTradeTab"
+          size="small"
+          :items="tradeSubTabs"
+          class="bt-subtabs"
+        />
 
         <!-- 三表(信号/订单/持仓记录)共用的 code 多选筛选 -->
-        <CodeFilter v-model:selected="selectedCodes" :codes="allCodes" />
+        <CodeFilter
+          v-model:selected="selectedCodes"
+          :codes="allCodes"
+        />
 
         <!-- 信号 -->
-        <div v-if="activeTradeTab === 'signals'" class="card">
-          <div v-if="signalsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-          <table v-else-if="filteredSignals.length > 0" class="data-table">
+        <div
+          v-if="activeTradeTab === 'signals'"
+          class="card"
+        >
+          <div
+            v-if="signalsLoading"
+            class="loading-center"
+          >
+            <div class="spinner spinner-sm" />
+          </div>
+          <table
+            v-else-if="filteredSignals.length > 0"
+            class="data-table"
+          >
             <thead><tr><th>代码</th><th>方向</th><th>权重</th><th>原因</th><th>时间</th></tr></thead>
             <tbody>
-              <tr v-for="s in filteredSignals" :key="s.uuid" :data-uuid="s.uuid" :class="{ 'row-highlight': highlightUuid === s.uuid }">
+              <tr
+                v-for="s in filteredSignals"
+                :key="s.uuid"
+                :data-uuid="s.uuid"
+                :class="{ 'row-highlight': highlightUuid === s.uuid }"
+              >
                 <td>{{ s.code }}</td>
                 <td><span :class="directionColor(s.direction)">{{ directionLabel(s.direction) }}</span></td>
                 <td>{{ (s.weight * 100).toFixed(1) }}%</td>
@@ -162,17 +335,39 @@
               </tr>
             </tbody>
           </table>
-          <p v-else class="empty-hint">暂无信号记录</p>
+          <p
+            v-else
+            class="empty-hint"
+          >
+            暂无信号记录
+          </p>
         </div>
 
         <!-- 订单 -->
-        <div v-if="activeTradeTab === 'orders'" class="card">
-          <div v-if="ordersLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-          <table v-else-if="filteredOrders.length > 0" class="data-table">
-            <thead><tr><th>代码</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>手续费</th><th>来源信号</th><th>时间</th><th></th></tr></thead>
+        <div
+          v-if="activeTradeTab === 'orders'"
+          class="card"
+        >
+          <div
+            v-if="ordersLoading"
+            class="loading-center"
+          >
+            <div class="spinner spinner-sm" />
+          </div>
+          <table
+            v-else-if="filteredOrders.length > 0"
+            class="data-table"
+          >
+            <thead><tr><th>代码</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>手续费</th><th>来源信号</th><th>时间</th><th /></tr></thead>
             <tbody>
-              <template v-for="o in filteredOrders" :key="o.uuid">
-                <tr :data-order="o.order_id || o.uuid" :class="{ 'row-highlight': highlightOrder === (o.order_id || o.uuid) }">
+              <template
+                v-for="o in filteredOrders"
+                :key="o.uuid"
+              >
+                <tr
+                  :data-order="o.order_id || o.uuid"
+                  :class="{ 'row-highlight': highlightOrder === (o.order_id || o.uuid) }"
+                >
                   <td>{{ o.code }}</td>
                   <td><span :class="directionColor(o.direction)">{{ directionLabel(o.direction) }}</span></td>
                   <td>{{ o.order_type }}</td>
@@ -180,220 +375,514 @@
                   <td>{{ o.transaction_price }}</td>
                   <td>{{ o.fee }}</td>
                   <td>
-                    <span v-if="o.signal_id" class="lineage-chip" :title="`信号 ${o.signal_id}\n点击跳转`"
-                      @click="jumpToSignal(o.signal_id)">{{ signalDigest(o.signal_id) }}</span>
-                    <span v-else class="empty-hint-inline">-</span>
+                    <span
+                      v-if="o.signal_id"
+                      class="lineage-chip"
+                      :title="`信号 ${o.signal_id}\n点击跳转`"
+                      @click="jumpToSignal(o.signal_id)"
+                    >{{ signalDigest(o.signal_id) }}</span>
+                    <span
+                      v-else
+                      class="empty-hint-inline"
+                    >-</span>
                   </td>
                   <td>{{ formatShortDate(o.timestamp) }}</td>
-                  <td><button class="expand-btn" @click="toggleLifecycle(o.order_id || o.uuid)">
-                    {{ expandedOrder === (o.order_id || o.uuid) ? '收起' : '生命周期' }}
-                  </button></td>
+                  <td>
+                    <button
+                      class="expand-btn"
+                      @click="toggleLifecycle(o.order_id || o.uuid)"
+                    >
+                      {{ expandedOrder === (o.order_id || o.uuid) ? '收起' : '生命周期' }}
+                    </button>
+                  </td>
                 </tr>
                 <!-- 生命周期时间线:该订单全部状态流转(order_record 流水) -->
-                <tr v-if="expandedOrder === (o.order_id || o.uuid)" class="lifecycle-row">
+                <tr
+                  v-if="expandedOrder === (o.order_id || o.uuid)"
+                  class="lifecycle-row"
+                >
                   <td :colspan="9">
-                    <div v-if="lifecycleLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
+                    <div
+                      v-if="lifecycleLoading"
+                      class="loading-center"
+                    >
+                      <div class="spinner spinner-sm" />
+                    </div>
                     <template v-else>
-                      <div v-if="lifecycleOf(o.order_id || o.uuid).length" class="lifecycle-timeline">
-                        <div v-for="(st, i) in lifecycleOf(o.order_id || o.uuid)" :key="i" class="lifecycle-step">
-                          <span class="step-dot" :class="stepClass(st.status)"></span>
+                      <div
+                        v-if="lifecycleOf(o.order_id || o.uuid).length"
+                        class="lifecycle-timeline"
+                      >
+                        <div
+                          v-for="(st, i) in lifecycleOf(o.order_id || o.uuid)"
+                          :key="i"
+                          class="lifecycle-step"
+                        >
+                          <span
+                            class="step-dot"
+                            :class="stepClass(st.status)"
+                          />
                           <span class="step-status">{{ orderStatusName(st.status) }}</span>
-                          <span v-if="Number(st.transaction_volume) > 0" class="step-meta">{{ st.transaction_volume }}@{{ st.transaction_price || '-' }}</span>
+                          <span
+                            v-if="Number(st.transaction_volume) > 0"
+                            class="step-meta"
+                          >{{ st.transaction_volume }}@{{ st.transaction_price || '-' }}</span>
                           <span class="step-time">{{ st.timestamp || '-' }}</span>
                         </div>
                       </div>
-                      <p v-else class="empty-hint">暂无状态流水</p>
+                      <p
+                        v-else
+                        class="empty-hint"
+                      >
+                        暂无状态流水
+                      </p>
                     </template>
                   </td>
                 </tr>
               </template>
             </tbody>
           </table>
-          <p v-else class="empty-hint">暂无订单记录</p>
+          <p
+            v-else
+            class="empty-hint"
+          >
+            暂无订单记录
+          </p>
         </div>
 
         <!-- 持仓 -->
-        <div v-if="activeTradeTab === 'positions'" class="card">
-          <div v-if="positionsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-          <table v-else-if="filteredPositions.length > 0" class="data-table">
+        <div
+          v-if="activeTradeTab === 'positions'"
+          class="card"
+        >
+          <div
+            v-if="positionsLoading"
+            class="loading-center"
+          >
+            <div class="spinner spinner-sm" />
+          </div>
+          <table
+            v-else-if="filteredPositions.length > 0"
+            class="data-table"
+          >
             <thead><tr><th>代码</th><th>方向</th><th>数量</th><th>成本</th><th>市值</th><th>盈亏</th><th>盈亏%</th><th>来源订单</th><th>时间</th></tr></thead>
             <tbody>
-              <tr v-for="p in filteredPositions" :key="p.uuid">
+              <tr
+                v-for="p in filteredPositions"
+                :key="p.uuid"
+              >
                 <td>{{ p.code }}</td>
                 <td><span :class="directionColor(p.direction)">{{ directionLabel(p.direction) }}</span></td>
-                <td :style="{ color: p.volume >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ p.volume > 0 ? '+' : '' }}{{ p.volume }}</td><!-- 变动流水:带符号,+买/-卖 -->
+                <td :style="{ color: p.volume >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
+                  {{ p.volume > 0 ? '+' : '' }}{{ p.volume }}
+                </td><!-- 变动流水:带符号,+买/-卖 -->
                 <td>{{ formatDecimal(p.cost) }}</td>
                 <td>{{ formatDecimal(p.market_value) }}</td>
-                <td :style="{ color: p.profit >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ formatDecimal(p.profit) }}</td>
-                <td :style="{ color: p.profit_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ (p.profit_pct * 100).toFixed(2) }}%</td>
+                <td :style="{ color: p.profit >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
+                  {{ formatDecimal(p.profit) }}
+                </td>
+                <td :style="{ color: p.profit_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
+                  {{ (p.profit_pct * 100).toFixed(2) }}%
+                </td>
                 <td>
-                  <span v-if="p.order_id" class="lineage-chip" title="点击查看该订单生命周期"
-                    @click="jumpToOrder(p.order_id)">{{ p.order_id.slice(0, 8) }}</span>
-                  <span v-else class="empty-hint-inline">-</span>
+                  <span
+                    v-if="p.order_id"
+                    class="lineage-chip"
+                    title="点击查看该订单生命周期"
+                    @click="jumpToOrder(p.order_id)"
+                  >{{ p.order_id.slice(0, 8) }}</span>
+                  <span
+                    v-else
+                    class="empty-hint-inline"
+                  >-</span>
                 </td>
                 <td>{{ formatShortDate(p.business_timestamp || p.timestamp) }}</td><!-- 业务时间优先,同信号列口径 -->
               </tr>
             </tbody>
           </table>
-          <p v-else class="empty-hint">暂无持仓记录</p>
+          <p
+            v-else
+            class="empty-hint"
+          >
+            暂无持仓记录
+          </p>
         </div>
       </div>
 
       <!-- 日志 -->
-      <div v-if="activeDetailTab === 'logs'" class="tab-panel">
+      <div
+        v-if="activeDetailTab === 'logs'"
+        class="tab-panel"
+      >
         <!-- 筛选栏 -->
         <div class="card logs-filter">
           <div class="filter-row">
-            <select v-model="logFilters.level" class="form-select filter-select" @change="loadLogs(true)">
-              <option value="">全部级别</option>
-              <option value="DEBUG">DEBUG</option>
-              <option value="INFO">INFO</option>
-              <option value="WARNING">WARNING</option>
-              <option value="ERROR">ERROR</option>
-              <option value="CRITICAL">CRITICAL</option>
+            <select
+              v-model="logFilters.level"
+              class="form-select filter-select"
+              @change="loadLogs(true)"
+            >
+              <option value="">
+                全部级别
+              </option>
+              <option value="DEBUG">
+                DEBUG
+              </option>
+              <option value="INFO">
+                INFO
+              </option>
+              <option value="WARNING">
+                WARNING
+              </option>
+              <option value="ERROR">
+                ERROR
+              </option>
+              <option value="CRITICAL">
+                CRITICAL
+              </option>
             </select>
-            <select v-model="logFilters.event_type" class="form-select filter-select" @change="loadLogs(true)">
-              <option value="">全部事件</option>
-              <option value="SIGNALGENERATION">信号</option>
-              <option value="ORDERSUBMITTED">订单提交</option>
-              <option value="ORDERFILLED">成交</option>
-              <option value="ORDERREJECTED">订单拒绝</option>
-              <option value="ORDERCANCELACK">订单取消</option>
-              <option value="ORDEREXPIRED">订单过期</option>
-              <option value="POSITIONUPDATE">持仓更新</option>
-              <option value="CAPITALUPDATE">资金更新</option>
-              <option value="RISKBREACH">风控触发</option>
-              <option value="ENGINESTART">引擎启动</option>
-              <option value="ENGINESTOP">引擎停止</option>
-              <option value="ENGINEERROR">引擎错误</option>
-              <option value="ENGINECOMPLETE">引擎完成</option>
-              <option value="T1SETTLEMENT">T+1结算</option>
-              <option value="T1DELAYDECISION">T+1延迟</option>
-              <option value="TIMEADVANCE">时间推进</option>
-              <option value="PRICERECEIVED">行情接收</option>
-              <option value="STRATEGYSIGNAL">策略信号</option>
+            <select
+              v-model="logFilters.event_type"
+              class="form-select filter-select"
+              @change="loadLogs(true)"
+            >
+              <option value="">
+                全部事件
+              </option>
+              <option value="SIGNALGENERATION">
+                信号
+              </option>
+              <option value="ORDERSUBMITTED">
+                订单提交
+              </option>
+              <option value="ORDERFILLED">
+                成交
+              </option>
+              <option value="ORDERREJECTED">
+                订单拒绝
+              </option>
+              <option value="ORDERCANCELACK">
+                订单取消
+              </option>
+              <option value="ORDEREXPIRED">
+                订单过期
+              </option>
+              <option value="POSITIONUPDATE">
+                持仓更新
+              </option>
+              <option value="CAPITALUPDATE">
+                资金更新
+              </option>
+              <option value="RISKBREACH">
+                风控触发
+              </option>
+              <option value="ENGINESTART">
+                引擎启动
+              </option>
+              <option value="ENGINESTOP">
+                引擎停止
+              </option>
+              <option value="ENGINEERROR">
+                引擎错误
+              </option>
+              <option value="ENGINECOMPLETE">
+                引擎完成
+              </option>
+              <option value="T1SETTLEMENT">
+                T+1结算
+              </option>
+              <option value="T1DELAYDECISION">
+                T+1延迟
+              </option>
+              <option value="TIMEADVANCE">
+                时间推进
+              </option>
+              <option value="PRICERECEIVED">
+                行情接收
+              </option>
+              <option value="STRATEGYSIGNAL">
+                策略信号
+              </option>
             </select>
-            <input v-model="logFilters.start_time" type="date" class="form-input filter-date" @change="loadLogs(true)" />
+            <input
+              v-model="logFilters.start_time"
+              type="date"
+              class="form-input filter-date"
+              @change="loadLogs(true)"
+            >
             <span class="filter-sep">~</span>
-            <input v-model="logFilters.end_time" type="date" class="form-input filter-date" @change="loadLogs(true)" />
+            <input
+              v-model="logFilters.end_time"
+              type="date"
+              class="form-input filter-date"
+              @change="loadLogs(true)"
+            >
             <!-- 关键词:前端过滤已加载日志(message/symbol/事件字段),后端无 keyword 参数 -->
-            <input v-model="logKeyword" type="search" placeholder="关键词过滤已加载日志…" class="form-input filter-keyword" />
+            <input
+              v-model="logKeyword"
+              type="search"
+              placeholder="关键词过滤已加载日志…"
+              class="form-input filter-keyword"
+            >
           </div>
         </div>
 
         <!-- 日志列表 -->
-        <div class="logs-container" @scroll="onLogsScroll">
-          <div v-if="logsLoading && logs.length === 0" class="loading-center"><div class="spinner spinner-sm"></div></div>
+        <div
+          class="logs-container"
+          @scroll="onLogsScroll"
+        >
+          <div
+            v-if="logsLoading && logs.length === 0"
+            class="loading-center"
+          >
+            <div class="spinner spinner-sm" />
+          </div>
           <template v-else-if="filteredLogs.length > 0">
-            <div v-for="(log, i) in filteredLogs" :key="i" class="log-entry">
+            <div
+              v-for="(log, i) in filteredLogs"
+              :key="i"
+              class="log-entry"
+            >
               <span class="log-time-col">
                 <span class="log-bt">{{ formatLogTime(log.business_timestamp) }}</span>
                 <span class="log-wt">{{ formatLogTime(log.timestamp) }}</span>
               </span>
-              <span class="log-level" :class="levelClass(log.level)">{{ log.level }}</span>
-              <span v-if="log.event_type" class="log-event" :class="eventClass(log.event_type)">{{ log.event_type }}</span>
+              <span
+                class="log-level"
+                :class="levelClass(log.level)"
+              >{{ log.level }}</span>
+              <span
+                v-if="log.event_type"
+                class="log-event"
+                :class="eventClass(log.event_type)"
+              >{{ log.event_type }}</span>
               <!-- 结构化事件展示 -->
-              <span v-if="log.event_type === 'SIGNALGENERATION'" class="log-detail">
+              <span
+                v-if="log.event_type === 'SIGNALGENERATION'"
+                class="log-detail"
+              >
                 <span class="log-symbol">{{ log.symbol }}</span>
                 <span :class="directionColor(log.direction)">{{ dirLabel(log.direction) }}</span>
-                <span v-if="log.signal_volume" class="log-kv">vol={{ log.signal_volume }}</span>
-                <span v-if="log.signal_reason" class="log-reason">{{ log.signal_reason }}</span>
-                <span v-if="log.strategy_id" class="log-kv dim">strategy={{ log.strategy_id.substring(0, 8) }}</span>
+                <span
+                  v-if="log.signal_volume"
+                  class="log-kv"
+                >vol={{ log.signal_volume }}</span>
+                <span
+                  v-if="log.signal_reason"
+                  class="log-reason"
+                >{{ log.signal_reason }}</span>
+                <span
+                  v-if="log.strategy_id"
+                  class="log-kv dim"
+                >strategy={{ log.strategy_id.substring(0, 8) }}</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'ORDERSUBMITTED'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'ORDERSUBMITTED'"
+                class="log-detail"
+              >
                 <span class="log-symbol">{{ log.symbol }}</span>
                 <span class="log-kv">{{ log.order_type || 'MARKET' }}</span>
-                <span v-if="log.limit_price" class="log-kv">price={{ log.limit_price }}</span>
-                <span v-if="log.order_id" class="log-kv dim">{{ log.order_id }}</span>
+                <span
+                  v-if="log.limit_price"
+                  class="log-kv"
+                >price={{ log.limit_price }}</span>
+                <span
+                  v-if="log.order_id"
+                  class="log-kv dim"
+                >{{ log.order_id }}</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'ORDERACK'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'ORDERACK'"
+                class="log-detail"
+              >
                 <span class="log-symbol">{{ log.symbol }}</span>
                 <span class="log-kv">accepted</span>
-                <span v-if="log.broker_order_id" class="log-kv dim">{{ log.broker_order_id }}</span>
+                <span
+                  v-if="log.broker_order_id"
+                  class="log-kv dim"
+                >{{ log.broker_order_id }}</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'ORDERFILLED'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'ORDERFILLED'"
+                class="log-detail"
+              >
                 <span class="log-symbol">{{ log.symbol }}</span>
                 <span :class="directionColor(log.direction)">{{ dirLabel(log.direction) }}</span>
                 <span class="log-kv">{{ log.transaction_volume }}@{{ log.transaction_price }}</span>
-                <span v-if="log.commission" class="log-kv dim">fee={{ log.commission }}</span>
-                <span v-if="log.slippage" class="log-kv dim">slip={{ log.slippage }}</span>
+                <span
+                  v-if="log.commission"
+                  class="log-kv dim"
+                >fee={{ log.commission }}</span>
+                <span
+                  v-if="log.slippage"
+                  class="log-kv dim"
+                >slip={{ log.slippage }}</span>
                 <span class="log-msg-inline">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'ORDERREJECTED'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'ORDERREJECTED'"
+                class="log-detail"
+              >
                 <span class="log-symbol">{{ log.symbol }}</span>
                 <span class="log-kv text-red">REJECTED</span>
-                <span v-if="log.reject_reason" class="log-reason">{{ log.reject_reason }}</span>
+                <span
+                  v-if="log.reject_reason"
+                  class="log-reason"
+                >{{ log.reject_reason }}</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'ORDERCANCELACK'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'ORDERCANCELACK'"
+                class="log-detail"
+              >
                 <span class="log-symbol">{{ log.symbol }}</span>
                 <span class="log-kv dim">cancelled</span>
-                <span v-if="log.cancel_reason" class="log-reason">{{ log.cancel_reason }}</span>
+                <span
+                  v-if="log.cancel_reason"
+                  class="log-reason"
+                >{{ log.cancel_reason }}</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'POSITIONUPDATE'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'POSITIONUPDATE'"
+                class="log-detail"
+              >
                 <span class="log-symbol">{{ log.position_code || log.symbol }}</span>
                 <span class="log-kv">vol={{ log.position_volume }}</span>
                 <span class="log-kv">cost={{ log.position_cost }}</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'CAPITALUPDATE'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'CAPITALUPDATE'"
+                class="log-detail"
+              >
                 <span class="log-kv">NAV={{ log.net_value || log.total_value }}</span>
                 <span class="log-kv">cash={{ log.available_cash }}</span>
-                <span v-if="log.pnl" :style="{ color: log.pnl >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">PnL={{ log.pnl }}</span>
-                <span v-if="log.drawdown" class="log-kv dim">DD={{ log.drawdown }}</span>
+                <span
+                  v-if="log.pnl"
+                  :style="{ color: log.pnl >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }"
+                >PnL={{ log.pnl }}</span>
+                <span
+                  v-if="log.drawdown"
+                  class="log-kv dim"
+                >DD={{ log.drawdown }}</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'ENGINESTART' || log.event_type === 'ENGINESTOP' || log.event_type === 'ENGINECOMPLETE'" class="log-detail">
-                <span v-if="log.engine_status" class="log-kv">{{ log.engine_status }}</span>
-                <span v-if="log.progress" class="log-kv">{{ (log.progress * 100).toFixed(0) }}%</span>
+              <span
+                v-else-if="log.event_type === 'ENGINESTART' || log.event_type === 'ENGINESTOP' || log.event_type === 'ENGINECOMPLETE'"
+                class="log-detail"
+              >
+                <span
+                  v-if="log.engine_status"
+                  class="log-kv"
+                >{{ log.engine_status }}</span>
+                <span
+                  v-if="log.progress"
+                  class="log-kv"
+                >{{ (log.progress * 100).toFixed(0) }}%</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'ENGINEERROR'" class="log-detail">
-                <span v-if="log.error_code" class="log-kv text-red">{{ log.error_code }}</span>
+              <span
+                v-else-if="log.event_type === 'ENGINEERROR'"
+                class="log-detail"
+              >
+                <span
+                  v-if="log.error_code"
+                  class="log-kv text-red"
+                >{{ log.error_code }}</span>
                 <span class="log-reason">{{ log.error_message || log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'RISKBREACH'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'RISKBREACH'"
+                class="log-detail"
+              >
                 <span class="log-kv text-red">{{ log.risk_type }}</span>
-                <span v-if="log.risk_reason" class="log-reason">{{ log.risk_reason }}</span>
+                <span
+                  v-if="log.risk_reason"
+                  class="log-reason"
+                >{{ log.risk_reason }}</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'T1SETTLEMENT'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'T1SETTLEMENT'"
+                class="log-detail"
+              >
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'T1DELAYDECISION'" class="log-detail">
-                <span v-if="log.symbol" class="log-kv">{{ log.symbol }}</span>
+              <span
+                v-else-if="log.event_type === 'T1DELAYDECISION'"
+                class="log-detail"
+              >
+                <span
+                  v-if="log.symbol"
+                  class="log-kv"
+                >{{ log.symbol }}</span>
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'TIMEADVANCE'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'TIMEADVANCE'"
+                class="log-detail"
+              >
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'PRICERECEIVED'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'PRICERECEIVED'"
+                class="log-detail"
+              >
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
-              <span v-else-if="log.event_type === 'STRATEGYSIGNAL'" class="log-detail">
+              <span
+                v-else-if="log.event_type === 'STRATEGYSIGNAL'"
+                class="log-detail"
+              >
                 <span class="log-kv dim">{{ log.message }}</span>
               </span>
               <!-- 默认：纯文本 -->
-              <span v-else class="log-msg">{{ log.message }}</span>
+              <span
+                v-else
+                class="log-msg"
+              >{{ log.message }}</span>
             </div>
-            <div v-if="logsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-            <div v-if="!logsHasMore" class="logs-end">
+            <div
+              v-if="logsLoading"
+              class="loading-center"
+            >
+              <div class="spinner spinner-sm" />
+            </div>
+            <div
+              v-if="!logsHasMore"
+              class="logs-end"
+            >
               {{ logKeyword ? `已加载 ${logsTotal} 条中匹配 ${filteredLogs.length} 条` : `已加载全部 ${logsTotal} 条日志` }}
             </div>
           </template>
-          <p v-else-if="logKeyword && logs.length > 0" class="empty-hint">已加载日志中无「{{ logKeyword }}」匹配（下拉加载更多后自动生效）</p>
-          <p v-else class="empty-hint">暂无日志数据</p>
+          <p
+            v-else-if="logKeyword && logs.length > 0"
+            class="empty-hint"
+          >
+            已加载日志中无「{{ logKeyword }}」匹配（下拉加载更多后自动生效）
+          </p>
+          <p
+            v-else
+            class="empty-hint"
+          >
+            暂无日志数据
+          </p>
         </div>
       </div>
-
     </div>
 
     <!-- 任务不存在 -->
-    <EmptyState v-else description="回测任务不存在" action-text="返回列表" :on-action="goBack" />
+    <EmptyState
+      v-else
+      description="回测任务不存在"
+      action-text="返回列表"
+      :on-action="goBack"
+    />
     <ConfirmDialog
       v-model:open="confirmOpen"
       :title="confirmTitle"

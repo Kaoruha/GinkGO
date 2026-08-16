@@ -6,9 +6,22 @@
   >
     <slot />
 
-    <div v-if="showActions" class="form-actions">
-      <button type="button" class="btn-secondary" @click="handleReset">重置</button>
-      <button type="submit" class="btn-primary" :disabled="submitting">
+    <div
+      v-if="showActions"
+      class="form-actions"
+    >
+      <button
+        type="button"
+        class="btn-secondary"
+        @click="handleReset"
+      >
+        重置
+      </button>
+      <button
+        type="submit"
+        class="btn-primary"
+        :disabled="submitting"
+      >
         {{ submitting ? '提交中...' : submitText }}
       </button>
     </div>

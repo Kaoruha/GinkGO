@@ -1,17 +1,44 @@
 <template>
   <PageLayout>
-    <template #title>概览</template>
+    <template #title>
+      概览
+    </template>
     <template #meta>
-      <span v-if="lastUpdated" class="updated-at">更新于 {{ lastUpdated }}</span>
+      <span
+        v-if="lastUpdated"
+        class="updated-at"
+      >更新于 {{ lastUpdated }}</span>
     </template>
     <template #actions>
       <div class="quick-actions">
-        <button class="btn btn-secondary" @click="$router.push('/data/sync')">数据同步</button>
-        <button class="btn btn-secondary" @click="$router.push('/portfolios')">创建组合</button>
-        <button class="btn btn-secondary" :disabled="loading" @click="fetchDashboardData">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ 'spin': loading }">
-            <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
-            <polyline points="21 3 21 9 15 9"/>
+        <button
+          class="btn btn-secondary"
+          @click="$router.push('/data/sync')"
+        >
+          数据同步
+        </button>
+        <button
+          class="btn btn-secondary"
+          @click="$router.push('/portfolios')"
+        >
+          创建组合
+        </button>
+        <button
+          class="btn btn-secondary"
+          :disabled="loading"
+          @click="fetchDashboardData"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            :class="{ 'spin': loading }"
+          >
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <polyline points="21 3 21 9 15 9" />
           </svg>
           刷新
         </button>
@@ -20,68 +47,170 @@
 
     <div class="page-content">
       <!-- 系统状态卡片 -->
-      <div class="stats-grid m-stagger" data-testid="stats-grid">
-        <div class="stat-card" data-testid="stat-portfolio">
+      <div
+        class="stats-grid m-stagger"
+        data-testid="stats-grid"
+      >
+        <div
+          class="stat-card"
+          data-testid="stat-portfolio"
+        >
           <div class="stat-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polygon points="10,8 16,12 10,16"/>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+              />
+              <polygon points="10,8 16,12 10,16" />
             </svg>
           </div>
           <div class="stat-content">
-            <div class="stat-label">运行中 Portfolio</div>
-            <div class="stat-value" v-if="!loading">{{ stats.running }} <span class="stat-suffix">个</span></div>
-            <div class="stat-value" v-else>--</div>
+            <div class="stat-label">
+              运行中 Portfolio
+            </div>
+            <div
+              v-if="!loading"
+              class="stat-value"
+            >
+              {{ stats.running }} <span class="stat-suffix">个</span>
+            </div>
+            <div
+              v-else
+              class="stat-value"
+            >
+              --
+            </div>
           </div>
         </div>
 
-        <div class="stat-card" data-testid="stat-backtest">
+        <div
+          class="stat-card"
+          data-testid="stat-backtest"
+        >
           <div class="stat-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/>
-              <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/>
-              <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+              <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+              <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
             </svg>
           </div>
           <div class="stat-content">
-            <div class="stat-label">Portfolio 总数</div>
-            <div class="stat-value" v-if="!loading">{{ stats.total }} <span class="stat-suffix">个</span></div>
-            <div class="stat-value" v-else>--</div>
+            <div class="stat-label">
+              Portfolio 总数
+            </div>
+            <div
+              v-if="!loading"
+              class="stat-value"
+            >
+              {{ stats.total }} <span class="stat-suffix">个</span>
+            </div>
+            <div
+              v-else
+              class="stat-value"
+            >
+              --
+            </div>
           </div>
         </div>
 
-        <div class="stat-card" data-testid="stat-worker">
+        <div
+          class="stat-card"
+          data-testid="stat-worker"
+        >
           <div class="stat-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/>
-              <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
+              <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
             </svg>
           </div>
           <div class="stat-content">
-            <div class="stat-label">实盘资产</div>
-            <div class="stat-value" v-if="!loading && stats.totalAssets > 0">{{ stats.totalAssets.toLocaleString() }} <span class="stat-suffix">元</span></div>
-            <div class="stat-value" v-else>--</div>
+            <div class="stat-label">
+              实盘资产
+            </div>
+            <div
+              v-if="!loading && stats.totalAssets > 0"
+              class="stat-value"
+            >
+              {{ stats.totalAssets.toLocaleString() }} <span class="stat-suffix">元</span>
+            </div>
+            <div
+              v-else
+              class="stat-value"
+            >
+              --
+            </div>
           </div>
         </div>
 
-        <div class="stat-card" data-testid="stat-system">
+        <div
+          class="stat-card"
+          data-testid="stat-system"
+        >
           <div class="stat-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
-              <polyline points="16 7 22 7 22 13"/>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <polyline points="16 7 22 7 22 13" />
             </svg>
           </div>
           <div class="stat-content">
-            <div class="stat-label">平均净值</div>
-            <div class="stat-value" v-if="!loading">{{ stats.avgNetValue.toFixed(4) }}</div>
-            <div class="stat-value" v-else>--</div>
+            <div class="stat-label">
+              平均净值
+            </div>
+            <div
+              v-if="!loading"
+              class="stat-value"
+            >
+              {{ stats.avgNetValue.toFixed(4) }}
+            </div>
+            <div
+              v-else
+              class="stat-value"
+            >
+              --
+            </div>
           </div>
         </div>
       </div>
 
       <!-- 4阶段概览 -->
-      <div class="stages-grid" data-testid="stages-grid">
-        <div class="stage-card stage-1" data-testid="stage-backtest" @click="$router.push('/backtest')">
+      <div
+        class="stages-grid"
+        data-testid="stages-grid"
+      >
+        <div
+          class="stage-card stage-1"
+          data-testid="stage-backtest"
+          @click="$router.push('/backtest')"
+        >
           <div class="stage-header">
             <h3>回测</h3>
           </div>
@@ -92,13 +221,23 @@
             </div>
             <div class="stage-stat">
               <span class="stat-label">运行中</span>
-              <span class="stat-number" :class="{ 'is-running': backtestRunning > 0 }">{{ backtestRunning }}</span>
+              <span
+                class="stat-number"
+                :class="{ 'is-running': backtestRunning > 0 }"
+              >{{ backtestRunning }}</span>
             </div>
           </div>
-          <span class="stage-link" data-testid="stage-link-backtest">进入回测 →</span>
+          <span
+            class="stage-link"
+            data-testid="stage-link-backtest"
+          >进入回测 →</span>
         </div>
 
-        <div class="stage-card stage-2" data-testid="stage-validation" @click="$router.push('/validation/walkforward')">
+        <div
+          class="stage-card stage-2"
+          data-testid="stage-validation"
+          @click="$router.push('/validation/walkforward')"
+        >
           <div class="stage-header">
             <h3>验证</h3>
           </div>
@@ -112,10 +251,17 @@
               <span class="stat-number">--</span>
             </div>
           </div>
-          <span class="stage-link" data-testid="stage-link-validation">进入验证 →</span>
+          <span
+            class="stage-link"
+            data-testid="stage-link-validation"
+          >进入验证 →</span>
         </div>
 
-        <div class="stage-card stage-3" data-testid="stage-paper" @click="$router.push('/paper')">
+        <div
+          class="stage-card stage-3"
+          data-testid="stage-paper"
+          @click="$router.push('/paper')"
+        >
           <div class="stage-header">
             <h3>模拟</h3>
           </div>
@@ -126,13 +272,23 @@
             </div>
             <div class="stage-stat">
               <span class="stat-label">运行中</span>
-              <span class="stat-number" :class="{ 'is-running': paperRunning > 0 }">{{ paperRunning }}</span>
+              <span
+                class="stat-number"
+                :class="{ 'is-running': paperRunning > 0 }"
+              >{{ paperRunning }}</span>
             </div>
           </div>
-          <span class="stage-link" data-testid="stage-link-paper">进入模拟 →</span>
+          <span
+            class="stage-link"
+            data-testid="stage-link-paper"
+          >进入模拟 →</span>
         </div>
 
-        <div class="stage-card stage-4" data-testid="stage-live" @click="$router.push('/live')">
+        <div
+          class="stage-card stage-4"
+          data-testid="stage-live"
+          @click="$router.push('/live')"
+        >
           <div class="stage-header">
             <h3>实盘</h3>
           </div>
@@ -143,21 +299,43 @@
             </div>
             <div class="stage-stat">
               <span class="stat-label">运行中</span>
-              <span class="stat-number" :class="{ 'is-running': liveRunning > 0 }">{{ liveRunning }}</span>
+              <span
+                class="stat-number"
+                :class="{ 'is-running': liveRunning > 0 }"
+              >{{ liveRunning }}</span>
             </div>
           </div>
-          <span class="stage-link" data-testid="stage-link-live">进入实盘 →</span>
+          <span
+            class="stage-link"
+            data-testid="stage-link-live"
+          >进入实盘 →</span>
         </div>
       </div>
 
       <!-- 数据面板:收益对比 + 最近回测 -->
-      <div class="panels-grid" data-testid="panels-grid">
-        <div class="panel-card" data-testid="panel-returns">
+      <div
+        class="panels-grid"
+        data-testid="panels-grid"
+      >
+        <div
+          class="panel-card"
+          data-testid="panel-returns"
+        >
           <div class="panel-header">
             <h3>组合年化收益对比</h3>
-            <button class="list-link" @click="$router.push('/portfolio')">管理组合 →</button>
+            <button
+              class="list-link"
+              @click="$router.push('/portfolio')"
+            >
+              管理组合 →
+            </button>
           </div>
-          <p v-if="loading" class="loading-text">加载中...</p>
+          <p
+            v-if="loading"
+            class="loading-text"
+          >
+            加载中...
+          </p>
           <template v-else-if="portfolios.length > 0">
             <div
               v-for="p in portfolios.slice(0, 6)"
@@ -165,29 +343,62 @@
               class="return-row"
               @click="$router.push(`/portfolio/${p.uuid}`)"
             >
-              <span class="return-name" :title="p.name">{{ p.name }}</span>
+              <span
+                class="return-name"
+                :title="p.name"
+              >{{ p.name }}</span>
               <div class="return-track">
-                <div class="return-bar" :class="barClass(p.annual_return)" :style="{ width: barWidth(p.annual_return) + '%' }"></div>
+                <div
+                  class="return-bar"
+                  :class="barClass(p.annual_return)"
+                  :style="{ width: barWidth(p.annual_return) + '%' }"
+                />
               </div>
-              <span class="return-val" :class="returnClass(p.annual_return)">{{ fmtPercent(p.annual_return) }}</span>
+              <span
+                class="return-val"
+                :class="returnClass(p.annual_return)"
+              >{{ fmtPercent(p.annual_return) }}</span>
             </div>
           </template>
-          <EmptyState v-else description="暂无组合数据" />
+          <EmptyState
+            v-else
+            description="暂无组合数据"
+          />
         </div>
 
-        <div class="panel-card" data-testid="panel-recent-backtests">
+        <div
+          class="panel-card"
+          data-testid="panel-recent-backtests"
+        >
           <div class="panel-header">
             <h3>最近回测</h3>
-            <button class="list-link" @click="$router.push('/backtests')">全部 →</button>
+            <button
+              class="list-link"
+              @click="$router.push('/backtests')"
+            >
+              全部 →
+            </button>
           </div>
           <!-- 健康度:近100条状态分布,失败>0 红显 -->
-          <div v-if="btHealth.total > 0" class="bt-health" title="近100条回测状态统计">
-            <span class="bh-item"><span class="bh-dot bh-ok"></span>完成 {{ btHealth.completed }}</span>
-            <span class="bh-item" :class="{ 'bh-err-text': btHealth.failed > 0 }"><span class="bh-dot bh-err"></span>失败 {{ btHealth.failed }}</span>
-            <span class="bh-item"><span class="bh-dot bh-run"></span>进行中 {{ btHealth.active }}</span>
+          <div
+            v-if="btHealth.total > 0"
+            class="bt-health"
+            title="近100条回测状态统计"
+          >
+            <span class="bh-item"><span class="bh-dot bh-ok" />完成 {{ btHealth.completed }}</span>
+            <span
+              class="bh-item"
+              :class="{ 'bh-err-text': btHealth.failed > 0 }"
+            ><span class="bh-dot bh-err" />失败 {{ btHealth.failed }}</span>
+            <span class="bh-item"><span class="bh-dot bh-run" />进行中 {{ btHealth.active }}</span>
             <span class="bh-scope">共{{ btHealth.total }}条</span>
           </div>
-          <p v-if="loading" class="loading-text">加载中...</p>
+          <p
+            v-if="loading"
+            class="loading-text"
+          >
+            加载中...
+          </p>
           <template v-else-if="recentBacktests.length > 0">
             <div
               v-for="t in recentBacktests"
@@ -195,41 +406,96 @@
               class="recent-row"
               @click="$router.push(`/backtests/${t.uuid}`)"
             >
-              <span class="recent-name" :title="t.name">{{ t.name || t.uuid.substring(0, 8) }}</span>
-              <span class="tag" :class="btTagClass(t.status)">{{ btStatusLabel(t.status) }}</span>
-              <span v-if="t.status === 'running'" class="recent-prog">{{ (t.progress || 0).toFixed(0) }}%</span>
-              <span class="recent-pnl" :style="{ color: getPnLColor(t.total_pnl) }">{{ formatDecimal(t.total_pnl) }}</span>
-              <span class="recent-date" :title="t.update_at || t.created_at">{{ formatRelativeTime(t.update_at || t.created_at) }}</span>
+              <span
+                class="recent-name"
+                :title="t.name"
+              >{{ t.name || t.uuid.substring(0, 8) }}</span>
+              <span
+                class="tag"
+                :class="btTagClass(t.status)"
+              >{{ btStatusLabel(t.status) }}</span>
+              <span
+                v-if="t.status === 'running'"
+                class="recent-prog"
+              >{{ (t.progress || 0).toFixed(0) }}%</span>
+              <span
+                class="recent-pnl"
+                :style="{ color: getPnLColor(t.total_pnl) }"
+              >{{ formatDecimal(t.total_pnl) }}</span>
+              <span
+                class="recent-date"
+                :title="t.update_at || t.created_at"
+              >{{ formatRelativeTime(t.update_at || t.created_at) }}</span>
             </div>
           </template>
-          <EmptyState v-else description="暂无回测任务" action-text="去创建 →" :on-action="() => $router.push('/backtests')" />
+          <EmptyState
+            v-else
+            description="暂无回测任务"
+            action-text="去创建 →"
+            :on-action="() => $router.push('/backtests')"
+          />
         </div>
       </div>
 
       <!-- 数据新鲜度:四类数据最近一次同步状态 -->
-      <div class="freshness-card" data-testid="panel-data-freshness" @click="$router.push('/data')">
+      <div
+        class="freshness-card"
+        data-testid="panel-data-freshness"
+        @click="$router.push('/data')"
+      >
         <div class="freshness-header">
           <h3>数据新鲜度</h3>
-          <button class="list-link">数据管理 →</button>
+          <button class="list-link">
+            数据管理 →
+          </button>
         </div>
-        <p v-if="loading" class="loading-text">加载中...</p>
-        <div v-else class="freshness-grid">
-          <div v-for="f in freshnessRows" :key="f.type" class="freshness-cell">
-            <span class="freshness-dot" :class="`dot-${f.level}`"></span>
+        <p
+          v-if="loading"
+          class="loading-text"
+        >
+          加载中...
+        </p>
+        <div
+          v-else
+          class="freshness-grid"
+        >
+          <div
+            v-for="f in freshnessRows"
+            :key="f.type"
+            class="freshness-cell"
+          >
+            <span
+              class="freshness-dot"
+              :class="`dot-${f.level}`"
+            />
             <div class="freshness-info">
               <span class="freshness-type">{{ f.label }}</span>
-              <span class="freshness-time" :title="f.rawTime">{{ f.time }}</span>
+              <span
+                class="freshness-time"
+                :title="f.rawTime"
+              >{{ f.time }}</span>
             </div>
-            <span class="freshness-status" :class="`st-${f.level}`">{{ f.statusLabel }}</span>
+            <span
+              class="freshness-status"
+              :class="`st-${f.level}`"
+            >{{ f.statusLabel }}</span>
           </div>
         </div>
       </div>
 
       <!-- Portfolio 列表 -->
-      <div class="portfolio-list-card" v-if="portfolios.length > 0">
+      <div
+        v-if="portfolios.length > 0"
+        class="portfolio-list-card"
+      >
         <div class="list-header">
           <h3>Portfolio 列表</h3>
-          <button @click="$router.push('/portfolio')" class="list-link">查看全部 →</button>
+          <button
+            class="list-link"
+            @click="$router.push('/portfolio')"
+          >
+            查看全部 →
+          </button>
         </div>
         <div class="portfolio-table">
           <div class="table-row table-header-row">
@@ -246,18 +512,35 @@
             @click="$router.push(`/portfolio/${p.uuid}`)"
           >
             <span class="col-name">{{ p.name }}</span>
-            <span class="col-mode"><span class="tag" :class="modeTagClass(p.mode)">{{ modeLabel(p.mode) }}</span></span>
+            <span class="col-mode"><span
+              class="tag"
+              :class="modeTagClass(p.mode)"
+            >{{ modeLabel(p.mode) }}</span></span>
             <span class="col-state">
-              <span class="badge" :class="stateClass(p.state)">{{ stateLabel(p.state) }}</span>
+              <span
+                class="badge"
+                :class="stateClass(p.state)"
+              >{{ stateLabel(p.state) }}</span>
             </span>
-            <span class="col-num" :class="returnClass(p.annual_return)">{{ fmtPercent(p.annual_return) }}</span>
+            <span
+              class="col-num"
+              :class="returnClass(p.annual_return)"
+            >{{ fmtPercent(p.annual_return) }}</span>
             <span class="col-num">{{ fmtPercent(p.max_drawdown) }}</span>
           </div>
         </div>
       </div>
-      <div class="activity-card" v-else>
+      <div
+        v-else
+        class="activity-card"
+      >
         <h3>Portfolio 列表</h3>
-        <p v-if="loading" class="loading-text">加载中...</p>
+        <p
+          v-if="loading"
+          class="loading-text"
+        >
+          加载中...
+        </p>
         <EmptyState
           v-else
           description="暂无 Portfolio"

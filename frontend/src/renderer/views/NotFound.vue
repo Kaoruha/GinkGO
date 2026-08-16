@@ -1,9 +1,16 @@
 <template>
   <PageLayout>
     <div class="not-found-content">
-      <h1 class="error-code">404</h1>
-      <p class="error-message">页面未找到</p>
-      <button @click="$router.push('/')" class="back-button">
+      <h1 class="error-code">
+        404
+      </h1>
+      <p class="error-message">
+        页面未找到
+      </p>
+      <button
+        class="back-button"
+        @click="$router.push('/')"
+      >
         返回首页
       </button>
     </div>

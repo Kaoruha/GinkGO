@@ -1,11 +1,28 @@
 <template>
-  <div class="stat-card m-fade-up" :class="{ 'stat-card-clickable': clickable }">
-    <div class="stat-title">{{ title }}</div>
-    <div class="stat-value" :style="valueStyle">
-      <span v-if="$slots.prefix" class="stat-prefix"><slot name="prefix" /></span>
+  <div
+    class="stat-card m-fade-up"
+    :class="{ 'stat-card-clickable': clickable }"
+  >
+    <div class="stat-title">
+      {{ title }}
+    </div>
+    <div
+      class="stat-value"
+      :style="valueStyle"
+    >
+      <span
+        v-if="$slots.prefix"
+        class="stat-prefix"
+      ><slot name="prefix" /></span>
       <span class="stat-number">{{ displayValue }}</span>
-      <span v-if="computedSuffix" class="stat-suffix">{{ computedSuffix }}</span>
-      <span v-if="suffix" class="stat-suffix"><slot name="suffix" /></span>
+      <span
+        v-if="computedSuffix"
+        class="stat-suffix"
+      >{{ computedSuffix }}</span>
+      <span
+        v-if="suffix"
+        class="stat-suffix"
+      ><slot name="suffix" /></span>
     </div>
   </div>
 </template>

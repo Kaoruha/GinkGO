@@ -3,41 +3,96 @@
     <template v-if="stats && stats.completed_backtests > 0">
       <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-label">回测数</div>
-          <div class="stat-value">{{ stats.completed_backtests }}<span class="stat-sub"> / {{ stats.total_backtests }}</span></div>
-          <div class="stat-note">已完成 / 全部</div>
+          <div class="stat-label">
+            回测数
+          </div>
+          <div class="stat-value">
+            {{ stats.completed_backtests }}<span class="stat-sub"> / {{ stats.total_backtests }}</span>
+          </div>
+          <div class="stat-note">
+            已完成 / 全部
+          </div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">平均净值</div>
-          <div class="stat-value">{{ fmt(stats.avg_nav, 4) }}</div>
-          <div class="stat-note" v-if="stats.best_nav != null">最佳 {{ fmt(stats.best_nav, 4) }} · 最差 {{ fmt(stats.worst_nav, 4) }}</div>
+          <div class="stat-label">
+            平均净值
+          </div>
+          <div class="stat-value">
+            {{ fmt(stats.avg_nav, 4) }}
+          </div>
+          <div
+            v-if="stats.best_nav != null"
+            class="stat-note"
+          >
+            最佳 {{ fmt(stats.best_nav, 4) }} · 最差 {{ fmt(stats.worst_nav, 4) }}
+          </div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">平均最大回撤</div>
-          <div class="stat-value" :class="{ negative: (stats.avg_max_drawdown ?? 0) < 0 }">{{ pct(stats.avg_max_drawdown) }}</div>
-          <div class="stat-note" v-if="stats.worst_max_drawdown != null">最差 {{ pct(stats.worst_max_drawdown) }}</div>
+          <div class="stat-label">
+            平均最大回撤
+          </div>
+          <div
+            class="stat-value"
+            :class="{ negative: (stats.avg_max_drawdown ?? 0) < 0 }"
+          >
+            {{ pct(stats.avg_max_drawdown) }}
+          </div>
+          <div
+            v-if="stats.worst_max_drawdown != null"
+            class="stat-note"
+          >
+            最差 {{ pct(stats.worst_max_drawdown) }}
+          </div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">平均夏普比率</div>
-          <div class="stat-value">{{ fmt(stats.avg_sharpe_ratio, 2) }}</div>
-          <div class="stat-note" v-if="stats.best_sharpe_ratio != null">最佳 {{ fmt(stats.best_sharpe_ratio, 2) }}</div>
+          <div class="stat-label">
+            平均夏普比率
+          </div>
+          <div class="stat-value">
+            {{ fmt(stats.avg_sharpe_ratio, 2) }}
+          </div>
+          <div
+            v-if="stats.best_sharpe_ratio != null"
+            class="stat-note"
+          >
+            最佳 {{ fmt(stats.best_sharpe_ratio, 2) }}
+          </div>
         </div>
       </div>
       <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-label">平均年化收益</div>
-          <div class="stat-value">{{ pct(stats.avg_annual_return) }}</div>
+          <div class="stat-label">
+            平均年化收益
+          </div>
+          <div class="stat-value">
+            {{ pct(stats.avg_annual_return) }}
+          </div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">平均胜率</div>
-          <div class="stat-value">{{ pct(stats.avg_win_rate) }}</div>
+          <div class="stat-label">
+            平均胜率
+          </div>
+          <div class="stat-value">
+            {{ pct(stats.avg_win_rate) }}
+          </div>
         </div>
-        <div class="stat-card latest-card" v-if="stats.latest_completed">
-          <div class="stat-label">最近完成回测</div>
-          <router-link class="latest-name" :to="`/backtests/${stats.latest_completed.uuid}`" :title="`查看 ${stats.latest_completed.name} 详情`">
+        <div
+          v-if="stats.latest_completed"
+          class="stat-card latest-card"
+        >
+          <div class="stat-label">
+            最近完成回测
+          </div>
+          <router-link
+            class="latest-name"
+            :to="`/backtests/${stats.latest_completed.uuid}`"
+            :title="`查看 ${stats.latest_completed.name} 详情`"
+          >
             {{ stats.latest_completed.name || stats.latest_completed.uuid.slice(0, 8) }} →
           </router-link>
-          <div class="stat-note">净值 {{ fmt(stats.latest_completed.nav, 4) }} · 回撤 {{ pct(stats.latest_completed.max_drawdown) }} · 夏普 {{ fmt(stats.latest_completed.sharpe_ratio, 2) }}</div>
+          <div class="stat-note">
+            净值 {{ fmt(stats.latest_completed.nav, 4) }} · 回撤 {{ pct(stats.latest_completed.max_drawdown) }} · 夏普 {{ fmt(stats.latest_completed.sharpe_ratio, 2) }}
+          </div>
         </div>
       </div>
 
@@ -47,9 +102,23 @@
           <h4>回测净值对比</h4>
           <span class="compare-note">最近 {{ compareSeries.length }} 个已完成回测</span>
         </div>
-        <div v-if="compareLoading" class="loading-center"><div class="spinner"></div></div>
-        <NetValueCompareChart v-else-if="compareSeries.length > 0" :height="280" :series="compareSeries" />
-        <p v-else class="compare-empty">净值数据暂缺（回测未产出 net_value 分析器记录）</p>
+        <div
+          v-if="compareLoading"
+          class="loading-center"
+        >
+          <div class="spinner" />
+        </div>
+        <NetValueCompareChart
+          v-else-if="compareSeries.length > 0"
+          :height="280"
+          :series="compareSeries"
+        />
+        <p
+          v-else
+          class="compare-empty"
+        >
+          净值数据暂缺（回测未产出 net_value 分析器记录）
+        </p>
       </div>
     </template>
     <EmptyState

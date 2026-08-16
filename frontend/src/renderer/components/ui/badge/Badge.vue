@@ -37,7 +37,10 @@ const badgeClass = computed(() => cn(badgeVariants({ variant: props.variant }), 
 </script>
 
 <template>
-  <div :class="badgeClass" v-bind="$attrs">
+  <div
+    :class="badgeClass"
+    v-bind="$attrs"
+  >
     <slot />
   </div>
 </template>

@@ -7,8 +7,14 @@
       @select="selectedKeys = [$event]"
     />
     <div class="main">
-      <AppHeader :collapsed="collapsed" @toggle="collapsed = !collapsed" />
-      <main class="content" :class="{ 'content-fullscreen': isEditorPage }">
+      <AppHeader
+        :collapsed="collapsed"
+        @toggle="collapsed = !collapsed"
+      />
+      <main
+        class="content"
+        :class="{ 'content-fullscreen': isEditorPage }"
+      >
         <slot />
       </main>
     </div>

@@ -1,18 +1,58 @@
 <template>
   <div class="components-tab">
-    <div v-if="loading" class="loading-center"><div class="spinner"></div></div>
-    <div v-else-if="!portfolio" class="empty-hint">无法加载组合信息</div>
+    <div
+      v-if="loading"
+      class="loading-center"
+    >
+      <div class="spinner" />
+    </div>
+    <div
+      v-else-if="!portfolio"
+      class="empty-hint"
+    >
+      无法加载组合信息
+    </div>
     <div v-else>
-      <div v-for="group in componentGroups" :key="group.key" class="component-group">
-        <h4 class="group-title">{{ group.label }}</h4>
-        <div v-if="group.items.length === 0" class="empty-hint">未配置</div>
-        <div v-else class="component-cards">
-          <div v-for="item in group.items" :key="item.uuid" class="component-card">
-            <div class="comp-name">{{ item.name }}</div>
-            <div v-if="item.config" class="comp-config">
-              <div v-for="(val, key) in item.config" :key="key" class="config-row">
+      <div
+        v-for="group in componentGroups"
+        :key="group.key"
+        class="component-group"
+      >
+        <h4 class="group-title">
+          {{ group.label }}
+        </h4>
+        <div
+          v-if="group.items.length === 0"
+          class="empty-hint"
+        >
+          未配置
+        </div>
+        <div
+          v-else
+          class="component-cards"
+        >
+          <div
+            v-for="item in group.items"
+            :key="item.uuid"
+            class="component-card"
+          >
+            <div class="comp-name">
+              {{ item.name }}
+            </div>
+            <div
+              v-if="item.config"
+              class="comp-config"
+            >
+              <div
+                v-for="(val, key) in item.config"
+                :key="key"
+                class="config-row"
+              >
                 <span class="config-key">{{ key }}</span>
-                <span class="config-val" :title="`原始值：${rawVal(val)}`">{{ fmtVal(val) }}</span>
+                <span
+                  class="config-val"
+                  :title="`原始值：${rawVal(val)}`"
+                >{{ fmtVal(val) }}</span>
               </div>
             </div>
           </div>

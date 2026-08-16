@@ -5,16 +5,34 @@
     </template>
     <template #actions>
       <label class="switch-label">
-        <input type="checkbox" v-model="autoRefreshModel" @change="toggleAutoRefresh" class="switch-input" />
-        <span class="switch-slider"></span>
+        <input
+          v-model="autoRefreshModel"
+          type="checkbox"
+          class="switch-input"
+          @change="toggleAutoRefresh"
+        >
+        <span class="switch-slider" />
         <span class="switch-text">自动刷新</span>
       </label>
-      <button class="btn-secondary" @click="refreshData">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-          <path d="M3 3v5h5"></path>
-          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
-          <path d="M16 21h5v-5"></path>
+      <button
+        class="btn-secondary"
+        @click="refreshData"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+          <path d="M16 21h5v-5" />
         </svg>
         刷新
       </button>
@@ -22,29 +40,65 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <StatCard title="总 Worker" :value="filteredWorkers.length" />
-      <StatCard title="运行中" :value="runningCount" :color="runningCount > 0 ? 'positive' : 'neutral'" />
-      <StatCard title="已停止" :value="stoppedCount" color="neutral" />
-      <StatCard title="异常" :value="errorCount" :color="errorCount > 0 ? 'negative' : 'positive'" />
+      <StatCard
+        title="总 Worker"
+        :value="filteredWorkers.length"
+      />
+      <StatCard
+        title="运行中"
+        :value="runningCount"
+        :color="runningCount > 0 ? 'positive' : 'neutral'"
+      />
+      <StatCard
+        title="已停止"
+        :value="stoppedCount"
+        color="neutral"
+      />
+      <StatCard
+        title="异常"
+        :value="errorCount"
+        :color="errorCount > 0 ? 'negative' : 'positive'"
+      />
     </div>
 
     <!-- Worker 列表 -->
     <div class="card">
       <div class="card-header">
         <h3>Worker 列表</h3>
-        <select v-model="typeFilter" class="filter-select">
-          <option value="">全部类型</option>
-          <option value="data_worker">数据 Worker</option>
-          <option value="backtest_worker">回测 Worker</option>
-          <option value="execution_node">执行节点</option>
-          <option value="scheduler">调度器</option>
-          <option value="task_timer">定时器</option>
+        <select
+          v-model="typeFilter"
+          class="filter-select"
+        >
+          <option value="">
+            全部类型
+          </option>
+          <option value="data_worker">
+            数据 Worker
+          </option>
+          <option value="backtest_worker">
+            回测 Worker
+          </option>
+          <option value="execution_node">
+            执行节点
+          </option>
+          <option value="scheduler">
+            调度器
+          </option>
+          <option value="task_timer">
+            定时器
+          </option>
         </select>
       </div>
-      <div v-if="loading" class="loading-container">
-        <div class="spinner"></div>
+      <div
+        v-if="loading"
+        class="loading-container"
+      >
+        <div class="spinner" />
       </div>
-      <div v-else-if="filteredWorkers.length > 0" class="table-wrapper">
+      <div
+        v-else-if="filteredWorkers.length > 0"
+        class="table-wrapper"
+      >
         <table class="data-table">
           <thead>
             <tr>
@@ -56,83 +110,142 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="record in filteredWorkers" :key="`${record.type}-${record.id}`">
-            <tr @contextmenu="openWorkerMenu($event)">
-              <td class="monospace cell-id">
-                <button
-                  v-if="record.type === 'backtest_worker'"
-                  class="expand-btn"
-                  :class="{ expanded: expandedIds.has(record.id) }"
-                  @click="toggleExpand(record)"
-                  title="活跃任务"
+            <template
+              v-for="record in filteredWorkers"
+              :key="`${record.type}-${record.id}`"
+            >
+              <tr @contextmenu="openWorkerMenu($event)">
+                <td class="monospace cell-id">
+                  <button
+                    v-if="record.type === 'backtest_worker'"
+                    class="expand-btn"
+                    :class="{ expanded: expandedIds.has(record.id) }"
+                    title="活跃任务"
+                    @click="toggleExpand(record)"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+                  <span>{{ record.id }}</span>
+                </td>
+                <td>
+                  <span
+                    class="tag"
+                    :class="`tag-${getTypeColorClass(record.type)}`"
+                  >
+                    {{ getTypeText(record.type) }}
+                  </span>
+                </td>
+                <td :class="staleCellClass(record.last_heartbeat)">
+                  <StatusTag
+                    type="worker"
+                    :status="record.status"
+                  />
+                </td>
+                <td class="detail-text">
+                  <template v-if="record.type === 'backtest_worker'">
+                    任务: {{ record.task_count || 0 }}/{{ record.max_tasks || 5 }}
+                  </template>
+                  <template v-else-if="record.type === 'execution_node'">
+                    Portfolio: {{ record.portfolio_count || 0 }}
+                  </template>
+                  <template v-else-if="record.type === 'scheduler'">
+                    运行: {{ record.running_tasks || 0 }} / 待处理: {{ record.pending_tasks || 0 }}
+                  </template>
+                  <template v-else-if="record.type === 'task_timer'">
+                    定时任务: {{ record.jobs_count || 0 }}
+                  </template>
+                  <template v-else>
+                    已处理: {{ record.task_count || 0 }}
+                  </template>
+                </td>
+                <td
+                  class="monospace"
+                  :class="staleCellClass(record.last_heartbeat)"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="9 18 15 12 9 6"></polyline>
-                  </svg>
-                </button>
-                <span>{{ record.id }}</span>
-              </td>
-              <td>
-                <span class="tag" :class="`tag-${getTypeColorClass(record.type)}`">
-                  {{ getTypeText(record.type) }}
-                </span>
-              </td>
-              <td :class="staleCellClass(record.last_heartbeat)">
-                <StatusTag type="worker" :status="record.status" />
-              </td>
-              <td class="detail-text">
-                <template v-if="record.type === 'backtest_worker'">
-                  任务: {{ record.task_count || 0 }}/{{ record.max_tasks || 5 }}
-                </template>
-                <template v-else-if="record.type === 'execution_node'">
-                  Portfolio: {{ record.portfolio_count || 0 }}
-                </template>
-                <template v-else-if="record.type === 'scheduler'">
-                  运行: {{ record.running_tasks || 0 }} / 待处理: {{ record.pending_tasks || 0 }}
-                </template>
-                <template v-else-if="record.type === 'task_timer'">
-                  定时任务: {{ record.jobs_count || 0 }}
-                </template>
-                <template v-else>
-                  已处理: {{ record.task_count || 0 }}
-                </template>
-              </td>
-              <td class="monospace" :class="staleCellClass(record.last_heartbeat)">
-                {{ formatRelativeTime(record.last_heartbeat) }}
-              </td>
-            </tr>
-            <tr v-if="record.type === 'backtest_worker' && expandedIds.has(record.id)" class="expand-row">
-              <td colspan="5">
-                <div v-if="expandLoading.has(record.id)" class="expand-hint">加载中…</div>
-                <div v-else-if="expandError.has(record.id)" class="expand-hint expand-error">加载失败，点击箭头重试</div>
-                <div v-else-if="(expandedTasks[record.id] || []).length === 0" class="expand-hint">无活跃任务</div>
-                <table v-else class="mini-table">
-                  <thead>
-                    <tr><th>任务</th><th>状态</th><th>进度</th><th>Portfolio</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="t in expandedTasks[record.id]" :key="t.task_id">
-                      <td class="monospace">{{ t.name || t.task_id }}</td>
-                      <td>
-                        <StatusTag type="backtest" :status="t.status" />
-                      </td>
-                      <td>
-                        <div class="progress-bar">
-                          <div class="progress-fill" :style="{ width: `${t.progress}%` }"></div>
-                        </div>
-                        <span class="progress-num">{{ t.progress }}%</span>
-                      </td>
-                      <td class="monospace">{{ t.portfolio_id || '-' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
+                  {{ formatRelativeTime(record.last_heartbeat) }}
+                </td>
+              </tr>
+              <tr
+                v-if="record.type === 'backtest_worker' && expandedIds.has(record.id)"
+                class="expand-row"
+              >
+                <td colspan="5">
+                  <div
+                    v-if="expandLoading.has(record.id)"
+                    class="expand-hint"
+                  >
+                    加载中…
+                  </div>
+                  <div
+                    v-else-if="expandError.has(record.id)"
+                    class="expand-hint expand-error"
+                  >
+                    加载失败，点击箭头重试
+                  </div>
+                  <div
+                    v-else-if="(expandedTasks[record.id] || []).length === 0"
+                    class="expand-hint"
+                  >
+                    无活跃任务
+                  </div>
+                  <table
+                    v-else
+                    class="mini-table"
+                  >
+                    <thead>
+                      <tr><th>任务</th><th>状态</th><th>进度</th><th>Portfolio</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="t in expandedTasks[record.id]"
+                        :key="t.task_id"
+                      >
+                        <td class="monospace">
+                          {{ t.name || t.task_id }}
+                        </td>
+                        <td>
+                          <StatusTag
+                            type="backtest"
+                            :status="t.status"
+                          />
+                        </td>
+                        <td>
+                          <div class="progress-bar">
+                            <div
+                              class="progress-fill"
+                              :style="{ width: `${t.progress}%` }"
+                            />
+                          </div>
+                          <span class="progress-num">{{ t.progress }}%</span>
+                        </td>
+                        <td class="monospace">
+                          {{ t.portfolio_id || '-' }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
             </template>
           </tbody>
         </table>
       </div>
-      <EmptyState v-else description="暂无 Worker" />
+      <EmptyState
+        v-else
+        description="暂无 Worker"
+      />
     </div>
   </PageLayout>
 </template>
@@ -178,7 +291,7 @@ const errorCount = computed(() => filteredWorkers.value.filter(w => w.status ===
 const heartbeatTick = computed(() => systemStore.lastUpdate)
 
 const staleCellClass = (hb: string) => {
-  heartbeatTick.value // 渲染期读取，建立响应依赖
+  void heartbeatTick.value // 渲染期读取，建立响应依赖
   const level = heartbeatStaleLevel(hb)
   if (level === 2) return 'stale-2'
   if (level === 1) return 'stale-1'

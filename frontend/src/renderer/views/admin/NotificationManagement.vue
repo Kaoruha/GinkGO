@@ -4,18 +4,36 @@
       通知管理
     </template>
     <template #actions>
-      <button class="btn-primary" @click="openTemplateModal">新建通知模板</button>
+      <button
+        class="btn-primary"
+        @click="openTemplateModal"
+      >
+        新建通知模板
+      </button>
     </template>
 
     <div class="card">
-      <TabsNav :model-value="activeTab" :items="tabs" @update:model-value="switchTab" />
+      <TabsNav
+        :model-value="activeTab"
+        :items="tabs"
+        @update:model-value="switchTab"
+      />
 
       <!-- 通知模板标签页 -->
-      <div v-if="activeTab === 'templates'" class="tab-content">
-        <div v-if="loading" class="loading-container">
-          <div class="spinner"></div>
+      <div
+        v-if="activeTab === 'templates'"
+        class="tab-content"
+      >
+        <div
+          v-if="loading"
+          class="loading-container"
+        >
+          <div class="spinner" />
         </div>
-        <div v-else-if="templates.length > 0" class="table-wrapper">
+        <div
+          v-else-if="templates.length > 0"
+          class="table-wrapper"
+        >
           <table class="data-table">
             <thead>
               <tr>
@@ -27,10 +45,17 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in templates" :key="record.uuid" @contextmenu="openTemplateMenu($event, record)">
+              <tr
+                v-for="record in templates"
+                :key="record.uuid"
+                @contextmenu="openTemplateMenu($event, record)"
+              >
                 <td>{{ record.name }}</td>
                 <td>
-                  <span class="tag" :class="getTypeClass(record.type)">{{ getTypeLabel(record.type) }}</span>
+                  <span
+                    class="tag"
+                    :class="getTypeClass(record.type)"
+                  >{{ getTypeLabel(record.type) }}</span>
                 </td>
                 <td>{{ record.subject || '-' }}</td>
                 <td>
@@ -41,8 +66,11 @@
                       type="checkbox"
                       class="switch-input"
                       @change="(e: any) => toggleTemplate(record, e.target.checked)"
+                    >
+                    <label
+                      :for="`switch-${record.uuid}`"
+                      class="switch-label"
                     />
-                    <label :for="`switch-${record.uuid}`" class="switch-label"></label>
                   </div>
                 </td>
                 <td>{{ formatDate(record.updated_at) }}</td>
@@ -50,15 +78,27 @@
             </tbody>
           </table>
         </div>
-        <EmptyState v-else description="暂无通知模板" />
+        <EmptyState
+          v-else
+          description="暂无通知模板"
+        />
       </div>
 
       <!-- 发送记录标签页 -->
-      <div v-if="activeTab === 'history'" class="tab-content">
-        <div v-if="loading" class="loading-container">
-          <div class="spinner"></div>
+      <div
+        v-if="activeTab === 'history'"
+        class="tab-content"
+      >
+        <div
+          v-if="loading"
+          class="loading-container"
+        >
+          <div class="spinner" />
         </div>
-        <div v-else-if="history.length > 0" class="table-wrapper">
+        <div
+          v-else-if="history.length > 0"
+          class="table-wrapper"
+        >
           <table class="data-table">
             <thead>
               <tr>
@@ -70,32 +110,58 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in history" :key="record.uuid">
+              <tr
+                v-for="record in history"
+                :key="record.uuid"
+              >
                 <td>
-                  <span class="tag" :class="getTypeClass(record.type)">{{ getTypeLabel(record.type) }}</span>
+                  <span
+                    class="tag"
+                    :class="getTypeClass(record.type)"
+                  >{{ getTypeLabel(record.type) }}</span>
                 </td>
                 <td>{{ record.subject || '-' }}</td>
                 <td>{{ record.recipient }}</td>
                 <td>
-                  <StatusTag type="execution" :status="record.status" />
+                  <StatusTag
+                    type="execution"
+                    :status="record.status"
+                  />
                 </td>
                 <td>{{ formatDate(record.created_at) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <EmptyState v-else description="暂无发送记录" />
+        <EmptyState
+          v-else
+          description="暂无发送记录"
+        />
       </div>
 
       <!-- 接收人标签页 -->
-      <div v-if="activeTab === 'recipients'" class="tab-content">
+      <div
+        v-if="activeTab === 'recipients'"
+        class="tab-content"
+      >
         <div class="tab-toolbar">
-          <button class="btn-primary btn-sm" @click="openRecipientModal">添加接收人</button>
+          <button
+            class="btn-primary btn-sm"
+            @click="openRecipientModal"
+          >
+            添加接收人
+          </button>
         </div>
-        <div v-if="loading" class="loading-container">
-          <div class="spinner"></div>
+        <div
+          v-if="loading"
+          class="loading-container"
+        >
+          <div class="spinner" />
         </div>
-        <div v-else-if="recipients.length > 0" class="table-wrapper">
+        <div
+          v-else-if="recipients.length > 0"
+          class="table-wrapper"
+        >
           <table class="data-table">
             <thead>
               <tr>
@@ -107,7 +173,11 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in recipients" :key="record.uuid" @contextmenu="openRecipientMenu($event, record)">
+              <tr
+                v-for="record in recipients"
+                :key="record.uuid"
+                @contextmenu="openRecipientMenu($event, record)"
+              >
                 <td>{{ record.name }}</td>
                 <td>
                   <span class="tag tag-blue">{{ record.recipient_type === 'USER' ? '用户' : '用户组' }}</span>
@@ -115,44 +185,90 @@
                 <td>{{ record.recipient_type === 'USER' ? (record.user_info?.display_name || record.user_info?.username) : record.user_group_info?.name }}</td>
                 <td>{{ record.description || '-' }}</td>
                 <td>
-                  <span v-if="record.is_default" class="tag tag-green">默认</span>
+                  <span
+                    v-if="record.is_default"
+                    class="tag tag-green"
+                  >默认</span>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <EmptyState v-else description="暂无接收人" />
+        <EmptyState
+          v-else
+          description="暂无接收人"
+        />
       </div>
     </div>
 
     <!-- 新建/编辑通知模板模态框 -->
-    <div v-if="showTemplateModal" class="modal-overlay" @click.self="closeTemplateModal">
+    <div
+      v-if="showTemplateModal"
+      class="modal-overlay"
+      @click.self="closeTemplateModal"
+    >
       <div class="modal">
         <div class="modal-header">
           <h3>{{ editingTemplate ? '编辑通知模板' : '新建通知模板' }}</h3>
-          <button class="modal-close" @click="closeTemplateModal">×</button>
+          <button
+            class="modal-close"
+            @click="closeTemplateModal"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="handleTemplateSubmit">
             <div class="form-group">
               <label class="form-label">模板名称 <span class="required">*</span></label>
-              <input v-model="templateForm.name" type="text" placeholder="输入模板名称" class="form-input" required />
+              <input
+                v-model="templateForm.name"
+                type="text"
+                placeholder="输入模板名称"
+                class="form-input"
+                required
+              >
             </div>
             <div class="form-group">
               <label class="form-label">通知类型 <span class="required">*</span></label>
-              <select v-model="templateForm.type" class="form-select">
-                <option value="email">邮件</option>
-                <option value="discord">Discord</option>
-                <option value="system">系统通知</option>
+              <select
+                v-model="templateForm.type"
+                class="form-select"
+              >
+                <option value="email">
+                  邮件
+                </option>
+                <option value="discord">
+                  Discord
+                </option>
+                <option value="system">
+                  系统通知
+                </option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label">标题模板</label>
-              <input v-model="templateForm.subject" type="text" placeholder="通知标题" class="form-input" />
+              <input
+                v-model="templateForm.subject"
+                type="text"
+                placeholder="通知标题"
+                class="form-input"
+              >
             </div>
             <div class="modal-actions">
-              <button type="button" class="btn-secondary" @click="closeTemplateModal">取消</button>
-              <button type="submit" class="btn-primary">{{ editingTemplate ? '保存' : '创建' }}</button>
+              <button
+                type="button"
+                class="btn-secondary"
+                @click="closeTemplateModal"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="btn-primary"
+              >
+                {{ editingTemplate ? '保存' : '创建' }}
+              </button>
             </div>
           </form>
         </div>
@@ -160,39 +276,81 @@
     </div>
 
     <!-- 添加/编辑接收人模态框 -->
-    <div v-if="showRecipientModal" class="modal-overlay" @click.self="closeRecipientModal">
+    <div
+      v-if="showRecipientModal"
+      class="modal-overlay"
+      @click.self="closeRecipientModal"
+    >
       <div class="modal">
         <div class="modal-header">
           <h3>{{ editingRecipient ? '编辑接收人' : '添加接收人' }}</h3>
-          <button class="modal-close" @click="closeRecipientModal">×</button>
+          <button
+            class="modal-close"
+            @click="closeRecipientModal"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="handleRecipientSubmit">
             <div class="form-group">
               <label class="form-label">名称 <span class="required">*</span></label>
-              <input v-model="recipientForm.name" type="text" placeholder="接收人名称" class="form-input" required />
+              <input
+                v-model="recipientForm.name"
+                type="text"
+                placeholder="接收人名称"
+                class="form-input"
+                required
+              >
             </div>
             <div class="form-group">
               <label class="form-label">类型</label>
-              <select v-model="recipientForm.recipient_type" class="form-select">
-                <option value="USER">用户</option>
-                <option value="USER_GROUP">用户组</option>
+              <select
+                v-model="recipientForm.recipient_type"
+                class="form-select"
+              >
+                <option value="USER">
+                  用户
+                </option>
+                <option value="USER_GROUP">
+                  用户组
+                </option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label">描述</label>
-              <input v-model="recipientForm.description" type="text" placeholder="描述（可选）" class="form-input" />
+              <input
+                v-model="recipientForm.description"
+                type="text"
+                placeholder="描述（可选）"
+                class="form-input"
+              >
             </div>
             <div class="form-group">
               <label class="form-label">设为默认</label>
               <label class="switch-label">
-                <input type="checkbox" v-model="recipientForm.is_default" class="switch-input-inline" />
+                <input
+                  v-model="recipientForm.is_default"
+                  type="checkbox"
+                  class="switch-input-inline"
+                >
                 <span>{{ recipientForm.is_default ? '是' : '否' }}</span>
               </label>
             </div>
             <div class="modal-actions">
-              <button type="button" class="btn-secondary" @click="closeRecipientModal">取消</button>
-              <button type="submit" class="btn-primary">{{ editingRecipient ? '保存' : '创建' }}</button>
+              <button
+                type="button"
+                class="btn-secondary"
+                @click="closeRecipientModal"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="btn-primary"
+              >
+                {{ editingRecipient ? '保存' : '创建' }}
+              </button>
             </div>
           </form>
         </div>

@@ -3,15 +3,32 @@
     <template #title>
       <span class="tag tag-green">K线</span>
       K线数据
-      <span v-if="selectedCode" class="tag tag-blue">{{ selectedLabel || selectedCode }}</span>
-      <span v-if="isLoadingMore" class="tag tag-blue" style="margin-left: 8px">
+      <span
+        v-if="selectedCode"
+        class="tag tag-blue"
+      >{{ selectedLabel || selectedCode }}</span>
+      <span
+        v-if="isLoadingMore"
+        class="tag tag-blue"
+        style="margin-left: 8px"
+      >
         <span class="spin">↻</span> 加载中...
       </span>
     </template>
     <template #actions>
-      <span v-if="lastSyncTime" class="last-sync-hint">{{ lastSyncTime }}</span>
-      <button class="btn-sync" :disabled="!selectedCode || syncing" @click="handleSync">
-        <span v-if="syncing" class="spin">↻</span>
+      <span
+        v-if="lastSyncTime"
+        class="last-sync-hint"
+      >{{ lastSyncTime }}</span>
+      <button
+        class="btn-sync"
+        :disabled="!selectedCode || syncing"
+        @click="handleSync"
+      >
+        <span
+          v-if="syncing"
+          class="spin"
+        >↻</span>
         {{ syncing ? '同步中' : '同步' }}
       </button>
       <SearchSelect
@@ -25,9 +42,15 @@
     <!-- K线图表 + 行内统计 -->
     <div class="card">
       <div class="chart-header">
-        <div v-if="barData.length > 0" class="stats-inline">
+        <div
+          v-if="barData.length > 0"
+          class="stats-inline"
+        >
           <span class="stat-item">最新 <strong>{{ latestBar?.close?.toFixed(2) }}</strong></span>
-          <span class="stat-item" :class="priceChange >= 0 ? 'text-up' : 'text-down'">
+          <span
+            class="stat-item"
+            :class="priceChange >= 0 ? 'text-up' : 'text-down'"
+          >
             {{ priceChange >= 0 ? '+' : '' }}{{ priceChange.toFixed(2) }}%
           </span>
           <span class="stat-item">高 {{ priceStats.high.toFixed(2) }}</span>
@@ -37,16 +60,28 @@
         </div>
       </div>
       <div class="chart-wrapper">
-        <div ref="chartContainer" class="chart-container">
-          <div v-if="isLoadingMore" class="loading-more-indicator">
+        <div
+          ref="chartContainer"
+          class="chart-container"
+        >
+          <div
+            v-if="isLoadingMore"
+            class="loading-more-indicator"
+          >
             <span class="spin">↻</span>
             <span>正在加载历史数据...</span>
           </div>
         </div>
-        <div v-if="!selectedCode" class="chart-empty">
+        <div
+          v-if="!selectedCode"
+          class="chart-empty"
+        >
           <p>请选择股票查看K线图</p>
         </div>
-        <div v-if="selectedCode && !hasMoreHistory" class="no-more-data">
+        <div
+          v-if="selectedCode && !hasMoreHistory"
+          class="no-more-data"
+        >
           已加载全部历史数据 (共 {{ barData.length }} 条)
         </div>
       </div>
@@ -54,7 +89,9 @@
 
     <!-- K线数据表格 -->
     <div class="card">
-      <h3 class="card-title">数据明细</h3>
+      <h3 class="card-title">
+        数据明细
+      </h3>
       <DataTable
         :columns="barColumns"
         :data-source="barData"
@@ -66,18 +103,32 @@
         :context-menu="rowMenu"
         @update:page="tablePage = $event"
       >
-        <template #colDate="{ record }">{{ formatDate(record.timestamp) }}</template>
-        <template #colOpen="{ record }">{{ record.open?.toFixed(2) }}</template>
-        <template #colHigh="{ record }">{{ record.high?.toFixed(2) }}</template>
-        <template #colLow="{ record }">{{ record.low?.toFixed(2) }}</template>
-        <template #colClose="{ record }">{{ record.close?.toFixed(2) }}</template>
+        <template #colDate="{ record }">
+          {{ formatDate(record.timestamp) }}
+        </template>
+        <template #colOpen="{ record }">
+          {{ record.open?.toFixed(2) }}
+        </template>
+        <template #colHigh="{ record }">
+          {{ record.high?.toFixed(2) }}
+        </template>
+        <template #colLow="{ record }">
+          {{ record.low?.toFixed(2) }}
+        </template>
+        <template #colClose="{ record }">
+          {{ record.close?.toFixed(2) }}
+        </template>
         <template #colChange="{ record }">
           <span :class="record.change >= 0 ? 'text-up' : 'text-down'">
             {{ record.change >= 0 ? '+' : '' }}{{ record.change?.toFixed(2) }}%
           </span>
         </template>
-        <template #colVolume="{ record }">{{ formatCompact(record.volume) }}</template>
-        <template #colAmount="{ record }">{{ formatCompact(record.amount) }}</template>
+        <template #colVolume="{ record }">
+          {{ formatCompact(record.volume) }}
+        </template>
+        <template #colAmount="{ record }">
+          {{ formatCompact(record.amount) }}
+        </template>
       </DataTable>
     </div>
   </PageLayout>
