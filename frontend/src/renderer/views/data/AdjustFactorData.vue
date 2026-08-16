@@ -59,112 +59,64 @@
       </div>
     </div>
 
-    <!-- 数据表格 -->
-    <div class="card">
-      <div class="card-header-simple">
-        复权因子数据
+    <!-- 数据表格:ProTable(服务端分页+右键菜单) -->
+    <ProTable
+      v-if="factors.length > 0"
+      :columns="columns"
+      :data-source="factors"
+      row-key="uuid"
+      server-pagination
+      :total="pagination.total"
+      :page="pagination.current"
+      :page-size="pagination.pageSize"
+      :page-sizes="[pagination.pageSize]"
+      :context-menu="factorMenu"
+      @update:page="goPage"
+    >
+      <template #timestamp="{ record }">
+        {{ formatDay(record.timestamp) }}
+      </template>
+      <template #foreadjustfactor="{ record }">
+        {{ record.foreadjustfactor?.toFixed(6) }}
+      </template>
+      <template #backadjustfactor="{ record }">
+        {{ record.backadjustfactor?.toFixed(6) }}
+      </template>
+      <template #adjustfactor="{ record }">
+        {{ record.adjustfactor?.toFixed(6) }}
+      </template>
+    </ProTable>
+    <!-- 加载失败:区别于空态,提供重试 -->
+    <div
+      v-else-if="!loading && loadError"
+      class="card"
+    >
+      <div class="empty-state-small">
+        <p class="error-text">
+          {{ loadError }}
+        </p>
+        <button
+          class="btn-primary btn-retry"
+          @click="loadData"
+        >
+          重试
+        </button>
       </div>
-      <div class="table-wrapper">
-        <table
-          v-if="factors.length > 0"
-          class="data-table"
-        >
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>代码</th>
-              <th>前复权因子</th>
-              <th>后复权因子</th>
-              <th>原始因子</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="f in factors"
-              :key="f.uuid"
-              @contextmenu="openFactorMenu($event, f)"
-            >
-              <td>{{ formatDay(f.timestamp) }}</td>
-              <td>{{ f.code }}</td>
-              <td class="num">
-                {{ f.foreadjustfactor?.toFixed(6) }}
-              </td>
-              <td class="num">
-                {{ f.backadjustfactor?.toFixed(6) }}
-              </td>
-              <td class="num">
-                {{ f.adjustfactor?.toFixed(6) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <!-- 加载失败:区别于空态,提供重试 -->
-        <div
-          v-else-if="!loading && loadError"
-          class="empty-state-small"
-        >
-          <p class="error-text">
-            {{ loadError }}
-          </p>
-          <button
-            class="btn-primary btn-retry"
-            @click="loadData"
-          >
-            重试
-          </button>
-        </div>
-        <div
-          v-else-if="!loading && hasSearched"
-          class="empty-state-small"
-        >
-          查询无结果，请调整股票代码或分页
-        </div>
-        <div
-          v-else-if="!loading"
-          class="empty-state-small"
-        >
-          点击查询加载数据
-        </div>
+    </div>
+    <div
+      v-else-if="!loading && hasSearched"
+      class="card"
+    >
+      <div class="empty-state-small">
+        查询无结果，请调整股票代码或分页
       </div>
-
-      <!-- 分页 -->
-      <div
-        v-if="pagination.total > 0"
-        class="pagination"
-      >
-        <span class="pagination-info">
-          共 {{ formatNumber(pagination.total) }} 条，第 {{ pagination.current }} / {{ totalPages }} 页
-        </span>
-        <div class="pagination-controls">
-          <button
-            class="pg-btn"
-            :disabled="pagination.current <= 1"
-            @click="goPage(1)"
-          >
-            «
-          </button>
-          <button
-            class="pg-btn"
-            :disabled="pagination.current <= 1"
-            @click="goPage(pagination.current - 1)"
-          >
-            ‹
-          </button>
-          <button
-            class="pg-btn"
-            :disabled="pagination.current >= totalPages"
-            @click="goPage(pagination.current + 1)"
-          >
-            ›
-          </button>
-          <button
-            class="pg-btn"
-            :disabled="pagination.current >= totalPages"
-            @click="goPage(totalPages)"
-          >
-            »
-          </button>
-        </div>
+    </div>
+    <div
+      v-else-if="!loading"
+      class="card"
+    >
+      <div class="empty-state-small">
+        点击查询加载数据
       </div>
     </div>
 
@@ -180,22 +132,28 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import ProTable from '@/components/common/ProTable.vue'
 import { useRoute } from 'vue-router'
 import { dataApi } from '@/api/modules/data'
 import type { AdjustFactorData } from '@/api/modules/data'
 import { message as toast } from '@/utils/toast'
-import { useContextMenu } from '@/composables/useContextMenu'
+import type { MenuItem } from '@/composables/useContextMenu'
 import { formatDay, formatNumber } from '@/utils/format'
 
+const columns = [
+  { title: '日期', dataIndex: 'timestamp' },
+  { title: '代码', dataIndex: 'code' },
+  { title: '前复权因子', dataIndex: 'foreadjustfactor', num: true },
+  { title: '后复权因子', dataIndex: 'backadjustfactor', num: true },
+  { title: '原始因子', dataIndex: 'adjustfactor', num: true },
+]
+
 /** 行右键菜单(本页无行操作,给复制类) */
-const { open: openCtxMenu } = useContextMenu()
-const openFactorMenu = (e: MouseEvent, f: AdjustFactorData) => {
-  openCtxMenu(e, [
-    { label: '复制日期', action: () => { navigator.clipboard.writeText(formatDay(f.timestamp)); toast.success('已复制') } },
-    { label: '复制代码', action: () => { navigator.clipboard.writeText(f.code); toast.success('已复制') } },
-    { label: '复制前复权因子', action: () => { navigator.clipboard.writeText(String(f.foreadjustfactor ?? '')); toast.success('已复制') } },
-  ])
-}
+const factorMenu = (f: AdjustFactorData): MenuItem[] => [
+  { label: '复制日期', action: () => { navigator.clipboard.writeText(formatDay(f.timestamp)); toast.success('已复制') } },
+  { label: '复制代码', action: () => { navigator.clipboard.writeText(f.code); toast.success('已复制') } },
+  { label: '复制前复权因子', action: () => { navigator.clipboard.writeText(String(f.foreadjustfactor ?? '')); toast.success('已复制') } },
+]
 
 const route = useRoute()
 
@@ -256,20 +214,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-
-/* 密度覆盖:紧凑 padding + 表头加重 + 正文 13px(公共基线见 styles/tables.less) */
-.data-table th,
-.data-table td {
-  padding: 10px 12px;
-}
-
-.data-table th {
-  font-weight: 600;
-}
-
-.data-table td {
-  font-size: 13px;
-}
+/* 表格/分页由 ProTable 持有;此处仅页面特有样式 */
 
 .control-input { padding: 6px 12px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 13px; }
 .control-input:focus { outline: none; border-color: hsl(var(--primary)); }
@@ -283,23 +228,12 @@ onMounted(() => {
 .stat-value-small { font-size: 20px; font-weight: 600; color: hsl(var(--foreground)); }
 .stat-label-small { font-size: 12px; color: hsl(var(--muted-foreground)); margin-top: 4px; }
 
-/* Table */
 .card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); }
-.card-header-simple { padding: 12px 16px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); }
-.table-wrapper { overflow-x: clip; }
 
 .empty-state-small { padding: 40px; text-align: center; color: hsl(var(--muted-foreground)); }
 .empty-state-small .error-text { color: hsl(var(--error)); margin: 0 0 12px; }
 .btn-retry { padding: 6px 16px; background: transparent; border: 1px solid hsl(var(--border)); }
 .btn-retry:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
-
-/* Pagination */
-.pagination { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid hsl(var(--border)); }
-.pagination-info { font-size: 13px; color: hsl(var(--muted-foreground)); }
-.pagination-controls { display: flex; gap: 4px; }
-.pg-btn { min-width: 28px; height: 28px; padding: 0 6px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.pg-btn:hover:not(:disabled) { background: hsl(var(--secondary)); border-color: hsl(var(--primary)); }
-.pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Loading */
 .loading-overlay { display: flex; justify-content: center; padding: 40px; }

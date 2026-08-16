@@ -9,11 +9,14 @@
     :searchable="false"
     :creatable="false"
     :infinite-scroll="true"
+    :loading-more="loadingMore"
+    :has-more="hasMore"
     clickable
     :context-menu="rowMenu"
     @sort="onSort"
     @row-click="goDetail"
     @retry="resetAndFetch"
+    @load-more="loadMore"
   >
     <template #filters>
       <SegmentedControl
@@ -113,30 +116,6 @@
         :title="formatDate(record.update_at || record.created_at)"
       >{{ formatRelativeTime(record.update_at || record.created_at) }}</span>
     </template>
-
-    <!-- 无限滚动触发器 -->
-    <template #afterTable>
-      <div
-        v-if="tasks.length > 0"
-        ref="loadMoreTrigger"
-        class="load-more-trigger"
-      >
-        <div
-          v-if="loadingMore"
-          class="spinner spinner-small"
-        />
-        <div
-          v-else-if="!hasMore"
-          class="no-more"
-        >
-          没有更多了
-        </div>
-        <div
-          v-else
-          class="load-more-sentinel"
-        />
-      </div>
-    </template>
   </ListPage>
 
   <!-- 删除确认 -->
@@ -152,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ListPage from '@/components/common/ListPage.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
@@ -286,10 +265,7 @@ async function resetAndFetch() {
   currentPage.value = 0
   tasks.value = []
   total.value = 0
-  // 断开旧 observer，首次 fetch 完成后重建
-  if (observer) { observer.disconnect(); observer = null }
   await fetchTasks(false)
-  nextTick(() => setupObserver())
 }
 
 async function fetchTasks(append: boolean) {
@@ -336,28 +312,8 @@ async function fetchTasks(append: boolean) {
 
 const loadMore = () => fetchTasks(true)
 
-// IntersectionObserver — 只建一次，靠 loadingMore/hasMore 守卫防重入
-const loadMoreTrigger = ref<HTMLElement>()
-let observer: IntersectionObserver | null = null
-
-const setupObserver = () => {
-  if (!loadMoreTrigger.value || observer) return
-  const scrollableContainer = document.querySelector('.list-content')
-  if (!scrollableContainer) return
-  observer = new IntersectionObserver(
-    (entries) => {
-      if (entries[0].isIntersecting && hasMore.value && !loading.value && !loadingMore.value) {
-        loadMore()
-      }
-    },
-    { root: scrollableContainer as Element, rootMargin: '200px', threshold: 0.1 }
-  )
-  observer.observe(loadMoreTrigger.value)
-}
-
 onMounted(async () => {
   await fetchTasks(false)
-  nextTick(() => setupObserver())
 
   // WS 薄事件就地更新行内 progress/status(无限滚动 append 模式,全量替换会丢已加载页)。
   // 信封 status 已是 REST 同款小写枚举,直接赋值(旧路径 data.type 会写入大写态名)
@@ -389,7 +345,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (observer) observer.disconnect()
   if (unsubscribe) unsubscribe()
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
 })
@@ -415,32 +370,6 @@ onUnmounted(() => {
 .val-muted { color: hsl(var(--muted-foreground)); }
 /* 分隔符此前用 --secondary(light 下 L≈92%)几乎不可见,改 muted-foreground */
 .val-divider { color: hsl(var(--muted-foreground)); margin: 0 2px; }
-
-.load-more-trigger {
-  display: flex;
-  justify-content: center;
-  padding: 16px;
-}
-
-.spinner-small {
-  width: 20px;
-  height: 20px;
-  border: 2px solid hsl(var(--border));
-  border-top-color: hsl(var(--primary));
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.no-more {
-  color: hsl(var(--muted-foreground));
-  font-size: 12px;
-}
-
-.load-more-sentinel {
-  height: 1px;
-}
 
 /* 状态列:标签+实时进度条并排 */
 .status-cell {

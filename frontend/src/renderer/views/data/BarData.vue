@@ -87,50 +87,49 @@
       </div>
     </div>
 
-    <!-- K线数据表格 -->
-    <div class="card">
-      <h3 class="card-title">
-        数据明细
-      </h3>
-      <DataTable
-        :columns="barColumns"
-        :data-source="barData"
-        :loading="loading"
-        :page="tablePage"
-        :page-size="50"
-        :max-height="340"
-        row-key="timestamp"
-        :context-menu="rowMenu"
-        @update:page="tablePage = $event"
-      >
-        <template #colDate="{ record }">
-          {{ formatDay(record.timestamp) }}
-        </template>
-        <template #colOpen="{ record }">
-          {{ record.open?.toFixed(2) }}
-        </template>
-        <template #colHigh="{ record }">
-          {{ record.high?.toFixed(2) }}
-        </template>
-        <template #colLow="{ record }">
-          {{ record.low?.toFixed(2) }}
-        </template>
-        <template #colClose="{ record }">
-          {{ record.close?.toFixed(2) }}
-        </template>
-        <template #colChange="{ record }">
-          <span :class="record.change >= 0 ? 'text-up' : 'text-down'">
-            {{ record.change >= 0 ? '+' : '' }}{{ record.change?.toFixed(2) }}%
-          </span>
-        </template>
-        <template #colVolume="{ record }">
-          {{ formatCompact(record.volume) }}
-        </template>
-        <template #colAmount="{ record }">
-          {{ formatCompact(record.amount) }}
-        </template>
-      </DataTable>
-    </div>
+    <!-- K线数据表格:ProTable 自带卡片外壳 -->
+    <h3 class="card-title">
+      数据明细
+    </h3>
+    <ProTable
+      :columns="barColumns"
+      :data-source="barData"
+      :loading="loading"
+      :page="tablePage"
+      :page-size="50"
+      :page-sizes="[50]"
+      :max-height="340"
+      row-key="timestamp"
+      :context-menu="rowMenu"
+      @update:page="tablePage = $event"
+    >
+      <template #timestamp="{ record }">
+        {{ formatDay(record.timestamp) }}
+      </template>
+      <template #open="{ record }">
+        {{ record.open?.toFixed(2) }}
+      </template>
+      <template #high="{ record }">
+        {{ record.high?.toFixed(2) }}
+      </template>
+      <template #low="{ record }">
+        {{ record.low?.toFixed(2) }}
+      </template>
+      <template #close="{ record }">
+        {{ record.close?.toFixed(2) }}
+      </template>
+      <template #change="{ record }">
+        <span :class="record.change >= 0 ? 'text-up' : 'text-down'">
+          {{ record.change >= 0 ? '+' : '' }}{{ record.change?.toFixed(2) }}%
+        </span>
+      </template>
+      <template #volume="{ record }">
+        {{ formatCompact(record.volume) }}
+      </template>
+      <template #amount="{ record }">
+        {{ formatCompact(record.amount) }}
+      </template>
+    </ProTable>
   </PageLayout>
 </template>
 
@@ -138,7 +137,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { useRoute } from 'vue-router'
-import DataTable from '@/components/data/DataTable.vue'
+import ProTable from '@/components/common/ProTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
 import dayjs, { Dayjs } from 'dayjs'
 import { dataApi } from '@/api'
@@ -190,14 +189,14 @@ const rowMenu = (record: any): MenuItem[] => [
 ]
 
 const barColumns = [
-  { title: '日期', dataIndex: 'timestamp', slotName: 'colDate' },
-  { title: '开盘', dataIndex: 'open', slotName: 'colOpen' },
-  { title: '最高', dataIndex: 'high', slotName: 'colHigh' },
-  { title: '最低', dataIndex: 'low', slotName: 'colLow' },
-  { title: '收盘', dataIndex: 'close', slotName: 'colClose' },
-  { title: '涨跌幅', dataIndex: 'change', slotName: 'colChange' },
-  { title: '成交量', dataIndex: 'volume', slotName: 'colVolume' },
-  { title: '成交额', dataIndex: 'amount', slotName: 'colAmount' },
+  { title: '日期', dataIndex: 'timestamp' },
+  { title: '开盘', dataIndex: 'open' },
+  { title: '最高', dataIndex: 'high' },
+  { title: '最低', dataIndex: 'low' },
+  { title: '收盘', dataIndex: 'close' },
+  { title: '涨跌幅', dataIndex: 'change' },
+  { title: '成交量', dataIndex: 'volume' },
+  { title: '成交额', dataIndex: 'amount' },
 ]
 
 const searchStocks = async (query: string) => {

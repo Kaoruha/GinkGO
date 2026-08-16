@@ -66,12 +66,9 @@
       </div>
     </div>
 
-    <!-- 执行历史 -->
-    <div class="card">
-      <div
-        class="card-header"
-        style="display: flex; justify-content: space-between; align-items: center;"
-      >
+    <!-- 执行历史:筛选行 + ProTable(服务端分页) -->
+    <div class="history-section">
+      <div class="history-header">
         <h3>执行历史</h3>
         <div class="filter-bar">
           <select
@@ -111,99 +108,55 @@
         </div>
       </div>
 
-      <div class="table-wrapper">
-        <table
-          v-if="executions.length > 0"
-          class="data-table"
-        >
-          <thead>
-            <tr>
-              <th>任务名称</th>
-              <th>命令</th>
-              <th>状态</th>
-              <th>触发时间</th>
-              <th>耗时</th>
-              <th>Cron</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="e in executions"
-              :key="e.uuid"
-              @contextmenu="openExecMenu($event, e)"
-            >
-              <td>{{ e.job_name }}</td>
-              <td><span class="tag tag-blue">{{ e.command }}</span></td>
-              <td>
-                <StatusTag
-                  type="execution"
-                  :status="e.status"
-                />
-              </td>
-              <td class="mono">
-                {{ formatDate(e.triggered_at) }}
-              </td>
-              <td class="mono">
-                {{ e.duration_ms > 0 ? e.duration_ms + 'ms' : '-' }}
-              </td>
-              <td class="mono">
-                {{ e.cron_expr || '-' }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <!-- 加载失败:区别于空态,提供重试 -->
+      <ProTable
+        v-if="executions.length > 0"
+        :columns="execColumns"
+        :data-source="executions"
+        row-key="uuid"
+        server-pagination
+        :total="pagination.total"
+        :page="pagination.current"
+        :page-size="pagination.pageSize"
+        :page-sizes="[pagination.pageSize]"
+        :context-menu="execMenu"
+        @update:page="goPage"
+      >
+        <template #command="{ record }">
+          <span class="tag tag-blue">{{ record.command }}</span>
+        </template>
+        <template #status="{ record }">
+          <StatusTag
+            type="execution"
+            :status="record.status"
+          />
+        </template>
+        <template #triggered_at="{ record }">
+          <span class="mono">{{ formatDate(record.triggered_at) }}</span>
+        </template>
+        <template #duration_ms="{ record }">
+          <span class="mono">{{ record.duration_ms > 0 ? record.duration_ms + 'ms' : '-' }}</span>
+        </template>
+        <template #cron_expr="{ record }">
+          <span class="mono">{{ record.cron_expr || '-' }}</span>
+        </template>
+      </ProTable>
+      <!-- 加载失败:区别于空态,提供重试 -->
+      <div
+        v-else-if="!loading && loadError"
+        class="card"
+      >
         <EmptyState
-          v-else-if="!loading && loadError"
           title="加载失败"
           :description="loadError"
           action-text="重试"
           :on-action="loadExecutions"
         />
-        <EmptyState
-          v-else-if="!loading"
-          description="暂无执行记录"
-        />
       </div>
-
-      <!-- 分页 -->
       <div
-        v-if="pagination.total > 0"
-        class="pagination"
+        v-else-if="!loading"
+        class="card"
       >
-        <span class="pagination-info">
-          共 {{ pagination.total }} 条，第 {{ pagination.current }} / {{ totalPages }} 页
-        </span>
-        <div class="pagination-controls">
-          <button
-            class="pg-btn"
-            :disabled="pagination.current <= 1"
-            @click="goPage(1)"
-          >
-            «
-          </button>
-          <button
-            class="pg-btn"
-            :disabled="pagination.current <= 1"
-            @click="goPage(pagination.current - 1)"
-          >
-            ‹
-          </button>
-          <button
-            class="pg-btn"
-            :disabled="pagination.current >= totalPages"
-            @click="goPage(pagination.current + 1)"
-          >
-            ›
-          </button>
-          <button
-            class="pg-btn"
-            :disabled="pagination.current >= totalPages"
-            @click="goPage(totalPages)"
-          >
-            »
-          </button>
-        </div>
+        <EmptyState description="暂无执行记录" />
       </div>
     </div>
 
@@ -220,22 +173,29 @@
 import { ref, computed, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ProTable from '@/components/common/ProTable.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import { taskTimerApi } from '@/api/modules/taskTimer'
 import type { TaskTimerExecution, TaskTimerJob, ExecutionSummary } from '@/api/modules/taskTimer'
 import { message as toast } from '@/utils/toast'
-import { useContextMenu } from '@/composables/useContextMenu'
+import type { MenuItem } from '@/composables/useContextMenu'
 import { formatDate } from '@/utils/format'
 
+const execColumns = [
+  { title: '任务名称', dataIndex: 'job_name' },
+  { title: '命令', dataIndex: 'command' },
+  { title: '状态', dataIndex: 'status' },
+  { title: '触发时间', dataIndex: 'triggered_at' },
+  { title: '耗时', dataIndex: 'duration_ms' },
+  { title: 'Cron', dataIndex: 'cron_expr' },
+]
+
 /** 执行记录行右键菜单(本页无行操作,给复制类) */
-const { open: openCtxMenu } = useContextMenu()
-const openExecMenu = (e: MouseEvent, record: TaskTimerExecution) => {
-  openCtxMenu(e, [
-    { label: '复制任务名', action: () => { navigator.clipboard.writeText(record.job_name); toast.success('已复制') } },
-    { label: '复制命令', action: () => { navigator.clipboard.writeText(record.command); toast.success('已复制') } },
-  ])
-}
+const execMenu = (record: TaskTimerExecution): MenuItem[] => [
+  { label: '复制任务名', action: () => { navigator.clipboard.writeText(record.job_name); toast.success('已复制') } },
+  { label: '复制命令', action: () => { navigator.clipboard.writeText(record.command); toast.success('已复制') } },
+]
 
 const loading = ref(false)
 const tasks = ref<TaskTimerJob[]>([])
@@ -276,9 +236,9 @@ async function loadExecutions() {
     if (filterStatus.value) params.status = filterStatus.value
 
     const res: any = await taskTimerApi.getExecutions(params)
-    const data = res?.data ?? []
-    executions.value = Array.isArray(data) ? data : []
-    pagination.value.total = res?.meta?.total || 0
+    // 拦截器契约:数组+meta 响应已转 {items,total};res?.data 二次解包=静默空数据
+    executions.value = res?.items ?? []
+    pagination.value.total = res?.total ?? 0
   } catch (e: any) {
     executions.value = []
     pagination.value.total = 0
@@ -330,12 +290,9 @@ onMounted(() => {
 .control-input { padding: 6px 12px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 13px; }
 .control-input:focus { outline: none; border-color: hsl(var(--primary)); }
 
-.pagination { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid hsl(var(--border)); }
-.pagination-info { font-size: 13px; color: hsl(var(--muted-foreground)); }
-.pagination-controls { display: flex; gap: 4px; }
-.pg-btn { min-width: 28px; height: 28px; padding: 0 6px; background: hsl(var(--border)); border: 1px solid hsl(var(--secondary)); border-radius: var(--radius-sm); color: hsl(var(--foreground)); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.pg-btn:hover:not(:disabled) { background: hsl(var(--secondary)); border-color: hsl(var(--primary)); }
-.pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* 执行历史区:筛选行在 ProTable 卡片外,与卡内表头解耦 */
+.history-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.history-header h3 { font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); margin: 0; }
 
 .loading-overlay { display: flex; justify-content: center; padding: 40px; }
 .spinner { width: 32px; height: 32px; border: 3px solid hsl(var(--border)); border-top-color: hsl(var(--primary)); border-radius: 50%; animation: spin 1s linear infinite; }

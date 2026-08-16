@@ -84,41 +84,42 @@
       </div>
     </div>
 
-    <!-- 数据表格 -->
-    <div class="card">
-      <h3 class="card-title">
-        数据明细
-      </h3>
-      <DataTable
-        :columns="tickColumns"
-        :data-source="tickData"
-        :loading="loading"
-        :page="tablePage"
-        :page-size="tablePageSize"
-        :max-height="340"
-        row-key="uuid"
-        :context-menu="rowMenu"
-        @update:page="tablePage = $event"
-        @update:page-size="tablePageSize = $event"
-      >
-        <template #colTime="{ record }">
-          {{ formatDate(record.timestamp) }}
-        </template>
-        <template #colPrice="{ record }">
-          {{ record.price?.toFixed(2) }}
-        </template>
-        <template #colVolume="{ record }">
-          {{ formatVolume(record.volume) }}
-        </template>
-        <template #colDirection="{ record }">
-          <span :class="directionClass(record.direction)">{{ directionLabel(record.direction) }}</span>
-        </template>
-      </DataTable>
-      <!-- 查询失败:区别于"无数据",提供重试 -->
-      <div
-        v-if="!loading && loadError"
-        class="empty-state"
-      >
+    <!-- 数据表格:ProTable 自带卡片外壳;空/错态单卡独占避免双重提示 -->
+    <h3 class="card-title">
+      数据明细
+    </h3>
+    <ProTable
+      v-if="loading || tickData.length > 0"
+      :columns="tickColumns"
+      :data-source="tickData"
+      :loading="loading"
+      :page="tablePage"
+      :page-size="tablePageSize"
+      :max-height="340"
+      row-key="uuid"
+      :context-menu="rowMenu"
+      @update:page="tablePage = $event"
+      @update:page-size="tablePageSize = $event"
+    >
+      <template #timestamp="{ record }">
+        {{ formatDate(record.timestamp) }}
+      </template>
+      <template #price="{ record }">
+        {{ record.price?.toFixed(2) }}
+      </template>
+      <template #volume="{ record }">
+        {{ formatVolume(record.volume) }}
+      </template>
+      <template #direction="{ record }">
+        <span :class="directionClass(record.direction)">{{ directionLabel(record.direction) }}</span>
+      </template>
+    </ProTable>
+    <!-- 查询失败:区别于"无数据",提供重试 -->
+    <div
+      v-else-if="loadError"
+      class="card"
+    >
+      <div class="empty-state">
         <p class="error-text">
           {{ loadError }}
         </p>
@@ -129,16 +130,20 @@
           重试
         </button>
       </div>
-      <div
-        v-else-if="!loading && selectedCode && tickData.length === 0 && searched"
-        class="empty-state"
-      >
+    </div>
+    <div
+      v-else-if="selectedCode && searched"
+      class="card"
+    >
+      <div class="empty-state">
         当前股票在所选日期范围内无 Tick 数据，请尝试其他股票
       </div>
-      <div
-        v-if="!loading && !selectedCode"
-        class="empty-state"
-      >
+    </div>
+    <div
+      v-else
+      class="card"
+    >
+      <div class="empty-state">
         请搜索并选择一只股票
       </div>
     </div>
@@ -150,7 +155,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import PageTitle from '@/components/common/PageTitle.vue'
 import { useRoute } from 'vue-router'
-import DataTable from '@/components/data/DataTable.vue'
+import ProTable from '@/components/common/ProTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
 import * as echarts from 'echarts'
 import { useChartTheme, cssColor, upColor, downColor } from '@/composables/useChartTheme'
@@ -253,11 +258,11 @@ let chart: echarts.ECharts | null = null
 let resizeObserver: ResizeObserver | null = null
 
 const tickColumns = [
-  { title: '时间', dataIndex: 'timestamp', slotName: 'colTime' },
+  { title: '时间', dataIndex: 'timestamp' },
   { title: '代码', dataIndex: 'code' },
-  { title: '价格', dataIndex: 'price', slotName: 'colPrice' },
-  { title: '成交量', dataIndex: 'volume', slotName: 'colVolume' },
-  { title: '方向', dataIndex: 'direction', slotName: 'colDirection' },
+  { title: '价格', dataIndex: 'price' },
+  { title: '成交量', dataIndex: 'volume' },
+  { title: '方向', dataIndex: 'direction' },
 ]
 
 const searchStocks = async (query: string) => {
@@ -521,7 +526,7 @@ onUnmounted(() => {
 
 .empty-state {
   padding: 40px 16px; text-align: center; color: hsl(var(--muted-foreground));
-  font-size: 13px; border-top: 1px solid hsl(var(--border));
+  font-size: 13px;
 }
 
 .empty-state .error-text { color: hsl(var(--error)); margin: 0 0 12px; }

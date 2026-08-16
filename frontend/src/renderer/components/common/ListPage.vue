@@ -1,6 +1,8 @@
 <template>
   <!-- 列表页壳:基于 PageLayout 组合(header/title/actions/filters 复用统一外壳),
-       自持滚动容器 list-content(表头 sticky 恒贴 header 下,不随整页滚) -->
+       自持滚动容器 list-content(表头 sticky 恒贴 header 下,不随整页滚)。
+       表格+分页渲染委托 ProTable(全站唯一表格实现);
+       infiniteScroll 时自渲染 sentinel,页面只传 loadingMore/hasMore + @load-more -->
   <PageLayout>
     <template #title>
       {{ title }}
@@ -112,7 +114,10 @@
     </div>
 
     <!-- 可滚动内容区 -->
-    <div class="list-content">
+    <div
+      ref="listContentEl"
+      class="list-content"
+    >
       <!-- 加载状态 -->
       <div
         v-if="loading"
@@ -206,170 +211,91 @@
       <slot v-else-if="$slots.default" />
 
       <!-- 数据表格 (默认) -->
-      <div
+      <ProTable
         v-else
-        class="table-card"
+        :columns="columns"
+        :data-source="dataSource"
+        :row-key="rowKey"
+        :clickable="clickable"
+        :context-menu="contextMenu"
+        :total="total"
+        :page="page"
+        :page-size="pageSize"
+        :page-sizes="pageSizes"
+        :server-pagination="serverPagination"
+        :infinite-scroll="infiniteScroll"
+        :show-actions="showActions"
+        @update:page="$emit('update:page', $event)"
+        @update:page-size="$emit('update:pageSize', $event)"
+        @sort="(field, order) => $emit('sort', field, order)"
+        @row-click="$emit('rowClick', $event)"
       >
-        <table class="pro-table">
-          <thead>
-            <tr>
-              <th
-                v-for="col in resolvedColumns"
-                :key="col.key"
-                :style="{ width: col.width ? col.width + 'px' : undefined }"
-                :class="{ sortable: col.sortable }"
-                @click="col.sortable && handleSort(col.dataIndex)"
-              >
-                {{ col.title }}
-                <span
-                  v-if="col.sortable"
-                  class="sort-icon"
-                >
-                  <template v-if="innerSortBy === col.dataIndex">
-                    {{ innerSortOrder === 'asc' ? '↑' : '↓' }}
-                  </template>
-                  <template v-else>⇅</template>
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody class="m-stagger">
-            <tr
-              v-for="(record, idx) in pageData"
-              :key="record[rowKey] || idx"
-              :class="{ clickable: clickable }"
-              @click="$emit('rowClick', record)"
-              @contextmenu="onRowContextMenu($event, record, idx)"
-            >
-              <td
-                v-for="col in resolvedColumns"
-                :key="col.key"
-              >
-                <!-- 操作列:flex 容器给按钮间距,避免多按钮紧贴 -->
-                <div
-                  v-if="col.key === '__actions'"
-                  class="actions-cell"
-                >
-                  <slot
-                    name="actions"
-                    :record="record"
-                    :index="idx"
-                  />
-                </div>
-                <!-- 自定义列 -->
-                <template v-else-if="$slots[col.key]">
-                  <slot
-                    :name="col.key"
-                    :record="record"
-                    :index="idx"
-                  />
-                </template>
-                <!-- 默认渲染 -->
-                <template v-else>
-                  {{ formatValue(record[col.dataIndex]) }}
-                </template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- 分页 -->
-        <div
-          v-if="totalCount > 0 && !infiniteScroll"
-          class="pagination-bar"
+        <template
+          v-if="$slots.actions"
+          #actions="slotProps"
         >
-          <div class="pagination-info">
-            共 {{ totalCount }} 条{{ totalPages > 1 ? `，第 ${innerPage} / ${totalPages} 页` : '' }}
-          </div>
-          <div
-            v-if="totalPages > 1"
-            class="pagination-controls"
-          >
-            <button
-              class="pg-btn"
-              :disabled="innerPage <= 1"
-              @click="goPage(1)"
-            >
-              «
-            </button>
-            <button
-              class="pg-btn"
-              :disabled="innerPage <= 1"
-              @click="goPage(innerPage - 1)"
-            >
-              ‹
-            </button>
-            <template
-              v-for="p in visiblePages"
-              :key="p"
-            >
-              <span
-                v-if="p === '...'"
-                class="pg-ellipsis"
-              >…</span>
-              <button
-                v-else
-                class="pg-btn"
-                :class="{ active: p === innerPage }"
-                @click="goPage(p as number)"
-              >
-                {{ p }}
-              </button>
-            </template>
-            <button
-              class="pg-btn"
-              :disabled="innerPage >= totalPages"
-              @click="goPage(innerPage + 1)"
-            >
-              ›
-            </button>
-            <button
-              class="pg-btn"
-              :disabled="innerPage >= totalPages"
-              @click="goPage(totalPages)"
-            >
-              »
-            </button>
-            <select
-              v-model.number="innerPageSize"
-              class="pg-size"
-            >
-              <option
-                v-for="s in pageSizes"
-                :key="s"
-                :value="s"
-              >
-                {{ s }} 条/页
-              </option>
-            </select>
-          </div>
+          <slot
+            name="actions"
+            v-bind="slotProps"
+          />
+        </template>
+        <template
+          v-for="col in slotColumns"
+          :key="col.key"
+          #[col.key]="slotProps"
+        >
+          <slot
+            :name="col.key"
+            v-bind="slotProps"
+          />
+        </template>
+      </ProTable>
+
+      <!-- 无限滚动触发器(仅 infiniteScroll 且已有数据;observer root=list-content) -->
+      <div
+        v-if="infiniteScroll && !loading && !errorText && dataSource.length > 0"
+        ref="sentinelEl"
+        class="load-more-trigger"
+      >
+        <div
+          v-if="loadingMore"
+          class="spinner spinner-small"
+        />
+        <div
+          v-else-if="!hasMore"
+          class="no-more"
+        >
+          没有更多了
         </div>
+        <div
+          v-else
+          class="load-more-sentinel"
+        />
       </div>
 
-      <!-- 无限滚动触发器插槽（在 list-content 内、table-card 外） -->
+      <!-- 兼容插槽:表格之后自定义内容 -->
       <slot name="afterTable" />
     </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import PageLayout from './PageLayout.vue'
-import { useContextMenu, type MenuItem } from '@/composables/useContextMenu'
+import ProTable, { type Column } from './ProTable.vue'
+import type { MenuItem } from '@/composables/useContextMenu'
 
-export interface Column {
-  title: string
-  dataIndex: string
-  key?: string
-  width?: number
-  sortable?: boolean
-}
+export type { Column }
 
 const props = withDefaults(defineProps<{
   title: string
   columns: Column[]
   dataSource: any[]
   loading?: boolean
+  /** 无限滚动:加载更多中(驱动 sentinel spinner) */
+  loadingMore?: boolean
+  /** 无限滚动:是否还有更多(=false 显示"没有更多了") */
+  hasMore?: boolean
   rowKey?: string
   searchable?: boolean
   searchPlaceholder?: string
@@ -391,6 +317,8 @@ const props = withDefaults(defineProps<{
   contextMenu?: (record: any, index: number) => MenuItem[]
 }>(), {
   loading: false,
+  loadingMore: false,
+  hasMore: true,
   rowKey: 'id',
   searchable: true,
   searchPlaceholder: '搜索...',
@@ -412,6 +340,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   retry: []
   create: []
+  loadMore: []
   'update:searchValue': [value: string]
   'update:page': [page: number]
   'update:pageSize': [size: number]
@@ -419,95 +348,45 @@ const emit = defineEmits<{
   rowClick: [record: any]
 }>()
 
-const innerPage = ref(props.page)
-const innerPageSize = ref(props.pageSize)
-const innerSortBy = ref('')
-const innerSortOrder = ref<'asc' | 'desc'>('desc')
-
-// 行右键:页面传 contextMenu 构建器即可获得 OS 风格菜单(与组合页卡片同套基建)
-const { open: openCtx } = useContextMenu()
-function onRowContextMenu(e: MouseEvent, record: any, idx: number) {
-  if (!props.contextMenu) return
-  openCtx(e, props.contextMenu(record, idx))
-}
-
-watch(() => props.page, v => { innerPage.value = v })
-
-const totalCount = computed(() => props.total ?? props.dataSource.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / innerPageSize.value)))
-
 const isEmpty = computed(() => !props.loading && props.dataSource.length === 0)
 
-const resolvedColumns = computed(() => {
-  const cols = props.columns.map(c => ({ ...c, key: c.key || c.dataIndex }))
-  if (props.showActions) {
-    cols.push({ title: '操作', dataIndex: '', key: '__actions', width: 120 })
-  }
-  return cols
+// 列 slot 转发名单(排除 __actions,它走独立 #actions 转发)
+const slotColumns = computed(() =>
+  props.columns.map(c => ({ ...c, key: c.key || c.dataIndex })).filter(c => c.key !== '__actions')
+)
+
+// ===== 无限滚动 sentinel(此前 PortfolioList/BacktestListPage 各写一份 observer) =====
+const listContentEl = ref<HTMLElement>()
+const sentinelEl = ref<HTMLElement>()
+let observer: IntersectionObserver | null = null
+
+watch(sentinelEl, (el) => {
+  if (!el) return
+  nextTick(() => {
+    if (!observer && listContentEl.value) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && props.hasMore && !props.loading && !props.loadingMore) {
+            emit('loadMore')
+          }
+        },
+        // root 必须显式指向 list-content 滚动容器,否则视口相交判定永不触发
+        { root: listContentEl.value, rootMargin: '200px', threshold: 0.1 }
+      )
+    }
+    observer?.observe(el)
+  })
 })
 
-// Client-side pagination (infiniteScroll always shows all data)
-const pageData = computed(() => {
-  if (props.serverPagination || props.total != null || props.infiniteScroll) return props.dataSource
-  const start = (innerPage.value - 1) * innerPageSize.value
-  return props.dataSource.slice(start, start + innerPageSize.value)
+onUnmounted(() => {
+  observer?.disconnect()
+  observer = null
 })
-
-// Visible page numbers
-const visiblePages = computed(() => {
-  const pages: (number | string)[] = []
-  const tp = totalPages.value
-  const cp = innerPage.value
-  if (tp <= 7) {
-    for (let i = 1; i <= tp; i++) pages.push(i)
-  } else {
-    pages.push(1)
-    if (cp > 3) pages.push('...')
-    for (let i = Math.max(2, cp - 1); i <= Math.min(tp - 1, cp + 1); i++) pages.push(i)
-    if (cp < tp - 2) pages.push('...')
-    pages.push(tp)
-  }
-  return pages
-})
-
-function goPage(p: number) {
-  p = Math.max(1, Math.min(p, totalPages.value))
-  if (p === innerPage.value) return
-  innerPage.value = p
-  emit('update:page', p)
-}
-
-watch(innerPageSize, (newSize, oldSize) => {
-  if (newSize !== oldSize) {
-    innerPage.value = 1
-    emit('update:page', 1)
-    emit('update:pageSize', newSize)
-  }
-})
-
-function handleSort(field: string) {
-  if (innerSortBy.value === field) {
-    innerSortOrder.value = innerSortOrder.value === 'desc' ? 'asc' : 'desc'
-  } else {
-    innerSortBy.value = field
-    innerSortOrder.value = 'desc'
-  }
-  innerPage.value = 1
-  emit('update:page', 1)
-  emit('sort', field, innerSortOrder.value)
-}
-
-function formatValue(val: any): string {
-  if (val == null) return '-'
-  if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
-    return new Date(val).toLocaleString('zh-CN')
-  }
-  return String(val)
-}
 </script>
 
 <style scoped>
-/* header/title/actions/filters 外壳样式由 PageLayout 统一提供,此处仅列表特有样式 */
+/* header/title/actions/filters 外壳样式由 PageLayout 统一提供;
+   表格/分页样式由 ProTable 持有,此处仅列表壳特有样式 */
 
 .list-stats {
   flex-shrink: 0;
@@ -554,8 +433,6 @@ function formatValue(val: any): string {
 
 .clear-btn:hover { color: hsl(var(--foreground)); }
 
-/* Buttons */
-
 /* Content */
 .list-content {
   flex: 1;
@@ -578,6 +455,15 @@ function formatValue(val: any): string {
   animation: spin 1s linear infinite;
 }
 
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border: 2px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .empty-state {
@@ -592,57 +478,14 @@ function formatValue(val: any): string {
 .empty-state p { margin: 0 0 16px; font-size: 14px; }
 .empty-state .error-text { color: hsl(var(--error)); }
 
-/* Table: 表格样式全局权威在 styles/tables.less(.table-card/.pro-table) */
-
-/* Pagination */
-.pagination-bar {
+/* Load more sentinel */
+.load-more-trigger {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-top: 1px solid hsl(var(--border));
-}
-
-.pagination-info { font-size: 13px; color: hsl(var(--muted-foreground)); }
-
-.pagination-controls {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.pg-btn {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
-  background: hsl(var(--border));
-  border: 1px solid hsl(var(--secondary));
-  border-radius: var(--radius-sm);
-  color: hsl(var(--foreground));
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
   justify-content: center;
+  padding: 16px;
 }
 
-.pg-btn:hover:not(:disabled):not(.active) { background: hsl(var(--secondary)); border-color: hsl(var(--primary)); }
-.pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.pg-btn.active { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.no-more { color: hsl(var(--muted-foreground)); font-size: 12px; }
 
-.pg-ellipsis { padding: 0 4px; color: hsl(var(--muted-foreground)); font-size: 12px; }
-
-.pg-size {
-  margin-left: 8px;
-  padding: 4px 8px;
-  background: hsl(var(--border));
-  border: 1px solid hsl(var(--secondary));
-  border-radius: var(--radius-sm);
-  color: hsl(var(--foreground));
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.pg-size:focus { outline: none; border-color: hsl(var(--primary)); }
+.load-more-sentinel { height: 1px; }
 </style>

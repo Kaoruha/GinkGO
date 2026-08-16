@@ -32,7 +32,7 @@
     <div class="stats-grid-three">
       <div class="stat-card">
         <div class="stat-value">
-          {{ pagination.total }}
+          {{ total }}
         </div>
         <div class="stat-label">
           股票总数
@@ -56,132 +56,50 @@
       </div>
     </div>
 
-    <!-- 股票表格 -->
-    <div class="card">
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th
-                style="cursor: pointer"
-                @click="sortBy('code')"
-              >
-                代码 {{ sortField === 'code' ? (sortAsc ? '↑' : '↓') : '' }}
-              </th>
-              <th
-                style="cursor: pointer"
-                @click="sortBy('name')"
-              >
-                名称 {{ sortField === 'name' ? (sortAsc ? '↑' : '↓') : '' }}
-              </th>
-              <th
-                style="cursor: pointer"
-                @click="sortBy('exchange')"
-              >
-                交易所 {{ sortField === 'exchange' ? (sortAsc ? '↑' : '↓') : '' }}
-              </th>
-              <th>行业</th>
-              <th>状态</th>
-            </tr>
-          </thead>
-          <tbody v-if="!loading && stockList.length > 0">
-            <tr
-              v-for="stock in paginatedStocks"
-              :key="stock.code"
-              class="clickable-row"
-              @click="viewStockDetail(stock)"
-              @contextmenu="openStockMenu($event, stock)"
-            >
-              <td class="link">
-                {{ stock.code }}
-              </td>
-              <td>
-                {{ stock.name }}
-                <span
-                  v-if="stock.is_st"
-                  class="tag tag-st"
-                >ST</span>
-              </td>
-              <td>
-                <span
-                  class="tag"
-                  :class="stock.exchange === 'SH' ? 'tag-sh' : 'tag-sz'"
-                >
-                  {{ stock.exchange === 'SH' ? '沪市' : '深市' }}
-                </span>
-              </td>
-              <td>{{ stock.industry || '-' }}</td>
-              <td>
-                <span
-                  class="tag"
-                  :class="stock.is_active === false ? 'tag-st' : 'tag-sh'"
-                >
-                  {{ stock.is_active === false ? '退市' : '上市' }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-          <tbody v-else-if="loading">
-            <tr>
-              <td
-                colspan="6"
-                class="text-center"
-              >
-                加载中...
-              </td>
-            </tr>
-          </tbody>
-          <tbody v-else>
-            <tr>
-              <td
-                colspan="6"
-                class="text-center"
-              >
-                暂无数据
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div
-        v-if="filteredTotal > 0"
-        class="pagination"
-      >
-        <button
-          :disabled="pagination.current === 1"
-          class="btn-small"
-          @click="prevPage"
+    <!-- 股票表格:ProTable 客户端分页(全量已拉取,本地搜索+排序+切页) -->
+    <ProTable
+      :columns="columns"
+      :data-source="sortedStocks"
+      :loading="loading"
+      row-key="code"
+      clickable
+      default-sort-by="code"
+      default-sort-order="asc"
+      :page-sizes="[20, 50, 100]"
+      :context-menu="stockMenu"
+      @sort="onSort"
+      @row-click="viewStockDetail"
+    >
+      <template #code="{ record }">
+        <span class="link">{{ record.code }}</span>
+      </template>
+      <template #name="{ record }">
+        {{ record.name }}
+        <span
+          v-if="record.is_st"
+          class="tag tag-st"
+        >ST</span>
+      </template>
+      <template #exchange="{ record }">
+        <span
+          class="tag"
+          :class="record.exchange === 'SH' ? 'tag-sh' : 'tag-sz'"
         >
-          上一页
-        </button>
-        <span class="pagination-info">
-          {{ (pagination.current - 1) * pagination.pageSize + 1 }} -
-          {{ Math.min(pagination.current * pagination.pageSize, filteredTotal) }} / {{ filteredTotal }}
+          {{ record.exchange === 'SH' ? '沪市' : '深市' }}
         </span>
-        <button
-          :disabled="pagination.current * pagination.pageSize >= filteredTotal"
-          class="btn-small"
-          @click="nextPage"
+      </template>
+      <template #industry="{ record }">
+        {{ record.industry || '-' }}
+      </template>
+      <template #is_active="{ record }">
+        <span
+          class="tag"
+          :class="record.is_active === false ? 'tag-st' : 'tag-sh'"
         >
-          下一页
-        </button>
-        <select
-          v-model="pagination.pageSize"
-          class="page-size-select"
-          @change="onPageSizeChange"
-        >
-          <option :value="20">
-            20条/页
-          </option>
-          <option :value="50">
-            50条/页
-          </option>
-          <option :value="100">
-            100条/页
-          </option>
-        </select>
-      </div>
-    </div>
+          {{ record.is_active === false ? '退市' : '上市' }}
+        </span>
+      </template>
+    </ProTable>
 
     <!-- 股票详情抽屉 -->
     <div
@@ -249,10 +167,11 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import ProTable from '@/components/common/ProTable.vue'
 import { useRouter } from 'vue-router'
 import { dataApi } from '@/api/modules/data'
 import message from '@/utils/toast'
-import { useContextMenu } from '@/composables/useContextMenu'
+import type { MenuItem } from '@/composables/useContextMenu'
 
 const router = useRouter()
 const loading = ref(false)
@@ -261,15 +180,23 @@ const detailDrawerVisible = ref(false)
 const currentStock = ref<any>(null)
 const syncing = ref(false)
 
+const columns = [
+  { title: '代码', dataIndex: 'code', sortable: true },
+  { title: '名称', dataIndex: 'name', sortable: true },
+  { title: '交易所', dataIndex: 'exchange', sortable: true },
+  { title: '行业', dataIndex: 'industry' },
+  { title: '状态', dataIndex: 'is_active' },
+]
+
 const stockList = ref<any[]>([])
-const pagination = reactive({
-  current: 1,
-  pageSize: 20,
-  total: 0
-})
+const total = ref(0)
 
 const sortField = ref('code')
 const sortAsc = ref(true)
+const onSort = (field: string, order: 'asc' | 'desc') => {
+  sortField.value = field
+  sortAsc.value = order === 'asc'
+}
 
 const exchangeStats = reactive({
   sh: 0,
@@ -286,8 +213,8 @@ const deriveExchange = (stock: any): string => {
   return stock?.market || '-'
 }
 
-// 搜索过滤(本地全量过滤,与分页解耦;分页显示口径用 filteredTotal)
-const filteredStocks = computed(() => {
+// 搜索过滤(本地全量过滤;切页由 ProTable 客户端分页持有)
+const sortedStocks = computed(() => {
   let stocks = [...stockList.value]
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase()
@@ -296,25 +223,14 @@ const filteredStocks = computed(() => {
       s.name?.toLowerCase().includes(keyword)
     )
   }
-  return stocks
-})
 
-const filteredTotal = computed(() => filteredStocks.value.length)
-
-const paginatedStocks = computed(() => {
-  const start = (pagination.current - 1) * pagination.pageSize
-  const end = start + pagination.pageSize
-  const stocks = [...filteredStocks.value]
-
-  // 排序
   stocks.sort((a, b) => {
     const aVal = a[sortField.value] || ''
     const bVal = b[sortField.value] || ''
     const cmp = String(aVal).localeCompare(String(bVal))
     return sortAsc.value ? cmp : -cmp
   })
-
-  return stocks.slice(start, end)
+  return stocks
 })
 
 // 后端单页上限 500(DEFAULT_MAX_PAGE_SIZE),分页循环拉全量,
@@ -330,13 +246,12 @@ const loadStocks = async () => {
       const res = await dataApi.listStocks({ page, page_size: pageSize })
       const items = res?.items ?? []
       all.push(...items.map((s: any) => ({ ...s, exchange: deriveExchange(s) })))
-      const total = res?.total ?? all.length
-      if (all.length >= total || items.length === 0) break
+      const resTotal = res?.total ?? all.length
+      if (all.length >= resTotal || items.length === 0) break
       page++
     }
     stockList.value = all
-    pagination.total = all.length
-    pagination.current = 1
+    total.value = all.length
     exchangeStats.sh = all.filter(s => s.exchange === 'SH').length
     exchangeStats.sz = all.filter(s => s.exchange === 'SZ').length
   } catch (error: any) {
@@ -347,47 +262,19 @@ const loadStocks = async () => {
   }
 }
 
-const prevPage = () => {
-  if (pagination.current > 1) {
-    pagination.current--
-  }
-}
-
-const nextPage = () => {
-  if (pagination.current * pagination.pageSize < filteredTotal.value) {
-    pagination.current++
-  }
-}
-
-const onPageSizeChange = () => {
-  pagination.current = 1
-}
-
-const sortBy = (field: string) => {
-  if (sortField.value === field) {
-    sortAsc.value = !sortAsc.value
-  } else {
-    sortField.value = field
-    sortAsc.value = true
-  }
-}
-
 const viewStockDetail = (stock: any) => {
   currentStock.value = stock
   detailDrawerVisible.value = true
 }
 
 /** 行右键菜单:详情抽屉内操作的快捷入口 */
-const { open: openCtxMenu } = useContextMenu()
-const openStockMenu = (e: MouseEvent, stock: any) => {
-  openCtxMenu(e, [
-    { label: '查看详情', action: () => viewStockDetail(stock) },
-    { label: '查看K线', action: () => { currentStock.value = stock; viewBarData() } },
-    { label: '复制代码', action: () => { navigator.clipboard.writeText(stock.code); message.success('已复制') } },
-    { divider: true },
-    { label: '同步K线数据', action: () => { currentStock.value = stock; syncSingleStock() } },
-  ])
-}
+const stockMenu = (stock: any): MenuItem[] => [
+  { label: '查看详情', action: () => viewStockDetail(stock) },
+  { label: '查看K线', action: () => { currentStock.value = stock; viewBarData() } },
+  { label: '复制代码', action: () => { navigator.clipboard.writeText(stock.code); message.success('已复制') } },
+  { divider: true },
+  { label: '同步K线数据', action: () => { currentStock.value = stock; syncSingleStock() } },
+]
 
 const closeDrawer = () => {
   detailDrawerVisible.value = false
@@ -486,51 +373,6 @@ onMounted(() => {
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 24px;
-}
-
-.table-wrapper {
-  overflow-x: clip;
-}
-
-.text-center {
-  text-align: center;
-  color: hsl(var(--muted-foreground));
-  padding: 20px;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  margin-top: 16px;
-  flex-wrap: wrap;
-}
-
-.pagination-info {
-  color: hsl(var(--muted-foreground));
-  font-size: 13px;
-}
-
-.btn-small:hover:not(:disabled) {
-  border-color: hsl(var(--primary));
-  color: hsl(var(--primary));
-}
-
-.btn-small:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-size-select {
-  padding: 4px 8px;
-  background: hsl(var(--border));
-  border: 1px solid hsl(var(--secondary));
-  border-radius: var(--radius-sm);
-  color: hsl(var(--foreground));
-  font-size: 12px;
-  cursor: pointer;
 }
 
 /* 抽屉 */

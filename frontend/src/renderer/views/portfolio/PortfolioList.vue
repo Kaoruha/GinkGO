@@ -12,8 +12,12 @@
     create-label="创建组合"
     empty-text="暂无投资组合"
     empty-action-text="创建第一个组合"
+    :infinite-scroll="true"
+    :loading-more="loadingMore"
+    :has-more="hasMore"
     @update:search-value="onSearch"
     @create="showCreateModal"
+    @load-more="loadMore"
   >
     <template #tag>
       <span class="tag tag-purple">{{ total }} 个组合</span>
@@ -255,22 +259,6 @@
             </div>
           </div>
         </div>
-        <div
-          v-if="displayPortfolios.length > 0"
-          ref="loadMoreTrigger"
-          class="load-more-trigger"
-        >
-          <div
-            v-if="loadingMore"
-            class="spinner spinner-small"
-          />
-          <div
-            v-else-if="!hasMore"
-            class="no-more"
-          >
-            没有更多了
-          </div>
-        </div>
       </template>
     </template>
   </ListPage>
@@ -333,7 +321,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { storeToRefs } from 'pinia'
@@ -371,7 +359,6 @@ const createModalVisible = ref(false)
 const deleteModalVisible = ref(false)
 const deletingPortfolio = ref<any>(null)
 const formEditorRef = ref()
-const loadMoreTrigger = ref<HTMLElement>()
 
 const showDeployModal = ref(false)
 const deployingPortfolio = ref<any>(null)
@@ -435,26 +422,6 @@ const getStateColorClass = (state: number | string) => {
   return map[getStateColor(state as any)] || 'blue'
 }
 
-let observer: IntersectionObserver | null = null
-
-const setupIntersectionObserver = () => {
-  nextTick(() => {
-    if (!loadMoreTrigger.value) return
-    if (observer) observer.disconnect()
-    const scrollableContainer = document.querySelector('.list-content')
-    if (!scrollableContainer) return
-    observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore.value && !loading.value && !loadingMore.value) {
-          loadMore()
-        }
-      },
-      { root: scrollableContainer as Element, rootMargin: '100px', threshold: 0.1 }
-    )
-    observer.observe(loadMoreTrigger.value)
-  })
-}
-
 const loadMore = async () => {
   if (!hasMore.value || loading.value || loadingMore.value) return
   await fetchPortfolios({ append: true })
@@ -470,10 +437,6 @@ const onSearch = (val: string) => {
     fetchPortfolios({ page: 0, append: false, keyword: val || undefined })
   }, 500)
 }
-
-watch(displayPortfolios, (newVal) => {
-  if (newVal.length > 0 && !observer) setupIntersectionObserver()
-})
 
 const formatShortDate = (dateStr: string) => {
   if (!dateStr) return ''
@@ -609,11 +572,6 @@ const { running: deleting, run: runDelete } = useAsyncAction(async () => {
 onMounted(() => {
   fetchPortfolios({ page: 0, append: false })
   fetchStats()
-  setupIntersectionObserver()
-})
-
-onUnmounted(() => {
-  if (observer) observer.disconnect()
 })
 </script>
 
@@ -834,37 +792,7 @@ onUnmounted(() => {
 
 .related-metrics strong { font-size: 12px; }
 
-/* Load more */
-.load-more-trigger {
-  display: flex;
-  justify-content: center;
-  padding: 20px;
-  margin-top: 20px;
-}
-
-.no-more { color: hsl(var(--muted-foreground)); font-size: 14px; }
-
-.spinner-small {
-  width: 20px;
-  height: 20px;
-  border: 2px solid hsl(var(--border));
-  border-top-color: hsl(var(--primary));
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-/* 弹窗/按钮走全局 modals.less + buttons.less */
-
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid hsl(var(--border));
-  border-top-color: hsl(var(--primary));
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
+/* 弹窗/按钮走全局 modals.less + buttons.less;加载态/sentinel 由 ListPage 持有 */
 
 @media (max-width: 768px) {
   .portfolio-grid { grid-template-columns: 1fr; }
