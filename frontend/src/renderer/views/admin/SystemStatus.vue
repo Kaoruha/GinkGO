@@ -182,93 +182,25 @@
           </button>
         </div>
       </div>
-      <div
-        v-if="workerLoading"
-        class="loading-container"
-      >
-        <div class="spinner" />
-      </div>
-      <div
-        v-else-if="filteredWorkers.length > 0"
-        class="table-wrapper"
-      >
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>组件 ID</th>
-              <th>类型</th>
-              <th>状态</th>
-              <th>详情</th>
-              <th>最后心跳</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="record in filteredWorkers"
-              :key="`${record.type}-${record.id}`"
-            >
-              <td class="monospace">
-                {{ record.id }}
-              </td>
-              <td>
-                <span
-                  class="tag"
-                  :class="workerTypeTagClass(record.type)"
-                >
-                  {{ workerTypeLabel(record.type) }}
-                </span>
-              </td>
-              <td>
-                <StatusTag
-                  type="worker"
-                  :status="record.status"
-                />
-              </td>
-              <td class="detail-text">
-                <template v-if="record.type === 'backtest_worker'">
-                  任务: {{ record.task_count || 0 }}/{{ record.max_tasks || 5 }}
-                </template>
-                <template v-else-if="record.type === 'execution_node'">
-                  Portfolio: {{ record.portfolio_count || 0 }}
-                </template>
-                <template v-else-if="record.type === 'scheduler'">
-                  运行: {{ record.running_tasks || 0 }} / 待处理: {{ record.pending_tasks || 0 }}
-                </template>
-                <template v-else-if="record.type === 'task_timer'">
-                  定时任务: {{ record.jobs_count || 0 }}
-                </template>
-                <template v-else>
-                  已处理: {{ record.task_count || 0 }}
-                </template>
-              </td>
-              <td
-                class="monospace"
-                :class="{ 'heartbeat-stale': isHeartbeatStale(record) }"
-              >
-                {{ formatRelativeTime(record.last_heartbeat) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <EmptyState
-        v-else
-        :description="typeFilter === 'all' ? '暂无组件' : '该类型暂无组件'"
+      <WorkerTable
+        :workers="filteredWorkers"
+        :loading="workerLoading"
+        id-header="组件 ID"
+        :empty-text="typeFilter === 'all' ? '暂无组件' : '该类型暂无组件'"
+        :heartbeat-tick="systemStore.lastUpdate"
       />
     </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
-import EmptyState from '@/components/common/EmptyState.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
+import WorkerTable from '@/components/admin/WorkerTable.vue'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
-import { formatRelativeTime } from '@/utils/format'
-import { WORKER_TYPES, workerTypeTagClass, workerTypeLabel } from '@/constants/statusConfig'
+import { WORKER_TYPES, workerTypeLabel } from '@/constants/statusConfig'
 import { useSystemStore } from '@/stores'
-import type { WorkerInfo } from '@/api'
 
 // ========== Store ==========
 const systemStore = useSystemStore()
@@ -390,14 +322,6 @@ const totalCount = (type: string): number => {
   return (systemStore.componentCounts as any)[t.countsKey] || 0
 }
 
-/** 心跳超过 60s 视为过期,标橙提示 */
-const isHeartbeatStale = (record: WorkerInfo): boolean => {
-  if (!record.last_heartbeat) return false
-  const ts = new Date(record.last_heartbeat).getTime()
-  if (isNaN(ts)) return false
-  return Date.now() - ts > 60_000
-}
-
 const fetchStatus = async () => {
   try {
     await systemStore.fetchStatus()
@@ -426,15 +350,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-
-/* 密度覆盖:紧凑 12px + 表头底色(公共基线见 styles/tables.less) */
-.data-table th,
-.data-table td {
-  padding: 10px 12px;
-  font-size: 12px;
-}
-
-.data-table th {
+/* 表在 WorkerTable 子组件内;此页保留表头底色差异 */
+.card :deep(.data-table th) {
   background: hsl(var(--muted));
 }
 
@@ -603,27 +520,6 @@ onUnmounted(() => {
 
 .chip-warn {
   color: hsl(var(--warning-fg));
-}
-
-/* 表格 */
-.table-wrapper {
-  padding: 20px;
-  overflow-x: clip;
-}
-
-.monospace {
-  font-family: monospace;
-  font-size: 11px;
-}
-
-.detail-text {
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-}
-
-.heartbeat-stale {
-  color: hsl(var(--warning-fg));
-  font-weight: 600;
 }
 
 /* 响应式 */

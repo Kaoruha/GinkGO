@@ -46,14 +46,16 @@
     </template>
 
     <div class="page-content">
-      <!-- 系统状态卡片 -->
+      <!-- 系统状态卡片(配置数组见 script statCards) -->
       <div
         class="stats-grid m-stagger"
         data-testid="stats-grid"
       >
         <div
+          v-for="card in statCards"
+          :key="card.key"
           class="stat-card"
-          data-testid="stat-portfolio"
+          :data-testid="card.testid"
         >
           <div class="stat-icon">
             <svg
@@ -63,252 +65,60 @@
               fill="none"
               stroke="currentColor"
               stroke-width="2"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-              />
-              <polygon points="10,8 16,12 10,16" />
-            </svg>
+              v-html="STAT_ICONS[card.key]"
+            />
           </div>
           <div class="stat-content">
             <div class="stat-label">
-              运行中 Portfolio
+              {{ card.label }}
             </div>
-            <div
-              v-if="!loading"
-              class="stat-value"
-            >
-              {{ stats.running }} <span class="stat-suffix">个</span>
-            </div>
-            <div
-              v-else
-              class="stat-value"
-            >
-              --
-            </div>
-          </div>
-        </div>
-
-        <div
-          class="stat-card"
-          data-testid="stat-backtest"
-        >
-          <div class="stat-icon">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
-              <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
-              <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
-            </svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-label">
-              Portfolio 总数
-            </div>
-            <div
-              v-if="!loading"
-              class="stat-value"
-            >
-              {{ stats.total }} <span class="stat-suffix">个</span>
-            </div>
-            <div
-              v-else
-              class="stat-value"
-            >
-              --
-            </div>
-          </div>
-        </div>
-
-        <div
-          class="stat-card"
-          data-testid="stat-worker"
-        >
-          <div class="stat-icon">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
-              <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
-            </svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-label">
-              实盘资产
-            </div>
-            <div
-              v-if="!loading && stats.totalAssets > 0"
-              class="stat-value"
-            >
-              {{ formatNumber(stats.totalAssets) }} <span class="stat-suffix">元</span>
-            </div>
-            <div
-              v-else
-              class="stat-value"
-            >
-              --
-            </div>
-          </div>
-        </div>
-
-        <div
-          class="stat-card"
-          data-testid="stat-system"
-        >
-          <div class="stat-icon">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-              <polyline points="16 7 22 7 22 13" />
-            </svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-label">
-              平均净值
-            </div>
-            <div
-              v-if="!loading"
-              class="stat-value"
-            >
-              {{ stats.avgNetValue.toFixed(4) }}
-            </div>
-            <div
-              v-else
-              class="stat-value"
-            >
-              --
+            <div class="stat-value">
+              <template v-if="card.value !== null">
+                {{ card.value }} <span
+                  v-if="card.suffix"
+                  class="stat-suffix"
+                >{{ card.suffix }}</span>
+              </template>
+              <template v-else>
+                --
+              </template>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 4阶段概览 -->
+      <!-- 4阶段概览(配置数组见 script stageCards) -->
       <div
         class="stages-grid"
         data-testid="stages-grid"
       >
         <div
-          class="stage-card stage-1"
-          data-testid="stage-backtest"
-          @click="$router.push('/backtest')"
+          v-for="card in stageCards"
+          :key="card.key"
+          :class="['stage-card', card.cls]"
+          :data-testid="card.testid"
+          @click="$router.push(card.to)"
         >
           <div class="stage-header">
-            <h3>回测</h3>
+            <h3>{{ card.title }}</h3>
           </div>
           <div class="stage-stats">
-            <div class="stage-stat">
-              <span class="stat-label">回测组合</span>
-              <span class="stat-number">{{ backtestCount }}</span>
-            </div>
-            <div class="stage-stat">
-              <span class="stat-label">运行中</span>
+            <div
+              v-for="s in card.stats"
+              :key="s.label"
+              class="stage-stat"
+            >
+              <span class="stat-label">{{ s.label }}</span>
               <span
                 class="stat-number"
-                :class="{ 'is-running': backtestRunning > 0 }"
-              >{{ backtestRunning }}</span>
+                :class="{ 'is-running': s.running }"
+              >{{ s.value }}</span>
             </div>
           </div>
           <span
             class="stage-link"
-            data-testid="stage-link-backtest"
-          >进入回测 →</span>
-        </div>
-
-        <div
-          class="stage-card stage-2"
-          data-testid="stage-validation"
-          @click="$router.push('/validation/walkforward')"
-        >
-          <div class="stage-header">
-            <h3>验证</h3>
-          </div>
-          <div class="stage-stats">
-            <div class="stage-stat">
-              <span class="stat-label">验证组合</span>
-              <span class="stat-number">--</span>
-            </div>
-            <div class="stage-stat">
-              <span class="stat-label">通过验证</span>
-              <span class="stat-number">--</span>
-            </div>
-          </div>
-          <span
-            class="stage-link"
-            data-testid="stage-link-validation"
-          >进入验证 →</span>
-        </div>
-
-        <div
-          class="stage-card stage-3"
-          data-testid="stage-paper"
-          @click="$router.push('/paper')"
-        >
-          <div class="stage-header">
-            <h3>模拟</h3>
-          </div>
-          <div class="stage-stats">
-            <div class="stage-stat">
-              <span class="stat-label">模拟组合</span>
-              <span class="stat-number">{{ paperCount }}</span>
-            </div>
-            <div class="stage-stat">
-              <span class="stat-label">运行中</span>
-              <span
-                class="stat-number"
-                :class="{ 'is-running': paperRunning > 0 }"
-              >{{ paperRunning }}</span>
-            </div>
-          </div>
-          <span
-            class="stage-link"
-            data-testid="stage-link-paper"
-          >进入模拟 →</span>
-        </div>
-
-        <div
-          class="stage-card stage-4"
-          data-testid="stage-live"
-          @click="$router.push('/live')"
-        >
-          <div class="stage-header">
-            <h3>实盘</h3>
-          </div>
-          <div class="stage-stats">
-            <div class="stage-stat">
-              <span class="stat-label">实盘组合</span>
-              <span class="stat-number">{{ liveCount }}</span>
-            </div>
-            <div class="stage-stat">
-              <span class="stat-label">运行中</span>
-              <span
-                class="stat-number"
-                :class="{ 'is-running': liveRunning > 0 }"
-              >{{ liveRunning }}</span>
-            </div>
-          </div>
-          <span
-            class="stage-link"
-            data-testid="stage-link-live"
-          >进入实盘 →</span>
+            :data-testid="card.linkTestid"
+          >{{ card.link }}</span>
         </div>
       </div>
 
@@ -593,6 +403,58 @@ const paperCount = computed(() => countByMode('PAPER'))
 const paperRunning = computed(() => countByMode('PAPER', true))
 const liveCount = computed(() => countByMode('LIVE'))
 const liveRunning = computed(() => countByMode('LIVE', true))
+
+// 顶部 4 张统计卡图标(SVG innerHTML,配置数组 v-for 渲染;图标原样自旧模板迁入)
+const STAT_ICONS: Record<string, string> = {
+  portfolio: '<circle cx="12" cy="12" r="10" /><polygon points="10,8 16,12 10,16" />',
+  total: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" /><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />',
+  assets: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" /><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />',
+  netValue: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" />',
+}
+
+// 统计卡展示配置:value=null 显示 --(加载中/实盘资产为 0 与原条件一致)
+const statCards = computed(() => [
+  { key: 'portfolio', testid: 'stat-portfolio', label: '运行中 Portfolio', value: loading.value ? null : `${stats.value.running}`, suffix: '个' },
+  { key: 'total', testid: 'stat-backtest', label: 'Portfolio 总数', value: loading.value ? null : `${stats.value.total}`, suffix: '个' },
+  { key: 'assets', testid: 'stat-worker', label: '实盘资产', value: loading.value || stats.value.totalAssets <= 0 ? null : formatNumber(stats.value.totalAssets), suffix: '元' },
+  { key: 'netValue', testid: 'stat-system', label: '平均净值', value: loading.value ? null : stats.value.avgNetValue.toFixed(4), suffix: '' },
+])
+
+// 4 阶段卡展示配置:验证域无统计数据,占位 -- 与原模板一致
+const stageCards = computed(() => [
+  {
+    key: 'backtest', cls: 'stage-1', testid: 'stage-backtest', title: '回测', to: '/backtest',
+    linkTestid: 'stage-link-backtest', link: '进入回测 →',
+    stats: [
+      { label: '回测组合', value: `${backtestCount.value}`, running: false },
+      { label: '运行中', value: `${backtestRunning.value}`, running: backtestRunning.value > 0 },
+    ],
+  },
+  {
+    key: 'validation', cls: 'stage-2', testid: 'stage-validation', title: '验证', to: '/validation/walkforward',
+    linkTestid: 'stage-link-validation', link: '进入验证 →',
+    stats: [
+      { label: '验证组合', value: '--', running: false },
+      { label: '通过验证', value: '--', running: false },
+    ],
+  },
+  {
+    key: 'paper', cls: 'stage-3', testid: 'stage-paper', title: '模拟', to: '/paper',
+    linkTestid: 'stage-link-paper', link: '进入模拟 →',
+    stats: [
+      { label: '模拟组合', value: `${paperCount.value}`, running: false },
+      { label: '运行中', value: `${paperRunning.value}`, running: paperRunning.value > 0 },
+    ],
+  },
+  {
+    key: 'live', cls: 'stage-4', testid: 'stage-live', title: '实盘', to: '/live',
+    linkTestid: 'stage-link-live', link: '进入实盘 →',
+    stats: [
+      { label: '实盘组合', value: `${liveCount.value}`, running: false },
+      { label: '运行中', value: `${liveRunning.value}`, running: liveRunning.value > 0 },
+    ],
+  },
+])
 
 // 回测健康度:近100条状态分布(running+pending+created 计为进行中)
 const btHealth = computed(() => {

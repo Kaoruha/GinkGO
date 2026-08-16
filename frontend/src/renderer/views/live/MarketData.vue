@@ -261,6 +261,8 @@ import PageLayout from '@/components/common/PageLayout.vue'
 import { marketApi, type TradingPair, type MarketSubscription, DataType } from '@/api/modules/market'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { usePolling } from '@/composables'
+import { createReconnectingSocket } from '@/composables/reconnectingSocket'
 
 /** 交易对卡片右键菜单(替代卡片内订阅按钮) */
 const { open: openCtxMenu } = useContextMenu()
@@ -290,10 +292,15 @@ const subscriptions = ref<MarketSubscription[]>([])
 const selectedDataType = ref<DataType>('ticker')
 
 // API Server WebSocket（通过 API Server 中转 OKX WebSocket）
-let ws: WebSocket | null = null
+// 双形态对齐 request.ts 契约:Electron 优先 window.appConfig.apiBase,浏览器回退 env
+// 注:apiBase 为 HTTP 格式(http://host:port),wsUrl 内 new URL + protocol 转换
+const wsUrl = () => {
+  const apiBase = window.appConfig?.apiBase || import.meta.env.VITE_API_BASE_URL || ''
+  const url = new URL(apiBase || `${window.location.protocol}//${window.location.hostname}:8000`)
+  const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${url.host}/ws`
+}
 const wsConnected = ref(false)
-// 标记是否应该重连（组件卸载时不应该重连）
-const shouldReconnect = ref(true)
 // 订阅交易对的实时数据（从 OKX WebSocket）- 使用 ref 确保响应式
 const tickerData = ref<Record<string, any>>({})
 // 所有交易对的 ticker 数据（从 REST API 定期获取）
@@ -304,8 +311,6 @@ const priceDirection = ref<Record<string, string>>({})
 const lastPrices = ref<Record<string, number>>({})
 // 价格动画状态 {symbol: 'flash-up' | 'flash-down' | ''}
 const priceAnimation = ref<Record<string, string>>({})
-// 定时刷新所有 ticker 的定时器
-let allTickersTimer: number | null = null
 // 行情服务不可用(后端 market 模块缺失,接口 404):
 // 停止 5s 轮询与 WS 重连,避免无谓重试刷屏;手动"刷新交易对"成功后自动恢复
 const serviceUnavailable = ref(false)
@@ -412,8 +417,8 @@ const refreshPairs = async () => {
 const markUnavailableIf404 = (error: any): boolean => {
   if (error?.response?.status === 404) {
     serviceUnavailable.value = true
-    stopAllTickersPolling()
-    disconnectWebSocket()
+    stopTickersPolling()
+    sock.disconnect()
     return true
   }
   return false
@@ -482,150 +487,106 @@ const loadAllTickers = async () => {
   }
 }
 
-const startAllTickersPolling = () => {
-  // 立即加载一次
-  loadAllTickers()
-  // 每 5 秒刷新一次
-  allTickersTimer = window.setInterval(() => {
-    loadAllTickers()
-  }, 5000)
+// ticker 轮询闸门:服务降级期不发请求直接停轮询(手动刷新恢复后重启)
+const pollAllTickers = async () => {
+  if (serviceUnavailable.value) return stopTickersPolling()
+  await loadAllTickers()
 }
+// 5s 轮询(usePolling 自带卸载清理 + 可见性暂停;不 immediate——
+// 首拉时序保持原版:onMounted 先判 404 降级,可用时才手动拉第一次)
+const { start: startTickersPolling, stop: stopTickersPolling } = usePolling(pollAllTickers, 5000)
 
-const stopAllTickersPolling = () => {
-  if (allTickersTimer !== null) {
-    window.clearInterval(allTickersTimer)
-    allTickersTimer = null
-  }
-}
+/** WS 消息处理:market_data/ticker → 价格方向/闪烁动画/tickerData 就地更新 */
+const handleWsMessage = (raw: string) => {
+  try {
+    const message = JSON.parse(raw)
 
-// API Server WebSocket（通过 API Server 中转 OKX WebSocket）
-const connectWebSocket = () => {
-  // 连接到 API Server WebSocket
-  // 双形态对齐 request.ts 契约:Electron 优先 window.appConfig.apiBase,浏览器回退 env
-  // 注:apiBase 为 HTTP 格式(http://host:port),下方 new URL + protocol 转换沿用既有逻辑
-  const apiBase = window.appConfig?.apiBase || import.meta.env.VITE_API_BASE_URL || ''
-  const url = new URL(apiBase || `${window.location.protocol}//${window.location.hostname}:8000`)
-  const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-  const wsUrl = `${protocol}//${url.host}/ws`
+    if (message.type === 'market_data' && message.data_type === 'ticker') {
+      const symbol = message.symbol
+      const data = message.data || {}
 
-  // 启用自动重连
-  shouldReconnect.value = true
+      const newPrice = data.price || 0
+      const oldPrice = lastPrices.value[symbol]
 
-  ws = new WebSocket(wsUrl)
-
-  ws.onopen = () => {
-    wsConnected.value = true
-
-    // 订阅已保存的交易对
-    subscriptions.value.forEach(sub => {
-      subscribeWs(sub.symbol)
-    })
-  }
-
-  ws.onmessage = (event) => {
-    try {
-      const message = JSON.parse(event.data)
-
-      if (message.type === 'market_data' && message.data_type === 'ticker') {
-        const symbol = message.symbol
-        const data = message.data || {}
-
-        const newPrice = data.price || 0
-        const oldPrice = lastPrices.value[symbol]
-
-        // 更新价格方向（每次都更新以保持颜色）
-        let direction = ''
-        if (oldPrice && newPrice !== oldPrice) {
-          direction = newPrice > oldPrice ? 'up' : 'down'
-        }
-
-        // 始终设置方向状态（用于颜色显示）
-        // 如果有旧价格且价格变化了，更新方向；否则保持当前方向或默认为 up
-        if (direction) {
-          priceDirection.value = { ...priceDirection.value, [symbol]: direction }
-        } else if (!priceDirection.value[symbol] && newPrice > 0) {
-          // 首次收到价格时，设置默认方向为 up（绿色）
-          priceDirection.value = { ...priceDirection.value, [symbol]: 'up' }
-        }
-
-        // 只有价格真正变化时才触发动画
-        if (newPrice !== oldPrice && direction) {
-          priceAnimation.value[symbol] = direction === 'up' ? 'flash-up' : 'flash-down'
-
-          // 600ms 后清除动画类，这样下次价格变化会重新触发
-          setTimeout(() => {
-            if (priceAnimation.value[symbol]) {
-              delete priceAnimation.value[symbol]
-              // 创建新对象引用以触发响应式更新
-              priceAnimation.value = { ...priceAnimation.value }
-            }
-          }, 600)
-        }
-
-        lastPrices.value[symbol] = newPrice
-
-        // 创建新对象引用以确保 Vue 响应式系统正确追踪
-        const newData = { ...data }
-        const newTickerData = { ...tickerData.value }
-        newTickerData[symbol] = newData
-        tickerData.value = newTickerData
+      // 更新价格方向（每次都更新以保持颜色）
+      let direction = ''
+      if (oldPrice && newPrice !== oldPrice) {
+        direction = newPrice > oldPrice ? 'up' : 'down'
       }
-    } catch (error: any) {
-      console.error('[WS] 错误:', error.message)
+
+      // 始终设置方向状态（用于颜色显示）
+      // 如果有旧价格且价格变化了，更新方向；否则保持当前方向或默认为 up
+      if (direction) {
+        priceDirection.value = { ...priceDirection.value, [symbol]: direction }
+      } else if (!priceDirection.value[symbol] && newPrice > 0) {
+        // 首次收到价格时，设置默认方向为 up（绿色）
+        priceDirection.value = { ...priceDirection.value, [symbol]: 'up' }
+      }
+
+      // 只有价格真正变化时才触发动画
+      if (newPrice !== oldPrice && direction) {
+        priceAnimation.value[symbol] = direction === 'up' ? 'flash-up' : 'flash-down'
+
+        // 600ms 后清除动画类，这样下次价格变化会重新触发
+        setTimeout(() => {
+          if (priceAnimation.value[symbol]) {
+            delete priceAnimation.value[symbol]
+            // 创建新对象引用以触发响应式更新
+            priceAnimation.value = { ...priceAnimation.value }
+          }
+        }, 600)
+      }
+
+      lastPrices.value[symbol] = newPrice
+
+      // 创建新对象引用以确保 Vue 响应式系统正确追踪
+      const newData = { ...data }
+      const newTickerData = { ...tickerData.value }
+      newTickerData[symbol] = newData
+      tickerData.value = newTickerData
     }
-  }
-
-  ws.onclose = () => {
-    wsConnected.value = false
-    setTimeout(() => {
-      // 只有在应该重连且未连接时才重连(服务不可用时不再无限重试 403)
-      if (shouldReconnect.value && !wsConnected.value && !serviceUnavailable.value) {
-        connectWebSocket()
-      }
-    }, 5000)
-  }
-
-  ws.onerror = (error) => {
-    console.error('[WS] WebSocket 错误:', error)
-    wsConnected.value = false
+  } catch (error: any) {
+    console.error('[WS] 错误:', error.message)
   }
 }
 
-const disconnectWebSocket = () => {
-  // 设置标志，防止自动重连
-  shouldReconnect.value = false
-  if (ws) {
-    ws.close()
-    ws = null
-  }
-  wsConnected.value = false
-}
+// 可重连 socket(重连延迟固定 5s 与原实现等价;enabled 闸门=服务降级期停重试)
+const sock = createReconnectingSocket({
+  url: wsUrl,
+  onMessage: handleWsMessage,
+  onStatusChange: (connected) => {
+    wsConnected.value = connected
+    // (重)连接成功后重新订阅已保存的交易对(原 onopen 语义)
+    if (connected) {
+      subscriptions.value.forEach(sub => {
+        subscribeWs(sub.symbol)
+      })
+    }
+  },
+  enabled: () => !serviceUnavailable.value,
+})
 
 const toggleWebSocket = () => {
   if (wsConnected.value) {
-    disconnectWebSocket()
+    sock.disconnect()
   } else {
-    connectWebSocket()
+    sock.connect()
   }
 }
 
 const subscribeWs = (symbol: string) => {
-  if (ws && wsConnected.value && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({
-      action: 'subscribe',
-      symbols: [symbol],
-      data_types: ['ticker']
-    }))
-  }
+  sock.send(JSON.stringify({
+    action: 'subscribe',
+    symbols: [symbol],
+    data_types: ['ticker']
+  }))
 }
 
 const unsubscribeWs = (symbol: string) => {
-  if (ws && wsConnected.value) {
-    ws.send(JSON.stringify({
-      action: 'unsubscribe',
-      symbols: [symbol]
-    }))
-  }
+  sock.send(JSON.stringify({
+    action: 'unsubscribe',
+    symbols: [symbol]
+  }))
 }
 
 // 格式化
@@ -722,13 +683,13 @@ onMounted(async () => {
   await loadSubscriptions()
   // 后端 market 模块缺失(404)时不再起 WS 重连循环与 5s 轮询
   if (serviceUnavailable.value) return
-  connectWebSocket()
-  startAllTickersPolling()
+  sock.connect()
+  loadAllTickers()
+  startTickersPolling()
 })
 
 onUnmounted(() => {
-  disconnectWebSocket()
-  stopAllTickersPolling()
+  sock.disconnect()
 })
 </script>
 

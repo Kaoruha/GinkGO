@@ -55,6 +55,16 @@ export function formatNumber(num: number | string | null | undefined): string {
 }
 
 /**
+ * 定点小数(字符串入参安全,NaN→0.00):AccountInfo 域余额/持仓展示
+ * (后端金额为字符串,须先 parseFloat 再 toFixed)
+ */
+export function formatFixed(num: string | number, decimals = 2): string {
+  const n = typeof num === 'string' ? parseFloat(num) : num
+  if (isNaN(n)) return (0).toFixed(decimals)
+  return n.toFixed(decimals)
+}
+
+/**
  * 格式化百分比
  */
 export function formatPercent(val: number | string | null | undefined, decimals = 2): string {
