@@ -48,6 +48,8 @@ class AdjustfactorService(BaseService):
             ServiceResult: Sync result with detailed statistics and error handling
         """
         start_time = time.time()
+        # code 归一 upper(全链大写标准):入口一次覆盖校验/删除/查重/实体构造
+        code = code.upper() if isinstance(code, str) else code
 
         try:
             # Validate stock code

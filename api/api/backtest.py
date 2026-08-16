@@ -332,7 +332,7 @@ async def list_backtests(
     status: Optional[str] = Query(None, description="按状态筛选"),
     portfolio_id: Optional[str] = Query(None, description="按投资组合筛选"),
     sort_by: Optional[str] = Query(
-        None, description="排序字段: annual_return / sharpe_ratio / max_drawdown / win_rate / created_at"
+        None, description="排序字段: annual_return / sharpe_ratio / max_drawdown / win_rate / total_pnl / created_at / update_at"
     ),
     sort_order: Optional[str] = Query("desc", description="排序方向: asc / desc"),
     page: int = Query(1, ge=1, description="页码"),
@@ -449,6 +449,29 @@ _BUILTIN_ANALYZERS = [
 async def list_analyzers():
     """获取可用的内置分析器类型列表。"""
     return ok(data=_BUILTIN_ANALYZERS, message="Built-in analyzers")
+
+
+@router.get("/portfolio-stats/{portfolio_id}")
+async def get_portfolio_backtest_stats(portfolio_id: str):
+    """聚合某 Portfolio 全部已完成回测的统计指标（净值/回撤/夏普等的平均与极值）。
+
+    指标列直接取自 MBacktestTask（回测完成时写入），字段与前端
+    PortfolioBacktestStats 契约一致（含 latest_completed 嵌套）。
+    """
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.get_portfolio_stats(portfolio_id)
+
+        if not result.is_success():
+            raise BusinessError(result.error or "Failed to get portfolio backtest stats")
+
+        return ok(data=result.data, message="Portfolio backtest stats retrieved successfully")
+
+    except BusinessError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting portfolio backtest stats for {portfolio_id}: {str(e)}")
+        raise BusinessError(f"Error getting portfolio backtest stats: {str(e)}")
 
 
 @router.get("/{uuid}")
@@ -726,6 +749,22 @@ async def get_backtest_signals(
         raise BusinessError(f"Error getting signals: {str(e)}")
 
 
+@router.get("/{uuid}/order-records")
+async def get_backtest_order_records(uuid: str):
+    """获取回测订单状态流水(完整生命周期:NEW→SUBMITTED→FILLED 各一行,不去重)"""
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.list_order_records(uuid)
+        if not result.is_success():
+            return ok(data=[], message=result.error or "Failed to retrieve order records")
+        return ok(data=result.data, message="Order records retrieved successfully")
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting order records for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting order records: {str(e)}")
+
+
 @router.get("/{uuid}/orders")
 async def get_backtest_orders(
     uuid: str,
@@ -872,6 +911,41 @@ async def get_backtest_positions(uuid: str):
         raise BusinessError(f"Error getting positions: {str(e)}")
 
 
+@router.get("/netvalue-sparklines")
+async def get_backtest_netvalue_sparklines(
+    task_ids: str = Query("", description="逗号分隔的任务ID列表,返回各自的降采样净值序列"),
+):
+    """回测列表净值缩略图数据(2026-08-17)。
+
+    每任务返回 ~40 点降采样序列,供列表内联 sparkline;
+    避免前端逐行调全量 netvalue(N 行 = N 次全量查询)。
+    """
+    try:
+        task_service = get_backtest_task_service()
+        ids = [t.strip() for t in task_ids.split(",") if t.strip()][:50]
+        out = {}
+        for tid in ids:
+            try:
+                r = task_service.get_netvalue(tid)
+                if not r.is_success() or not r.data or not r.data.strategy:
+                    out[tid] = []
+                    continue
+                pts = [p.value for p in r.data.strategy]
+                n = len(pts)
+                if n <= 40:
+                    out[tid] = pts
+                else:
+                    # 均匀降采样:首尾必含(起点=1.0 语境,终点=最终净值)
+                    step = (n - 1) / 39
+                    out[tid] = [pts[round(i * step)] for i in range(40)]
+            except Exception:
+                out[tid] = []
+        return ok(data=out, message="Sparklines retrieved")
+    except Exception as e:
+        logger.error(f"Error getting sparklines: {str(e)}")
+        raise BusinessError(f"Error getting sparklines: {str(e)}")
+
+
 @router.get("/{uuid}/netvalue")
 async def get_backtest_netvalue(uuid: str):
     """获取回测净值数据"""
@@ -997,7 +1071,12 @@ async def get_backtest_logs(
             kwargs["end_time"] = datetime.strptime(end_time + " 23:59:59", "%Y-%m-%d %H:%M:%S")
 
         logs = log_service.query_backtest_logs(**kwargs)
-        total = log_service.get_log_count(log_type="backtest", task_id=task_id, level=level)
+        # total 与列表同条件(含时间/event_type),否则过滤后列表空而 total 不变,
+        # 前端 hasMore 判断失真
+        total = log_service.get_log_count(
+            log_type="backtest", task_id=task_id, level=level, event_type=event_type,
+            start_time=kwargs.get("start_time"), end_time=kwargs.get("end_time"),
+        )
 
         return ok(
             data={"logs": logs, "total": total, "limit": limit, "offset": offset}, message="Logs retrieved successfully"

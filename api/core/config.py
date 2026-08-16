@@ -74,7 +74,13 @@ class Settings(BaseSettings):
         return self
 
     class Config:
-        env_file = ".env"
+        # ginkgo CLI 是全局命令, 从任意 CWD 启动时相对 ".env" 按当前目录解析,
+        # 读不到仓库根 .env 的 SECRET_KEY 会被 #5464 validator 硬拒绝启动。
+        # 仓库根 .env(绝对路径锚定)为基线; CWD 本地 .env 仍可覆盖(列表后者优先)。
+        env_file = [
+            str(Path(__file__).resolve().parent.parent.parent / ".env"),
+            ".env",
+        ]
         env_file_encoding = "utf-8"
         case_sensitive = True
         extra = "ignore"

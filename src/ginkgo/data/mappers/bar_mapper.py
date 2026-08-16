@@ -29,7 +29,11 @@ class BarMapper:
         """
         model = MBar()
         model.update(
-            entity.code,
+            # code 归一 upper:数据源(tushare ts_code)返回小写 .sz/.sh,而删除
+            # 键/查重/预检均按上层大写形态——双态并存曾致 sync_range 的
+            # remove(大写)清空旧库 + add_batch(小写)写入残缺(2026-08-16 实例:
+            # 000001.SZ 大写日线全灭,仅剩免费权限拉回的小写 2021 段)
+            entity.code.upper() if isinstance(entity.code, str) else entity.code,
             open=entity.open,
             high=entity.high,
             low=entity.low,

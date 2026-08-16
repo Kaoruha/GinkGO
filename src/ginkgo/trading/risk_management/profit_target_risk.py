@@ -60,8 +60,8 @@ class ProfitTargetRisk(BaseRiskManagement):
         # 参数验证（满足测试要求）
         if profit_target <= 0:
             raise ValueError("止盈目标必须为正数")
-        if profit_target > 1:
-            raise ValueError("止盈目标不能超过100%")
+        # 允许 >1（如 2.0 = 盈利翻倍止盈），不设上限；
+        # 与 LossLimitRisk 口径统一：均为小数比例
 
         self.profit_target = profit_target
         self.partial_take_profit = partial_take_profit

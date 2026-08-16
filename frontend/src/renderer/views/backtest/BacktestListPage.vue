@@ -56,6 +56,11 @@
       </div>
     </template>
 
+    <template #sparkline="{ record }">
+      <Sparkline v-if="sparklines[record.uuid]?.length >= 2" :points="sparklines[record.uuid]" :width="110" :height="30" />
+      <span v-else class="val-muted">-</span>
+    </template>
+
     <template #annual_return="{ record }">
       <span :class="Number(record.annual_return) >= 0 ? 'val-green' : 'val-red'">
         {{ formatPercent(record.annual_return) }}
@@ -113,8 +118,10 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ListPage from '@/components/common/ListPage.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
+import Sparkline from '@/components/charts/Sparkline.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { backtestApi } from '@/api/modules/backtest'
+import request from '@/api/request'
 import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { useWebSocket, useServerEvents } from '@/composables'
 import { formatDecimal } from '@/composables/useBacktestFormatters'
@@ -131,6 +138,19 @@ let unsubscribe: (() => void) | null = null
 let pollTimer: number | null = null
 
 const tasks = ref<any[]>([])
+// 净值缩略图:task uuid → 降采样净值序列(批量端点一次拉全页)
+const sparklines = ref<Record<string, number[]>>({})
+const loadSparklines = async (rows: any[]) => {
+  const completed = rows.filter(t => t.status === 'completed').map(t => t.uuid)
+  if (!completed.length) return
+  try {
+    const res = await request.get('/api/v1/backtests/netvalue-sparklines', {
+      params: { task_ids: completed.join(',') },
+      skipErrorToast: true,
+    } as any)
+    sparklines.value = ((res as any).data || res) as Record<string, number[]>
+  } catch { sparklines.value = {} }
+}
 const loading = ref(false)
 // 列表加载失败(后端 5xx/网络断):须与"暂无数据"空态区分,提供重试
 const listError = ref('')
@@ -158,6 +178,7 @@ const columns = [
   { title: '任务名称', dataIndex: 'name', key: 'name', width: 200 },
   { title: '组合', dataIndex: 'portfolio_name', key: 'portfolio_name', width: 150 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 160 },
+  { title: '净值', key: 'sparkline', width: 130, dataIndex: 'sparkline' } as any,
   { title: '收益率', dataIndex: 'annual_return', key: 'annual_return', width: 100, sortable: true },
   { title: '夏普', dataIndex: 'sharpe_ratio', key: 'sharpe_ratio', width: 80, sortable: true },
   { title: '最大回撤', dataIndex: 'max_drawdown', key: 'max_drawdown', width: 100, sortable: true },
@@ -259,8 +280,10 @@ async function fetchTasks(append: boolean) {
     const newData = res?.items || []
     if (append) {
       tasks.value.push(...newData)
+      loadSparklines(tasks.value)  // 净值缩略图(仅 completed,批量一次)
     } else {
       tasks.value = newData
+      loadSparklines(tasks.value)
     }
     total.value = res?.total || 0
     if (!append) listError.value = ''

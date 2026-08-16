@@ -192,6 +192,14 @@ app.include_router(system_router.router, prefix=f"{API_PREFIX}/system", tags=["s
 from api import task_timer as task_timer_router
 app.include_router(task_timer_router.router, prefix=f"{API_PREFIX}/task-timer", tags=["task-timer"])
 
+# 行情查询 + 用户行情订阅（MarketData.vue；失败一律 400 禁 404——前端以 404 为模块缺失哨兵）
+from api import market as market_router
+app.include_router(market_router.router, prefix=f"{API_PREFIX}/market", tags=["market"])
+
+# 因子研究（ic/layering/decay：FactorAnalysisService 现场计算，不入库）
+from api import research as research_router
+app.include_router(research_router.router, prefix=f"{API_PREFIX}/research", tags=["research"])
+
 # WebSocket路由
 from websocket.handlers import portfolio_handler, system_handler
 

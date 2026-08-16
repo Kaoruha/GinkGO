@@ -60,14 +60,14 @@ def _set_context(obj, engine_id="test_engine", portfolio_id="test_portfolio", ta
 class TestVolatilityRiskConstruction:
     def test_default_constructor(self):
         r = VolatilityRisk()
-        assert r.max_volatility == 25.0
-        assert r.warning_volatility == 20.0
+        assert r.max_volatility == 0.25
+        assert r.warning_volatility == 0.20
         assert r.lookback_period == 20
 
     def test_custom_parameters_constructor(self):
-        r = VolatilityRisk(max_volatility=30, warning_volatility=25, lookback_period=10)
-        assert r.max_volatility == 30.0
-        assert r.warning_volatility == 25.0
+        r = VolatilityRisk(max_volatility=0.30, warning_volatility=0.25, lookback_period=10)
+        assert r.max_volatility == 0.30
+        assert r.warning_volatility == 0.25
         assert r.lookback_period == 10
 
     def test_period_parameter_validation(self):
@@ -76,9 +76,9 @@ class TestVolatilityRiskConstruction:
         assert r._volatility_window == 3
 
     def test_property_access(self):
-        r = VolatilityRisk(max_volatility=15.0, warning_volatility=10.0)
-        assert r.max_volatility == 15.0
-        assert r.warning_volatility == 10.0
+        r = VolatilityRisk(max_volatility=0.15, warning_volatility=0.10)
+        assert r.max_volatility == 0.15
+        assert r.warning_volatility == 0.10
 
 
 @pytest.mark.tdd
@@ -126,15 +126,15 @@ class TestVolatilityRiskCalculation:
 @pytest.mark.financial
 class TestVolatilityRiskOrderProcessing:
     def test_low_volatility_order_passthrough(self):
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20)
         order = _make_order(volume=100)
         result = r.cal({}, order)
         assert result is order
         assert order.volume == 100
 
     def test_warning_level_order_adjustment(self):
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=10.0)
-        r._volatility_cache["000001.SZ"] = 15.0
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.10)
+        r._volatility_cache["000001.SZ"] = 0.15
         order = _make_order(volume=1000)
         result = r.cal({}, order)
         assert result is order
@@ -149,12 +149,12 @@ class TestVolatilityRiskOrderProcessing:
         因子 ≥ 1 → 放大仓位，违反风控单调性。修法：分子改用
         warning_volatility，使预警区间因子 < 1 且随 cur 升高递减。
 
-        默认 warning=20/max=25，cur=22 落在预警区间：
-          buggy (25/22)^1.5 ≈ 1.21 → 1211（放大，应失败）
-          fixed (20/22)^1.5 ≈ 0.87 → 866（减仓）
+        默认 warning=0.20/max=0.25，cur=0.22 落在预警区间：
+          buggy (0.25/0.22)^1.5 ≈ 1.21 → 1211（放大，应失败）
+          fixed (0.20/0.22)^1.5 ≈ 0.87 → 866（减仓）
         """
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
-        r._volatility_cache["000001.SZ"] = 22.0  # warning(20) < 22 ≤ max(25)
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20)
+        r._volatility_cache["000001.SZ"] = 0.22  # warning(0.20) < 0.22 ≤ max(0.25)
         order = _make_order(volume=1000)
         result = r.cal({}, order)
         assert result is order
@@ -169,33 +169,33 @@ class TestVolatilityRiskOrderProcessing:
 
         #6497 影响：旧实现不仅放大仓位，且随 cur 升高放大更多（非单调）。
         修复后预警分支应在区间内单调递减，到 max 处衔接高波动分支。"""
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
-        # cur=21（刚踩预警）应比 cur=24（接近 max）减得更少，但两者都 < 原量
-        r._volatility_cache["000001.SZ"] = 21.0
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20)
+        # cur=0.21（刚踩预警）应比 cur=0.24（接近 max）减得更少，但两者都 < 原量
+        r._volatility_cache["000001.SZ"] = 0.21
         order_low = _make_order(volume=1000)
         r.cal({}, order_low)
 
-        r._volatility_cache["000001.SZ"] = 24.0
+        r._volatility_cache["000001.SZ"] = 0.24
         order_high = _make_order(volume=1000)
         r.cal({}, order_high)
 
         assert order_low.volume < 1000 and order_high.volume < 1000
         assert order_high.volume < order_low.volume, (
-            f"预警区间应单调递减：cur=24 volume={order_high.volume} 应 < "
-            f"cur=21 volume={order_low.volume}"
+            f"预警区间应单调递减：cur=0.24 volume={order_high.volume} 应 < "
+            f"cur=0.21 volume={order_low.volume}"
         )
 
     def test_high_volatility_order_reduction(self):
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
-        r._volatility_cache["000001.SZ"] = 50.0
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20)
+        r._volatility_cache["000001.SZ"] = 0.50
         order = _make_order(volume=1000)
         result = r.cal({}, order)
         assert result is order
         assert order.volume < 1000
 
     def test_adjustment_formula_validation(self):
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
-        r._volatility_cache["000001.SZ"] = 50.0
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20)
+        r._volatility_cache["000001.SZ"] = 0.50
         order = _make_order(volume=1000)
         r.cal({}, order)
         assert order.volume >= 1
@@ -206,25 +206,26 @@ class TestVolatilityRiskOrderProcessing:
 @pytest.mark.financial
 class TestVolatilityRiskLotAlignment:
     def test_high_volatility_scaled_aligns_to_lot(self):
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
-        r._volatility_cache["000001.SZ"] = 100.0
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20)
+        r._volatility_cache["000001.SZ"] = 1.0
         order = _make_order(volume=10000)
         result = r.cal({}, order)
-        # factor=(25/100)^2=0.0625, scaled=625, aligned to 100-share lot=600
+        # factor=(0.25/1.0)^2=0.0625, scaled=625, aligned to 100-share lot=600
         assert result is order
         assert order.volume == 600
 
     def test_high_volatility_below_lot_rejects(self):
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
-        r._volatility_cache["000001.SZ"] = 100.0
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20)
+        r._volatility_cache["000001.SZ"] = 1.0
         order = _make_order(volume=1000)
         result = r.cal({}, order)
         # factor=0.0625, scaled=62, aligned=0 < 1 lot (100) → blocked
+        # (cur=1.0 即 100% 年化波动，小数口径)
         assert result is None
 
     def test_warning_level_adjusts_to_lot(self):
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=10.0)
-        r._volatility_cache["000001.SZ"] = 22.0
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.10)
+        r._volatility_cache["000001.SZ"] = 0.22
         order = _make_order(volume=10000)
         result = r.cal({}, order)
         assert result is order
@@ -237,11 +238,11 @@ class TestVolatilityRiskLotAlignment:
 
         框架设计不限于 A 股（100 股/手）。lot_size 参数化以支持港股/美股/
         期货等不同最小交易单位；默认 100 保持 A 股现状。"""
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0, lot_size=80)
-        r._volatility_cache["000001.SZ"] = 100.0
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20, lot_size=80)
+        r._volatility_cache["000001.SZ"] = 1.0
         order = _make_order(volume=10000)
         result = r.cal({}, order)
-        # factor=(25/100)^2=0.0625, scaled=625, lot_size=80 → aligned=(625//80)*80=560
+        # factor=(0.25/1.0)^2=0.0625, scaled=625, lot_size=80 → aligned=(625//80)*80=560
         assert result is order
         assert order.volume == 560
 
@@ -249,8 +250,8 @@ class TestVolatilityRiskLotAlignment:
         """lot_size 参数控制拒单阈值：lot_size=200 时 scaled=150（>=100 但 <200）应拒单。
 
         现状硬编码 100 会放行（aligned=100）；证明 lot_size 改变了不足 1 手的判定边界。"""
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0, lot_size=200)
-        r._volatility_cache["000001.SZ"] = 100.0
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20, lot_size=200)
+        r._volatility_cache["000001.SZ"] = 1.0
         order = _make_order(volume=2400)
         result = r.cal({}, order)
         # factor=0.0625, scaled=150, lot_size=200 → aligned=0 < 200 → blocked
@@ -262,7 +263,7 @@ class TestVolatilityRiskLotAlignment:
 @pytest.mark.financial
 class TestVolatilityRiskSignalGeneration:
     def test_extreme_volatility_signal(self):
-        r = VolatilityRisk(max_volatility=25.0, warning_volatility=20.0)
+        r = VolatilityRisk(max_volatility=0.25, warning_volatility=0.20)
         _set_context(r)
         bar = _make_bar(code="000001.SZ", close=10.07)
         event = EventPriceUpdate(payload=bar)
@@ -274,7 +275,7 @@ class TestVolatilityRiskSignalGeneration:
             pass  # Known source bug: Decimal/float in _calculate_volatility
 
     def test_high_volatility_warning_signal(self):
-        r = VolatilityRisk(max_volatility=100.0, warning_volatility=5.0)
+        r = VolatilityRisk(max_volatility=1.00, warning_volatility=0.05)
         _set_context(r)
         for p in [10.0, 10.01, 9.99, 10.02, 9.98]:
             r._update_price_history("000001.SZ", p)
@@ -288,7 +289,7 @@ class TestVolatilityRiskSignalGeneration:
             pass  # Known source bug: Decimal/float in _calculate_volatility
 
     def test_signal_strength_assignment(self):
-        r = VolatilityRisk(max_volatility=25.0)
+        r = VolatilityRisk(max_volatility=0.25)
         bar = _make_bar()
         event = EventPriceUpdate(payload=bar)
         info = _make_portfolio_info()
@@ -395,8 +396,8 @@ class TestVolatilityRiskPerformance:
 
     def test_cache_effectiveness(self):
         r = VolatilityRisk()
-        r._volatility_cache["000001.SZ"] = 15.0
-        assert r._get_stock_volatility("000001.SZ") == 15.0
+        r._volatility_cache["000001.SZ"] = 0.15
+        assert r._get_stock_volatility("000001.SZ") == 0.15
 
     def test_real_time_update_performance(self):
         import time

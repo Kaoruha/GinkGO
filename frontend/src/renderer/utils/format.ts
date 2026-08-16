@@ -99,8 +99,8 @@ export function formatDateTime(dateStr?: string): string {
 }
 
 /**
- * 格式化相对时间（用于心跳/时间戳新鲜度，"3秒前" / "5分钟前"）
- * 超过 24 小时回退为日期时间短格式
+ * 格式化相对时间（用于心跳/时间戳新鲜度，"3秒前" / "5分钟前" / "2天前"）
+ * 超过 30 天回退为日期时间短格式
  */
 export function formatRelativeTime(dateStr?: string | null, now: Date = new Date()): string {
   if (!dateStr) return '-'
@@ -115,6 +115,7 @@ export function formatRelativeTime(dateStr?: string | null, now: Date = new Date
     if (diff < 60) return `${diff}秒前`
     if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
     if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
+    if (diff < 2592000) return `${Math.floor(diff / 86400)}天前`
     return formatDateTime(dateStr)
   } catch {
     return '-'

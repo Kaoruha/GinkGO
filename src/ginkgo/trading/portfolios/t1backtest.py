@@ -90,6 +90,50 @@ class PortfolioT1Backtest(PortfolioBase):
             return self.positions[code]
         return None
 
+    def _record_position_change(self, pos, delta, price, direction, order_id: str = "") -> None:
+        """持仓变动流水（#5341 流水语义,delta 源自成交事件=第一事实源）。
+
+        每条记录=一次成交引起的持仓变化量（volume 带符号:买入 +N / 卖出 -N,
+        direction 显式枚举对齐 signal;order_id 血缘指向引发本变动的订单）。
+        合计=当前持仓（Σ=0 即清仓）。身份字段 or 兜底（同 Signal 空身份病）。
+        """
+        try:
+            from ginkgo.data.containers import container
+            container.result_service().create_position_record(
+                portfolio_id=getattr(pos, 'portfolio_id', None) or self.uuid,
+                engine_id=getattr(pos, 'engine_id', None) or self.engine_id,
+                task_id=getattr(pos, 'task_id', None) or self.task_id,
+                code=pos.code,
+                cost=pos.cost,
+                volume=delta,
+                direction=direction,
+                order_id=order_id,
+                frozen_volume=pos.frozen_volume,
+                frozen_money=pos.frozen_money,
+                price=price,
+                fee=pos.fee,
+                timestamp=pos.timestamp,
+                business_timestamp=self.current_timestamp,
+            )
+        except Exception as e:
+            GLOG.ERROR(f"Failed to save position record: {e}")
+
+    def _apply_deal(self, pos, direction, price, qty, order_id: str = "") -> None:
+        """deal + 变动流水的统一收口（2026-08-16 定稿:事件事实源）。
+
+        delta = 方向 × 成交量,源自成交事件(direction/transaction_volume
+        即业务第一事实)。Position 内部字段(volume/frozen_volume 的分片
+        变化——卖出在挂单 freeze 时减 volume、成交只核销 frozen_volume)
+        是派生实现,不作为记录依据:状态差快照会跨过真正变化点(实例:
+        卖 4000 股按 volume 相减得 0),且实现变更会静默破坏流水语义。
+        order_id 血缘:引发本次成交的订单(来自 fill 事件的 order.uuid)。
+        撤单回补的 freeze/unfreeze 不记(意向非事实);Σdelta=当前持仓
+        的不变量校验属测试层(test_deduct 旁可加锚定)。
+        """
+        pos.deal(direction, price, qty)
+        delta = qty if direction == DIRECTION_TYPES.LONG else -qty
+        self._record_position_change(pos, delta, price, direction, order_id)
+
     def add_position(self, position: Position) -> None:
         """
         重写基类方法，添加持仓并持久化（通过 Service 层）
@@ -109,26 +153,8 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             GLOG.ERROR(f"Failed to log position event: {e}")
 
-        # 将持仓记录保存（通过 Service 层）
-        try:
-            from ginkgo.data.containers import container
-            result_service = container.result_service()
-            result_service.create_position_record(
-                portfolio_id=position.portfolio_id,
-                engine_id=position.engine_id,
-                task_id=position.task_id,
-                code=position.code,
-                cost=position.cost,
-                volume=position.volume,
-                frozen_volume=position.frozen_volume,
-                frozen_money=position.frozen_money,
-                price=position.price,
-                fee=position.fee,
-                timestamp=position.timestamp,
-                business_timestamp=self.current_timestamp,
-            )
-        except Exception as e:
-            GLOG.ERROR(f"Failed to save position record: {e}")
+        # 将持仓记录保存（建仓 = 首个变动,delta 直接就是建仓量）
+        self._record_position_change(position, position.volume, position.price, DIRECTION_TYPES.LONG)
 
     def _clean_closed_positions(self):
         """清理 total_position == 0 的持仓"""
@@ -291,6 +317,10 @@ class PortfolioT1Backtest(PortfolioBase):
         portfolio_info = self.get_info()
         try:
             order = self.sizer.cal(portfolio_info, event.payload)
+            # 血缘挂载(2026-08-17):订单记录触发的信号。sizer 接口不传
+            # signal(职责边界),在消费侧挂载;风控若返回新对象,下方防御继承。
+            if order:
+                order.signal_id = event.payload.uuid
             # 添加Sizer结果的关键事件流日志
             if order:
                 GLOG.INFO(
@@ -321,6 +351,9 @@ class PortfolioT1Backtest(PortfolioBase):
             else:
                 if order_before_rm.volume != order.volume:
                     self.blog.log_risk_event(risk_type="ORDERADJUSTED", risk_reason=f"{risk_manager.__class__.__name__} adjusted {order_before_rm.volume}→{order.volume}")
+                # 血缘防御:风控返回新对象时继承原订单的 signal_id,追溯链不断
+                if order is not None and order_before_rm is not None and not order.signal_id:
+                    order.signal_id = order_before_rm.signal_id
 
         # 4. Get the adjusted order, if so put eventorder to engine
         if order is None:
@@ -450,18 +483,27 @@ class PortfolioT1Backtest(PortfolioBase):
 
     def _emit_signal(self, signal, source, origin_name: str = "") -> None:
         """
-        信号发射 seam（ADR-011 补全）：策略信号(STRATEGY)与风控主动信号(RISK)
-        共用同一发射路径——存 DB + 发 EventSignalGeneration 到 engine → 回流 on_signal 下单。
-
-        此前回测 on_price_received 只发策略信号、漏发风控 generate_signals 产生的
-        主动信号，止损/止盈类风控（逻辑在 generate_signals）在回测静默失效、净值虚高。
-        统一发射口后两类信号走同一 on_signal 下单链（sizer → risk.cal）。
-
-        Args:
-            signal: 信号对象；None 时直接返回（防御）
-            source: SOURCE_TYPES.STRATEGY / RISK，决定 event.source
-            origin_name: 信号来源名（strategy.name / "RiskManagement"），仅用于日志
+        信号的统一发射口(策略信号+风控信号两路公共收口,ADR-011 seam):
+        存 DB + 发 EventSignalGeneration 到 engine → 回流 on_signal 下单。
+        发射前先注入运行身份——Signal 由策略/风控产生,天然不携带引擎/任务
+        身份(产生层不该知道运行上下文)。此处补齐后,下游(入库/T+1延迟队列/
+        事件转发/分析器)统一从 signal 自身取,消费点不再各自从 portfolio 补
+        ——散落补法正是信号"入库失联"的温床(2026-08-16 实例:461 行 engine_id='')
         """
+        if not signal.portfolio_id:
+            signal.portfolio_id = self.uuid
+        if not signal.engine_id:
+            signal.engine_id = self.engine_id
+        if not signal.task_id:
+            signal.task_id = self.task_id
+        # 业务时间同批兜底:风控信号(generate_risk_signals)裸构造 Signal 不带
+        # business_timestamp → 入库 timestamp 退化为真实时间、bt 落 epoch0,
+        # 页面显示"真实时间"而非回测业务时间。取 portfolio 逻辑时钟补齐。
+        if not signal.business_timestamp:
+            provider = self.get_time_provider()
+            if provider is not None:
+                signal.business_timestamp = provider.now()
+
         if signal is None:
             return
         signal_uuid = getattr(signal, "uuid", "N/A")[:8]
@@ -473,8 +515,12 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # 将信号保存到数据库（ADR-029 Task 6：经 signal_service.add → SignalMapper 收敛，
         # 替代直调 signal_crud.create(**kwargs) 的隐式 _create_from_params 路径）
+        # 身份字段直取 signal 自身——on_signal 入口已统一注入(见该处注释)
         try:
             container.signal_service().add(
+                # 显式传 uuid:行 uuid = entity uuid,与订单血缘 signal_id 同源
+                # (此前缺省自生成 → 两套 ID,订单引用在信号表里查无此人)
+                uuid=signal.uuid,
                 portfolio_id=signal.portfolio_id,
                 engine_id=signal.engine_id,
                 task_id=signal.task_id,
@@ -542,6 +588,8 @@ class PortfolioT1Backtest(PortfolioBase):
                 portfolio_id=self.uuid,
                 engine_id=self.engine_id,
                 task_id=self.task_id,
+                # 血缘:本订单触发的信号(三态行 NEW/SUBMITTED/FILLED 全覆盖)
+                signal_id=getattr(order, 'signal_id', ''),
                 code=order.code,
                 direction=order.direction,
                 order_type=order.order_type,
@@ -685,7 +733,7 @@ class PortfolioT1Backtest(PortfolioBase):
                         f"[POSITION] LONG {code} {qty}shares @ {price} Fee:{fee} Portfolio:{self.uuid[:8]} Position:{p.uuid[:8]}"
                     )
                 else:
-                    pos.deal(DIRECTION_TYPES.LONG, price, qty)
+                    self._apply_deal(pos, DIRECTION_TYPES.LONG, price, qty, order_id=order.uuid)
                     # 添加Position更新的关键事件流日志
                     GLOG.INFO(
                         f"[POSITION] LONG {code} +{qty}shares @ {price} Total:{pos.volume} Portfolio:{self.uuid[:8]} Position:{pos.uuid[:8]}"
@@ -702,7 +750,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 if pos is None:
                     self.blog.log_engine_error_event(error_code="NO_POSITION_FOR_SHORT", error_message=f"No position for {code}")
                 else:
-                    pos.deal(DIRECTION_TYPES.SHORT, price, qty)
+                    self._apply_deal(pos, DIRECTION_TYPES.SHORT, price, qty, order_id=order.uuid)
 
             else:
                 self.blog.log_engine_error_event(error_code="UNKNOWN_DIRECTION", error_message=f"Unknown direction for {code}")
@@ -927,7 +975,11 @@ class PortfolioT1Backtest(PortfolioBase):
         # 修复：不应该添加event.remain，因为这部分资金应该已经通过unfreeze正确处理了
         # self.add_cash(event.remain)  # 已注释掉，这是导致资金重复计算的错误
         self.add_fee(event.fee)
-        self.positions[event.code].deal(DIRECTION_TYPES.SHORT, event.transaction_price, event.transaction_volume)
+        self._apply_deal(
+            self.positions[event.code], DIRECTION_TYPES.SHORT,
+            event.transaction_price, event.transaction_volume,
+            order_id=getattr(getattr(event, "order", None), "uuid", "") or str(getattr(event, "order_id", "") or ""),
+        )
 
         # 记录资金更新事件到ClickHouse
         try:

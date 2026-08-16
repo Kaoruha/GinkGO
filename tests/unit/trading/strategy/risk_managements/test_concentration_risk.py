@@ -60,24 +60,24 @@ def _set_context(obj, engine_id="test_engine", portfolio_id="test_portfolio", ta
 class TestConcentrationRiskConstruction:
     def test_default_constructor(self):
         r = ConcentrationRisk()
-        assert r.max_single_position_ratio == 10.0
-        assert r.max_industry_ratio == 30.0
+        assert r.max_single_position_ratio == 0.10
+        assert r.max_industry_ratio == 0.30
 
     def test_custom_thresholds_constructor(self):
-        r = ConcentrationRisk(max_single_position_ratio=5, max_industry_ratio=20,
-                              max_concept_ratio=30, max_top5_ratio=40)
-        assert r.max_single_position_ratio == 5.0
-        assert r.max_industry_ratio == 20.0
+        r = ConcentrationRisk(max_single_position_ratio=0.05, max_industry_ratio=0.20,
+                              max_concept_ratio=0.30, max_top5_ratio=0.40)
+        assert r.max_single_position_ratio == 0.05
+        assert r.max_industry_ratio == 0.20
 
     def test_threshold_relationship_validation(self):
-        r = ConcentrationRisk(warning_single_position_ratio=3, max_single_position_ratio=5)
+        r = ConcentrationRisk(warning_single_position_ratio=0.03, max_single_position_ratio=0.05)
         assert r.warning_single_position_ratio < r.max_single_position_ratio
 
     def test_property_access(self):
         r = ConcentrationRisk()
-        assert r.max_single_position_ratio == 10.0
-        assert r.warning_single_position_ratio == 8.0
-        assert r.max_industry_ratio == 30.0
+        assert r.max_single_position_ratio == 0.10
+        assert r.warning_single_position_ratio == 0.08
+        assert r.max_industry_ratio == 0.30
 
 
 @pytest.mark.tdd
@@ -89,11 +89,11 @@ class TestConcentrationRiskSinglePosition:
         pos = _make_position(market_value=20000)
         info = _make_portfolio_info(worth=100000, positions={"000001.SZ": pos})
         ratio = r._get_current_position_ratio(info, "000001.SZ")
-        # Source uses total position value, not portfolio worth: 20000/20000*100 = 100%
-        assert ratio == 100.0
+        # Source uses total position value, not portfolio worth: 20000/20000 = 1.0 (100%)
+        assert ratio == 1.0
 
     def test_single_position_warning_level(self):
-        r = ConcentrationRisk(max_single_position_ratio=50, max_industry_ratio=100)
+        r = ConcentrationRisk(max_single_position_ratio=0.50, max_industry_ratio=1.00)
         _set_context(r)
         bar = _make_bar()
         event = EventPriceUpdate(payload=bar)
@@ -105,7 +105,7 @@ class TestConcentrationRiskSinglePosition:
         assert isinstance(signals, list)
 
     def test_single_position_critical_level(self):
-        r = ConcentrationRisk(max_single_position_ratio=5)
+        r = ConcentrationRisk(max_single_position_ratio=0.05)
         order = _make_order(volume=10000, code="000001.SZ")
         pos = _make_position(code="000001.SZ", market_value=90000)
         info = _make_portfolio_info(worth=100000, positions={"000001.SZ": pos})
@@ -113,7 +113,7 @@ class TestConcentrationRiskSinglePosition:
         assert isinstance(result, Order)
 
     def test_single_position_order_adjustment(self):
-        r = ConcentrationRisk(max_single_position_ratio=5)
+        r = ConcentrationRisk(max_single_position_ratio=0.05)
         order = _make_order(volume=5000, code="000001.SZ")
         info = _make_portfolio_info(worth=100000)
         result = r.cal(info, order)
@@ -147,11 +147,11 @@ class TestConcentrationRiskIndustryAnalysis:
                 "000001.SZ": _make_position(code="000001.SZ", market_value=30000),
                 "000002.SZ": _make_position(code="000002.SZ", market_value=20000),
             }))
-        # Source uses total position value: (30000+20000)/(30000+20000)*100 = 100%
-        assert conc["max_industry"] == 100.0
+        # Source uses total position value: (30000+20000)/(30000+20000) = 1.0 (100%)
+        assert conc["max_industry"] == 1.0
 
     def test_industry_concentration_warning(self):
-        r = ConcentrationRisk(max_single_position_ratio=100, max_industry_ratio=100)
+        r = ConcentrationRisk(max_single_position_ratio=1.00, max_industry_ratio=1.00)
         _set_context(r)
         r.update_stock_classification("000001.SZ", industry="银行")
         r.update_stock_classification("000002.SZ", industry="科技")
@@ -166,7 +166,7 @@ class TestConcentrationRiskIndustryAnalysis:
         assert isinstance(signals, list)
 
     def test_industry_order_projection(self):
-        r = ConcentrationRisk(max_industry_ratio=10)
+        r = ConcentrationRisk(max_industry_ratio=0.10)
         r.update_stock_classification("000001.SZ", industry="银行")
         order = _make_order(volume=100, code="000001.SZ")
         pos = _make_position(code="000001.SZ", market_value=50000)
@@ -199,11 +199,11 @@ class TestConcentrationRiskTopPositions:
         assert conc["top5_ratio"] > 0
 
     def test_top5_concentration_analysis(self):
-        r = ConcentrationRisk(max_top5_ratio=50)
+        r = ConcentrationRisk(max_top5_ratio=0.50)
         positions = {str(i).zfill(6) + ".SZ": _make_position(code=str(i).zfill(6) + ".SZ", market_value=10000)
                       for i in range(5)}
         conc = r._calculate_concentrations(_make_portfolio_info(worth=50000, positions=positions))
-        assert conc["top5_ratio"] == 100.0
+        assert conc["top5_ratio"] == 1.0
 
     def test_top_positions_distribution(self):
         r = ConcentrationRisk()
@@ -212,7 +212,7 @@ class TestConcentrationRiskTopPositions:
         assert conc == {}
 
     def test_dynamic_top_n_adjustment(self):
-        r = ConcentrationRisk(max_top5_ratio=100)
+        r = ConcentrationRisk(max_top5_ratio=1.00)
         conc = r._calculate_concentrations(_make_portfolio_info(positions={}))
         # Empty positions returns empty dict, not {"top5_ratio": 0}
         assert conc == {}
@@ -231,14 +231,16 @@ class TestConcentrationRiskOrderProcessing:
         assert r.cal(info, sell) is sell
 
     def test_single_position_concentration_adjustment(self):
-        r = ConcentrationRisk(max_single_position_ratio=1)
+        r = ConcentrationRisk(max_single_position_ratio=0.01)
         order = _make_order(volume=10000)
         info = _make_portfolio_info()
         result = r.cal(info, order)
         assert isinstance(result, Order)
 
     def test_industry_concentration_adjustment(self):
-        r = ConcentrationRisk(max_industry_ratio=1)
+        # 0.02 而非 0.01：小数口径下 0.01/0.1 的浮点商为 0.0999...，
+        # scaled=int(1000*0.0999..)=99 恰跌破 1 手边界（原百分数 1/10=0.1 无此边界）
+        r = ConcentrationRisk(max_industry_ratio=0.02)
         r.update_stock_classification("000001.SZ", industry="银行")
         order = _make_order(volume=10000, code="000001.SZ")
         info = _make_portfolio_info()
@@ -256,7 +258,7 @@ class TestConcentrationRiskOrderProcessing:
         """空组合首单不误拒:投影应基于 worth(订单金额/组合净值),非硬编码 100%(#6038 回归守护)。
 
         空 portfolio + 首笔买单 volume=100×10元=1000元,组合净值 worth=100000。
-        真实投影 1.0% < max_single 10%,首单应直通。旧代码空组合硬编码 100% → 误拒。
+        真实投影 0.01(1%) < max_single 0.10,首单应直通。旧代码空组合硬编码 100% → 误拒。
         """
         r = ConcentrationRisk()
         order = _make_order(volume=100, code="000001.SZ")
@@ -307,7 +309,7 @@ class TestConcentrationRiskOrderProcessing:
 @pytest.mark.financial
 class TestConcentrationRiskSignalGeneration:
     def test_single_position_signal_generation(self):
-        r = ConcentrationRisk(max_industry_ratio=100)
+        r = ConcentrationRisk(max_industry_ratio=1.00)
         _set_context(r)
         # Use many small positions to keep each below the default 10% threshold
         positions = {f"{i:06d}.SZ": _make_position(code=f"{i:06d}.SZ", market_value=1000)
@@ -320,7 +322,7 @@ class TestConcentrationRiskSignalGeneration:
         assert signals == []
 
     def test_industry_signal_generation(self):
-        r = ConcentrationRisk(max_single_position_ratio=100, max_industry_ratio=100)
+        r = ConcentrationRisk(max_single_position_ratio=1.00, max_industry_ratio=1.00)
         _set_context(r)
         # Use positions spread across industries, each below threshold
         r.update_stock_classification("000001.SZ", industry="银行")
@@ -393,7 +395,7 @@ class TestConcentrationRiskEdgeCases:
         r = ConcentrationRisk()
         pos = _make_position(market_value=100000)
         conc = r._calculate_concentrations(_make_portfolio_info(worth=100000, positions={"000001.SZ": pos}))
-        assert conc["max_single_position"] == 100.0
+        assert conc["max_single_position"] == 1.0
 
 
 @pytest.mark.tdd
@@ -447,7 +449,7 @@ class TestConcentrationRiskDecimalCompatibility:
         修复前 current_industry_value=0.0 在累加 market_value(Decimal) 时即崩
         （float+Decimal 算术 TypeError；int+Decimal 合法是既有用例的巧合触发）。
         """
-        r = ConcentrationRisk(max_single_position_ratio=5, max_industry_ratio=30)
+        r = ConcentrationRisk(max_single_position_ratio=0.05, max_industry_ratio=0.30)
         r.update_stock_classification("000001.SZ", industry="银行")
         order = _make_order(volume=100, code="000001.SZ", limit_price=Decimal("10.0"))
         pos = _make_position(code="000001.SZ", market_value=Decimal("90000"))
@@ -463,7 +465,7 @@ class TestConcentrationRiskDecimalCompatibility:
         证伪'_calculate_concentrations 会 Decimal>float 崩'：Python 3.2+ 起比较合法（返回 bool），
         sum/累加初值为 int 0（0+Decimal 合法）。仅算术混算 float+Decimal 才崩。
         """
-        r = ConcentrationRisk(max_single_position_ratio=5)
+        r = ConcentrationRisk(max_single_position_ratio=0.05)
         _set_context(r)
         r.update_stock_classification("000001.SZ", industry="银行")
         pos = _make_position(code="000001.SZ", market_value=Decimal("90000"))
@@ -479,21 +481,21 @@ class TestConcentrationRiskDecimalCompatibility:
 class TestConcentrationRiskLotAlignment:
     def test_default_lot_size_aligns_reduced_volume(self):
         """默认 lot_size=100:单一持仓超限缩放后向下对齐到 100 股/手(LotAlignableMixin)(#6038)。"""
-        r = ConcentrationRisk(max_single_position_ratio=10.0)
+        r = ConcentrationRisk(max_single_position_ratio=0.10)
         # mock 投影比例超限触发单一持仓缩减分支(避开复杂 helper 计算)
-        r._calculate_projected_ratio = lambda info, order: 25.0
+        r._calculate_projected_ratio = lambda info, order: 0.25
         r._get_current_position_ratio = lambda info, code: 0.0
         r._calculate_projected_industry_ratio = lambda *a: 0.0  # 行业不超限
         order = _make_order(volume=625)
         result = r.cal(_make_portfolio_info(), order)
-        # factor=max_single/projected=10/25=0.4, scaled=int(625*0.4)=250, lot=100→200
+        # factor=max_single/projected=0.10/0.25=0.4, scaled=int(625*0.4)=250, lot=100→200
         assert result is order
         assert order.volume == 200
 
     def test_custom_lot_size_aligns_to_param(self):
         """lot_size 参数生效:自定义手数对齐。框架不限于 A 股(#6038)。"""
-        r = ConcentrationRisk(max_single_position_ratio=10.0, lot_size=80)
-        r._calculate_projected_ratio = lambda info, order: 25.0
+        r = ConcentrationRisk(max_single_position_ratio=0.10, lot_size=80)
+        r._calculate_projected_ratio = lambda info, order: 0.25
         r._get_current_position_ratio = lambda info, code: 0.0
         r._calculate_projected_industry_ratio = lambda *a: 0.0
         order = _make_order(volume=625)
@@ -506,12 +508,12 @@ class TestConcentrationRiskLotAlignment:
     def test_single_position_scaling_not_floored_to_10pct(self):
         """缩放后量禁止被 10% 下限抬回(#6038 同型 bug, 对齐 volatility 模板)。
 
-        volume=10000, factor=10/160=0.0625 → scaled=625 → align=600。
+        volume=10000, factor=0.10/1.60=0.0625 → scaled=625 → align=600。
         旧实现 min_volume=align(1000)=1000, max(600,1000)=1000 把 600 抬回 1000,
         缩放形同虚设(违反 Risk 组件边界「禁止增加订单量」)。
         """
-        r = ConcentrationRisk(max_single_position_ratio=10.0)
-        r._calculate_projected_ratio = lambda info, order: 160.0
+        r = ConcentrationRisk(max_single_position_ratio=0.10)
+        r._calculate_projected_ratio = lambda info, order: 1.60
         r._get_current_position_ratio = lambda info, code: 0.0
         r._calculate_projected_industry_ratio = lambda *a: 0.0
         order = _make_order(volume=10000)
@@ -522,12 +524,12 @@ class TestConcentrationRiskLotAlignment:
     def test_single_position_below_one_lot_returns_none(self):
         """缩放后不足 1 手(align<lot_size)拒单返回 None(#6038)。
 
-        volume=1000, factor=10/200=0.05 → scaled=50 → align=0 < 100。
+        volume=1000, factor=0.10/2.00=0.05 → scaled=50 → align=0 < 100。
         旧实现 max(0, align(100)=100)=100 仍下发 100 股(不足 1 手未拒)。
         对齐 volatility: align<lot_size → return None(调用方对 None 软拦截)。
         """
-        r = ConcentrationRisk(max_single_position_ratio=10.0)
-        r._calculate_projected_ratio = lambda info, order: 200.0
+        r = ConcentrationRisk(max_single_position_ratio=0.10)
+        r._calculate_projected_ratio = lambda info, order: 2.00
         r._get_current_position_ratio = lambda info, code: 0.0
         r._calculate_projected_industry_ratio = lambda *a: 0.0
         order = _make_order(volume=1000)

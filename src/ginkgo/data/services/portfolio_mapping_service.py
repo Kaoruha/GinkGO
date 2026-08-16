@@ -1196,3 +1196,28 @@ class PortfolioMappingService(BaseService):
             FILE_TYPES.RISKMANAGER: "RISK_MANAGEMENT",
             FILE_TYPES.ANALYZER: "ANALYZER",
         }.get(file_type, "OTHER")
+
+    # ==================== 组件持有统计（组件列表 portfolio_count 列） ====================
+
+    def count_portfolios_by_files(self, file_ids: List[str]) -> ServiceResult:
+        """批量统计组件被多少个 Portfolio 组装持有。
+
+        单次查询（无 N+1），SQL 层 GROUP BY + COUNT(DISTINCT) 聚合
+        （见 PortfolioFileMappingCRUD.count_portfolios_by_files）：
+        返回行数 = 有绑定的组件数，成本随页组件数而非表行数增长。
+        未出现在结果 map 的组件持有数为 0。
+
+        Args:
+            file_ids: 组件 uuid 列表（通常为一页组件列表）
+
+        Returns:
+            ServiceResult: data = {file_id: distinct_portfolio_count}
+        """
+        try:
+            if not file_ids:
+                return ServiceResult.success(data={})
+
+            counts = self._mapping_crud.count_portfolios_by_files(list(file_ids))
+            return ServiceResult.success(data=counts or {})
+        except Exception as e:
+            return ServiceResult.error(f"批量统计组件持有数失败: {str(e)}")

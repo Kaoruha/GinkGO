@@ -48,6 +48,11 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
                 'min': 1,
                 'max': 32
             },
+            # 血缘:触发订单的信号 uuid(可选,手工/外部单为空)
+            'signal_id': {
+                'type': 'string',
+                'max': 36
+            },
             
             # 投资组合ID - 非空字符串，最大32字符  
             'portfolio_id': {
@@ -146,6 +151,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         """
         return MOrderRecord(
             order_id=kwargs.get("order_id"),
+            signal_id=kwargs.get("signal_id", ""),
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
             task_id=kwargs.get("task_id", ""),

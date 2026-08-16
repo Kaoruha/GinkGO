@@ -31,6 +31,7 @@ class BacktestTaskSummary(BaseModel):
     win_rate: float = 0.0
     final_portfolio_value: float = 0.0
     created_at: str = ""
+    update_at: str = ""
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
     backtest_start_date: Optional[str] = None
@@ -84,6 +85,7 @@ class BacktestSignalItem(BaseModel):
 class BacktestOrderItem(BaseModel):
     """订单列表项"""
     uuid: str = ""
+    order_id: str = ""  # 订单键(状态流水的分组键,区别于行 uuid)
     portfolio_id: str = ""
     engine_id: str = ""
     task_id: str = ""
@@ -98,6 +100,8 @@ class BacktestOrderItem(BaseModel):
     transaction_volume: int = 0
     fee: float = 0.0
     timestamp: Optional[str] = None
+    # 血缘(2026-08-17 追溯链 Signal→Order→Position):触发本订单的信号 uuid
+    signal_id: str = ""
 
 
 class BacktestPositionItem(BaseModel):
@@ -113,6 +117,18 @@ class BacktestPositionItem(BaseModel):
     frozen_volume: int = 0
     price: float = 0.0
     fee: float = 0.0
+    # 时间字段(2026-08-16 补声明:构造处早已传值,pydantic 未声明字段静默丢弃,
+    # 前端时间列恒空)。业务时间优先展示。
+    timestamp: str = ""
+    business_timestamp: str = ""
+    # 派生价值字段(同样早已计算未声明):市值/盈亏/盈亏率
+    market_value: float = 0.0
+    profit: float = 0.0
+    profit_pct: float = 0.0
+    # 变动方向(对齐 signal 模式):1=LONG/2=SHORT
+    direction: int = 0
+    # 血缘(2026-08-17 追溯链):引发本次持仓变动的订单 uuid
+    order_id: str = ""
 
 
 class BacktestAnalyzerGroup(BaseModel):

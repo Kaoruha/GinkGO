@@ -396,6 +396,7 @@ async def get_portfolio(uuid: str):
             "created_at": create_at_value.isoformat() if isinstance(create_at_value, datetime) else create_at_value,
             "initial_cash": float(portfolio_model.initial_capital) if hasattr(portfolio_model, 'initial_capital') else 100000.0,
             "current_cash": float(portfolio_model.cash) if hasattr(portfolio_model, 'cash') else 100000.0,
+            "desc": portfolio_model.desc if hasattr(portfolio_model, 'desc') else None,
             "positions": [],
             "strategies": strategies,
             "selectors": selectors,
@@ -492,6 +493,7 @@ class UpdatePortfolioRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")  # 忽略未知字段，防透传 Saga
     name: Optional[str] = Field(None, min_length=1)  # 非空（若提供）
     initial_cash: Optional[float] = Field(None, gt=0)  # 正数（若提供）
+    desc: Optional[str] = Field(None, max_length=255)  # 描述（model_portfolio.desc 列）
     selectors: Optional[List[Any]] = None
     sizer_uuid: Optional[str] = None
     sizer_config: Optional[dict] = None
@@ -526,6 +528,7 @@ async def update_portfolio(uuid: str, data: UpdatePortfolioRequest):
             portfolio_uuid=uuid,
             name=payload.get('name'),
             initial_cash=payload.get('initial_cash'),
+            desc=payload.get('desc'),
             selectors=payload.get('selectors'),
             sizer=sizer_data,
             strategies=payload.get('strategies'),

@@ -61,18 +61,18 @@ class TestLiquidityRiskConstruction:
     def test_default_constructor(self):
         r = LiquidityRisk()
         assert r.min_avg_volume_ratio == 0.1
-        assert r.max_price_impact == 5.0
+        assert r.max_price_impact == 0.05
         assert r._min_turnover_ratio == 1000000
 
     def test_custom_liquidity_parameters_constructor(self):
-        r = LiquidityRisk(min_avg_volume_ratio=0.05, max_price_impact=3.0,
+        r = LiquidityRisk(min_avg_volume_ratio=0.05, max_price_impact=0.03,
                           min_turnover_ratio=500000)
         assert r.min_avg_volume_ratio == 0.05
-        assert r.max_price_impact == 3.0
+        assert r.max_price_impact == 0.03
 
     def test_liquidity_parameter_validation(self):
         r = LiquidityRisk(min_avg_volume_ratio=0.5, warning_avg_volume_ratio=0.3,
-                          max_price_impact=10.0)
+                          max_price_impact=0.10)
         assert r.min_avg_volume_ratio == 0.5
         assert r.warning_avg_volume_ratio == 0.3
 
@@ -168,7 +168,7 @@ class TestLiquidityRiskVolumeAnalysis:
         assert ratio >= 0
 
     def test_volume_ratio_warning_level(self):
-        r = LiquidityRisk(min_avg_volume_ratio=0.5, warning_avg_volume_ratio=0.01, max_price_impact=9999)
+        r = LiquidityRisk(min_avg_volume_ratio=0.5, warning_avg_volume_ratio=0.01, max_price_impact=9999)  # 9999=极宽冲击阈值
         order = _make_order(volume=100, limit_price=10.0)
         info = _make_portfolio_info()
         result = r.cal(info, order)
@@ -202,14 +202,14 @@ class TestLiquidityRiskPriceImpact:
             pass  # Known Decimal*float source issue
 
     def test_price_impact_warning_level(self):
-        r = LiquidityRisk(max_price_impact=50.0, warning_price_impact=5.0)
+        r = LiquidityRisk(max_price_impact=0.50, warning_price_impact=0.05)
         order = _make_order(volume=100, limit_price=10.0)
         info = _make_portfolio_info()
         result = r.cal(info, order)
         assert result is order or result is None
 
     def test_price_impact_critical_level(self):
-        r = LiquidityRisk(max_price_impact=0.01)
+        r = LiquidityRisk(max_price_impact=0.01)  # 小数口径 1%，极小阈值必拒单
         order = _make_order(volume=10000, limit_price=10.0)
         info = _make_portfolio_info()
         result = r.cal(info, order)
@@ -233,7 +233,7 @@ class TestLiquidityRiskPriceImpact:
 @pytest.mark.financial
 class TestLiquidityRiskOrderProcessing:
     def test_high_liquidity_order_passthrough(self):
-        r = LiquidityRisk(max_price_impact=9999)
+        r = LiquidityRisk(max_price_impact=9999)  # 极宽阈值(999900%)不触发冲击分支
         order = _make_order()
         info = _make_portfolio_info()
         result = r.cal(info, order)
@@ -395,7 +395,7 @@ class TestLiquidityRiskLotAlignment:
         # mock 流动性指标触发大幅缩减分支(避开历史数据计算)
         r._calculate_liquidity_metrics = lambda code: {"avg_volume": 10000, "avg_turnover": 10000000}
         r._calculate_order_volume_ratio = lambda order, metrics: 0.5  # >warning 0.2 且 >min 0.1
-        r._calculate_price_impact = lambda order, metrics: 0.5  # <warning 3.0 不触发
+        r._calculate_price_impact = lambda order, metrics: 0.005  # <warning 0.03 不触发冲击分支
         order = _make_order(volume=625)
         result = r.cal(_make_portfolio_info(), order)
         # factor=min_avg/avg=0.1/0.5=0.2, scaled=int(625*0.2)=125, lot=100→100
@@ -407,7 +407,7 @@ class TestLiquidityRiskLotAlignment:
         r = LiquidityRisk(min_avg_volume_ratio=0.1, warning_avg_volume_ratio=0.2, lot_size=80)
         r._calculate_liquidity_metrics = lambda code: {"avg_volume": 10000, "avg_turnover": 10000000}
         r._calculate_order_volume_ratio = lambda order, metrics: 0.5
-        r._calculate_price_impact = lambda order, metrics: 0.5
+        r._calculate_price_impact = lambda order, metrics: 0.005  # <warning 0.03 不触发
         order = _make_order(volume=625)
         result = r.cal(_make_portfolio_info(), order)
         # scaled=125, lot=80→(125//80)*80=80
@@ -423,7 +423,7 @@ class TestLiquidityRiskLotAlignment:
         r = LiquidityRisk(min_avg_volume_ratio=0.1, warning_avg_volume_ratio=0.2)
         r._calculate_liquidity_metrics = lambda code: {"avg_volume": 10000, "avg_turnover": 10000000}
         r._calculate_order_volume_ratio = lambda order, metrics: 1.6
-        r._calculate_price_impact = lambda order, metrics: 0.5
+        r._calculate_price_impact = lambda order, metrics: 0.005  # <warning 0.03 不触发
         order = _make_order(volume=10000)
         result = r.cal(_make_portfolio_info(), order)
         assert result is order
@@ -438,7 +438,7 @@ class TestLiquidityRiskLotAlignment:
         r = LiquidityRisk(min_avg_volume_ratio=0.1, warning_avg_volume_ratio=0.2)
         r._calculate_liquidity_metrics = lambda code: {"avg_volume": 10000, "avg_turnover": 10000000}
         r._calculate_order_volume_ratio = lambda order, metrics: 2.0
-        r._calculate_price_impact = lambda order, metrics: 0.5
+        r._calculate_price_impact = lambda order, metrics: 0.005  # <warning 0.03 不触发
         order = _make_order(volume=1000)
         result = r.cal(_make_portfolio_info(), order)
         assert result is None

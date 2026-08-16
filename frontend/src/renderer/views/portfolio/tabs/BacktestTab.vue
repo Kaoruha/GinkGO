@@ -37,7 +37,14 @@
         @click="viewDetail(task.uuid)"
       >
         <div class="task-card-main">
-          <div class="task-name">{{ task.name || '(未命名)' }} <span class="task-uuid">{{ task.uuid }}</span></div>
+          <div class="task-name">
+            {{ task.name || '(未命名)' }}
+            <span class="task-uuid" :title="task.uuid">{{ task.uuid.slice(0, 8) }}</span>
+            <!-- PnL 主锚点:9 项指标平铺无主次,收益数字提级放大,其余降为次级 -->
+            <span class="pnl-anchor" :style="{ color: getPnLColor(task.total_pnl) }" title="总盈亏（最终资产 − 初始资金）">
+              {{ task.total_pnl > 0 ? '+' : '' }}{{ formatDecimal(task.total_pnl) }}
+            </span>
+          </div>
           <div v-if="task.backtest_start_date" class="task-date-range">{{ formatShortDate(task.backtest_start_date) }} ~ {{ formatShortDate(task.backtest_end_date) }}</div>
           <div class="task-meta">
             <span class="tag" :class="statusTagClass(task.status)">{{ statusLabel(task.status) }}</span>
@@ -45,7 +52,6 @@
               <div class="progress-bar-sm"><div class="progress-fill" :style="{ width: (task.progress || 0) + '%' }"></div></div>
               <span class="progress-text">{{ (task.progress || 0).toFixed(0) }}%</span>
             </span>
-            <span class="meta-item" :style="{ color: getPnLColor(task.total_pnl) }">{{ formatDecimal(task.total_pnl) }} PnL</span>
             <span class="meta-item" :style="{ color: getSharpeColor(task.sharpe_ratio) }">Sharpe {{ formatDecimal(task.sharpe_ratio) }}</span>
             <span class="meta-item" :style="{ color: getDrawdownColor(task.max_drawdown) }">回撤 {{ formatPercent(task.max_drawdown) }}</span>
             <span class="meta-item">年化 {{ formatPercent(task.annual_return) }}</span>
@@ -154,6 +160,42 @@
             <label>初始资金</label>
             <input :value="formatCash(createForm.initial_cash)" type="text" inputmode="numeric" class="form-input" placeholder="1,000,000" @input="onCashInput($event)" @blur="onCashBlur" />
           </div>
+          <!-- 高级设置:费率/滑点/频率等成本与口径参数。留空=后端默认(占位符注明),
+               不显式传值避免覆盖快照默认;频率与 CLI 对齐(#5386) -->
+          <div class="form-item advanced">
+            <button type="button" class="advanced-toggle" @click="advancedOpen = !advancedOpen">
+              高级设置（费率/滑点/频率）{{ advancedOpen ? '▲' : '▼' }}
+            </button>
+            <div v-if="advancedOpen" class="advanced-body">
+              <div class="form-row">
+                <div class="form-item">
+                  <label>佣金率</label>
+                  <input v-model="createForm.commission_rate" type="text" class="form-input" placeholder="0.0003" />
+                </div>
+                <div class="form-item">
+                  <label>滑点率</label>
+                  <input v-model="createForm.slippage_rate" type="text" class="form-input" placeholder="0.0001" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-item">
+                  <label>最低佣金（元）</label>
+                  <input v-model="createForm.commission_min" type="text" class="form-input" placeholder="5" />
+                </div>
+                <div class="form-item">
+                  <label>数据频率</label>
+                  <select v-model="createForm.frequency" class="form-select">
+                    <option value="">日频（默认）</option>
+                    <option value="1MIN">1 分钟</option>
+                    <option value="5MIN">5 分钟</option>
+                    <option value="15MIN">15 分钟</option>
+                    <option value="30MIN">30 分钟</option>
+                    <option value="60MIN">60 分钟</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" @click="showCreateModal = false">取消</button>
@@ -232,7 +274,15 @@ const defaultDateRange = () => {
   const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   return { start: fmt(past), end: fmt(today) }
 }
-const createForm = ref({ name: '', start_date: '', end_date: '', initial_cash: 1000000 })
+const createForm = ref({
+  name: '', start_date: '', end_date: '', initial_cash: 1000000,
+  // 高级参数:空串=不传(走后端默认),填了才进 engine_config
+  commission_rate: '', slippage_rate: '', commission_min: '', frequency: '',
+})
+const advancedOpen = ref(false)
+
+/** 字符串→number|undefined;非法输入返回 NaN 供调用方拦截 */
+const parseNum = (s: string) => (s.trim() === '' ? undefined : parseFloat(s))
 
 function formatCash(val: number | string) {
   const n = typeof val === 'string' ? parseInt(val.replace(/,/g, ''), 10) : val
@@ -373,6 +423,16 @@ const handleCreate = async () => {
     message.warning('请选择日期范围')
     return
   }
+  // 高级参数校验:填了但非法须当场报,静默丢弃会让用户以为配置生效
+  const advFields: [keyof typeof createForm.value, string][] = [
+    ['commission_rate', '佣金率'], ['slippage_rate', '滑点率'], ['commission_min', '最低佣金'],
+  ]
+  const advNums: Record<string, number | undefined> = {}
+  for (const [key, label] of advFields) {
+    const v = parseNum(String(createForm.value[key]))
+    if (Number.isNaN(v)) { message.warning(`${label}须为数字`); return }
+    advNums[key] = v
+  }
   creating.value = true
   try {
     const task = await backtestStore.createTask({
@@ -382,6 +442,10 @@ const handleCreate = async () => {
         start_date: createForm.value.start_date,
         end_date: createForm.value.end_date,
         initial_cash: createForm.value.initial_cash || undefined,
+        commission_rate: advNums.commission_rate,
+        slippage_rate: advNums.slippage_rate,
+        commission_min: advNums.commission_min,
+        frequency: createForm.value.frequency || undefined,
       },
     })
     if (task?.uuid) {
@@ -390,7 +454,7 @@ const handleCreate = async () => {
     message.success('回测任务已创建并启动')
     showCreateModal.value = false
     const { start, end } = defaultDateRange()
-    createForm.value = { name: '', start_date: start, end_date: end, initial_cash: 1000000 }
+    createForm.value = { name: '', start_date: start, end_date: end, initial_cash: 1000000, commission_rate: '', slippage_rate: '', commission_min: '', frequency: '' }
     loadList()
   } catch (e: any) {
     message.error(e.response?.data?.detail || '创建失败')
@@ -548,6 +612,28 @@ onUnmounted(() => {
   margin-left: 6px;
   user-select: all;
 }
+
+/* PnL 主锚点:随任务名行右对齐放大,收益一眼可辨 */
+.pnl-anchor {
+  float: right;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-left: 12px;
+}
+
+/* 高级设置折叠区 */
+.advanced { margin-bottom: 4px; }
+.advanced-toggle {
+  background: none;
+  border: none;
+  color: hsl(var(--primary));
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.advanced-toggle:hover { text-decoration: underline; }
+.advanced-body { padding-top: 8px; }
 
 .task-meta {
   display: flex;

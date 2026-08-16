@@ -28,6 +28,8 @@ export interface DataStats {
   total_bars: number
   total_ticks: number
   total_adjust_factors: number
+  /** 最近一次数据更新时间（sync 页展示用，接口可能缺省） */
+  latest_update?: string
 }
 
 export interface TickData {

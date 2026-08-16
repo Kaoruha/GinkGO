@@ -167,12 +167,12 @@ class TradeRecordCRUD(BaseCRUD[MTradeRecord]):
             "is_del": False
         }
 
-        if start_date or end_date:
-            date_filter = []
-            if start_date:
-                date_filter.append(MTradeRecord.trade_time >= start_date)
-            if end_date:
-                date_filter.append(MTradeRecord.trade_time <= end_date)
+        # 时间过滤走 find 的比较算子（field__gte/__lte），
+        # 原实现组装 date_filter 后从未传入 find，过滤不生效。
+        if start_date:
+            filters["trade_time__gte"] = start_date
+        if end_date:
+            filters["trade_time__lte"] = end_date
 
         if symbol:
             filters["symbol"] = symbol
@@ -181,7 +181,8 @@ class TradeRecordCRUD(BaseCRUD[MTradeRecord]):
             filters=filters,
             order_by="trade_time",
             desc_order=True,
-            limit=limit
+            page=1,
+            page_size=limit
         )
 
     def get_trades_by_portfolio(
@@ -208,18 +209,18 @@ class TradeRecordCRUD(BaseCRUD[MTradeRecord]):
             "is_del": False
         }
 
-        if start_date or end_date:
-            date_filter = []
-            if start_date:
-                date_filter.append(MTradeRecord.trade_time >= start_date)
-            if end_date:
-                date_filter.append(MTradeRecord.trade_time <= end_date)
+        # 同 get_trades_by_account：比较算子过滤（原 date_filter 死代码不生效）
+        if start_date:
+            filters["trade_time__gte"] = start_date
+        if end_date:
+            filters["trade_time__lte"] = end_date
 
         return self.find(
             filters=filters,
             order_by="trade_time",
             desc_order=True,
-            limit=limit
+            page=1,
+            page_size=limit
         )
 
     def get_trade_statistics(

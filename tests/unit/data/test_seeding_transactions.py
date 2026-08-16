@@ -41,6 +41,8 @@ def test_create_example_files_does_not_commit_inside_managed_session():
     file_crud.get_session.side_effect = lambda: _session_manager(session)
     file_service = MagicMock()
     file_service.add.return_value = SimpleNamespace(success=True, data={"file_info": {"uuid": "f-1"}})
+    # 2026-08-17 seeding 语义:默认"同名已存在即跳过"——mock 查询须返回未找到
+    file_service.get.return_value = SimpleNamespace(success=False, data=None)
 
     with patch("ginkgo.data.crud.file_crud.FileCRUD", return_value=file_crud), \
          patch("ginkgo.data.seeding.container.file_service", return_value=file_service), \

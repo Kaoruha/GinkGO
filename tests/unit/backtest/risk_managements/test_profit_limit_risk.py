@@ -316,10 +316,13 @@ class TestProfitLimitRiskEdgeCases:
         with pytest.raises(ValueError, match="正数"):
             ProfitTargetRisk(profit_target=0.0)
 
-    def test_init_target_exceeds_one(self):
-        """Test that profit target > 1.0 raises ValueError."""
-        with pytest.raises(ValueError, match="100%"):
-            ProfitTargetRisk(profit_target=1.5)
+    def test_init_target_exceeds_one_allowed(self):
+        """Test that profit target > 1.0 is allowed (2.0 = 盈利翻倍止盈)."""
+        risk = ProfitTargetRisk(profit_target=1.5)
+        assert risk.profit_target == 1.5
+
+        risk_doubled = ProfitTargetRisk(profit_target=2.0)
+        assert risk_doubled.profit_target == 2.0
 
 
 @pytest.mark.unit

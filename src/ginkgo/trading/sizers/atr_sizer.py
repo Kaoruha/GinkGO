@@ -129,13 +129,15 @@ class ATRSizer(LotAlignableMixin, BaseSizer):
                 atr = min_atr
             max_money = float(portfolio_info["cash"]) * self.risk
             max_shares = self.align_to_lot(int(max_money / atr))  # 向下对齐到 lot_size 整数倍（#6498，原硬编码 100）
-            price = float(close) * 1.1
+            # 冻结额=成本区间上界:原内联 *1.1 收口到 SizerBase.LONG_FREEZE_BUFFER,
+            # 封顶可用现金(截断的残余 gap 由 deduct_from_frozen 现金补扣兜底)
+            price = float(close) * float(self.LONG_FREEZE_BUFFER)
             o = self.create_order(
                 code=signal.code,
                 direction=signal.direction,
                 volume=max_shares,
                 limit_price=0,
-                frozen_money=round(price * max_shares, 4),
+                frozen_money=round(min(price * max_shares, max_money), 4),
                 transaction_price=0,
                 transaction_volume=0,
                 remain=0,

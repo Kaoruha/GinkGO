@@ -270,6 +270,17 @@ class Order(TimeMixin, Base):
         """Alias for code. 金融行业标准术语。"""
         return self._code
 
+    # ---- 血缘(2026-08-17 追溯链 Signal→Order→PositionRecord) ----
+    # 触发本订单的信号 uuid。由 portfolio.on_signal 在 sizer 返回后挂载;
+    # 风控调整返回新对象时防御性继承。空串=无来源(如手工单/外部单)。
+    @property
+    def signal_id(self) -> str:
+        return getattr(self, "_signal_id", "")
+
+    @signal_id.setter
+    def signal_id(self, value: str) -> None:
+        self._signal_id = str(value or "")
+
     @property
     def code(self) -> str:
         """

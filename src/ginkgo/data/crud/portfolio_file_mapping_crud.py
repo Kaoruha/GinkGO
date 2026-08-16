@@ -67,8 +67,41 @@ class PortfolioFileMappingCRUD(BaseCRUD[MPortfolioFileMapping]):
         Business helper: Find file mappings by portfolio ID.
         """
         filters = {"portfolio_id": portfolio_id}
-        
+
         return self.find(filters=filters, order_by="uuid")
+
+    def count_portfolios_by_files(self, file_ids: List[str]) -> Dict[str, int]:
+        """
+        Business helper: 每个组件被多少个不同 Portfolio 持有（SQL 层聚合）。
+
+        GROUP BY + COUNT(DISTINCT) 在库内完成，只返回每组件一行计数，
+        不把绑定行拉回应用层——成本随页组件数而非表行数增长
+        （配合 file_id 索引为 B+ 树定位，见 model 的 index=True）。
+
+        Returns:
+            Dict[str, int]: {file_id: distinct portfolio 数}，未绑定的组件不在 map 中
+        """
+        if not file_ids:
+            return {}
+
+        conn = self._get_connection()
+        try:
+            with conn.get_session() as session:
+                from sqlalchemy import func
+
+                rows = (
+                    session.query(
+                        self.model_class.file_id.label("file_id"),
+                        func.count(func.distinct(self.model_class.portfolio_id)).label("cnt"),
+                    )
+                    .filter(self.model_class.file_id.in_(list(file_ids)))
+                    .group_by(self.model_class.file_id)
+                    .all()
+                )
+                return {r.file_id: int(r.cnt) for r in rows if r.file_id}
+        except Exception as e:
+            GLOG.ERROR(f"count_portfolios_by_files failed: {e}")
+            return {}
 
     def find_by_file(self, file_id: str) -> list:
         """

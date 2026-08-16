@@ -6,10 +6,14 @@
  * 不覆盖 ws(s) 握手。故双形态 ws 鉴权均走 query param(?token=...),
  * 后端(Task 5)支持 query 兜底。
  *
- * 连接生命周期归登录态(App.vue watch isLoggedIn 连/断),非组件 onMounted。
+ * 连接生命周期模块自管理(ADR-046 修订):首个消费者调用 useWebSocket() 时
+ * 绑定登录态 watch,登录即连/登出即断。connect/disconnect 不导出——
+ * 曾因多组件并发调用 connect 产生孤儿连接竞态(后端 3~6s 断连抖动),
+ * 唯一调用方由"接口不存在"结构性保证。
  */
-import { ref, shallowRef } from 'vue'
+import { ref, shallowRef, watch } from 'vue'
 import { auth } from '@/composables/useAuth'
+import { useAuthStore } from '@/stores/auth'
 
 type MessageHandler = (data: any) => void
 
@@ -31,12 +35,15 @@ let lastMessageAt = 0
 let watchdogTimer: ReturnType<typeof setInterval> | null = null
 const WATCHDOG_MS = 65_000
 
-// 异步获取 ws URL:token 经 useAuth 收口
-// - Electron 形态:auth.getToken() 走 IPC 拉 safeStorage
-// - 浏览器形态:auth.getToken() 读 localStorage
+// 异步获取 ws URL:token 优先取内存 store(login() 第一行即赋值,零时序依赖),
+// 回退 auth.getToken()(Electron IPC / localStorage)。
+// 不直接读持久层:登录翻转瞬间生命周期 watch 触发 connect,而 saveAuth 的
+// localStorage 写入在 await 链上晚于 watch flush——getToken 会读到旧值/null,
+// 导致 connect 静默放弃或带过期 token 握手被 1008 拒(两出口均不自愈)
 async function getWebSocketUrl(): Promise<string> {
   const cfg = window.appConfig
-  const token = await auth.getToken()
+  const authStore = useAuthStore()
+  const token = authStore.token || await auth.getToken()
   if (cfg?.wsBase) {
     // Electron 形态:用配置的 wsBase
     let url = `${cfg.wsBase}/ws/portfolio`
@@ -97,7 +104,7 @@ function openSocket(wsUrl: string) {
     isConnected.value = false
     stopWatchdog()
     // 1008 = auth rejected (policy violation), don't retry
-    // (恢复路径:下次登录态翻转时 App.vue 重连)
+    // (恢复路径:下次登录态翻转时生命周期 watch 重连)
     if (event.code === 1008) return
     retryCount++
     if (reconnectTimer) clearTimeout(reconnectTimer) // 防重连定时器叠加
@@ -174,7 +181,26 @@ function subscribe(eventType: string, handler: MessageHandler) {
   }
 }
 
+// —— 生命周期绑定:登录即连、登出即断(幂等,首个消费者触发) ——
+let lifecycleBound = false
+function bindLifecycle() {
+  if (lifecycleBound) return
+  lifecycleBound = true
+  // useAuthStore 须在 pinia 就绪后调用:bindLifecycle 只随 useWebSocket()
+  // 在组件 setup 内首次触发,时序上必然满足
+  const authStore = useAuthStore()
+  watch(
+    () => authStore.isLoggedIn,
+    (loggedIn) => {
+      if (loggedIn) void connect()
+      else disconnect()
+    },
+    { immediate: true },
+  )
+}
+
 export function useWebSocket() {
-  // 连接生命周期由 App.vue 按登录态管理,这里仅暴露访问器
-  return { isConnected, subscribe, connect, disconnect }
+  bindLifecycle()
+  // 仅暴露订阅权;connect/disconnect 为模块私有(见文件头注释)
+  return { isConnected, subscribe }
 }

@@ -47,8 +47,8 @@ class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
     def __init__(
         self,
         name: str = "VolatilityRisk",
-        max_volatility: float = 25.0,
-        warning_volatility: float = 20.0,
+        max_volatility: float = 0.25,
+        warning_volatility: float = 0.20,
         lookback_period: int = 20,
         volatility_window: int = 10,
         lot_size: int = 100,
@@ -57,8 +57,9 @@ class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
     ):
         """
         Args:
-            max_volatility(float): 最大允许波动率，百分比（例如：25.0表示25%）
-            warning_volatility(float): 预警波动率阈值，百分比
+            max_volatility(float): 最大允许波动率，小数比例（例如：0.25表示25%。
+                与 LossLimitRisk/ProfitTargetRisk 口径统一，均为小数，无百分数乘换算）
+            warning_volatility(float): 预警波动率阈值，小数比例（0.20表示20%）
             lookback_period(int): 历史数据回看期，天数
             volatility_window(int): 波动率计算窗口，天数
             lot_size(int): 最小交易单位（手），缩放后向下取整对齐。A 股默认 100 股/手；
@@ -75,7 +76,7 @@ class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
         self._price_history = {}  # code: [price_list]
         self._volatility_cache = {}  # code: current_volatility
 
-        self.set_name(f"{name}_max{self._max_volatility}%_warn{self._warning_volatility}%_period{self._lookback_period}")
+        self.set_name(f"{name}_max{self._max_volatility:.0%}_warn{self._warning_volatility:.0%}_period{self._lookback_period}")
 
     @property
     def max_volatility(self) -> float:
@@ -114,12 +115,12 @@ class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
             aligned = self.align_to_lot(scaled)
             if aligned < self._lot_size:
                 # 不足 1 手，拒单（调用方对 None 软拦截）
-                GLOG.WARN(f"VolatilityRisk: High volatility {current_volatility:.1f}% > {self._max_volatility}%, "
+                GLOG.WARN(f"VolatilityRisk: High volatility {current_volatility:.1%} > {self._max_volatility:.0%}, "
                          f"scaled {original_volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
                 return None
             order.adjust_volume(aligned)
 
-            GLOG.WARN(f"VolatilityRisk: High volatility {current_volatility:.1f}% > {self._max_volatility}%, "
+            GLOG.WARN(f"VolatilityRisk: High volatility {current_volatility:.1%} > {self._max_volatility:.0%}, "
                      f"reducing order {original_volume} → {order.volume}")
 
         elif current_volatility > self._warning_volatility:
@@ -132,12 +133,12 @@ class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
             # 最小交易单位 lot_size 对齐(LotAlignableMixin,A 股默认 100 股/手)(#6038)
             aligned = self.align_to_lot(scaled)
             if aligned < self._lot_size:
-                GLOG.INFO(f"VolatilityRisk: Warning volatility {current_volatility:.1f}% > {self._warning_volatility}%, "
+                GLOG.INFO(f"VolatilityRisk: Warning volatility {current_volatility:.1%} > {self._warning_volatility:.0%}, "
                          f"scaled {order.volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
                 return None
             order.adjust_volume(aligned)
 
-            GLOG.INFO(f"VolatilityRisk: Warning volatility {current_volatility:.1f}% > {self._warning_volatility}%, "
+            GLOG.INFO(f"VolatilityRisk: Warning volatility {current_volatility:.1%} > {self._warning_volatility:.0%}, "
                      f"adjusting order to {order.volume}")
 
         return order
@@ -169,25 +170,25 @@ class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
 
         # 检查波动率是否超标
         if current_volatility > self._max_volatility:
-            GLOG.WARN(f"VolatilityRisk: EXTREME volatility {current_volatility:.1f}% > {self._max_volatility}% for {event.code}")
+            GLOG.WARN(f"VolatilityRisk: EXTREME volatility {current_volatility:.1%} > {self._max_volatility:.0%} for {event.code}")
 
             # 生成减仓或暂停交易信号
             signal = self.create_signal(
                 code=event.code,
                 direction=DIRECTION_TYPES.SHORT,
-                reason=f"EXTREME: Volatility {current_volatility:.1f}% exceeded {self._max_volatility}%",
+                reason=f"EXTREME: Volatility {current_volatility:.1%} exceeded {self._max_volatility:.0%}",
                 strength=min(0.9, current_volatility / self._max_volatility),  # 波动率越高信号越强
             )
             signals.append(signal)
 
         elif current_volatility > self._warning_volatility:
-            GLOG.INFO(f"VolatilityRisk: HIGH volatility {current_volatility:.1f}% > {self._warning_volatility}% for {event.code}")
+            GLOG.INFO(f"VolatilityRisk: HIGH volatility {current_volatility:.1%} > {self._warning_volatility:.0%} for {event.code}")
 
             # 生成预警信号
             signal = self.create_signal(
                 code=event.code,
                 direction=DIRECTION_TYPES.SHORT,
-                reason=f"HIGH: Volatility {current_volatility:.1f}% exceeded {self._warning_volatility}%",
+                reason=f"HIGH: Volatility {current_volatility:.1%} exceeded {self._warning_volatility:.0%}",
                 strength=0.6,  # 中等强度预警信号
             )
             signals.append(signal)
@@ -222,11 +223,11 @@ class VolatilityRisk(LotAlignableMixin, BaseRiskManagement):
         else:
             window_prices = prices
 
-        # 计算收益率
+        # 计算收益率（小数比例，与阈值口径统一）
         returns = []
         for i in range(1, len(window_prices)):
             if window_prices[i-1] > 0:
-                return_rate = (window_prices[i] / window_prices[i-1] - 1) * 100
+                return_rate = window_prices[i] / window_prices[i-1] - 1
                 returns.append(return_rate)
 
         if len(returns) < 2:

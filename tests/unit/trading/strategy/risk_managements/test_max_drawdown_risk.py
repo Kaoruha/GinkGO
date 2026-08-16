@@ -61,32 +61,32 @@ def _set_context(obj, engine_id="test_engine", portfolio_id="test_portfolio", ta
 class TestMaxDrawdownRiskConstruction:
     def test_default_constructor(self):
         r = MaxDrawdownRisk()
-        assert r.max_drawdown == 15.0
-        assert r.warning_drawdown == 10.0
-        assert r.critical_drawdown == 20.0
+        assert r.max_drawdown == 0.15
+        assert r.warning_drawdown == 0.10
+        assert r.critical_drawdown == 0.20
 
     def test_custom_thresholds_constructor(self):
-        r = MaxDrawdownRisk(max_drawdown=20, warning_drawdown=15, critical_drawdown=25)
-        assert r.max_drawdown == 20.0
-        assert r.warning_drawdown == 15.0
-        assert r.critical_drawdown == 25.0
+        r = MaxDrawdownRisk(max_drawdown=0.20, warning_drawdown=0.15, critical_drawdown=0.25)
+        assert r.max_drawdown == 0.20
+        assert r.warning_drawdown == 0.15
+        assert r.critical_drawdown == 0.25
 
     def test_threshold_relationship_validation(self):
-        r = MaxDrawdownRisk(warning_drawdown=5, max_drawdown=10, critical_drawdown=15)
+        r = MaxDrawdownRisk(warning_drawdown=0.05, max_drawdown=0.10, critical_drawdown=0.15)
         assert r.warning_drawdown < r.max_drawdown < r.critical_drawdown
 
     def test_property_access(self):
         r = MaxDrawdownRisk()
-        assert r.max_drawdown == 15.0
-        assert r.warning_drawdown == 10.0
-        assert r.critical_drawdown == 20.0
+        assert r.max_drawdown == 0.15
+        assert r.warning_drawdown == 0.10
+        assert r.critical_drawdown == 0.20
 
     def test_constructor_rejects_critical_le_max(self):
         """critical_drawdown 必须严格大于 max_drawdown，否则减仓区间(max<dd<=critical)无意义"""
         with pytest.raises(ValueError):
-            MaxDrawdownRisk(max_drawdown=15, critical_drawdown=15)
+            MaxDrawdownRisk(max_drawdown=0.15, critical_drawdown=0.15)
         with pytest.raises(ValueError):
-            MaxDrawdownRisk(max_drawdown=20, critical_drawdown=15)
+            MaxDrawdownRisk(max_drawdown=0.20, critical_drawdown=0.15)
 
 
 @pytest.mark.tdd
@@ -108,7 +108,7 @@ class TestMaxDrawdownRiskDrawdownCalculation:
         r._portfolio_peak = Decimal("100000")
         info = _make_portfolio_info(worth=85000)
         dd = r._calculate_portfolio_drawdown(info)
-        assert abs(dd - 15.0) < 0.1
+        assert abs(dd - 0.15) < 0.001
 
     def test_real_time_drawdown_update(self):
         r = MaxDrawdownRisk()
@@ -117,7 +117,7 @@ class TestMaxDrawdownRiskDrawdownCalculation:
         info = _make_portfolio_info(worth=80000)
         r._update_peak_values(info)
         dd = r._calculate_portfolio_drawdown(info)
-        assert dd == 20.0
+        assert dd == 0.2
 
     def test_multi_stock_drawdown_calculation(self):
         r = MaxDrawdownRisk()
@@ -142,7 +142,7 @@ class TestMaxDrawdownRiskOrderProcessing:
         assert r.cal(info, sell) is sell
 
     def test_warning_level_order_restriction(self):
-        r = MaxDrawdownRisk(max_drawdown=10, warning_drawdown=5, critical_drawdown=15)
+        r = MaxDrawdownRisk(max_drawdown=0.10, warning_drawdown=0.05, critical_drawdown=0.15)
         r._portfolio_peak = Decimal("100000")
         order = _make_order(volume=1000)
         info = _make_portfolio_info(worth=91000)
@@ -150,7 +150,7 @@ class TestMaxDrawdownRiskOrderProcessing:
         assert isinstance(result, Order)
 
     def test_critical_level_order_blocking(self):
-        r = MaxDrawdownRisk(max_drawdown=10, warning_drawdown=5, critical_drawdown=15)
+        r = MaxDrawdownRisk(max_drawdown=0.10, warning_drawdown=0.05, critical_drawdown=0.15)
         r._portfolio_peak = Decimal("100000")
         order = _make_order(direction=DIRECTION_TYPES.LONG, volume=1000)
         info = _make_portfolio_info(worth=80000)
@@ -158,7 +158,7 @@ class TestMaxDrawdownRiskOrderProcessing:
         assert result is None
 
     def test_order_adjustment_formula(self):
-        r = MaxDrawdownRisk(max_drawdown=15, warning_drawdown=10, critical_drawdown=25)
+        r = MaxDrawdownRisk(max_drawdown=0.15, warning_drawdown=0.10, critical_drawdown=0.25)
         r._portfolio_peak = Decimal("100000")
         order = _make_order(volume=1000)
         info = _make_portfolio_info(worth=85000)
@@ -168,11 +168,11 @@ class TestMaxDrawdownRiskOrderProcessing:
 
     def test_reduction_returns_copy_original_order_unchanged(self):
         """减仓时返回新 Order 副本，原 order 对象的 volume 保持不变（#5495）"""
-        r = MaxDrawdownRisk(max_drawdown=10, critical_drawdown=20)
+        r = MaxDrawdownRisk(max_drawdown=0.10, critical_drawdown=0.20)
         r._portfolio_peak = Decimal("100000")
         order = _make_order(volume=1000)
         original_volume = order.volume
-        info = _make_portfolio_info(worth=85000)  # dd=15%, 落在(10,20]减仓区间
+        info = _make_portfolio_info(worth=85000)  # dd=15%, 落在(10%,20%]减仓区间
         result = r.cal(info, order)
         assert result is not None
         assert result is not order  # 返回副本，非原对象
@@ -181,8 +181,8 @@ class TestMaxDrawdownRiskOrderProcessing:
 
     def test_multi_risk_chain_does_not_mutate_original(self):
         """多风险链串联：原 order 经历整条链后仍不变，后续 manager 拒绝时可回退（#5495）"""
-        r1 = MaxDrawdownRisk(max_drawdown=10, critical_drawdown=20)
-        r2 = MaxDrawdownRisk(max_drawdown=10, critical_drawdown=20)
+        r1 = MaxDrawdownRisk(max_drawdown=0.10, critical_drawdown=0.20)
+        r2 = MaxDrawdownRisk(max_drawdown=0.10, critical_drawdown=0.20)
         r1._portfolio_peak = Decimal("100000")
         r2._portfolio_peak = Decimal("100000")
         order = _make_order(volume=1000)
@@ -202,7 +202,7 @@ class TestMaxDrawdownRiskOrderProcessing:
 @pytest.mark.financial
 class TestMaxDrawdownRiskSignalGeneration:
     def test_critical_level_signal_generation(self):
-        r = MaxDrawdownRisk(max_drawdown=10, warning_drawdown=5, critical_drawdown=15)
+        r = MaxDrawdownRisk(max_drawdown=0.10, warning_drawdown=0.05, critical_drawdown=0.15)
         _set_context(r)
         r._portfolio_peak = Decimal("100000")
         # Use drawdown below all thresholds to test no-signal path
@@ -214,7 +214,7 @@ class TestMaxDrawdownRiskSignalGeneration:
         assert isinstance(signals, list)
 
     def test_warning_level_signal_generation(self):
-        r = MaxDrawdownRisk(max_drawdown=10, warning_drawdown=5, critical_drawdown=25)
+        r = MaxDrawdownRisk(max_drawdown=0.10, warning_drawdown=0.05, critical_drawdown=0.25)
         _set_context(r)
         r._portfolio_peak = Decimal("100000")
         # Use drawdown below all thresholds
@@ -240,7 +240,7 @@ class TestMaxDrawdownRiskSignalGeneration:
         assert callable(getattr(r, "generate_signals", None))
 
     def test_multiple_signals_coordination(self):
-        r = MaxDrawdownRisk(max_drawdown=10, critical_drawdown=15)
+        r = MaxDrawdownRisk(max_drawdown=0.10, critical_drawdown=0.15)
         _set_context(r)
         r._portfolio_peak = Decimal("100000")
         # Use drawdown below thresholds - no signal expected
@@ -268,7 +268,7 @@ class TestMaxDrawdownRiskEdgeCases:
         r._portfolio_peak = Decimal("100000")
         info = _make_portfolio_info(worth=90000)
         dd = r._calculate_portfolio_drawdown(info)
-        assert dd == 10.0
+        assert dd == 0.1
         info2 = _make_portfolio_info(worth=105000)
         r._update_peak_values(info2)
         assert r._portfolio_peak == Decimal("105000")
@@ -286,7 +286,7 @@ class TestMaxDrawdownRiskEdgeCases:
         r._portfolio_peak = Decimal("100000")
         info = _make_portfolio_info(worth=1000)
         dd = r._calculate_portfolio_drawdown(info)
-        assert dd > 90.0
+        assert dd > 0.90
 
     def test_data_corruption_handling(self):
         from decimal import InvalidOperation
@@ -352,19 +352,19 @@ class TestMaxDrawdownRiskLotAlignment:
         """默认 lot_size=100:减仓缩放后向下对齐到 100 股/手(LotAlignableMixin)(#6038)。
 
         cal 返回 deepcopy 副本(#5495 多风险链防污染),断言用 result.volume。"""
-        r = MaxDrawdownRisk(max_drawdown=15.0, critical_drawdown=20.0)
+        r = MaxDrawdownRisk(max_drawdown=0.15, critical_drawdown=0.20)
         r._portfolio_peak = Decimal('100000')
         portfolio_info = _make_portfolio_info(worth=82500)
         order = _make_order(volume=1010)
         result = r.cal(portfolio_info, order)
-        # drawdown=(1-82500/100000)*100=17.5%∈(15,20], factor=(20-17.5)/5=0.5,
+        # drawdown=1-82500/100000=0.175∈(0.15,0.20], factor=(0.20-0.175)/0.05=0.5,
         # scaled=int(1010*0.5)=505, lot=100 → 500
         assert result is not None
         assert result.volume == 500
 
     def test_custom_lot_size_aligns_to_param(self):
         """lot_size 参数生效:自定义手数对齐。框架不限于 A 股(#6038)。"""
-        r = MaxDrawdownRisk(max_drawdown=15.0, critical_drawdown=20.0, lot_size=80)
+        r = MaxDrawdownRisk(max_drawdown=0.15, critical_drawdown=0.20, lot_size=80)
         r._portfolio_peak = Decimal('100000')
         portfolio_info = _make_portfolio_info(worth=82500)
         order = _make_order(volume=1010)
@@ -376,12 +376,12 @@ class TestMaxDrawdownRiskLotAlignment:
     def test_reduced_below_one_lot_rejects(self):
         """缩放后不足 1 手拒单(对齐 volatility_risk 模板)(#6038)。
 
-        drawdown=19.5%∈(15,20], factor=(20-19.5)/5=0.1 触 max(,0.1) 下限,
+        drawdown=0.195∈(0.15,0.20], factor=(0.20-0.195)/0.05=0.1 触 max(,0.1) 下限,
         volume=800 → scaled=int(800*0.1)=80, aligned=0 < 1 lot(100) → 应 return None。
         与 volatility/concentration/liquidity 三处拒单模板一致:本分支 5a7b3383 给 4 个
         缩放型 Risk 混入 LotAlignableMixin 时,max_drawdown 漏了不足1手拒单守卫,本测试守护该一致性。
         """
-        r = MaxDrawdownRisk(max_drawdown=15.0, critical_drawdown=20.0)
+        r = MaxDrawdownRisk(max_drawdown=0.15, critical_drawdown=0.20)
         r._portfolio_peak = Decimal('100000')
         portfolio_info = _make_portfolio_info(worth=80500)
         order = _make_order(volume=800)

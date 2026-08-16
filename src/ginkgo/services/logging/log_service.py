@@ -129,9 +129,13 @@ class LogService(BaseService):
                 if symbol:
                     conditions.append(MBacktestLog.symbol == symbol)
                 if start_time:
-                    conditions.append(MBacktestLog.timestamp >= start_time)
+                    # 时间过滤=业务时间轴(business_timestamp):wall-clock 全挤在实际
+                    # 运行的几分钟内,按"回测区间"过滤 wall-clock 必然落空(311f 重跑
+                    # 实例:13305 条日志 wall 全在 18:10~18:13,business 覆盖整个
+                    # 回测区间)。排序仍按 timestamp(写入序=引擎处理序,天然保序)。
+                    conditions.append(MBacktestLog.business_timestamp >= start_time)
                 if end_time:
-                    conditions.append(MBacktestLog.timestamp <= end_time)
+                    conditions.append(MBacktestLog.business_timestamp <= end_time)
 
                 if conditions:
                     query = query.where(and_(*conditions))
@@ -347,7 +351,18 @@ class LogService(BaseService):
                 # 应用过滤条件
                 conditions = []
                 for key, value in filters.items():
-                    if value is None or not hasattr(model, key):
+                    if value is None:
+                        continue
+                    if key in ("start_time", "end_time"):
+                        # 时间范围与 query_backtest_logs 同轴(business_timestamp),
+                        # 保证 total 与列表条件一致(否则过滤后 0 条而 total 不变)。
+                        # 注意:start/end 不是模型列名,须在 hasattr 守卫之前分支
+                        if not hasattr(model, "business_timestamp"):
+                            continue
+                        col = model.business_timestamp
+                        conditions.append(col >= value if key == "start_time" else col <= value)
+                        continue
+                    if not hasattr(model, key):
                         continue
                     if key == "level":
                         # ClickHouse level 列混大小写存储（arch_log_level_lowercase_storage），

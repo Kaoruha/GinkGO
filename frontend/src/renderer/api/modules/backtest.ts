@@ -47,6 +47,8 @@ export interface BacktestCreateRequest {
     slippage_rate?: number
     broker_attitude?: number
     commission_min?: number
+    /** Engine 级数据频率（#5386 与 CLI 一致），缺省后端 DAY */
+    frequency?: string
     analyzers?: any[]
   }
   component_config?: Record<string, any>
@@ -67,7 +69,12 @@ export interface BacktestListParams {
   status?: string
   keyword?: string
   page?: number
+  /** 后端实际识别的分页参数(实测 size 不生效) */
+  page_size?: number
   size?: number
+  /** 排序字段(时间字段 create_at/update_at 为 DB 级排序,指标字段页内排序) */
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
 }
 
 export interface NetValueData {
@@ -275,6 +282,14 @@ export const backtestApi = {
    */
   getOrders(uuid: string): Promise<PaginatedData<OrderRecord>> {
     return request.get(`/api/v1/backtests/${uuid}/orders`)
+  },
+
+  /**
+   * 订单状态流水(完整生命周期:同一 order_id 的 NEW→SUBMITTED→FILLED 各一行,不去重)
+   * 用于订单生命周期时间线展开;血缘 signal_id 每行同值
+   */
+  getOrderRecords(uuid: string): Promise<any[]> {
+    return request.get(`/api/v1/backtests/${uuid}/order-records`, { skipErrorToast: true } as any)
   },
 
   /**

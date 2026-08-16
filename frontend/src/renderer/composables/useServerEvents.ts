@@ -5,7 +5,7 @@
  * 连接每次建立(含首连)触发 catchup(幂等 REST 重拉,替代全局 seq);
  * scheduleRefetch 按 key trailing 合并——同一页面 N 个事件塌缩成一次列表刷新。
  *
- * 依赖 useWebSocket 的连接生命周期(App.vue 按登录态连/断),本模块不建连。
+ * 依赖 useWebSocket 的连接生命周期(模块自管理:登录即连/登出即断),本模块不建连。
  */
 import { watch, onUnmounted } from 'vue'
 import { useWebSocket } from '@/composables/useWebSocket'

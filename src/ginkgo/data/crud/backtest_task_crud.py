@@ -326,7 +326,9 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         start_date: datetime = None,
         end_date: datetime = None,
         page: int = 0,
-        page_size: int = 20
+        page_size: int = 20,
+        sort_by: str = "create_at",
+        sort_order: str = "desc"
     ) -> list:
         """
         分页获取筛选后的任务列表
@@ -339,6 +341,8 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             end_date: 结束日期筛选
             page: 页码
             page_size: 每页数量
+            sort_by: 排序字段（调用方 service 层已做白名单，默认 create_at）
+            sort_order: 排序方向 asc/desc
 
         Returns:
             list: 任务列表
@@ -356,7 +360,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
 
         return self.find(
             filters=filters,
-            order_by="create_at", desc_order=True,
+            order_by=sort_by, desc_order=(sort_order != "asc"),
             page=page,
             page_size=page_size
         )

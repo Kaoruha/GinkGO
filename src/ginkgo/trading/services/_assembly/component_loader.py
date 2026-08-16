@@ -66,8 +66,15 @@ SOURCE_FALLBACK_IMPORT_MAP = {
 # --------------------------------------------------------------------------- #
 
 # method 2 命中的基类名后缀（含 SelectorBase）与精确基类名（Base* 抽象基类）
+# 注意：库里基类实际命名不统一——BaseStrategy/BaseAnalyzer 用 Base* 前缀，
+# RiskBase/SizerBase 用 *Base 后缀（bases/ 下）。旧清单只认 BaseRiskManagement/
+# BaseSizer（库里不存在），使继承 RiskBase 且未设 __abstract__=False 的 DB 风控
+# 组件（如 profit_target_risk）三检测全 miss 而加载失败；两套真名都收。
 _COMPONENT_BASE_SUFFIXES = ("Strategy", "Selector", "SelectorBase", "Sizer", "RiskManagement", "Analyzer")
-_COMPONENT_BASE_EXACT = ("BaseStrategy", "BaseSelector", "BaseSizer", "BaseRiskManagement", "BaseAnalyzer")
+_COMPONENT_BASE_EXACT = (
+    "BaseStrategy", "BaseSelector", "BaseSizer", "BaseRiskManagement", "BaseAnalyzer",
+    "RiskBase", "SizerBase",
+)
 
 # method 3 命中的类名后缀（不含 SelectorBase —— 与主路径原逻辑一致）
 _COMPONENT_NAME_SUFFIXES = ("Strategy", "Selector", "Sizer", "RiskManagement", "Analyzer")

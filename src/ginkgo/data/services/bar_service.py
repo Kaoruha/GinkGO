@@ -72,6 +72,10 @@ class BarService(BaseService):
             ServiceResult: 同步结果，包含DataSyncResult统计信息
         """
         start_time = time.time()
+        # code 归一 upper(全链大写标准,2026-08-16):入口一次归一,覆盖后续
+        # exists 校验/删除 filters/查重/实体构造——双态(大写删+小写插)曾致
+        # 同步覆盖灾难(000001.SZ 大写日线全灭)
+        code = code.upper() if isinstance(code, str) else code
         self._log_operation_start("sync_range", code=code, start_date=start_date,
                                 end_date=end_date, frequency=frequency.value)
 
@@ -735,7 +739,9 @@ class BarService(BaseService):
         """构造 K线 CRUD filters。get / get_bars_df / get_bars 共用（DRY）。"""
         filters = {}
         if code:
-            filters["code"] = code
+            # 消费端归一 upper(全链大写标准):调用方(feeder/预检/API)可能传
+            # 数据源原样小写,精确匹配会静默查空
+            filters["code"] = code.upper() if isinstance(code, str) else code
         if start_date:
             filters["timestamp__gte"] = datetime_normalize(start_date)
         if end_date:

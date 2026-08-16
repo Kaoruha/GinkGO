@@ -3,8 +3,11 @@
  *
  * 策略:模块级单例状态 → vi.resetModules + 动态 import 每测重置;
  * FakeWebSocket 替身可控 readyState/事件派发;fake timers 驱动退避与 watchdog。
+ * 连接生命周期已内化(登录态 watch 驱动,connect/disconnect 不导出):
+ * mock @/stores/auth 提供响应式 isLoggedIn,login()/logout() 翻转驱动连/断。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { reactive, nextTick } from 'vue'
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = []
@@ -58,14 +61,38 @@ class FakeWebSocket {
 
 let useWebSocketMod: typeof import('../useWebSocket')
 
-async function freshModule() {
+// mock 登录态:须用 reactive(模拟真实 pinia store 的 reactive 包装,属性
+// 访问即解包+track)。若用普通对象装 ref,getter 拿到的是 ref 本身,
+// .value 从未被访问 → 依赖不 track,翻转不触发 watch(实测踩坑)。
+// 每测新建对象:resetModules 后旧模块的 watch 仍监听旧对象,共享对象
+// 会让历史 watch 一并触发(连接暴涨),新对象使其自然失联
+let mockStore: { isLoggedIn: boolean }
+
+async function freshModule(loggedIn = false) {
   vi.resetModules()
   FakeWebSocket.instances = []
+  mockStore = reactive({ isLoggedIn: loggedIn })
   vi.stubGlobal('WebSocket', FakeWebSocket)
   vi.doMock('@/composables/useAuth', () => ({
     auth: { getToken: async () => 'test-token' },
   }))
+  vi.doMock('@/stores/auth', () => ({
+    useAuthStore: () => mockStore,
+  }))
   useWebSocketMod = await import('../useWebSocket')
+}
+
+// 生命周期驱动辅助:翻转登录态并 flush watch(flush:pre 走 microtask)
+// + connect 内部的 await getWebSocketUrl() microtask
+const login = async () => {
+  mockStore.isLoggedIn = true
+  await nextTick()
+  await vi.advanceTimersByTimeAsync(0)
+}
+const logout = async () => {
+  mockStore.isLoggedIn = false
+  await nextTick()
+  await vi.advanceTimersByTimeAsync(0)
 }
 
 describe('useWebSocket', () => {
@@ -77,15 +104,18 @@ describe('useWebSocket', () => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.doUnmock('@/composables/useAuth')
+    vi.doUnmock('@/stores/auth')
     vi.restoreAllMocks()
   })
 
-  it('并发 connect() 只建立一条连接(CONNECTING 竞态)', async () => {
-    await freshModule()
-    const { connect } = useWebSocketMod.useWebSocket()
+  it('登录即连,bindLifecycle 幂等(多消费者只建一条连接)', async () => {
+    await freshModule(true) // 绑定时已登录 → immediate watch 即连
+    useWebSocketMod.useWebSocket()
+    await vi.advanceTimersByTimeAsync(0)
 
-    // 两个并发调用,getWebSocketUrl 的 await 窗口内都不让位
-    await Promise.all([connect(), connect()])
+    // 第二个消费者:生命周期已绑定,不得重复连
+    useWebSocketMod.useWebSocket()
+    await vi.advanceTimersByTimeAsync(0)
 
     expect(FakeWebSocket.instances.length).toBe(1)
   })
@@ -93,8 +123,8 @@ describe('useWebSocket', () => {
   it('断开后指数退避重连,onopen 后退避复位', async () => {
     await freshModule()
     vi.spyOn(Math, 'random').mockReturnValue(0.5) // jitter 固定 1.0,退避精确 2s/4s/2s
-    const { connect, isConnected } = useWebSocketMod.useWebSocket()
-    await connect()
+    const { isConnected } = useWebSocketMod.useWebSocket()
+    await login()
     const s1 = FakeWebSocket.instances[0]
     s1.simulateOpen()
     expect(isConnected.value).toBe(true)
@@ -122,8 +152,8 @@ describe('useWebSocket', () => {
 
   it('close(1008) 鉴权拒绝不重试', async () => {
     await freshModule()
-    const { connect } = useWebSocketMod.useWebSocket()
-    await connect()
+    useWebSocketMod.useWebSocket()
+    await login()
     FakeWebSocket.instances[0].simulateOpen()
     FakeWebSocket.instances[0].simulateClose(1008)
 
@@ -134,8 +164,8 @@ describe('useWebSocket', () => {
   it('65s 无任何帧,watchdog 强制断开触发重连', async () => {
     await freshModule()
     vi.spyOn(Math, 'random').mockReturnValue(0.5)
-    const { connect } = useWebSocketMod.useWebSocket()
-    await connect()
+    useWebSocketMod.useWebSocket()
+    await login()
     const s1 = FakeWebSocket.instances[0]
     s1.simulateOpen()
 
@@ -150,8 +180,8 @@ describe('useWebSocket', () => {
 
   it('30s heartbeat 帧持续喂狗,连接保活超过 65s', async () => {
     await freshModule()
-    const { connect, isConnected } = useWebSocketMod.useWebSocket()
-    await connect()
+    const { isConnected } = useWebSocketMod.useWebSocket()
+    await login()
     const s1 = FakeWebSocket.instances[0]
     s1.simulateOpen()
 
@@ -166,8 +196,8 @@ describe('useWebSocket', () => {
 
   it('消息按 type/*/topic: 三通道分发,坏 JSON 静默', async () => {
     await freshModule()
-    const { connect, subscribe } = useWebSocketMod.useWebSocket()
-    await connect()
+    const { subscribe } = useWebSocketMod.useWebSocket()
+    await login()
     const s1 = FakeWebSocket.instances[0]
     s1.simulateOpen()
 
@@ -189,14 +219,14 @@ describe('useWebSocket', () => {
 
   it('孤儿 socket(已被覆盖)的 onclose 不误降状态、不触发重连', async () => {
     await freshModule()
-    const { connect, disconnect, isConnected } = useWebSocketMod.useWebSocket()
-    await connect()
+    const { isConnected } = useWebSocketMod.useWebSocket()
+    await login()
     const orphan = FakeWebSocket.instances[0]
     orphan.simulateOpen()
     expect(isConnected.value).toBe(true)
 
-    // 主动 disconnect 清空 ws.value 后,迟到的 onclose 是孤儿,须被守卫拦下
-    disconnect()
+    // 登出(内部 disconnect)清空 ws.value 后,迟到的 onclose 是孤儿,须被守卫拦下
+    await logout()
     orphan.simulateClose(1006)
 
     expect(isConnected.value).toBe(false)
@@ -205,15 +235,15 @@ describe('useWebSocket', () => {
     expect(FakeWebSocket.instances.length).toBe(1)
   })
 
-  it('disconnect 后无残留定时器触发', async () => {
+  it('登出后无残留定时器触发', async () => {
     await freshModule()
     vi.spyOn(Math, 'random').mockReturnValue(0.5)
-    const { connect, disconnect, isConnected } = useWebSocketMod.useWebSocket()
-    await connect()
+    const { isConnected } = useWebSocketMod.useWebSocket()
+    await login()
     FakeWebSocket.instances[0].simulateOpen()
     FakeWebSocket.instances[0].simulateClose()
     // 此刻已排定一个 2s 重连 timer
-    disconnect()
+    await logout()
 
     await vi.advanceTimersByTimeAsync(120_000)
     expect(FakeWebSocket.instances.length).toBe(1)

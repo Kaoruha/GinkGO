@@ -33,7 +33,7 @@ export interface MenuConfig {
 }
 
 export const menuConfigs: MenuConfig[] = [
-  { key: 'dashboard', label: '工作台', icon: LayoutDashboard, route: '/dashboard' },
+  { key: 'dashboard', label: '概览', icon: LayoutDashboard, route: '/dashboard' },
   { key: 'portfolios', label: '组合', icon: Wallet, route: '/portfolios', matchPrefixes: ['/portfolios/'] },
   { key: 'backtests', label: '回测', icon: TrendingUp, route: '/backtests', matchPrefixes: ['/backtests/'] },
   {
@@ -87,6 +87,7 @@ export const menuConfigs: MenuConfig[] = [
       { label: '通知管理', route: '/admin/notifications' },
       { label: '告警中心', route: '/admin/alerts' },
       { label: '定时任务', route: '/admin/task-timer' },
+      { label: '数据清理', route: '/admin/maintenance' },
     ],
   },
 ]

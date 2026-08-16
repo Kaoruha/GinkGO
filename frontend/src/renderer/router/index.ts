@@ -8,8 +8,8 @@ const routes: RouteRecordRaw[] = [
   // ===== 根重定向 =====
   { path: '/', redirect: '/dashboard' },
 
-  // ===== 工作台 =====
-  { path: '/dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/Dashboard.vue'), meta: { title: '工作台' } },
+  // ===== 概览 =====
+  { path: '/dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/Dashboard.vue'), meta: { title: '概览' } },
 
   // ===== 组合 =====
   { path: '/portfolios', name: 'PortfolioList', component: () => import('@/views/portfolio/PortfolioList.vue'), meta: { title: '组合列表' } },
@@ -69,6 +69,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/data/ticks', name: 'TickData', component: () => import('@/views/data/TickData.vue'), meta: { title: 'Tick 数据' } },
   { path: '/data/adjustfactors', name: 'AdjustFactorData', component: () => import('@/views/data/AdjustFactorData.vue'), meta: { title: '复权因子' } },
   { path: '/data/sync', name: 'DataSync', component: () => import('@/views/data/DataSync.vue'), meta: { title: '数据同步' } },
+  // 临时演示稿:数据同步页改版布局评审用,评审后删除
+  { path: '/data/sync-demo', name: 'DataSyncDemo', component: () => import('@/views/data/DataSyncDemo.vue'), meta: { title: '数据同步(演示)' } },
 
   // ===== 管理（系统级功能,叶子路由直达） =====
   { path: '/admin', name: 'Admin', component: () => import('@/views/admin/SystemStatus.vue'), meta: { title: '系统状态' } },
@@ -79,6 +81,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/admin/notifications', name: 'NotificationManagement', component: () => import('@/views/admin/NotificationManagement.vue'), meta: { title: '通知管理' } },
   { path: '/admin/alerts', name: 'AlertCenter', component: () => import('@/views/admin/AlertCenter.vue'), meta: { title: '告警中心' } },
   { path: '/admin/task-timer', name: 'TaskTimerHistory', component: () => import('@/views/admin/TaskTimerHistory.vue'), meta: { title: '定时任务' } },
+  { path: '/admin/maintenance', name: 'DataMaintenance', component: () => import('@/views/admin/DataMaintenance.vue'), meta: { title: '数据清理' } },
 
   // ===== 旧路由兼容重定向 =====
   // 组合 singular → plural

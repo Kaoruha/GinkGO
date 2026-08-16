@@ -99,3 +99,67 @@ async def reset_error_stats(req: Request):
     _require_admin(req)
     svc = _get_system_service()
     return ok(data=svc.reset_error_stats())
+
+
+@router.get("/cleanup")
+async def system_cleanup(
+    dry_run: bool = True,
+    include_backtests: bool = False,
+    request: Request = None,
+):
+    """孤儿数据清理(管理员工具,2026-08-17)。
+
+    聚合各域清理方法,Web 端入口(对齐 CLI `ginkgo cleanup`):
+    - 映射: cleanup_orphaned_mappings(6 规则:pfm/engine/handler 双向)
+    - 参数: cleanup_orphaned_params(mapping_id 悬空)
+    - 孤儿回测(需 include_backtests=True): 引用断 portfolio 的任务 + CH 指向
+      已删任务的流水(signal/order_record/position_record/analyzer_record/日志)
+      ——量大且不可逆,默认不并入
+    - 僵尸引擎: cleanup_stale_engines(dry_run 透传)
+
+    dry_run=True 仅统计(默认);执行需 admin 权限 + 显式 dry_run=false。
+    """
+    _require_admin(request)
+    from ginkgo.data.containers import container
+
+    result: Dict[str, Any] = {"dry_run": dry_run, "domains": {}, "errors": []}
+
+    try:
+        ms = container.mapping_service()
+        r = ms.cleanup_orphaned_mappings(dry_run=dry_run)
+        result["domains"]["mappings"] = r.data if r.is_success() else {"error": r.error}
+        if not r.is_success():
+            result["errors"].append(f"mappings: {r.error}")
+    except Exception as e:
+        result["errors"].append(f"mappings: {e}")
+
+    try:
+        ps = container.param_service()
+        r = ps.cleanup_orphaned_params(dry_run=dry_run)
+        result["domains"]["params"] = r.data if r.is_success() else {"error": r.error}
+        if not r.is_success():
+            result["errors"].append(f"params: {r.error}")
+    except Exception as e:
+        result["errors"].append(f"params: {e}")
+
+    try:
+        es = container.engine_service()
+        r = es.cleanup_stale_engines(is_live=None, dry_run=dry_run)
+        result["domains"]["engines"] = r.data if r.is_success() else {"error": r.error}
+        if not r.is_success():
+            result["errors"].append(f"engines: {r.error}")
+    except Exception as e:
+        result["errors"].append(f"engines: {e}")
+
+    if include_backtests:
+        try:
+            bts = container.backtest_task_service()
+            r = bts.cleanup_orphan_backtests(dry_run=dry_run)
+            result["domains"]["orphan_backtests"] = r.data if r.is_success() else {"error": r.error}
+            if not r.is_success():
+                result["errors"].append(f"orphan_backtests: {r.error}")
+        except Exception as e:
+            result["errors"].append(f"orphan_backtests: {e}")
+
+    return ok(data=result, message=f"清理{'预览' if dry_run else '执行'}完成"
+            + (f",{len(result['errors'])} 项出错" if result["errors"] else ""))

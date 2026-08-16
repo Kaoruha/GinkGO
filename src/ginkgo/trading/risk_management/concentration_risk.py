@@ -50,28 +50,29 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
     def __init__(
         self,
         name: str = "ConcentrationRisk",
-        max_single_position_ratio: float = 10.0,
-        warning_single_position_ratio: float = 8.0,
-        max_industry_ratio: float = 30.0,
-        warning_industry_ratio: float = 25.0,
-        max_concept_ratio: float = 40.0,
-        warning_concept_ratio: float = 35.0,
-        max_top5_ratio: float = 50.0,
-        warning_top5_ratio: float = 45.0,
+        max_single_position_ratio: float = 0.10,
+        warning_single_position_ratio: float = 0.08,
+        max_industry_ratio: float = 0.30,
+        warning_industry_ratio: float = 0.25,
+        max_concept_ratio: float = 0.40,
+        warning_concept_ratio: float = 0.35,
+        max_top5_ratio: float = 0.50,
+        warning_top5_ratio: float = 0.45,
         lot_size: int = 100,
         *args,
         **kwargs,
     ):
         """
         Args:
-            max_single_position_ratio(float): 单一股票最大持仓比例，百分比
-            warning_single_position_ratio(float): 单一股票预警比例，百分比
-            max_industry_ratio(float): 单一行业最大持仓比例，百分比
-            warning_industry_ratio(float): 单一行业预警比例，百分比
-            max_concept_ratio(float): 单一概念最大持仓比例，百分比
-            warning_concept_ratio(float): 单一概念预警比例，百分比
-            max_top5_ratio(float): 前5大持仓最大比例，百分比
-            warning_top5_ratio(float): 前5大持仓预警比例，百分比
+            max_single_position_ratio(float): 单一股票最大持仓比例，小数比例（例如：0.10表示10%。
+                与 LossLimitRisk/ProfitTargetRisk 口径统一，均为小数，无百分数乘换算）
+            warning_single_position_ratio(float): 单一股票预警比例，小数比例（0.08表示8%）
+            max_industry_ratio(float): 单一行业最大持仓比例，小数比例（0.30表示30%）
+            warning_industry_ratio(float): 单一行业预警比例，小数比例（0.25表示25%）
+            max_concept_ratio(float): 单一概念最大持仓比例，小数比例（0.40表示40%）
+            warning_concept_ratio(float): 单一概念预警比例，小数比例（0.35表示35%）
+            max_top5_ratio(float): 前5大持仓最大比例，小数比例（0.50表示50%）
+            warning_top5_ratio(float): 前5大持仓预警比例，小数比例（0.45表示45%）
         """
         super().__init__(name, *args, **kwargs)
         self._max_single_position_ratio = float(max_single_position_ratio)
@@ -88,7 +89,7 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
         self._stock_industry_map = {}  # code: industry_name
         self._stock_concept_map = {}   # code: [concept_list]
 
-        self.set_name(f"{name}_single{self._max_single_position_ratio}%_industry{self._max_industry_ratio}%_concept{self._max_concept_ratio}%")
+        self.set_name(f"{name}_single{self._max_single_position_ratio:.0%}_industry{self._max_industry_ratio:.0%}_concept{self._max_concept_ratio:.0%}")
 
     @property
     def max_single_position_ratio(self) -> float:
@@ -136,12 +137,12 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
                 # 缩放后不足 1 手拒单(对齐 volatility_risk 模板, 调用方对 None 软拦截)(#6038)
                 aligned = self.align_to_lot(scaled)
                 if aligned < self._lot_size:
-                    GLOG.WARN(f"ConcentrationRisk: Single position {order.code} would be {projected_ratio:.1f}% > {self._max_single_position_ratio}%, "
+                    GLOG.WARN(f"ConcentrationRisk: Single position {order.code} would be {projected_ratio:.1%} > {self._max_single_position_ratio:.0%}, "
                              f"scaled {original_volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
                     return None
                 order.adjust_volume(aligned)
 
-                GLOG.WARN(f"ConcentrationRisk: Single position {order.code} would be {projected_ratio:.1f}% > {self._max_single_position_ratio}%, "
+                GLOG.WARN(f"ConcentrationRisk: Single position {order.code} would be {projected_ratio:.1%} > {self._max_single_position_ratio:.0%}, "
                          f"reducing order {original_volume} → {order.volume}")
 
             # 检查行业集中度
@@ -156,12 +157,12 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
                 # 缩放后不足 1 手拒单(对齐 volatility_risk 模板)(#6038)
                 aligned = self.align_to_lot(scaled)
                 if aligned < self._lot_size:
-                    GLOG.WARN(f"ConcentrationRisk: Industry {stock_industry} would be {industry_ratio:.1f}% > {self._max_industry_ratio}%, "
+                    GLOG.WARN(f"ConcentrationRisk: Industry {stock_industry} would be {industry_ratio:.1%} > {self._max_industry_ratio:.0%}, "
                              f"scaled {original_volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
                     return None
                 order.adjust_volume(aligned)
 
-                GLOG.WARN(f"ConcentrationRisk: Industry {stock_industry} would be {industry_ratio:.1f}% > {self._max_industry_ratio}%, "
+                GLOG.WARN(f"ConcentrationRisk: Industry {stock_industry} would be {industry_ratio:.1%} > {self._max_industry_ratio:.0%}, "
                          f"reducing order {original_volume} → {order.volume}")
 
         return order
@@ -194,7 +195,7 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
                 signal = self.create_signal(
                     code=worst_position,
                     direction=DIRECTION_TYPES.SHORT,
-                    reason=f"CRITICAL: Single position concentration {current_concentrations['max_single_position']:.1f}% exceeded {self._max_single_position_ratio}%",
+                    reason=f"CRITICAL: Single position concentration {current_concentrations['max_single_position']:.1%} exceeded {self._max_single_position_ratio:.0%}",
                     strength=0.85,  # 高强度信号
                 )
                 signals.append(signal)
@@ -209,14 +210,14 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
                     signal = self.create_signal(
                         code=industry_positions[0],  # 选择最大持仓
                         direction=DIRECTION_TYPES.SHORT,
-                        reason=f"WARNING: Industry concentration {current_concentrations['max_industry']:.1f}% exceeded {self._max_industry_ratio}% for {worst_industry}",
+                        reason=f"WARNING: Industry concentration {current_concentrations['max_industry']:.1%} exceeded {self._max_industry_ratio:.0%} for {worst_industry}",
                         strength=0.7,  # 中等强度信号
                     )
                     signals.append(signal)
 
         # 检查前5大持仓集中度
         if current_concentrations.get('top5_ratio', 0) > self._max_top5_ratio:
-            GLOG.WARN(f"ConcentrationRisk: Top 5 positions concentration {current_concentrations['top5_ratio']:.1f}% > {self._max_top5_ratio}%")
+            GLOG.WARN(f"ConcentrationRisk: Top 5 positions concentration {current_concentrations['top5_ratio']:.1%} > {self._max_top5_ratio:.0%}")
 
         return signals
 
@@ -244,7 +245,7 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
 
         for code, position in positions.items():
             if position and position.market_value > 0:
-                ratio = (position.market_value / total_value) * 100
+                ratio = position.market_value / total_value  # 小数比例
                 position_ratios[code] = ratio
                 position_values.append((code, position.market_value))
 
@@ -266,7 +267,7 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
         max_industry = 0.0
         worst_industry = ""
         for industry, industry_value in industry_values.items():
-            industry_ratio = (industry_value / total_value) * 100
+            industry_ratio = industry_value / total_value  # 小数比例
             if industry_ratio > max_industry:
                 max_industry = industry_ratio
                 worst_industry = industry
@@ -274,7 +275,7 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
         # 计算前5大持仓集中度
         position_values.sort(key=lambda x: x[1], reverse=True)
         top5_value = sum(value for _, value in position_values[:5])
-        top5_ratio = (top5_value / total_value) * 100
+        top5_ratio = top5_value / total_value  # 小数比例
 
         return {
             'max_single_position': max_single_position,
@@ -299,19 +300,20 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
         if total_value <= 0:
             return 0.0
 
-        return float((position.market_value / total_value) * 100)
+        return float(position.market_value / total_value)
 
     def _project_against_worth(self, portfolio_info: Dict, order_value) -> float:
-        """空组合(无持仓)时基于组合净值 worth 投影订单占比(%)(#6038 防"空仓首单误拒")。
+        """空组合(无持仓)时基于组合净值 worth 投影订单占比(小数比例)(#6038 防"空仓首单误拒")。
 
-        worth 缺失或 <=0 时保守返回 100(维持旧行为)。worth/order_value 统一 to_decimal
-        归一:运行时 worth 为 Decimal(portfolio_base.worth property),市价单走 prices fallback
-        时 order_value 可能为 float,float/Decimal 直接相除抛 TypeError(#6038 review 回归)。
+        worth 缺失或 <=0 时保守返回 1.0(即 100%,维持旧行为)。worth/order_value 统一
+        to_decimal 归一:运行时 worth 为 Decimal(portfolio_base.worth property),市价单走
+        prices fallback 时 order_value 可能为 float,float/Decimal 直接相除抛 TypeError
+        (#6038 review 回归)。
         """
         worth = portfolio_info.get("worth", 0) or 0
         if worth > 0:
-            return float((to_decimal(order_value) / to_decimal(worth)) * 100)
-        return 100.0
+            return float(to_decimal(order_value) / to_decimal(worth))
+        return 1.0
 
     def _calculate_projected_ratio(self, portfolio_info: Dict, order: Order) -> float:
         """计算下单后的预计持仓比例"""
@@ -335,7 +337,7 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
         projected_position_value = positions.get(order.code).market_value if positions.get(order.code) else 0
         projected_position_value += order_value
 
-        return float((projected_position_value / projected_total) * 100)
+        return float(projected_position_value / projected_total)
 
     def _calculate_projected_industry_ratio(self, portfolio_info: Dict, order: Order, industry: str) -> float:
         """计算下单后的预计行业持仓比例"""
@@ -362,7 +364,7 @@ class ConcentrationRisk(LotAlignableMixin, BaseRiskManagement):
         projected_industry_value = current_industry_value + order_value
         projected_total = total_value + order_value
 
-        return float((projected_industry_value / projected_total) * 100)
+        return float(projected_industry_value / projected_total)
 
     def update_stock_classification(self, code: str, industry: str = None, concepts: List[str] = None):
         """

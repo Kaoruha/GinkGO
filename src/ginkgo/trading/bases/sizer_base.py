@@ -14,6 +14,7 @@
 """
 
 from typing import Optional, Dict, Any, TYPE_CHECKING
+from decimal import Decimal
 from ginkgo.entities.base import Base
 from ginkgo.entities.mixins import TimeMixin
 from ginkgo.entities.mixins import ContextMixin
@@ -36,6 +37,15 @@ class SizerBase(TimeMixin, ContextMixin, EngineBindableMixin, NamedMixin, Base):
     - 名称管理 (name)
     - 组件基础功能 (uuid, component_type, dataframe转换)
     """
+
+    # 买单冻结上浮系数(成本区间上界):A股主板单日涨跌停幅 ±10%。
+    # 冻结发生在挂单时(T日/T-1 价),扣款发生在成交时(T+1 实际价)——点估计
+    # 冻结额在价格上涨分支必然 cost>frozen 而整单被拒(2026-08-16 实测:
+    # 冻结$12075 vs 成交$12115,差$40 拒单,54 信号只成交 4 个——系统性
+    # "只让次日跌的买入成交"偏差)。atr_sizer 早已内联 *1.1,统一收口到此。
+    # 挂单期 freeze 校验 cash 会随之变严(资金极紧时提前拒),配合
+    # portfolio.deduct_from_frozen 的现金补扣兜底,语义完整。
+    LONG_FREEZE_BUFFER = Decimal("1.10")
 
     def __init__(self, name: str = "sizer", engine=None, **kwargs):
         """

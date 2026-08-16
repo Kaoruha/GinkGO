@@ -503,8 +503,10 @@ class TestOrderLifecycleEvents:
         # test_terminal_partial_fill_releases_remaining_frozen_funds 同一mock 套路。
         existing_pos = Mock()
         existing_pos.uuid = "posuuid0"  # GLOG f-string 切片 [:8] 需真实 str
+        existing_pos.volume = 1000      # _apply_deal 计算 delta 需要 volume 可减(Mock 裸属性不支持算术)
         with patch('ginkgo.trading.portfolios.t1backtest.GLOG'), \
              patch('ginkgo.trading.portfolios.t1backtest.container'), \
+             patch('ginkgo.data.containers.container'), \
              patch.object(p, 'is_event_from_future', return_value=False), \
              patch.object(p, 'deduct_from_frozen'), \
              patch.object(p, 'get_position', return_value=existing_pos), \

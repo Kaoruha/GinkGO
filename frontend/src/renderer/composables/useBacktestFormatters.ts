@@ -50,7 +50,7 @@ export const getDrawdownColor = (val: string | number) => {
 
 // ========== 方向(表格列:signal/order/position)==========
 
-const DIR_MAP: Record<number, string> = { 1: 'LONG', 2: 'SHORT' }
+const DIR_MAP: Record<number, string> = { 1: '买入', 2: '卖出' }
 export const directionLabel = (d: number | string) => DIR_MAP[Number(d)] || String(d)
 export const directionColor = (d: number | string) => (Number(d) === 1 ? 'text-green' : 'text-red')
 

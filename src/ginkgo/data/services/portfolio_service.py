@@ -1179,16 +1179,23 @@ class PortfolioService(BaseService):
 
             conn = crud._get_connection()
             with conn.get_session() as s:
-                row = s.query(
+                # 总资产只统计实盘组合(回测组合的初始本金求和无参考意义)
+                live_assets = s.query(
                     func.sum(MPortfolio.initial_capital),
+                ).filter(
+                    MPortfolio.is_del == False,
+                    MPortfolio.mode == PORTFOLIO_MODE_TYPES.LIVE.value,
+                ).one()
+
+                row = s.query(
                     func.avg(MPortfolio.cash / MPortfolio.initial_capital),
                 ).filter(
                     MPortfolio.is_del == False,
                     MPortfolio.initial_capital > 0,
                 ).one()
 
-            total_assets = float(row[0] or 0)
-            avg_net_value = round(float(row[1] or 1.0), 4)
+            total_assets = float(live_assets[0] or 0)
+            avg_net_value = round(float(row[0] or 1.0), 4)
 
             return ServiceResult.success({
                 "total": total,

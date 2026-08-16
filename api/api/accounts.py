@@ -406,3 +406,161 @@ async def get_account_positions(account_id: str):
     except Exception as e:
         logger.error(f"Error getting account positions {account_id}: {e}")
         raise BusinessError(f"Error getting account positions: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 成交记录（trade_records）查询
+# Upstream: 前端 TradeHistory 页面（/accounts/{id}/trades*）
+# Downstream: TradeRecordService（containers 注册）
+# ---------------------------------------------------------------------------
+
+
+def get_trade_record_service():
+    """获取 TradeRecordService 实例"""
+    from ginkgo.data.containers import container
+
+    return container.trade_record_service()
+
+
+def _require_trades_access(request: Request, account_id: str) -> None:
+    """成交查询前置：账户存在 + 归属校验（#5468 模式）"""
+    service = get_live_account_service()
+    existing = service.get_account_by_uuid(account_id)
+    if not existing["success"] or not existing.get("data"):
+        raise NotFoundError("Account", account_id)
+    _require_account_ownership(existing["data"], _get_user_id(request))
+
+
+@router.get("/{account_id}/trades")
+async def get_account_trades(
+    account_id: str,
+    request: Request,
+    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD（含）"),
+    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD（含当天全天）"),
+    symbol: Optional[str] = Query(None, description="过滤交易标的"),
+    limit: int = Query(1000, ge=1, le=10000, description="返回上限"),
+):
+    """获取账户成交记录（裸数组，前端契约不加分页信封）"""
+    try:
+        _require_trades_access(request, account_id)
+
+        service = get_trade_record_service()
+        result = service.get_trades(
+            live_account_id=account_id,
+            start_date=start_date,
+            end_date=end_date,
+            symbol=symbol,
+            limit=limit,
+        )
+
+        if not result.is_success():
+            raise BusinessError(result.error or "Failed to get trades")
+
+        return ok(data=result.data, message="Trades retrieved successfully")
+    except (NotFoundError, BusinessError):
+        raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting trades for account {account_id}: {e}")
+        raise BusinessError(f"Error getting trades: {e}")
+
+
+@router.get("/{account_id}/trades/statistics")
+async def get_account_trade_statistics(
+    account_id: str,
+    request: Request,
+    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD（含）"),
+    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD（含当天全天）"),
+):
+    """获取账户成交统计（次数/买卖分解/量额费/首末时间）"""
+    try:
+        _require_trades_access(request, account_id)
+
+        service = get_trade_record_service()
+        result = service.get_statistics(
+            live_account_id=account_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        if not result.is_success():
+            raise BusinessError(result.error or "Failed to get trade statistics")
+
+        return ok(data=result.data, message="Trade statistics retrieved successfully")
+    except (NotFoundError, BusinessError):
+        raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting trade statistics for account {account_id}: {e}")
+        raise BusinessError(f"Error getting trade statistics: {e}")
+
+
+@router.get("/{account_id}/trades/daily-summary")
+async def get_account_trade_daily_summary(
+    account_id: str,
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="汇总天数"),
+):
+    """获取账户按日成交汇总"""
+    try:
+        _require_trades_access(request, account_id)
+
+        service = get_trade_record_service()
+        result = service.get_daily_summary(live_account_id=account_id, days=days)
+
+        if not result.is_success():
+            raise BusinessError(result.error or "Failed to get daily trade summary")
+
+        return ok(data=result.data, message="Daily trade summary retrieved successfully")
+    except (NotFoundError, BusinessError):
+        raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting daily trade summary for account {account_id}: {e}")
+        raise BusinessError(f"Error getting daily trade summary: {e}")
+
+
+@router.get("/{account_id}/trades/export")
+async def export_account_trades(
+    account_id: str,
+    request: Request,
+    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD（含）"),
+    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD（含当天全天）"),
+):
+    """导出账户成交记录 CSV。
+
+    裸 Response 不走 ok() 信封：前端 responseType='blob'，
+    拦截器对非 JSON 原样透传。BOM + charset 防中文表头 Excel 乱码。
+    """
+    try:
+        _require_trades_access(request, account_id)
+
+        service = get_trade_record_service()
+        result = service.export_csv(
+            live_account_id=account_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        if not result.is_success():
+            raise BusinessError(result.error or "Failed to export trades")
+
+        from fastapi.responses import Response
+
+        return Response(
+            content="﻿" + (result.data or ""),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="trades_{account_id[:8]}.csv"'
+            },
+        )
+    except (NotFoundError, BusinessError):
+        raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error exporting trades for account {account_id}: {e}")
+        raise BusinessError(f"Error exporting trades: {e}")

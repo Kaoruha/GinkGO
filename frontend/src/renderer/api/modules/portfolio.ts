@@ -8,14 +8,6 @@ export interface PortfolioComponent {
   weight?: number
 }
 
-export interface PortfolioComponents {
-  selectors: PortfolioComponent[]
-  sizer: PortfolioComponent | null
-  strategies: PortfolioComponent[]
-  risk_managers: PortfolioComponent[]
-  analyzers: PortfolioComponent[]
-}
-
 export interface RelatedPortfolio {
   uuid: string
   name: string
@@ -38,7 +30,12 @@ export interface Portfolio {
   config_locked: boolean
   positions: any[]
   risk_alerts: any[]
-  components?: PortfolioComponents
+  // 组件绑定为顶级键(sizers 是数组,详情端点 get_portfolio 返回形状)
+  selectors?: PortfolioComponent[]
+  sizers?: PortfolioComponent[]
+  strategies?: PortfolioComponent[]
+  risk_managers?: PortfolioComponent[]
+  analyzers?: PortfolioComponent[]
   created_at: string
   updated_at: string
   // 绩效指标
@@ -87,8 +84,8 @@ export const portfolioApi = {
   /**
    * 获取单个 Portfolio
    */
-  get(uuid: string): Promise<Portfolio> {
-    return request.get(`/api/v1/portfolios/${uuid}`)
+  get(uuid: string, config?: any): Promise<Portfolio> {
+    return request.get(`/api/v1/portfolios/${uuid}`, config)
   },
 
   /**

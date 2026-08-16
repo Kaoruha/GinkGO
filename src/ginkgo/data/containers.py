@@ -445,3 +445,19 @@ container.data_sync_record_service = providers.Singleton(
     crud_repo=container.data_sync_record_crud,
 )
 
+# 成交记录查询（trade_records：列表/统计/日汇总/CSV 导出）
+from ginkgo.data.services.trade_record_service import TradeRecordService
+
+container.trade_record_service = providers.Singleton(
+    TradeRecordService,
+    crud_repo=container.trade_record_crud,
+)
+
+# 行情订阅（market_subscriptions：用户订阅 CRUD）
+from ginkgo.data.services.market_subscription_service import MarketSubscriptionService
+
+container.market_subscription_service = providers.Singleton(
+    MarketSubscriptionService,
+    crud_repo=container.market_subscription_crud,
+)
+

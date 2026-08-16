@@ -24,6 +24,12 @@ def _make_position(cost=19.81, volume=50, price=19.81, fee=5):
     p.uuid = "p1"; p.portfolio_id = "pf"; p.engine_id = "e"; p.task_id = "t"
     p.code = "000001.SZ"; p.cost = cost; p.volume = volume
     p.frozen_volume = 0; p.price = price; p.fee = fee
+    # 对齐真实 CH 记录形状：direction/timestamp/business_timestamp 恒有值
+    # （list_positions 的 _format_dt 走 isoformat，MagicMock 属性会透传 Mock 炸 pydantic）
+    from datetime import datetime as _dt
+    p.direction = 1
+    p.business_timestamp = _dt(2025, 9, 19)
+    p.timestamp = _dt(2026, 8, 16)
     return p
 
 

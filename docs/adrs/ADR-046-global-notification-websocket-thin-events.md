@@ -1,6 +1,6 @@
 # ADR-046: 全局通知 WebSocket 薄事件推送链路
 
-**Status:** Accepted（前后端已落地，端到端手工验证见下）
+**Status:** Accepted（前后端已落地，端到端手工验证见下；2026-08-16 修订：连接生命周期内化至模块，见 §5）
 **Date:** 2026-08-16
 **Related:** ADR-042（双形态前端，ws 鉴权走 query param）、ADR-044（safeStorage token 经 useAuth 收口）
 
@@ -37,7 +37,7 @@ WS 每次连上（含首连）触发 catchup 回调（`onReconnect`），页面�
 
 ### 5. 前端分层
 
-- `useWebSocket.ts`：只管连接（`shallowRef` 存 socket——深响应 ref 会把实例包成 reactive 代理，身份守卫恒失效；指数退避 1s→30s+抖动；1008 鉴权拒绝不重试，恢复靠登录态翻转；65s watchdog 半开检测）。生命周期归 `App.vue` 按登录态连/断。
+- `useWebSocket.ts`：只管连接（`shallowRef` 存 socket——深响应 ref 会把实例包成 reactive 代理，身份守卫恒失效；指数退避 1s→30s+抖动；1008 鉴权拒绝不重试，恢复靠登录态翻转；65s watchdog 半开检测）。**连接生命周期模块自管理**（2026-08-16 修订，原归 `App.vue`）：首个消费者调用 `useWebSocket()` 时绑定登录态 watch（登录即连/登出即断，幂等），`connect`/`disconnect` 不再导出——曾因多组件并发调用 `connect` 产生孤儿连接竞态（`await` 窗口穿透 readyState 检查、覆盖 `ws` 引用，孤儿被回收时误降 `isConnected` 并叠加重连，后端日志呈 3~6s 断连抖动），唯一调用方由"接口不存在"结构性保证，`App.vue` 不再持有连接权柄。
 - `useServerEvents.ts`：事件层（`on`/`onReconnect`/`scheduleRefetch` per-key trailing 合并/`useNotificationToasts`）。N 个事件塌缩成一次列表刷新。
 - 消费者：ListPage 行内 patch + 5s 断线轮询兜底；DetailPage 直接 patch 本地 `currentTask`（丢 store 往返）+ 轮询反转为断线兜底（连线停、断线且活跃才启）；BacktestTab 全走 `scheduleRefetch`。
 - 死代码删除：`useRealtime.ts`、backtest store 的 polling/ws 机制与 `updateProgress`、system store 的 `wsConnected/setWsConnected`。

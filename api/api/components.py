@@ -100,6 +100,11 @@ def get_file_service():
     return container.file_service()
 
 
+def get_portfolio_mapping_service():
+    """获取PortfolioMappingService实例（组件持有统计）"""
+    return container.portfolio_mapping_service()
+
+
 def _builtin_component_root() -> Path:
     return Path(__file__).resolve().parents[2] / "src" / "ginkgo" / "trading"
 
@@ -309,6 +314,19 @@ async def list_components(
         total_count = len(items)
         offset = (page - 1) * page_size
         page_items = items[offset : offset + page_size]
+
+        # 持有数列：对分页后条目单次 file_id__in 反查聚合（无 N+1），
+        # 失败不阻断列表（列显示 0）；内置组件无 DB 记录未参与绑定，恒 0
+        hold_counts = {}
+        try:
+            page_file_ids = [it["uuid"] for it in page_items]
+            counts_result = get_portfolio_mapping_service().count_portfolios_by_files(page_file_ids)
+            if counts_result.is_success() and counts_result.data:
+                hold_counts = counts_result.data
+        except Exception as e:
+            logger.warning(f"portfolio_count lookup failed (non-blocking): {e}")
+        for it in page_items:
+            it["portfolio_count"] = int(hold_counts.get(it["uuid"], 0))
 
         return paginated(items=page_items, total=total_count, page=page, page_size=page_size)
 

@@ -4,7 +4,7 @@
       <PageTitle :title="portfolioName" back-to="/portfolios" back-label="组合列表" />
     </template>
     <template #meta>
-      <span class="portfolio-id">{{ portfolioId }}</span>
+      <span class="portfolio-id" :title="`${portfolioId}（点击复制）`" @click="copyPortfolioId">{{ portfolioId.slice(0, 8) }}</span>
       <span v-if="portfolioStatus" class="status-tag" :class="portfolioStatus">{{ statusLabel }}</span>
       <span v-if="deploymentSource" class="deploy-source">
         来源：{{ deploymentSource.source_task_id?.slice(0, 8) }}
@@ -53,6 +53,7 @@ import TabsNav from '@/components/common/TabsNav.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { portfolioApi, deploymentApi } from '@/api'
 import { message } from '@/utils/toast'
+import { copyText } from '@/utils/clipboard'
 import DeployModal from '@/components/business/DeployModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
@@ -73,6 +74,13 @@ const statusLabels: Record<string, string> = {
 }
 
 const statusLabel = computed(() => statusLabels[portfolioStatus.value] || '')
+
+// 短 id 展示 + 点击复制完整值(32 位全显挤占 meta 区)
+// http 局域网部署 clipboard API 不可用,copyText 内含 execCommand 降级
+async function copyPortfolioId() {
+  if (await copyText(portfolioId.value)) message.success('已复制完整 ID')
+  else message.info(`ID: ${portfolioId.value}`)
+}
 
 const tabs = computed(() => {
   const base = [
@@ -166,7 +174,9 @@ watch(portfolioId, () => { loadPortfolio() }, { immediate: true })
   color: hsl(var(--muted-foreground));
   font-family: monospace;
   user-select: all;
+  cursor: pointer;
 }
+.portfolio-id:hover { color: hsl(var(--primary)); }
 
 
 .status-tag {

@@ -745,7 +745,9 @@ class StockinfoService(BaseService):
             ServiceResult: Boolean existence check result
         """
         try:
-            records = self._crud_repo.find(filters={"code": code}, page_size=1)
+            # 全链大写标准:入参归一,防小写(tushare ts_code)精确查空
+            records = self._crud_repo.find(
+                filters={"code": code.upper() if isinstance(code, str) else code}, page_size=1)
             exists = len(records) > 0
             return ServiceResult.success(
                 data=exists,  # 直接封装bool值

@@ -1,10 +1,7 @@
 import request from '../request'
-
-// 交易所类型
-export type ExchangeType = 'okx' | 'binance'
-
-// 环境类型
-export type EnvironmentType = 'testnet' | 'production'
+// 交易所/环境类型与 market.ts 单一来源(曾逐字重复两份,改一处漏一处)
+import type { ExchangeType, EnvironmentType } from './market'
+export type { ExchangeType, EnvironmentType }
 
 // 账号状态
 export type AccountStatusType = 'disabled' | 'enabled' | 'connecting' | 'disconnected' | 'error'
@@ -57,7 +54,9 @@ export interface ValidateAccountResponse {
   error_code?: string
 }
 
-// 分页响应
+// 分页响应(注意:这不是通用 PaginatedData)——后端 /accounts 的 data 是对象而非数组,
+// request.ts 拦截器只重组"data 为数组 + meta.total"的端点,对象 data 原样直通,
+// 故运行时形状就是 {accounts, total, ...},勿"统一"改成 items 字段(会与运行时不符)
 export interface PaginationResponse<T> {
   accounts: T[]
   total: number

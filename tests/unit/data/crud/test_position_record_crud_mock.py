@@ -74,11 +74,18 @@ class TestPositionRecordCRUDFieldConfig:
         assert config["cost"]["min"] == 0
 
     @pytest.mark.unit
-    def test_field_config_volume_min_zero(self, position_record_crud):
-        """volume 字段 min=0"""
+    def test_field_config_volume_signed_delta(self, position_record_crud):
+        """volume 为带符号 delta(2026-08-16 语义):无 min 下界,买入 +N/卖出 -N"""
         config = position_record_crud._get_field_config()
 
-        assert config["volume"]["min"] == 0
+        assert "min" not in config["volume"]
+
+    @pytest.mark.unit
+    def test_field_config_direction_enum(self, position_record_crud):
+        """direction 为枚举校验(对齐 signal 模式)"""
+        config = position_record_crud._get_field_config()
+
+        assert config["direction"]["type"] == "DIRECTION_TYPES"
 
 
 # ============================================================

@@ -52,7 +52,7 @@
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">运行模式 <span class="required">*</span></label>
-                  <select v-model="formData.mode" class="form-select">
+                  <select v-model="formData.mode" class="form-select" :disabled="isEditMode">
                     <option value="BACKTEST">回测</option>
                     <option value="PAPER">模拟盘</option>
                     <option value="LIVE">实盘</option>
@@ -60,7 +60,7 @@
                 </div>
                 <div class="form-group">
                   <label class="form-label">基准</label>
-                  <input v-model="formData.benchmark" type="text" placeholder="000001.SZ（可选）" class="form-input" />
+                  <input v-model="formData.benchmark" type="text" placeholder="000001.SZ（可选）" class="form-input" :disabled="isEditMode" />
                 </div>
               </div>
               <div class="form-group">
@@ -805,10 +805,10 @@ const savePortfolio = async () => {
     }
 
     if (isEditMode.value) {
-      // 后端 portfolio_service.update 仅支持基本字段;组件绑定与 mode 创建后不可改
+      // 后端仅支持基本字段更新;组件绑定与 mode 创建后不可改(saga update_basic_info)
       await portfolioApi.update(editingId.value, {
         name: formData.value.name,
-        description: formData.value.description || undefined,
+        desc: formData.value.description ?? '',
         initial_cash: formData.value.initial_cash,
       })
       message.success('投资组合更新成功')
@@ -905,7 +905,14 @@ const loadPortfolioForEdit = async () => {
     formData.value.mode = (['BACKTEST', 'PAPER', 'LIVE'].includes(detailMode) ? detailMode : 'BACKTEST') as any
     formData.value.benchmark = detail.benchmark || ''
     formData.value.description = detail.desc || ''
-    const comps = detail.components || {}
+    // 后端详情为顶级键(selectors/sizers/strategies/...),sizers 为数组取首个
+    const comps = {
+      selectors: detail.selectors || [],
+      sizer: (detail.sizers || [])[0] || null,
+      strategies: detail.strategies || [],
+      risk_managers: detail.risk_managers || [],
+      analyzers: detail.analyzers || [],
+    }
     formData.value.selectors = await mapDetailComponents(comps.selectors, 'selector')
     formData.value.sizer = comps.sizer ? ((await mapDetailComponents([comps.sizer], 'sizer'))[0] || null) : null
     formData.value.strategies = await mapDetailComponents(comps.strategies, 'strategy', true)

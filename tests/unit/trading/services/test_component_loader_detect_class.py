@@ -106,6 +106,40 @@ class TestIsComponentClass:
         """无关类 Foo 三种方法都不命中"""
         assert _is_component_class(_PlainFoo, "_PlainFoo") is False
 
+    # ---- 基类名漂移回归（DB 风控组件加载失败事故）----
+
+    def test_risk_base_inheritance_detected(self):
+        """基类真名 RiskBase（bases/ 实际命名）→ method 2 命中。
+
+        库里风控基类是 RiskBase 而非 BaseRiskManagement；DB 组件
+        `from ...risk_base import RiskBase as BaseRiskManagement` 的 alias
+        不改变 __bases__[0].__name__（仍 RiskBase），旧清单识别不到。
+        """
+        class _ProfitTargetLike:
+            pass
+
+        _ProfitTargetLike.__name__ = "RiskBase"
+        _ProfitTargetLike.__bases__  # noqa: B018 -- 仅为说明无自定义基类
+
+        class _ProfitTargetRisk(_ProfitTargetLike):
+            pass
+
+        _ProfitTargetRisk.__name__ = "ProfitTargetRisk"
+        assert _is_component_class(_ProfitTargetRisk, "ProfitTargetRisk") is True
+
+    def test_sizer_base_inheritance_detected(self):
+        """基类真名 SizerBase → method 2 命中（同 RiskBase 漂移）"""
+        class _SizerBaseLike:
+            pass
+
+        _SizerBaseLike.__name__ = "SizerBase"
+
+        class _FixedSizer(_SizerBaseLike):
+            pass
+
+        _FixedSizer.__name__ = "FixedSizer"
+        assert _is_component_class(_FixedSizer, "FixedSizer") is True
+
 
 # --------------------------------------------------------------------------- #
 # _detect_component_class：模块级扫描

@@ -21,10 +21,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useWebSocket } from '@/composables/useWebSocket'
 import { useServerEvents } from '@/composables/useServerEvents'
 import AppLayout from '@/layouts/AppLayout.vue'
 import EmptyLayout from '@/layouts/EmptyLayout.vue'
@@ -42,15 +41,7 @@ const isFullPage = computed(() => {
 // 全局通知通道(ADR-046):登录即连、登出即断;通知事件 → toast。
 // useServerEvents 的 bootstrap 订阅随首个 on()/onReconnect() 生效,
 // 这里立即调用 useNotificationToasts() 保证 App 挂载时事件层就绪
-const { connect, disconnect } = useWebSocket()
+// (WS 连接生命周期已内化至 useWebSocket 模块,首个 useWebSocket() 调用
+//  时按登录态自动连/断,App.vue 不再持有 connect/disconnect)
 useServerEvents().useNotificationToasts()
-
-watch(
-  () => authStore.isLoggedIn,
-  (loggedIn) => {
-    if (loggedIn) void connect()
-    else disconnect()
-  },
-  { immediate: true },
-)
 </script>

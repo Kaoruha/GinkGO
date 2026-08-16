@@ -48,8 +48,14 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             "code": {"type": "string", "min": 1, "max": 32},
             # 成本 - 非负数值
             "cost": {"type": ["decimal", "float", "int"], "min": 0},
-            # 持仓量 - 非负整数
-            "volume": {"type": ["int", "float"], "min": 0},
+            # 持仓变动量(delta 流水) - 带符号:买入 +N / 卖出 -N(2026-08-16
+            # 语义定稿。原 min:0 曾静默拒绝卖出记录——错误只在 service 层
+            # 返回,不抛异常,流水缺卖条,实例:-4000 is below minimum 0)
+            "volume": {"type": ["int", "float"]},
+            # 变动方向 - 枚举值(对齐 signal_crud 模式)
+            "direction": {"type": "DIRECTION_TYPES"},
+            # 血缘:引发变动的订单 uuid(可选)
+            "order_id": {"type": "string", "max": 36},
             # 冻结量 - 非负整数
             "frozen_volume": {"type": ["int", "float"], "min": 0},
             # 冻结资金 - 非负数值
@@ -70,6 +76,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         Hook method: Create MPositionRecord from parameters.
         """
         return MPositionRecord(
+            order_id=kwargs.get("order_id", ""),
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
             task_id=kwargs.get("task_id", ""),
@@ -77,6 +84,10 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             code=kwargs.get("code"),
             cost=to_decimal(kwargs.get("cost", 0)),
             volume=kwargs.get("volume", 0),
+            direction=(
+                kwargs["direction"].value if hasattr(kwargs.get("direction"), "value")
+                else kwargs.get("direction", -1)
+            ),
             frozen_volume=kwargs.get("frozen_volume", 0),
             frozen_money=to_decimal(kwargs.get("frozen_money", 0)),
             price=to_decimal(kwargs.get("price", 0)),

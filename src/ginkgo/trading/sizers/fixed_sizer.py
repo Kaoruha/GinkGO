@@ -158,7 +158,10 @@ class FixedSizer(LotAlignableMixin, BaseSizer):
                     direction=DIRECTION_TYPES.LONG,
                     volume=planned_size,
                     limit_price=0,
-                    frozen_money=planned_cost,
+                    # 冻结额=成本区间上界(涨跌停幅缓冲,见 SizerBase.LONG_FREEZE_BUFFER),
+                    # 封顶可用现金(资金刚好够时缓冲截断,残余 gap 由
+                    # deduct_from_frozen 的现金补扣兜底);remain 保持实际成本估计
+                    frozen_money=min(planned_cost * self.LONG_FREEZE_BUFFER, cash),
                     transaction_price=0,
                     transaction_volume=0,
                     remain=planned_cost,

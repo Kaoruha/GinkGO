@@ -430,6 +430,7 @@ class PortfolioSagaFactory:
         portfolio_uuid: str,
         name: Optional[str] = None,
         initial_cash: Optional[float] = None,
+        desc: Optional[str] = None,
         selectors: Optional[List[Dict[str, Any]]] = None,
         sizer: Optional[Dict[str, Any]] = None,
         strategies: Optional[List[Dict[str, Any]]] = None,
@@ -442,6 +443,7 @@ class PortfolioSagaFactory:
             portfolio_uuid: Portfolio UUID
             name: 新名称
             initial_cash: 初始资金
+            desc: 描述
             selectors: 选股器列表
             sizer: 仓位管理器
             strategies: 策略列表
@@ -468,7 +470,8 @@ class PortfolioSagaFactory:
         context = {
             'old_mappings': [],
             'old_name': None,
-            'old_initial_cash': None
+            'old_initial_cash': None,
+            'old_desc': None
         }
 
         # ==================== 步骤 1: 备份当前状态 ====================
@@ -498,10 +501,12 @@ class PortfolioSagaFactory:
                     if isinstance(portfolio, dict):
                         context['old_name'] = portfolio.get('name')
                         context['old_initial_cash'] = portfolio.get('initial_capital')
+                        context['old_desc'] = portfolio.get('desc')
                     else:
                         context['old_name'] = getattr(portfolio, 'name', None)
                         if hasattr(portfolio, 'initial_capital'):
                             context['old_initial_cash'] = portfolio.initial_capital
+                        context['old_desc'] = getattr(portfolio, 'desc', None)
 
             return {
                 'mappings_count': len(context['old_mappings']),
@@ -519,7 +524,9 @@ class PortfolioSagaFactory:
                 portfolio_service.update(portfolio_uuid, name=name)
             if initial_cash is not None:
                 portfolio_service.update(portfolio_uuid, initial_capital=initial_cash)
-            return {'name': name, 'initial_cash': initial_cash}
+            if desc is not None:
+                portfolio_service.update(portfolio_uuid, description=desc)
+            return {'name': name, 'initial_cash': initial_cash, 'desc': desc}
 
         def compensate_update_basic_info(updates):
             # 恢复旧值
@@ -527,10 +534,19 @@ class PortfolioSagaFactory:
                 portfolio_service.update(portfolio_uuid, name=context['old_name'])
             if context['old_initial_cash'] is not None:
                 portfolio_service.update(portfolio_uuid, initial_capital=context['old_initial_cash'])
+            if context['old_desc'] is not None:
+                portfolio_service.update(portfolio_uuid, description=context['old_desc'])
 
         saga.add_step("update_basic_info", update_basic_info, compensate_update_basic_info)
 
         # ==================== 步骤 3: 删除旧映射 ====================
+        # 仅当调用方提供了任一组件列表时才执行「删旧+加新」的全量替换；
+        # 全部为 None 表示只更新基本信息，不得触碰映射（否则编辑名称/描述
+        # 会静默清空全部组件绑定）。与 update_basic_info 的 None 跳过语义对齐。
+        has_mapping_update = any(
+            x is not None for x in (selectors, sizer, strategies, risk_managers, analyzers)
+        )
+
         def remove_old_mappings():
             for mapping in context['old_mappings']:
                 mapping_service.remove_file(
@@ -553,7 +569,8 @@ class PortfolioSagaFactory:
                 except Exception as e:
                     logger.error(f"Failed to restore mapping: {e}")
 
-        saga.add_step("remove_old_mappings", remove_old_mappings, compensate_remove_old_mappings)
+        if has_mapping_update:
+            saga.add_step("remove_old_mappings", remove_old_mappings, compensate_remove_old_mappings)
 
         # ==================== 步骤 4-8: 添加新组件 ====================
         if selectors is not None:

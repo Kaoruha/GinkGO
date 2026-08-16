@@ -1027,7 +1027,10 @@ class TimeControlledEventEngine(EventEngine, TimeAwareComponent):
                 # 调用回调
                 self._progress_callback(progress, str(current_time.date()))
         except Exception as e:
-            GLOG.DEBUG(f"{self.name}: Progress report failed: {e}")
+            # 回调链异常须响亮可见(2026-08-16 实例:progress 全程静默,异常被
+            # DEBUG 级吞掉,前端进度死帧无从排查)。静默吞异常违背响亮报错原则
+            import traceback
+            GLOG.ERROR(f"{self.name}: Progress report failed: {e}\n{traceback.format_exc()}")
 
     def _aggregate_backtest_results(self) -> None:
         """

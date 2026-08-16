@@ -6,7 +6,7 @@
     <template #meta>
       <template v-if="currentTask">
         <span class="tag" :class="statusTagClass(currentTask.status)">{{ statusLabel(currentTask.status) }}</span>
-        <span class="task-uuid">{{ currentTask.uuid }}</span>
+        <span class="task-uuid" :title="`${currentTask.uuid}（点击复制）`" @click="copyUuid">{{ currentTask.uuid.slice(0, 8) }}</span>
         <router-link
           v-if="currentTask.portfolio_id"
           :to="`/portfolios/${currentTask.portfolio_id}`"
@@ -26,10 +26,19 @@
     <div v-if="detailLoading" class="loading-center"><div class="spinner"></div></div>
 
     <div v-else-if="currentTask" class="detail-content">
-      <!-- 回测区间 -->
+      <!-- 回测区间 + 配置摘要(可折叠):config 来自任务 config_snapshot,口径对齐依据) -->
       <div v-if="currentTask.backtest_start_date || currentTask.backtest_end_date" class="date-range-bar">
         <span class="date-range-label">回测区间</span>
         <span class="date-range-value">{{ formatShortDate(currentTask.backtest_start_date) }} ~ {{ formatShortDate(currentTask.backtest_end_date) }}</span>
+        <button v-if="configItems.length" class="config-toggle" @click="showConfig = !showConfig">
+          回测配置 {{ showConfig ? '▲' : '▼' }}
+        </button>
+      </div>
+      <div v-if="showConfig && configItems.length" class="config-summary">
+        <div v-for="item in configItems" :key="item.label" class="config-cell">
+          <span class="config-label">{{ item.label }}</span>
+          <span class="config-val">{{ item.value }}</span>
+        </div>
       </div>
 
       <!-- 进度 -->
@@ -53,11 +62,11 @@
           <p v-else class="empty-hint">暂无净值数据</p>
         </div>
 
-        <!-- 指标 -->
+        <!-- 指标(hover 出口径说明;'—'=分析器未产出该指标,与真实 0 区分) -->
         <div class="metrics-grid">
-          <div v-for="m in metrics" :key="m.label" class="metric-card">
+          <div v-for="m in metrics" :key="m.label" class="metric-card" :title="m.hint">
             <div class="metric-label">{{ m.label }}</div>
-            <div class="metric-value" :style="m.color ? { color: m.color } : undefined">{{ m.value }}</div>
+            <div class="metric-value" :class="{ 'metric-empty': m.empty }" :style="!m.empty && m.color ? { color: m.color } : undefined">{{ m.value }}</div>
           </div>
         </div>
 
@@ -135,18 +144,21 @@
         <!-- 交易子 tab(L3,状态进 URL query: &trade=) -->
         <TabsNav v-model="activeTradeTab" size="small" :items="tradeSubTabs" class="bt-subtabs" />
 
+        <!-- 三表(信号/订单/持仓记录)共用的 code 多选筛选 -->
+        <CodeFilter v-model:selected="selectedCodes" :codes="allCodes" />
+
         <!-- 信号 -->
         <div v-if="activeTradeTab === 'signals'" class="card">
           <div v-if="signalsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-          <table v-else-if="signals.length > 0" class="data-table">
+          <table v-else-if="filteredSignals.length > 0" class="data-table">
             <thead><tr><th>代码</th><th>方向</th><th>权重</th><th>原因</th><th>时间</th></tr></thead>
             <tbody>
-              <tr v-for="s in signals" :key="s.uuid">
+              <tr v-for="s in filteredSignals" :key="s.uuid" :data-uuid="s.uuid" :class="{ 'row-highlight': highlightUuid === s.uuid }">
                 <td>{{ s.code }}</td>
                 <td><span :class="directionColor(s.direction)">{{ directionLabel(s.direction) }}</span></td>
                 <td>{{ (s.weight * 100).toFixed(1) }}%</td>
                 <td>{{ s.reason || '-' }}</td>
-                <td>{{ formatShortDate(s.timestamp) }}</td>
+                <td>{{ formatShortDate(s.business_timestamp || s.timestamp) }}</td>
               </tr>
             </tbody>
           </table>
@@ -156,18 +168,45 @@
         <!-- 订单 -->
         <div v-if="activeTradeTab === 'orders'" class="card">
           <div v-if="ordersLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-          <table v-else-if="orders.length > 0" class="data-table">
-            <thead><tr><th>代码</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>手续费</th><th>时间</th></tr></thead>
+          <table v-else-if="filteredOrders.length > 0" class="data-table">
+            <thead><tr><th>代码</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>手续费</th><th>来源信号</th><th>时间</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="o in orders" :key="o.uuid">
-                <td>{{ o.code }}</td>
-                <td><span :class="directionColor(o.direction)">{{ directionLabel(o.direction) }}</span></td>
-                <td>{{ o.order_type }}</td>
-                <td>{{ o.transaction_volume }}</td>
-                <td>{{ o.transaction_price }}</td>
-                <td>{{ o.fee }}</td>
-                <td>{{ formatShortDate(o.timestamp) }}</td>
-              </tr>
+              <template v-for="o in filteredOrders" :key="o.uuid">
+                <tr :data-order="o.order_id || o.uuid" :class="{ 'row-highlight': highlightOrder === (o.order_id || o.uuid) }">
+                  <td>{{ o.code }}</td>
+                  <td><span :class="directionColor(o.direction)">{{ directionLabel(o.direction) }}</span></td>
+                  <td>{{ o.order_type }}</td>
+                  <td>{{ o.transaction_volume }}</td>
+                  <td>{{ o.transaction_price }}</td>
+                  <td>{{ o.fee }}</td>
+                  <td>
+                    <span v-if="o.signal_id" class="lineage-chip" :title="`信号 ${o.signal_id}\n点击跳转`"
+                      @click="jumpToSignal(o.signal_id)">{{ signalDigest(o.signal_id) }}</span>
+                    <span v-else class="empty-hint-inline">-</span>
+                  </td>
+                  <td>{{ formatShortDate(o.timestamp) }}</td>
+                  <td><button class="expand-btn" @click="toggleLifecycle(o.order_id || o.uuid)">
+                    {{ expandedOrder === (o.order_id || o.uuid) ? '收起' : '生命周期' }}
+                  </button></td>
+                </tr>
+                <!-- 生命周期时间线:该订单全部状态流转(order_record 流水) -->
+                <tr v-if="expandedOrder === (o.order_id || o.uuid)" class="lifecycle-row">
+                  <td :colspan="9">
+                    <div v-if="lifecycleLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
+                    <template v-else>
+                      <div v-if="lifecycleOf(o.order_id || o.uuid).length" class="lifecycle-timeline">
+                        <div v-for="(st, i) in lifecycleOf(o.order_id || o.uuid)" :key="i" class="lifecycle-step">
+                          <span class="step-dot" :class="stepClass(st.status)"></span>
+                          <span class="step-status">{{ orderStatusName(st.status) }}</span>
+                          <span v-if="Number(st.transaction_volume) > 0" class="step-meta">{{ st.transaction_volume }}@{{ st.transaction_price || '-' }}</span>
+                          <span class="step-time">{{ st.timestamp || '-' }}</span>
+                        </div>
+                      </div>
+                      <p v-else class="empty-hint">暂无状态流水</p>
+                    </template>
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
           <p v-else class="empty-hint">暂无订单记录</p>
@@ -176,18 +215,23 @@
         <!-- 持仓 -->
         <div v-if="activeTradeTab === 'positions'" class="card">
           <div v-if="positionsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-          <table v-else-if="positions.length > 0" class="data-table">
-            <thead><tr><th>代码</th><th>方向</th><th>数量</th><th>成本</th><th>市值</th><th>盈亏</th><th>盈亏%</th><th>时间</th></tr></thead>
+          <table v-else-if="filteredPositions.length > 0" class="data-table">
+            <thead><tr><th>代码</th><th>方向</th><th>数量</th><th>成本</th><th>市值</th><th>盈亏</th><th>盈亏%</th><th>来源订单</th><th>时间</th></tr></thead>
             <tbody>
-              <tr v-for="p in positions" :key="p.uuid">
+              <tr v-for="p in filteredPositions" :key="p.uuid">
                 <td>{{ p.code }}</td>
                 <td><span :class="directionColor(p.direction)">{{ directionLabel(p.direction) }}</span></td>
-                <td>{{ p.volume }}</td>
-                <td>{{ p.cost }}</td>
-                <td>{{ p.market_value }}</td>
-                <td :style="{ color: p.profit >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ p.profit }}</td>
+                <td :style="{ color: p.volume >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ p.volume > 0 ? '+' : '' }}{{ p.volume }}</td><!-- 变动流水:带符号,+买/-卖 -->
+                <td>{{ formatDecimal(p.cost) }}</td>
+                <td>{{ formatDecimal(p.market_value) }}</td>
+                <td :style="{ color: p.profit >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ formatDecimal(p.profit) }}</td>
                 <td :style="{ color: p.profit_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">{{ (p.profit_pct * 100).toFixed(2) }}%</td>
-                <td>{{ formatShortDate(p.timestamp) }}</td>
+                <td>
+                  <span v-if="p.order_id" class="lineage-chip" title="点击查看该订单生命周期"
+                    @click="jumpToOrder(p.order_id)">{{ p.order_id.slice(0, 8) }}</span>
+                  <span v-else class="empty-hint-inline">-</span>
+                </td>
+                <td>{{ formatShortDate(p.business_timestamp || p.timestamp) }}</td><!-- 业务时间优先,同信号列口径 -->
               </tr>
             </tbody>
           </table>
@@ -232,14 +276,16 @@
             <input v-model="logFilters.start_time" type="date" class="form-input filter-date" @change="loadLogs(true)" />
             <span class="filter-sep">~</span>
             <input v-model="logFilters.end_time" type="date" class="form-input filter-date" @change="loadLogs(true)" />
+            <!-- 关键词:前端过滤已加载日志(message/symbol/事件字段),后端无 keyword 参数 -->
+            <input v-model="logKeyword" type="search" placeholder="关键词过滤已加载日志…" class="form-input filter-keyword" />
           </div>
         </div>
 
         <!-- 日志列表 -->
         <div class="logs-container" @scroll="onLogsScroll">
           <div v-if="logsLoading && logs.length === 0" class="loading-center"><div class="spinner spinner-sm"></div></div>
-          <template v-else-if="logs.length > 0">
-            <div v-for="(log, i) in logs" :key="i" class="log-entry">
+          <template v-else-if="filteredLogs.length > 0">
+            <div v-for="(log, i) in filteredLogs" :key="i" class="log-entry">
               <span class="log-time-col">
                 <span class="log-bt">{{ formatLogTime(log.business_timestamp) }}</span>
                 <span class="log-wt">{{ formatLogTime(log.timestamp) }}</span>
@@ -335,8 +381,11 @@
               <span v-else class="log-msg">{{ log.message }}</span>
             </div>
             <div v-if="logsLoading" class="loading-center"><div class="spinner spinner-sm"></div></div>
-            <div v-if="!logsHasMore" class="logs-end">已加载全部 {{ logsTotal }} 条日志</div>
+            <div v-if="!logsHasMore" class="logs-end">
+              {{ logKeyword ? `已加载 ${logsTotal} 条中匹配 ${filteredLogs.length} 条` : `已加载全部 ${logsTotal} 条日志` }}
+            </div>
           </template>
+          <p v-else-if="logKeyword && logs.length > 0" class="empty-hint">已加载日志中无「{{ logKeyword }}」匹配（下拉加载更多后自动生效）</p>
           <p v-else class="empty-hint">暂无日志数据</p>
         </div>
       </div>
@@ -357,7 +406,7 @@
 
 <script setup lang="ts">
 import EmptyState from '@/components/common/EmptyState.vue'
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { backtestApi, portfolioApi } from '@/api'
 import type { BacktestTask, AnalyzerInfo } from '@/api'
@@ -368,14 +417,16 @@ import { canStartByState, canStopByState } from '@/constants/backtest'
 import { NetValueChart } from '@/components/charts'
 import type { LineData } from 'lightweight-charts'
 import { message } from '@/utils/toast'
+import { copyText } from '@/utils/clipboard'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import PageTitle from '@/components/common/PageTitle.vue'
 import TabsNav from '@/components/common/TabsNav.vue'
+import CodeFilter from '@/components/common/CodeFilter.vue'
 import { formatMoney } from '@/utils/format'
 import dayjs from 'dayjs'
 import {
-  formatShortDate,
+  formatShortDate, formatDecimal,
   directionLabel, directionColor, dirLabel, fmtAnalyzer, getAnalyzerColor,
   formatLogTime, levelClass, eventClass,
 } from '@/composables/useBacktestFormatters'
@@ -397,6 +448,35 @@ const portfolioLabel = computed(() => {
   const id8 = t.portfolio_id.slice(0, 8)
   return t.portfolio_name ? `${t.portfolio_name}（${id8}）` : id8
 })
+
+// 回测配置摘要:详情接口 config 字段即 config_snapshot 解析体(初始资金/费率/滑点/频率
+// 等),此前页面无处展示,指标无法对口径。ATTITUDE_TYPES: 1=悲观 2=乐观 3=随机。
+const showConfig = ref(false)
+const ATTITUDE_LABELS: Record<number, string> = { 1: '悲观（不利价成交）', 2: '乐观（有利价成交）', 3: '随机' }
+const configItems = computed<{ label: string; value: string }[]>(() => {
+  const c: any = (currentTask.value as any)?.config
+  if (!c || typeof c !== 'object') return []
+  const items: { label: string; value: string }[] = []
+  if (c.initial_cash != null) items.push({ label: '初始资金', value: formatMoney(Number(c.initial_cash)) })
+  if (c.frequency) items.push({ label: '数据频率', value: String(c.frequency) })
+  if (c.commission_rate != null) items.push({ label: '佣金率', value: String(c.commission_rate) })
+  if (c.commission_min != null) items.push({ label: '最低佣金', value: String(c.commission_min) })
+  if (c.slippage_rate != null) items.push({ label: '滑点率', value: String(c.slippage_rate) })
+  if (c.broker_attitude != null) items.push({ label: '成交模型', value: ATTITUDE_LABELS[Number(c.broker_attitude)] || String(c.broker_attitude) })
+  if (c.fill_price_policy && c.fill_price_policy !== 'attitude') items.push({ label: '成交价策略', value: String(c.fill_price_policy) })
+  if (c.max_position_ratio != null) items.push({ label: '最大仓位比', value: String(c.max_position_ratio) })
+  if (c.stop_loss_ratio != null) items.push({ label: '止损比', value: String(c.stop_loss_ratio) })
+  if (c.take_profit_ratio != null) items.push({ label: '止盈比', value: String(c.take_profit_ratio) })
+  if (c.engine_name) items.push({ label: '引擎', value: String(c.engine_name) })
+  return items
+})
+const copyUuid = async () => {
+  const id = currentTask.value?.uuid
+  if (!id) return
+  // http 局域网部署 clipboard API 不可用,copyText 内含 execCommand 降级
+  if (await copyText(id)) message.success('已复制完整 ID')
+  else message.info(`ID: ${id}`)
+}
 
 // ========== 详情状态 ==========
 const currentTask = ref<BacktestTask | null>(null)
@@ -445,6 +525,15 @@ const logsHasMore = ref(true)
 const logsOffset = ref(0)
 const logsPageSize = 100
 const logFilters = ref({ level: '', event_type: '', start_time: '', end_time: '' })
+// 关键词前端过滤:后端日志端点无 keyword 参数,对已加载批次做展示层过滤
+const logKeyword = ref('')
+const filteredLogs = computed(() => {
+  const kw = logKeyword.value.trim().toLowerCase()
+  if (!kw) return logs.value
+  return logs.value.filter((l: any) =>
+    [l.message, l.symbol, l.event_type, l.signal_reason, l.order_id, l.error_message]
+      .some(f => f && String(f).toLowerCase().includes(kw)))
+})
 // 切到日志 tab 时懒加载(深链直达由 onMounted 兜底;非 immediate,回调运行时 loadLogs 已初始化,无 TDZ)
 watch(activeDetailTab, (tab) => {
   if (tab === 'logs' && logs.value.length === 0) loadLogs(true)
@@ -463,7 +552,7 @@ const analyzerChartData = computed<LineData[]>(() =>
 const tradeSubTabs = [
   { key: 'signals', label: '信号' },
   { key: 'orders', label: '订单' },
-  { key: 'positions', label: '持仓' },
+  { key: 'positions', label: '持仓记录' },
 ]
 const signals = ref<any[]>([])
 const orders = ref<any[]>([])
@@ -471,6 +560,87 @@ const positions = ref<any[]>([])
 const signalsLoading = ref(false)
 const ordersLoading = ref(false)
 const positionsLoading = ref(false)
+
+// code 多选筛选(三表共享,纯前端过滤):空=全部
+const selectedCodes = ref<string[]>([])
+const allCodes = computed<string[]>(() =>
+  [...new Set([...signals.value, ...orders.value, ...positions.value].map(x => x?.code).filter(Boolean))].sort())
+const filteredSignals = computed(() =>
+  selectedCodes.value.length ? signals.value.filter(s => selectedCodes.value.includes(s.code)) : signals.value)
+const filteredOrders = computed(() =>
+  selectedCodes.value.length ? orders.value.filter(o => selectedCodes.value.includes(o.code)) : orders.value)
+const filteredPositions = computed(() =>
+  selectedCodes.value.length ? positions.value.filter(p => selectedCodes.value.includes(p.code)) : positions.value)
+
+// ---- 血缘追溯(2026-08-17):Signal→Order→PositionRecord ----
+// 订单生命周期:expandedOrder=当前展开的 order uuid;orderRecords=全量状态流水
+// (懒加载一次,按 order_id 分组取用)
+const expandedOrder = ref<string | null>(null)
+const orderRecords = ref<any[]>([])
+const lifecycleLoading = ref(false)
+// 分组键 = order_id(状态流水按它分组;列表行的 uuid 是"去重取最新那条流水行"的
+// 行 uuid,与其它状态行的 uuid 各不相同,用它分组只能匹配到 1 条——即
+// "生命周期只有一条"的根因)
+const lifecycleOf = (orderId: string) =>
+  orderRecords.value
+    .filter(r => r.order_id === orderId || r.uuid === orderId)
+    .sort((a: any, b: any) => Number(a.status) - Number(b.status))  // NEW(1)→FILLED(4) 生命周期顺序
+const ORDER_STATUS_NAMES: Record<string, string> = {
+  '1': '已创建', 'NEW': '已创建', '2': '已提交', 'SUBMITTED': '已提交',
+  '3': '部分成交', 'PARTIAL_FILLED': '部分成交', '4': '已成交', 'FILLED': '已成交',
+  '5': '已取消', 'CANCELED': '已取消', '6': '已拒绝', 'REJECTED': '已拒绝',
+}
+const orderStatusName = (st: any) => ORDER_STATUS_NAMES[String(st)] || String(st)
+const stepClass = (st: any) => {
+  const n = orderStatusName(st)
+  if (n === '已成交') return 'ok'
+  if (n === '已拒绝' || n === '已取消') return 'bad'
+  return 'mid'
+}
+const toggleLifecycle = async (orderUuid: string) => {
+  if (expandedOrder.value === orderUuid) { expandedOrder.value = null; return }
+  expandedOrder.value = orderUuid
+  if (orderRecords.value.length === 0) {
+    lifecycleLoading.value = true
+    try {
+      const res = await backtestApi.getOrderRecords(backtestId.value)
+      orderRecords.value = ((res as any).data || res) as any[]
+    } catch { orderRecords.value = [] }
+    finally { lifecycleLoading.value = false }
+  }
+}
+// 持仓"来源订单"chip → 跳订单 tab 并展开该订单生命周期
+const jumpToOrder = async (orderUuid: string) => {
+  // activeTradeTab 是 computed(router query 驱动),经 router.replace 切子 tab
+  router.replace({ query: { ...route.query, trade: 'orders' } })
+  await toggleLifecycle(orderUuid)
+  await highlightRow(`[data-order="${orderUuid}"]`, 'highlightOrder', orderUuid)
+}
+// 订单"来源信号"chip → 跳信号 tab,滚动定位+高亮目标行(闭环 Signal→Order 追溯)
+const jumpToSignal = (signalId: string) => {
+  router.replace({ query: { ...route.query, trade: 'signals' } })
+  highlightRow(`[data-uuid="${signalId}"]`, 'highlightUuid', signalId)
+}
+
+// ---- 血缘跳转高亮:切 tab 后滚动到目标行并高亮 2.5s(行可能因筛选不可见则仅置态) ----
+const highlightUuid = ref<string | null>(null)
+const highlightOrder = ref<string | null>(null)
+let highlightTimer: ReturnType<typeof setTimeout> | null = null
+async function highlightRow(selector: string, key: 'highlightUuid' | 'highlightOrder', id: string) {
+  await nextTick()
+  if (highlightTimer) clearTimeout(highlightTimer)
+  if (key === 'highlightUuid') { highlightUuid.value = id; highlightOrder.value = null }
+  else { highlightOrder.value = id; highlightUuid.value = null }
+  document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  highlightTimer = setTimeout(() => { highlightUuid.value = null; highlightOrder.value = null }, 2500)
+}
+// 来源信号摘要:uuid → "代码 方向 日期"(uuid 本身不可读;join 本页已加载的信号数据)
+const signalDigest = (signalId: string) => {
+  const sig = signals.value.find(s => s.uuid === signalId)
+  if (!sig) return signalId
+  const dir = Number(sig.direction) === 2 ? '卖出' : '买入'
+  return `${sig.code} ${dir} ${formatShortDate(sig.business_timestamp || sig.timestamp).slice(5, 10)}`
+}
 
 // ========== 详情方法 ==========
 // silent=true 时不切 detailLoading(不闪 spinner),用于运行中节流刷新
@@ -481,15 +651,17 @@ const loadDetail = async (silent = false) => {
     const task = await backtestApi.get(backtestId.value)
     if (disposed) return
     const prevName = currentTask.value?.portfolio_name
-    const fresh = ((task as any).data || task) as BacktestTask
+    const fresh = task
 
     // 静默刷新沿用已补拉过的组合名,省一次 /portfolios/{id} 往返(限流敏感期少占配额)
     if (silent && prevName && !fresh.portfolio_name) fresh.portfolio_name = prevName
     currentTask.value = fresh
     // 详情接口不带 portfolio_name(仅列表联查有),缺省时补拉组合名,头部展示"名称+短id"
+    // skipErrorToast:组合已删是预期降级(保留短 id 展示),不该全局弹 toast——
+    // 且 loadDetail 会被多路径触发(进页/WS 重连补齐/轮询终态),不 opt-out 会连环弹
     if (currentTask.value?.portfolio_id && !currentTask.value.portfolio_name) {
       try {
-        const p: any = await portfolioApi.get(currentTask.value.portfolio_id)
+        const p: any = await portfolioApi.get(currentTask.value.portfolio_id, { skipErrorToast: true })
         if (!disposed && p?.name) currentTask.value.portfolio_name = p.name
       } catch { /* 组合可能已删,保留 id 展示 */ }
     }
@@ -501,16 +673,14 @@ const loadDetail = async (silent = false) => {
     try {
       const nv = await backtestApi.getNetValue(backtestId.value)
       if (disposed) return
-      const nvData = (nv as any).data || nv
-      netValueData.value = (nvData?.strategy || []).map((i: any) => ({ time: String(i.time).substring(0, 10), value: i.value }))
-      benchmarkData.value = (nvData?.benchmark || []).map((i: any) => ({ time: String(i.time).substring(0, 10), value: i.value }))
+      netValueData.value = (nv?.strategy || []).map((i: any) => ({ time: String(i.time).substring(0, 10), value: i.value }))
+      benchmarkData.value = (nv?.benchmark || []).map((i: any) => ({ time: String(i.time).substring(0, 10), value: i.value }))
     } catch { /* net value may not exist */ }
     // analyzers
     try {
       const ar = await backtestApi.getAnalyzers(backtestId.value)
       if (disposed) return
-      const arData = (ar as any).data || ar
-      analyzers.value = arData?.analyzers || []
+      analyzers.value = ar?.analyzers || []
       if (analyzers.value.length > 0) {
         selectedAnalyzer.value = analyzers.value[0].name
         loadAnalyzerData()
@@ -558,9 +728,9 @@ const loadAnalyzerData = async () => {
   analyzerLoading.value = true
   try {
     const res = await backtestApi.getAnalyzerData(backtestId.value, selectedAnalyzer.value)
-    // request.ts 拦截器已拆包: res = {data:[...], stats}
-    analyzerStats.value = (res as any)?.stats ?? null
-    analyzerTimeseries.value = (res as any)?.data || []
+    // request.ts 拦截器已拆包: res = {data:[...], stats}（AnalyzerTimeseriesResponse）
+    analyzerStats.value = res?.stats ?? null
+    analyzerTimeseries.value = res?.data || []
   } catch {
     analyzerStats.value = null
     analyzerTimeseries.value = []
@@ -730,8 +900,9 @@ const pnlColor = computed(() => {
   return v >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
 })
 
-// 声明式指标卡片:label/value/color 数据驱动,取代 11 个散落 metric-card 块
-const metrics = computed<{ label: string; value: string; color?: string }[]>(() => {
+// 声明式指标卡片:label/value/color 数据驱动。hint=hover 口径说明(盈亏比 vs 平均
+// 盈亏比易混);empty=分析器未产出('—' 灰显,与真实 0 区分,如胜率 0.0%)
+const metrics = computed<{ label: string; value: string; color?: string; hint?: string; empty?: boolean }[]>(() => {
   const t = currentTask.value
   const ar = t?.annual_return ?? 0
   const md = t?.max_drawdown ?? 0
@@ -744,17 +915,17 @@ const metrics = computed<{ label: string; value: string; color?: string }[]>(() 
   const pos = 'hsl(var(--success))'
   const neg = 'hsl(var(--error))'
   return [
-    { label: '最终资产', value: formatMoney(t?.final_portfolio_value ?? 0) },
-    { label: '总盈亏', value: formatMoney(t?.total_pnl ?? 0), color: pnlColor.value },
-    { label: '年化收益', value: `${(ar * 100).toFixed(2)}%`, color: ar >= 0 ? pos : neg },
-    { label: '夏普比率', value: (t?.sharpe_ratio ?? 0).toFixed(2) },
-    { label: '最大回撤', value: `${(md * 100).toFixed(2)}%`, color: md <= 0.1 ? pos : neg },
-    { label: '交易胜率', value: twr !== null ? `${(twr * 100).toFixed(1)}%` : '-', color: twr !== null ? (twr >= 0.5 ? pos : neg) : '' },
-    { label: '日胜率', value: dwr !== null ? `${(dwr * 100).toFixed(1)}%` : '-', color: dwr !== null ? (dwr >= 0.5 ? pos : neg) : '' },
-    { label: '盈亏比', value: pf !== null ? pf.toFixed(2) : '-', color: pf !== null ? (pf >= 1 ? pos : neg) : '' },
-    { label: '平均盈亏比', value: awl !== null ? awl.toFixed(2) : '-', color: awl !== null ? (awl >= 1 ? pos : neg) : '' },
-    { label: '最大连续亏损', value: mcl !== null ? `${Math.round(mcl)} 笔` : '-', color: mcl !== null && mcl > 5 ? neg : '' },
-    { label: '平均持仓', value: ahp !== null ? `${ahp.toFixed(1)} 天` : '-' },
+    { label: '最终资产', value: formatMoney(t?.final_portfolio_value ?? 0), hint: '回测结束时组合总资产（现金+持仓市值）' },
+    { label: '总盈亏', value: formatMoney(t?.total_pnl ?? 0), color: pnlColor.value, hint: '最终资产 − 初始资金（含手续费）' },
+    { label: '年化收益', value: `${(ar * 100).toFixed(2)}%`, color: ar >= 0 ? pos : neg, hint: '按回测区间折算的年化收益率' },
+    { label: '夏普比率', value: (t?.sharpe_ratio ?? 0).toFixed(2), hint: '风险调整后收益（超额收益/波动率）' },
+    { label: '最大回撤', value: `${(md * 100).toFixed(2)}%`, color: md <= 0.1 ? pos : neg, hint: '净值自峰值的最大回落幅度' },
+    { label: '交易胜率', value: twr !== null ? `${(twr * 100).toFixed(1)}%` : '—', color: twr !== null ? (twr >= 0.5 ? pos : neg) : '', empty: twr === null, hint: '按平仓交易笔数统计（trade_win_rate）' },
+    { label: '日胜率', value: dwr !== null ? `${(dwr * 100).toFixed(1)}%` : '—', color: dwr !== null ? (dwr >= 0.5 ? pos : neg) : '', empty: dwr === null, hint: '按交易日统计（win_rate）' },
+    { label: '盈亏比', value: pf !== null ? pf.toFixed(2) : '—', color: pf !== null ? (pf >= 1 ? pos : neg) : '', empty: pf === null, hint: '利润因子：总盈利/总亏损（profit_factor）' },
+    { label: '平均盈亏比', value: awl !== null ? awl.toFixed(2) : '—', color: awl !== null ? (awl >= 1 ? pos : neg) : '', empty: awl === null, hint: '平均每笔盈利/平均每笔亏损（avg_win_loss_ratio）' },
+    { label: '最大连续亏损', value: mcl !== null ? `${Math.round(mcl)} 笔` : '—', color: mcl !== null && mcl > 5 ? neg : '', empty: mcl === null, hint: '连续亏损笔数峰值（max_consecutive_losses）' },
+    { label: '平均持仓', value: ahp !== null ? `${ahp.toFixed(1)} 天` : '—', empty: ahp === null, hint: '平均每笔持仓天数（avg_holding_period）' },
   ]
 })
 
@@ -778,7 +949,7 @@ const pollTaskStatus = async () => {
     const task = await backtestApi.get(backtestId.value)
     if (disposed) return
     const prev = currentTask.value
-    const fresh = ((task as any).data || task) as BacktestTask
+    const fresh = task
     // 沿用已补拉过的组合名(详情接口不返回 portfolio_name)
     if (prev?.portfolio_name && !fresh.portfolio_name) fresh.portfolio_name = prev.portfolio_name
     currentTask.value = fresh
@@ -789,7 +960,10 @@ const pollTaskStatus = async () => {
   } catch { /* 单次失败(如限流 429)静默保留旧值,下轮重试 */ }
 }
 const { start: startProgressPolling, stop: stopProgressPolling } = usePolling(pollTaskStatus, 5000)
-// 轮询反转:连线时 WS 是主路径,停轮询并补齐一次断线窗口;断线且任务活跃才轮询
+// 轮询反转(ADR-046 设计):连线时 WS 事件是主路径,停轮询并补齐一次断线窗口;
+// 断线且任务活跃才轮询。前提是 isConnected 真实——新版 useWebSocket 的
+// 65s watchdog(半开检测)+无限退避重连保证断线终会翻转 isConnected,
+// 旧 bundle(3 次重试耗尽/无 watchdog)不满足该前提,须刷新页面载入
 watch(isConnected, (connected) => {
   if (connected) {
     stopProgressPolling()
@@ -829,7 +1003,7 @@ onUnmounted(() => {
 .detail-content {
   flex: 1;
   overflow-y: auto;
-  /* 窄窗口下宽表(持仓8列/订单7列)应可滚动而非被裁切 */
+  /* 窄窗口下宽表(持仓7列/订单7列)应可滚动而非被裁切 */
   overflow-x: auto;
 }
 
@@ -866,6 +1040,58 @@ onUnmounted(() => {
   font-size: 13px;
   color: hsl(var(--foreground));
   font-family: monospace;
+}
+
+/* 回测配置摘要(折叠展开区) */
+.config-toggle {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: hsl(var(--primary));
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.config-toggle:hover { text-decoration: underline; }
+
+.config-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px 16px;
+  padding: 10px 14px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  margin-bottom: 12px;
+}
+.config-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.config-label { font-size: 11px; color: hsl(var(--muted-foreground)); }
+.config-val {
+  font-size: 13px;
+  color: hsl(var(--foreground));
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 指标卡空态(分析器未产出,与真实 0 区分) */
+.metric-empty, .metric-empty .metric-value { color: hsl(var(--muted-foreground) / 0.7); }
+
+/* 血缘跳转目标行高亮 */
+.row-highlight {
+  animation: row-flash 2.5s ease-out;
+}
+@keyframes row-flash {
+  0%, 60% { background: hsl(var(--primary) / 0.18); }
+  100% { background: transparent; }
+}
+
+.filter-keyword {
+  width: 200px;
+  padding: 5px 10px;
+  font-size: 12px;
 }
 
 /* Progress section */
@@ -1079,6 +1305,40 @@ onUnmounted(() => {
   text-align: center;
   padding: 20px 0;
 }
+
+/* 血缘追溯 chip + 订单生命周期时间线 */
+.lineage-chip {
+  font-family: monospace;
+  font-size: 11px;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--primary) / 0.25);
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.lineage-chip:hover { background: hsl(var(--primary) / 0.15); }
+.empty-hint-inline { color: hsl(var(--muted-foreground)); }
+.expand-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+}
+.expand-btn:hover { color: hsl(var(--foreground)); border-color: hsl(var(--primary) / 0.5); }
+.lifecycle-row > td { background: hsl(var(--foreground) / 0.02); padding: 8px 14px; }
+.lifecycle-timeline { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.lifecycle-step { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.step-dot { width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--muted-foreground)); }
+.step-dot.ok { background: hsl(var(--success)); }
+.step-dot.bad { background: hsl(var(--error)); }
+.step-dot.mid { background: hsl(var(--primary)); }
+.step-status { font-weight: 600; color: hsl(var(--foreground)); }
+.step-meta { color: hsl(var(--muted-foreground)); font-family: monospace; }
+.step-time { color: hsl(var(--muted-foreground)); font-size: 11px; }
 
 /* Logs */
 .logs-filter { margin-bottom: 8px; }

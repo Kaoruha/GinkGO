@@ -15,7 +15,9 @@ from decimal import Decimal
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
+from clickhouse_sqlalchemy import types
 
+from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
 from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
@@ -30,6 +32,12 @@ class MPositionRecord(MClickBase, MBacktestRecordBase):
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     cost: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     volume: Mapped[int] = mapped_column(Integer, default=0)
+    # 持仓变动方向(2026-08-16,对齐 MSignal 模式):LONG=1/SHORT=2,显式冗余于
+    # volume 符号——展示/过滤直读,免派生。default -1 表未设
+    direction: Mapped[int] = mapped_column(types.Int8, default=-1, info={"enum": DIRECTION_TYPES})
+    # 血缘(2026-08-17 追溯链 Signal→Order→PositionRecord):引发本次变动的订单 uuid。
+    # 来自成交事件 order.uuid,经 _apply_deal→_record_position_change 写入;空=无来源
+    order_id: Mapped[str] = mapped_column(String(), default="", comment="引发变动的订单uuid")
     frozen_volume: Mapped[int] = mapped_column(Integer, default=0)
     frozen_money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
@@ -48,6 +56,7 @@ class MPositionRecord(MClickBase, MBacktestRecordBase):
         code: Optional[str] = None,
         cost: Optional[Number] = None,
         volume: Optional[int] = None,
+        direction: Optional[DIRECTION_TYPES] = None,
         frozen_volume: Optional[int] = None,
         frozen_money: Optional[Number] = None,
         price: Optional[Number] = None,
@@ -66,6 +75,9 @@ class MPositionRecord(MClickBase, MBacktestRecordBase):
             self.cost = to_decimal(cost)
         if volume is not None:
             self.volume = int(volume)
+        if direction is not None and direction != -1:
+            validated_direction = DIRECTION_TYPES.validate_input(direction)
+            self.direction = validated_direction if validated_direction is not None else -1
         if frozen_volume is not None:
             self.frozen_volume = int(frozen_volume)
         if frozen_money is not None:

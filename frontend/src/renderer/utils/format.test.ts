@@ -124,8 +124,12 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime('2024-03-15T09:30:00', now)).toBe('5小时前')
   })
 
-  it('超过 24 小时应回退为日期时间短格式', () => {
-    expect(formatRelativeTime('2024-03-13T10:00:00', now)).toBe('3/13 10:00:00')
+  it('应格式化天级差异', () => {
+    expect(formatRelativeTime('2024-03-13T10:00:00', now)).toBe('2天前')
+  })
+
+  it('超过 30 天应回退为日期时间短格式', () => {
+    expect(formatRelativeTime('2024-01-15T10:00:00', now)).toBe('1/15 10:00:00')
   })
 
   it('未来时间应回退为日期时间短格式', () => {

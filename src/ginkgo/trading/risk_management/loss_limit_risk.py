@@ -28,17 +28,20 @@ class LossLimitRisk(BaseRiskManagement):
     def __init__(
         self,
         name: str = "LossLimitRisk",
-        loss_limit: float = 10.0,
+        loss_limit: float = 0.10,
         *args,
         **kwargs,
     ):
         """
         Args:
-            loss_limit(float): 止损阈值，百分比（例如：10.0表示10%）
+            loss_limit(float): 止损阈值，小数比例（例如：0.05表示5%。
+                与 ProfitTargetRisk 口径统一，同为 0-1 小数，无百分数乘换算）
         """
         super().__init__(name, *args, **kwargs)
+        if loss_limit <= 0:
+            raise ValueError("止损阈值必须为正数")
         self._loss_limit = float(loss_limit)
-        self.set_name(f"{name}_{self._loss_limit}%")
+        self.set_name(f"{name}_{self._loss_limit:.0%}")
 
     @property
     def loss_limit(self) -> float:
@@ -91,28 +94,28 @@ class LossLimitRisk(BaseRiskManagement):
             GLOG.WARN(f"LossLimitRisk: Invalid price data for {code}")
             return signals
 
-        loss_ratio = (1 - current_price / cost) * 100  # 转换为百分比，正值表示亏损
+        loss_ratio = 1 - current_price / cost  # 小数比例，正值表示亏损
 
-        GLOG.DEBUG(f"LossLimitRisk: {code} loss ratio: {loss_ratio:.2f}%, limit: {self._loss_limit}%")
+        GLOG.DEBUG(f"LossLimitRisk: {code} loss ratio: {loss_ratio:.2%}, limit: {self._loss_limit:.0%}")
 
         # 如果亏损超过阈值，生成平仓信号
         if loss_ratio > self._loss_limit:
-            GLOG.INFO(f"LossLimitRisk: Loss limit triggered for {code}, ratio: {loss_ratio:.2f}%")
+            GLOG.INFO(f"LossLimitRisk: Loss limit triggered for {code}, ratio: {loss_ratio:.2%}")
 
             # 记录风控事件到ClickHouse
             self.blog.risk(
                 risk_type="DAILYLOSSLIMITEXCEEDED",
-                reason=f"Loss limit triggered: {loss_ratio:.2f}% > {self._loss_limit}%",
+                reason=f"Loss limit triggered: {loss_ratio:.2%} > {self._loss_limit:.0%}",
                 risk_actual_value=loss_ratio,
                 risk_limit_value=self._loss_limit,
                 symbol=code,
-                msg=f"止损触发: {code} 亏损{loss_ratio:.2f}% 超过限制{self._loss_limit}%",
+                msg=f"止损触发: {code} 亏损{loss_ratio:.2%} 超过限制{self._loss_limit:.0%}",
             )
 
             signal = self.create_signal(
                 code=code,
                 direction=DIRECTION_TYPES.SHORT,  # 平仓
-                reason=f"Loss Limit ({loss_ratio:.2f}% > {self._loss_limit}%)",
+                reason=f"Loss Limit ({loss_ratio:.2%} > {self._loss_limit:.0%})",
             )
             signals.append(signal)
 

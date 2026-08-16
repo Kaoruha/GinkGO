@@ -25,8 +25,10 @@ class MPortfolioFileMapping(MMysqlBase):
     __abstract__ = False
     __tablename__ = "portfolio_file_mapping"
 
-    portfolio_id: Mapped[str] = mapped_column(String(32), default="ginkgo_portfolio")
-    file_id: Mapped[str] = mapped_column(String(32), default="ginkgo_file")
+    # 双向查询索引：组件列表持有数统计（file_id IN + GROUP BY）与
+    # find_by_portfolio（按组合查绑定）都不再全表扫
+    portfolio_id: Mapped[str] = mapped_column(String(32), default="ginkgo_portfolio", index=True)
+    file_id: Mapped[str] = mapped_column(String(32), default="ginkgo_file", index=True)
     name: Mapped[str] = mapped_column(String(64), default="ginkgo_bind")
     type: Mapped[int] = mapped_column(TINYINT, default=-1)
 

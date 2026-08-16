@@ -34,9 +34,22 @@
         </div>
         <div class="stat-card latest-card" v-if="stats.latest_completed">
           <div class="stat-label">最近完成回测</div>
-          <div class="latest-name" :title="stats.latest_completed.name">{{ stats.latest_completed.name || stats.latest_completed.uuid }}</div>
+          <router-link class="latest-name" :to="`/backtests/${stats.latest_completed.uuid}`" :title="`查看 ${stats.latest_completed.name} 详情`">
+            {{ stats.latest_completed.name || stats.latest_completed.uuid.slice(0, 8) }} →
+          </router-link>
           <div class="stat-note">净值 {{ fmt(stats.latest_completed.nav, 4) }} · 回撤 {{ pct(stats.latest_completed.max_drawdown) }} · 夏普 {{ fmt(stats.latest_completed.sharpe_ratio, 2) }}</div>
         </div>
+      </div>
+
+      <!-- 多回测净值叠加对比:组合视角核心(改参数→重跑→对比),均值卡无法呈现走势差异 -->
+      <div class="card compare-card">
+        <div class="compare-head">
+          <h4>回测净值对比</h4>
+          <span class="compare-note">最近 {{ compareSeries.length }} 个已完成回测</span>
+        </div>
+        <div v-if="compareLoading" class="loading-center"><div class="spinner"></div></div>
+        <NetValueCompareChart v-else-if="compareSeries.length > 0" :height="280" :series="compareSeries" />
+        <p v-else class="compare-empty">净值数据暂缺（回测未产出 net_value 分析器记录）</p>
       </div>
     </template>
     <EmptyState
@@ -53,16 +66,45 @@ import { useRoute } from 'vue-router'
 import { backtestApi, PortfolioBacktestStats } from '@/api/modules/backtest'
 import { message } from '@/utils/toast'
 import EmptyState from '@/components/common/EmptyState.vue'
+import { NetValueCompareChart } from '@/components/charts'
+import type { CompareSeries } from '@/components/charts'
 
 const route = useRoute()
 const stats = ref<PortfolioBacktestStats | null>(null)
 const loading = ref(true)
+const compareSeries = ref<CompareSeries[]>([])
+const compareLoading = ref(true)
 
 function fmt(v: number | null | undefined, digits: number): string {
   return v == null ? '--' : v.toFixed(digits)
 }
 function pct(v: number | null | undefined): string {
   return v == null ? '--' : `${(v * 100).toFixed(2)}%`
+}
+
+// 拉最近 N 个已完成回测的净值曲线做叠加对比。净值端点 404/空数据均按"该任务无
+// 净值"跳过（老任务可能缺 net_value 记录），不弹错刷屏。
+const COMPARE_LIMIT = 5
+async function loadCompare(pid: string) {
+  try {
+    const res = await backtestApi.list({ portfolio_id: pid, status: 'completed', page: 1, page_size: COMPARE_LIMIT })
+    const tasks = res.items || []
+    const loaded: CompareSeries[] = []
+    for (const t of tasks) {
+      try {
+        const nv = await backtestApi.getNetValue(t.uuid)
+        const data = (nv?.strategy || []).map((i: any) => ({ time: String(i.time).substring(0, 10), value: Number(i.value) }))
+        if (data.length > 0) {
+          loaded.push({ name: t.name || t.uuid.slice(0, 8), data })
+        }
+      } catch { /* 单任务净值缺失跳过 */ }
+    }
+    compareSeries.value = loaded
+  } catch (e) {
+    console.error('加载回测净值对比失败:', e)
+  } finally {
+    compareLoading.value = false
+  }
 }
 
 onMounted(async () => {
@@ -77,6 +119,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  loadCompare(pid)
 })
 </script>
 
@@ -132,9 +175,43 @@ onMounted(async () => {
 .latest-card .latest-name {
   font-size: 14px;
   font-weight: 600;
-  color: hsl(var(--foreground));
+  color: hsl(var(--primary));
+  text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: block;
 }
+.latest-card .latest-name:hover { text-decoration: underline; }
+
+.compare-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+}
+.compare-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.compare-head h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+.compare-note { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.compare-empty { font-size: 13px; color: hsl(var(--muted-foreground)); margin: 8px 0; }
+
+.loading-center { display: flex; justify-content: center; padding: 40px; }
+.spinner {
+  width: 24px; height: 24px;
+  border: 2px solid hsl(var(--border));
+  border-top-color: hsl(var(--primary));
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>

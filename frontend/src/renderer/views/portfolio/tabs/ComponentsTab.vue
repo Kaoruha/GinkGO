@@ -12,7 +12,7 @@
             <div v-if="item.config" class="comp-config">
               <div v-for="(val, key) in item.config" :key="key" class="config-row">
                 <span class="config-key">{{ key }}</span>
-                <span class="config-val">{{ val }}</span>
+                <span class="config-val" :title="`原始值：${rawVal(val)}`">{{ fmtVal(val) }}</span>
               </div>
             </div>
           </div>
@@ -32,6 +32,28 @@ const portfolioId = computed(() => route.params.id as string)
 
 const portfolio = ref<any>(null)
 const loading = ref(true)
+
+// 参数值格式化:绑定参数按 ADR-020 以 JSON 字符串存储,原样展示会带转义引号
+// (`[ \"000001.SZ\" ]`)。解析后展示:数组→顿号连接,标量→原值,解析失败→原样。
+function fmtVal(v: unknown): string {
+  if (v == null) return '-'
+  if (typeof v === 'string') {
+    const s = v.trim()
+    if ((s.startsWith('[') && s.endsWith(']')) || (s.startsWith('{') && s.endsWith('}'))) {
+      try {
+        const parsed = JSON.parse(s)
+        if (Array.isArray(parsed)) return parsed.map(x => fmtVal(x)).join('、') || '(空)'
+        if (typeof parsed === 'object') return JSON.stringify(parsed)
+        return String(parsed)
+      } catch { /* 非合法 JSON,原样展示 */ }
+    }
+    return v
+  }
+  if (Array.isArray(v)) return v.map(x => fmtVal(x)).join('、') || '(空)'
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
+const rawVal = (v: unknown) => (typeof v === 'object' ? JSON.stringify(v) : String(v ?? '-'))
 
 const componentGroups = computed(() => {
   if (!portfolio.value) return []
@@ -89,8 +111,16 @@ onMounted(async () => {
   font-size: 12px;
   padding: 2px 0;
 }
-.config-key { color: hsl(var(--muted-foreground) / 0.8); }
-.config-val { color: hsl(var(--muted-foreground)); font-family: monospace; }
+.config-key { color: hsl(var(--muted-foreground) / 0.8); flex-shrink: 0; }
+.config-val {
+  color: hsl(var(--muted-foreground));
+  font-family: monospace;
+  max-width: 62%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
 .empty-hint { color: hsl(var(--muted-foreground)); font-size: 13px; }
 .loading-center { display: flex; justify-content: center; padding: 40px; }
 .spinner {

@@ -72,7 +72,7 @@ def _make_price_event(code="000001.SZ", close="10.0", open_=None, high=None, low
     return EventPriceUpdate(payload=bar)
 
 
-def _make_risk(loss_limit=15.0):
+def _make_risk(loss_limit=0.15):
     """Helper to create a LossLimitRisk with engine context bound."""
     risk = LossLimitRisk(loss_limit=loss_limit)
     risk._context = EngineContext(engine_id="test_engine_id")
@@ -98,22 +98,29 @@ class TestLossLimitRiskInit:
 
     def test_init_default(self):
         """Test initialization with default values."""
-        risk = LossLimitRisk(loss_limit=20.0)
-        assert risk.loss_limit == 20.0
-        assert "20.0" in risk.name
+        risk = LossLimitRisk(loss_limit=0.2)
+        assert risk.loss_limit == 0.2
+        assert "20%" in risk.name
 
     def test_init_with_name(self):
         """Test initialization with custom name."""
-        risk = LossLimitRisk(name="CustomLossLimit", loss_limit=15.0)
-        # Source calls set_name(f"{name}_{loss_limit}%"), so name includes suffix
+        risk = LossLimitRisk(name="CustomLossLimit", loss_limit=0.15)
+        # Source calls set_name(f"{name}_{loss_limit:.0%}"), so name includes suffix
         assert "CustomLossLimit" in risk.name
-        assert risk.loss_limit == 15.0
+        assert risk.loss_limit == 0.15
 
-    @pytest.mark.parametrize("loss_limit", [5.0, 10.0, 15.0, 20.0, 25.0, 50.0])
+    @pytest.mark.parametrize("loss_limit", [0.05, 0.10, 0.15, 0.20, 0.25, 0.50])
     def test_init_various_limits(self, loss_limit):
         """Test initialization with various loss limits."""
         risk = LossLimitRisk(loss_limit=loss_limit)
         assert risk.loss_limit == loss_limit
+
+    def test_init_rejects_nonpositive(self):
+        """Test that non-positive loss limit raises ValueError (对齐 ProfitTargetRisk)."""
+        with pytest.raises(ValueError, match="正数"):
+            LossLimitRisk(loss_limit=-0.1)
+        with pytest.raises(ValueError, match="正数"):
+            LossLimitRisk(loss_limit=0)
 
 
 @pytest.mark.unit
@@ -123,7 +130,7 @@ class TestLossLimitRiskOrderProcessing:
 
     def test_cal_order_passthrough(self, sample_portfolio_info, sample_order):
         """Test that orders pass through unchanged."""
-        risk = LossLimitRisk(loss_limit=15.0)
+        risk = LossLimitRisk(loss_limit=0.15)
         result = risk.cal(sample_portfolio_info, sample_order)
 
         assert result == sample_order
@@ -131,7 +138,7 @@ class TestLossLimitRiskOrderProcessing:
     @pytest.mark.parametrize("volume", [100, 500, 1000, 5000])
     def test_cal_various_order_volumes(self, sample_portfolio_info, volume):
         """Test order processing with various volumes."""
-        risk = LossLimitRisk(loss_limit=15.0)
+        risk = LossLimitRisk(loss_limit=0.15)
         order = Order(
             portfolio_id="test_portfolio_id",
             engine_id="test_engine_id",
@@ -180,14 +187,14 @@ class TestLossLimitRiskLossCalculation:
     """Test loss ratio calculation accuracy."""
 
     @pytest.mark.parametrize("current_price,expected_loss", [
-        (90.0, 10.0),   # 10% loss
-        (80.0, 20.0),   # 20% loss
-        (50.0, 50.0),   # 50% loss
-        (30.0, 70.0),   # 70% loss
+        (90.0, 0.10),   # 10% loss
+        (80.0, 0.20),   # 20% loss
+        (50.0, 0.50),   # 50% loss
+        (30.0, 0.70),   # 70% loss
     ])
     def test_loss_ratio_calculation(self, current_price, expected_loss):
         """Test loss ratio calculation for various scenarios."""
-        risk = _make_risk(loss_limit=200.0)  # High limit to avoid triggering
+        risk = _make_risk(loss_limit=2.0)  # High limit (>1 allowed) to avoid triggering
 
         position = _make_position(cost="100.0", price="100.0")
         event = _make_price_event(close=current_price)
@@ -268,10 +275,10 @@ class TestLossLimitRiskThresholds:
         assert len(signals) == 0
 
     @pytest.mark.parametrize("loss_limit,loss_percentage,should_signal", [
-        (5.0, 6.0, True),    # Exceeds limit
-        (10.0, 11.0, True),   # Exceeds limit
-        (15.0, 14.0, False),  # Below limit
-        (20.0, 19.0, False),  # Below limit
+        (0.05, 0.06, True),    # Exceeds limit
+        (0.10, 0.11, True),   # Exceeds limit
+        (0.15, 0.14, False),  # Below limit
+        (0.20, 0.19, False),  # Below limit
     ])
     def test_various_thresholds(self, loss_limit, loss_percentage, should_signal):
         """Test various loss limit thresholds."""
@@ -279,7 +286,7 @@ class TestLossLimitRiskThresholds:
 
         position = _make_position(cost="100.0", price="100.0")
 
-        current_price = 100.0 * (1 - loss_percentage / 100)
+        current_price = 100.0 * (1 - loss_percentage)
         event = _make_price_event(close=current_price)
         portfolio_info = _make_portfolio_info(
             positions={"000001.SZ": position}
@@ -364,16 +371,16 @@ class TestLossLimitRiskFinancialAccuracy:
     """Test financial calculation accuracy."""
 
     @pytest.mark.parametrize("cost,price,expected_loss_ratio", [
-        (100.0, 90.0, 10.0),
-        (100.0, 85.0, 15.0),
-        (100.0, 80.0, 20.0),
-        (50.0, 45.0, 10.0),
-        (10.0, 8.5, 15.0),
+        (100.0, 90.0, 0.10),
+        (100.0, 85.0, 0.15),
+        (100.0, 80.0, 0.20),
+        (50.0, 45.0, 0.10),
+        (10.0, 8.5, 0.15),
     ])
     def test_loss_ratio_precision(self, cost, price, expected_loss_ratio):
         """Test loss ratio calculation precision."""
         # Set limit slightly below expected ratio since source uses strict >
-        risk = _make_risk(loss_limit=expected_loss_ratio - 0.01)
+        risk = _make_risk(loss_limit=expected_loss_ratio - 0.0001)
 
         position = _make_position(cost=str(cost), price=str(cost))
         event = _make_price_event(close=price)
@@ -388,12 +395,12 @@ class TestLossLimitRiskFinancialAccuracy:
             signals = risk.generate_signals(portfolio_info, event)
             assert len(signals) == 1
             call_kwargs = MockSignal.call_args[1]
-            assert f"{expected_loss_ratio:.2f}%" in call_kwargs["reason"]
+            assert f"{expected_loss_ratio:.2%}" in call_kwargs["reason"]
 
     def test_decimal_precision_calculation(self):
         """Test that decimal precision is maintained."""
         # Set limit slightly below 15% since source uses strict >
-        risk = _make_risk(loss_limit=14.99)
+        risk = _make_risk(loss_limit=0.1499)
 
         position = _make_position(cost="10.55", price="10.55")
 

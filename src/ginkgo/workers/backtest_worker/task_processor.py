@@ -122,6 +122,9 @@ class BacktestProcessor(Thread):
                 task_id=self.task.task_uuid,
                 config=self.task.config,
                 portfolio_id=self.task.portfolio_uuid,
+                # #6449 迁移编排器路径时曾丢失此参,导致 progress 全链静默断
+                # (引擎 callback=None,进度永不上报,2026-08-16 四枚探针定位)
+                progress_callback=self._on_progress,
             )
 
             if not result.is_success():

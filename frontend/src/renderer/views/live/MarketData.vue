@@ -212,14 +212,9 @@ const lastPrices = ref<Record<string, number>>({})
 const priceAnimation = ref<Record<string, string>>({})
 // 定时刷新所有 ticker 的定时器
 let allTickersTimer: number | null = null
-// 强制刷新计数器
-const refreshKey = ref(0)
 // 行情服务不可用(后端 market 模块缺失,接口 404):
 // 停止 5s 轮询与 WS 重连,避免无谓重试刷屏;手动"刷新交易对"成功后自动恢复
 const serviceUnavailable = ref(false)
-
-// tickerData 的计数器用于强制刷新
-const tickerDataCount = ref(0)
 
 // 用于模板访问的计算属性 - 确保 Vue 正确追踪响应式
 const tickerDataForTemplate = computed(() => {
@@ -236,23 +231,6 @@ const tickerDataKeysCount = computed(() => {
 
 // 计算属性
 const totalPairs = computed(() => pairs.value.length)
-
-// 调试：tickerData 快照，用于验证响应式
-const tickerDataSnapshot = computed(() => {
-  void refreshKey.value
-  const snapshot: Record<string, any> = {}
-  Object.keys(tickerData.value).forEach(symbol => {
-    const ticker = tickerData.value[symbol]
-    snapshot[symbol] = {
-      price: ticker?.price,
-      bid_price: ticker?.bid_price,
-      ask_price: ticker?.ask_price
-    }
-  })
-
-  return snapshot
-})
-void tickerDataSnapshot
 
 const filteredPairs = computed(() => {
   let result = pairs.value
@@ -282,8 +260,6 @@ const filteredPairs = computed(() => {
 })
 
 const activeTickers = computed(() => {
-  // 显式依赖 tickerDataCount 确保响应式
-  void tickerDataCount.value
   const currentTickerData = tickerData.value || {}
   const currentSubscriptions = subscriptions.value
 
@@ -376,8 +352,6 @@ const loadSubscriptions = async () => {
     // 拦截器已拆信封:resolve 即 {subscriptions} payload
     const response = await marketApi.getSubscriptions()
     subscriptions.value = response?.subscriptions || []
-    console.log('[MarketData] 订阅列表加载成功:', subscriptions.value.length, '个订阅')
-    console.log('[MarketData] 订阅列表:', subscriptions.value.map(s => s.symbol))
   } catch (error) {
     if (!markUnavailableIf404(error)) console.error('加载订阅失败:', error)
   }
@@ -447,14 +421,11 @@ const connectWebSocket = () => {
 
   ws.onopen = () => {
     wsConnected.value = true
-    console.log('[WS] WebSocket 已连接')
 
     // 订阅已保存的交易对
     subscriptions.value.forEach(sub => {
       subscribeWs(sub.symbol)
     })
-
-    console.log('[WS] 已订阅', subscriptions.value.length, '个交易对')
   }
 
   ws.onmessage = (event) => {
@@ -504,24 +475,6 @@ const connectWebSocket = () => {
         const newTickerData = { ...tickerData.value }
         newTickerData[symbol] = newData
         tickerData.value = newTickerData
-
-        // 调试：打印收到的完整数据
-        if (tickerDataCount.value % 20 === 1) {
-          console.log(`[WS Debug] ${symbol} 完整数据:`, {
-            price: newData.price,
-            open_24h: newData.open_24h,
-            bid_price: newData.bid_price,
-            ask_price: newData.ask_price
-          })
-        }
-
-        // 强制触发响应式更新
-        tickerDataCount.value++
-
-        // 每10条消息打印一次
-        if (tickerDataCount.value % 10 === 1) {
-          console.log(`[WS] 收到: ${symbol}, price=$${data.price}, keys=${Object.keys(tickerData.value).length}`)
-        }
       }
     } catch (error: any) {
       console.error('[WS] 错误:', error.message)
@@ -530,7 +483,6 @@ const connectWebSocket = () => {
 
   ws.onclose = () => {
     wsConnected.value = false
-    console.log('[WS] WebSocket 已断开，5秒后重连...')
     setTimeout(() => {
       // 只有在应该重连且未连接时才重连(服务不可用时不再无限重试 403)
       if (shouldReconnect.value && !wsConnected.value && !serviceUnavailable.value) {
@@ -668,30 +620,6 @@ const formatTickerVolume = formatVolume
 // 监听计价货币变化
 watch(selectedQuoteCurrency, async () => {
   await loadPairs()
-})
-
-// 监听订阅变化（调试）
-watch(subscriptions, (newSubs) => {
-  console.log('[MarketData] 订阅列表已更新，数量:', newSubs.length)
-}, { deep: true })
-
-// 监听 tickerData 变化 - 不需要 deep 选项，因为我们创建新对象引用
-watch(tickerData, (newData) => {
-  const keys = Object.keys(newData || {})
-  console.log('[MarketData] tickerData 已更新，keys:', keys.length)
-  // 检查每个订阅的 symbol 是否能访问到数据
-  subscriptions.value.forEach(sub => {
-    const ticker = newData[sub.symbol]
-    console.log(`[MarketData] ${sub.symbol}:`, ticker ? `price=$${ticker.price}` : '无数据')
-  })
-})
-
-// 监听 activeTickers 变化
-watch(activeTickers, (newTickers) => {
-  console.log('[MarketData] activeTickers changed:', newTickers.length, 'items')
-  newTickers.forEach(item => {
-    console.log(`[MarketData] activeTicker: ${item.symbol}, price=$${item.price}`)
-  })
 })
 
 // 生命周期

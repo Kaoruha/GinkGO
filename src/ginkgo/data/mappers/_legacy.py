@@ -41,6 +41,7 @@ def dataframe_to_adjustfactor_models(df: pd.DataFrame, code: str) -> List[MAdjus
     calculated separately using the calc command.
     """
     items = []
+    code = code.upper() if isinstance(code, str) else code  # 全链大写标准
     for _, r in df.iterrows():
         if pd.notna(r["adj_factor"]) and r["adj_factor"] > 0:
             items.append(
@@ -114,6 +115,9 @@ def dataframe_to_bar_models(df: pd.DataFrame, code: str, frequency: FREQUENCY_TY
 def dataframe_to_bar_entities(df: pd.DataFrame, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> List[Any]:
     """Maps a DataFrame from Tushare to a list of Bar business entities."""
     from ginkgo.entities import Bar
+    # code 归一 upper(全链大写标准,2026-08-16):数据源(tushare ts_code)可能
+    # 传入小写 .sz/.sh,删除键/查重/查询均按大写——双态曾致同步覆盖灾难
+    code = code.upper() if isinstance(code, str) else code
 
     items = []
     trade_dates = df["trade_date"]
@@ -143,6 +147,7 @@ def dataframe_to_bar_entities(df: pd.DataFrame, code: str, frequency: FREQUENCY_
 def dataframe_to_tick_entities(df: pd.DataFrame, code: str) -> List[Any]:
     """Maps a DataFrame from TDX to a list of Tick business entities."""
     from ginkgo.entities import Tick
+    code = code.upper() if isinstance(code, str) else code  # 全链大写标准
 
     items = []
     for _, r in df.iterrows():

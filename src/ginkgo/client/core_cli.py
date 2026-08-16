@@ -154,7 +154,9 @@ def debug(mode: Annotated[DebugMode, typer.Argument(help="Debug mode: on/off")])
         console.print(f"[red]Error setting debug mode: {e}[/red]")
         console.print("Try: ginkgo system config set --debug on/off")
 
-def init():
+def init(
+    rebuild_seed: Annotated[bool, typer.Option("--rebuild-seed", help="完全重建 seed 数据(删旧建新,uuid 换新会悬空引用);默认同名已存在即跳过")] = False,
+):
     """
     :rocket: Complete system initialization including database setup, component registration, and example data with idempotency.
     """
@@ -195,7 +197,7 @@ def init():
         console.print(":wrench: Registering components and loading example data...")
         try:
             from ginkgo.data import seeding
-            seeding.run()  # This function includes idempotent component registration
+            seeding.run(rebuild_seed=rebuild_seed)  # 幂等注册;--rebuild-seed 才完全重建
             console.print(":white_check_mark: Components and example data initialized successfully")
         except Exception as e:
             console.print(f":warning: Component initialization had issues: {e}")
@@ -307,7 +309,7 @@ def _validate_system_health() -> dict:
 
     return health_status
 
-def _cleanup_invalid_data(dry_run: bool = False) -> dict:
+def _cleanup_invalid_data(dry_run: bool = False, include_backtests: bool = False) -> dict:
     """
     清理系统中的无效数据，包括孤立映射、孤立参数、死任务等
 
@@ -418,6 +420,29 @@ def _cleanup_invalid_data(dry_run: bool = False) -> dict:
             cleanup_result["warnings"].append(f"Checkpoint cleanup error: {str(e)}")
             GLOG.WARN(f"Checkpoint cleanup failed: {e}")
 
+        # 孤儿回测(portfolio 引用断的任务 + CH 指向已删任务的流水)。默认不并入:
+        # init 的 Step 8 也走本函数,而此项删除量大(CH mutation 重)且不可逆,
+        # 只应由 ginkgo cleanup 显式触发(include_backtests=True)
+        if include_backtests:
+            try:
+                bt_service = container.backtest_task_service()
+                bt_result = bt_service.cleanup_orphan_backtests(dry_run=dry_run)
+                if bt_result.is_success():
+                    data = bt_result.data or {}
+                    tasks = data.get("mysql_orphan_tasks", 0)
+                    ch_rows = sum(data.get("ch_global", {}).values())
+                    cleanup_result["details"]["orphan_backtests_tasks"] = tasks
+                    cleanup_result["details"]["orphan_backtests_ch_rows"] = ch_rows
+                    if tasks or ch_rows:
+                        cleanup_result["services_cleaned"].append("backtest_task_service(orphan)")
+                        for d in data.get("details", []):
+                            console.print(f":white_check_mark: {'Would clean' if dry_run else 'Cleaned'}: {d}")
+                else:
+                    cleanup_result["warnings"].append(f"Orphan backtest cleanup error: {bt_result.error}")
+            except Exception as e:
+                cleanup_result["warnings"].append(f"Orphan backtest cleanup error: {str(e)}")
+                GLOG.WARN(f"Orphan backtest cleanup failed: {e}")
+
         # 显示清理摘要
         if cleanup_result["cleaned_count"] > 0:
             outcome = "preview" if dry_run else "completed"
@@ -447,18 +472,19 @@ def cleanup(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="仅预览将清理的数量，不实际删除")] = False,
 ):
     """
-    :broom: 清理孤儿数据：废弃的绑定关系（映射）、孤立参数、Redis 死任务、过期缓存、旧信号记录、过期断点。
+    :broom: 清理孤儿数据：废弃的绑定关系（映射）、孤立参数、Redis 死任务、过期缓存、旧信号记录、过期断点；
+    含孤儿回测（引用已删组合的任务 + CH 指向已删任务的流水，量大且不可逆）。
 
     默认二次确认；--yes 跳过确认；--dry-run 仅预览不删除（预览无需确认）。
     """
     if dry_run:
         console.print(":information: Dry-run 模式：仅统计，不删除任何数据")
     elif not yes:
-        if not typer.confirm("即将清理孤儿数据（映射/参数/死任务/缓存/旧信号/断点），是否继续？"):
+        if not typer.confirm("即将清理孤儿数据（映射/参数/死任务/缓存/旧信号/断点/孤儿回测及其CH流水），是否继续？"):
             console.print(":x: 已取消")
             raise typer.Exit(1)
 
-    result = _cleanup_invalid_data(dry_run=dry_run)
+    result = _cleanup_invalid_data(dry_run=dry_run, include_backtests=True)
     if not result["success"]:
         raise typer.Exit(1)
 

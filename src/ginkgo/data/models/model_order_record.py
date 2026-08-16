@@ -31,6 +31,9 @@ class MOrderRecord(MClickBase, MBacktestRecordBase):
     portfolio_id: Mapped[str] = mapped_column(String(), default="")
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     direction: Mapped[int] = mapped_column(types.Int8, default=-1, info={"enum": DIRECTION_TYPES})
+    # 血缘(2026-08-17 追溯链 Signal→Order→PositionRecord):触发本订单的信号 uuid。
+    # 由 on_signal 挂载、_save_order_record 统一写入,三态行(NEW/SUBMITTED/FILLED)全覆盖
+    signal_id: Mapped[str] = mapped_column(String(), default="", comment="触发订单的信号uuid")
     order_type: Mapped[int] = mapped_column(types.Int8, default=-1)
     status: Mapped[int] = mapped_column(types.Int8, default=-1)
     volume: Mapped[int] = mapped_column(Integer, default=0)

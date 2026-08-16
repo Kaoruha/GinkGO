@@ -1,0 +1,22 @@
+# Local Codex Configuration
+# This file overrides .agents/config.toml for local development
+# DO NOT commit this file to version control
+
+# Development profile - more permissive
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+web_search = "live"
+
+# Debug settings
+# Uncomment to enable debug logging
+# CODEX_LOG_LEVEL = "debug"
+
+# Local MCP server overrides
+# [mcp_servers.local]
+# command = "node"
+# args = ["./local-mcp-server.js"]
+# enabled = true
+
+# Environment-specific settings
+# [env]
+# ANTHROPIC_API_KEY = "your-local-key"

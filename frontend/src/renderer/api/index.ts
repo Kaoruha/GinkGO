@@ -14,7 +14,7 @@ export type { BacktestTask, BacktestCreateRequest, BacktestListParams, BacktestN
 
 // 数据模块
 export { dataApi } from './modules/data'
-export type { StockInfo, BarData, DataStats } from './modules/data'
+export type { StockInfo, BarData, DataStats, SyncHistoryRecord } from './modules/data'
 
 // 组件模块
 export { componentsApi } from './modules/components'

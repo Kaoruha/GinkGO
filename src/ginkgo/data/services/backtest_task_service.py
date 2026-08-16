@@ -24,6 +24,21 @@ from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
 class BacktestTaskService(BaseService):
+    # 孤儿判定宽限期(秒):容忍心跳快照对"刚启动任务"的滞后(见 cleanup_orphan_tasks)
+    ORPHAN_GRACE_SECONDS = 60
+
+    # 状态正向迁移白名单(状态机守卫,见 update_status):键=目标状态,值=合法来源集。
+    # 语义:created 仅由创建产生(无来源);pending=start/重跑;running=worker 认领;
+    # 终态仅可来自活跃态;终态不可互转(重跑走 pending 复活,非直接覆盖)。
+    STATUS_TRANSITIONS = {
+        "created": set(),                                    # 初始态,只建不迁
+        "pending": {"created", "failed", "completed", "stopped"},  # start/重跑
+        "running": {"pending", "created"},                   # worker 认领启动
+        "completed": {"running", "pending"},                  # 正常完成(容忍竞态快)
+        "failed": {"running", "pending", "created"},          # 失败/孤儿清理/派发失败
+        "stopped": {"running", "pending"},                    # 用户停止
+    }
+
     """
     回测任务服务
 
@@ -163,7 +178,8 @@ class BacktestTaskService(BaseService):
             return ServiceResult.error(f"Failed to get backtest task: {str(e)}")
 
     def list(self, page: int = 0, page_size: int = 20, engine_id: str = None,
-             portfolio_id: str = None, status: str = None) -> ServiceResult:
+             portfolio_id: str = None, status: str = None,
+             sort_by: str = None, sort_order: str = "desc") -> ServiceResult:
         """
         获取回测任务列表
 
@@ -173,11 +189,16 @@ class BacktestTaskService(BaseService):
             engine_id: 引擎ID筛选
             portfolio_id: 投资组合ID筛选
             status: 状态筛选
+            sort_by: DB 级排序字段（白名单 create_at/update_at，其余忽略走默认）
+            sort_order: 排序方向 asc/desc
 
         Returns:
             ServiceResult: 列表结果
         """
         try:
+            # order_by 直拼列名，白名单防注入；非法值一律回退默认 create_at
+            if sort_by not in ("create_at", "update_at"):
+                sort_by = "create_at"
             # None 守卫：0=全量下推 None（与 signal/engine/portfolio service 一致），
             # 裸 page_size=0 触发 BaseCRUD.find LIMIT 0 返空，破坏 ADR-021 "0=all" 契约（#6652 review R4）。
             result = self._crud_repo.get_tasks_page_filtered(
@@ -186,6 +207,8 @@ class BacktestTaskService(BaseService):
                 status=status,
                 page=page,
                 page_size=page_size if page_size and page_size > 0 else None,
+                sort_by=sort_by,
+                sort_order=sort_order,
             )
 
             # 获取总数（应用相同的筛选条件）
@@ -335,6 +358,19 @@ class BacktestTaskService(BaseService):
             if not task:
                 return ServiceResult.error(f"Backtest task not found: {uuid}", code="NOT_FOUND")
 
+            # 正向迁移白名单（状态机守卫,2026-08-16 竞态实证：API 置 pending 与
+            # worker 置 running 并发提交、序不可控,running 曾被 pending 反向覆盖
+            # ——任务卡"排队中"但进度在走。守卫拒绝一切非法回退；同值写放行
+            # （重试幂等）。这是状态机重设计（ADR 待做）的第一块守卫件,
+            # 迁移表即未来 ADR 的形式化基础。
+            current = getattr(task, "status", None)
+            if current != status and current not in self.STATUS_TRANSITIONS.get(status, set()):
+                return ServiceResult.error(
+                    f"Illegal status transition: {current} -> {status} "
+                    f"(allowed origins: {sorted(self.STATUS_TRANSITIONS.get(status, set())) or 'none'})",
+                    code="ILLEGAL_TRANSITION",
+                )
+
             # 使用真实的 uuid 更新
             real_uuid = task.uuid
             updated_count = self._crud_repo.update_task_status(
@@ -384,6 +420,135 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"Failed to delete backtest task {uuid[:8]}...: {e}")
             return ServiceResult.error(f"Failed to delete backtest task: {str(e)}")
 
+    def cleanup_orphan_backtests(self, dry_run: bool = True) -> ServiceResult:
+        """
+        清理引用断裂的孤儿回测数据（2026-08-16,对齐 cleanup_orphaned_mappings 风格）。
+
+        两类目标:
+        1. MySQL 孤儿任务:portfolio_id 引用不存在的 portfolio(组合被删,实例:
+           765e5a30 被删后遗留 6 个任务)——连任务带 CH 流水 + MySQL 四表级联清理;
+        2. CH 全局孤儿流水:task_id 为空或指向不存在任务——历史删除不级联留下
+           的尸体(实测 ~14.4 万 signal + ~1 万空 id)。
+
+        与 cleanup_orphan_tasks(运行态孤儿:running 不被 worker 持有)互补,
+        本方法管引用完整性。dry_run=True 仅统计不删(默认,清理不可逆)。
+
+        Returns:
+            ServiceResult: data 含 mysql_tasks(CH 级联前任务数)/ch_global(CH 全局
+            孤儿流水分表计数)/details;MySQL CRUD 未注入时跳过对应级联并告警。
+        """
+        try:
+            from sqlalchemy import text
+
+            details: List[str] = []
+
+            # ---------- 1. MySQL 孤儿任务(引用断) ----------
+            with self._crud_repo.get_session() as session:
+                orphan_tasks = session.execute(text(
+                    "SELECT task_id FROM backtest_task "
+                    "WHERE portfolio_id IS NOT NULL AND portfolio_id != '' "
+                    "AND portfolio_id NOT IN (SELECT uuid FROM portfolio WHERE is_del = 0)"
+                )).scalars().all()
+
+            mysql_task_count = len(orphan_tasks)
+            if mysql_task_count > 0:
+                details.append(f"MySQL 孤儿任务(portfolio 引用断): {mysql_task_count} 个")
+
+            if not dry_run and orphan_tasks:
+                # 级联清理与重跑清理同构:CH 五表(尽力) + 日志 + MySQL 四表(单事务) + 任务行
+                _click_cleanups = [
+                    ("signal",          self._signal_crud),
+                    ("position_record", self._position_record_crud),
+                    ("analyzer_record", self._analyzer_record_crud),
+                    ("order_record",    self._order_record_crud),
+                    ("transfer_record", self._transfer_record_crud),
+                ]
+                for task_id in orphan_tasks:
+                    for name, crud in _click_cleanups:
+                        if crud is None:
+                            GLOG.WARN(f"[orphan-cleanup] {name} CRUD not injected, skipped")
+                        else:
+                            try:
+                                crud.remove(filters={"task_id": task_id})
+                            except Exception as e:
+                                GLOG.WARN(f"[orphan-cleanup] CH {name} delete failed for {task_id[:8]}: {e}")
+                    try:
+                        from ginkgo.services.logging import LogService
+                        LogService().delete_logs_by_task_id(task_id)
+                    except Exception as e:
+                        GLOG.WARN(f"[orphan-cleanup] logs delete failed for {task_id[:8]}: {e}")
+                    for name, crud in [
+                        ("order", self._order_crud), ("position", self._position_crud),
+                        ("transfer", self._transfer_crud), ("signal_tracker", self._signal_tracker_crud),
+                    ]:
+                        if crud is not None:
+                            try:
+                                crud.remove(filters={"task_id": task_id})
+                            except Exception as e:
+                                GLOG.WARN(f"[orphan-cleanup] mysql {name} failed for {task_id[:8]}: {e}")
+                    self._crud_repo.remove(filters={"task_id": task_id})
+                    GLOG.INFO(f"[orphan-cleanup] removed orphan backtest task {task_id[:8]} (+cascades)")
+
+            # ---------- 2. CH 全局孤儿流水(task_id 空或指向不存在的任务) ----------
+            with self._crud_repo.get_session() as session:
+                valid_ids = session.execute(text(
+                    "SELECT task_id FROM backtest_task"
+                )).scalars().all()
+            in_clause = ",".join(f"'{tid}'" for tid in valid_ids) or "''"
+            ch_global: Dict[str, int] = {}
+
+            # CH 侧直 SQL(跨库 NOT IN 只能拉清单下推)。任一 CH crud 拿连接。
+            ch_crud = next((c for c in [self._signal_crud, self._position_record_crud,
+                                        self._analyzer_record_crud, self._order_record_crud] if c is not None), None)
+            if ch_crud is None:
+                GLOG.WARN("[orphan-cleanup] no CH crud injected, global sweep skipped")
+            else:
+                ch_tables = ["signal", "order_record", "position_record", "analyzer_record"]
+                ch_session_factory = ch_crud._get_connection()
+                with ch_session_factory.get_session() as ch_session:
+                    for table in ch_tables:
+                        where = f"task_id = '' OR task_id NOT IN ({in_clause})"
+                        cnt = ch_session.execute(text(
+                            f"SELECT count() FROM {table} WHERE {where}"
+                        )).scalar() or 0
+                        if cnt > 0:
+                            ch_global[table] = int(cnt)
+                            details.append(f"CH {table} 孤儿流水: {cnt} 行")
+                            if not dry_run:
+                                ch_session.execute(text(f"ALTER TABLE {table} DELETE WHERE {where}"))
+                # 回测日志表(仅 ginkgo_logs_backtest 有 task_id 语义)
+                try:
+                    from ginkgo.services.logging import LogService
+                    log_svc = LogService()
+                    log_where = f"task_id = '' OR task_id NOT IN ({in_clause})"
+                    with log_svc._engine.get_session() as ls:
+                        cnt = ls.execute(text(
+                            f"SELECT count() FROM ginkgo_logs_backtest WHERE {log_where}"
+                        )).scalar() or 0
+                        if cnt > 0:
+                            ch_global["ginkgo_logs_backtest"] = int(cnt)
+                            details.append(f"CH 回测日志孤儿: {cnt} 行")
+                            if not dry_run:
+                                ls.execute(text(f"ALTER TABLE ginkgo_logs_backtest DELETE WHERE {log_where}"))
+                except Exception as e:
+                    GLOG.WARN(f"[orphan-cleanup] log sweep failed: {e}")
+
+            action = "将清理" if dry_run else "清理了"
+            if details:
+                for d in details:
+                    GLOG.INFO(f"[orphan-cleanup] {action}: {d}")
+
+            return ServiceResult.success({
+                "dry_run": dry_run,
+                "mysql_orphan_tasks": mysql_task_count,
+                "ch_global": ch_global,
+                "details": details,
+            }, f"孤儿回测清理{'预览' if dry_run else '执行'}完成")
+
+        except Exception as e:
+            GLOG.ERROR(f"cleanup_orphan_backtests failed: {e}")
+            return ServiceResult.error(f"cleanup_orphan_backtests failed: {e}")
+
     def cleanup_orphan_tasks(self) -> ServiceResult:
         """
         清理孤儿回测任务（#6846）。
@@ -391,6 +556,10 @@ class BacktestTaskService(BaseService):
         判定：running 任务不被任何活跃 worker 心跳持有 → 孤儿 → 标 failed。
         心跳 TTL 30s，worker crash / 丢 Kafka 消息后心跳过期即不再声明持有该 task，
         遂被判定孤儿，兜底状态机防永久 running。
+
+        宽限期（ORPHAN_GRACE_SECONDS）：心跳是 10s 周期快照，任务登记后最长 10s
+        才进持有集；刚置 running（start_time 距今 < 60s）的任务即使缺席快照也跳过，
+        防启动窗口竞态误杀（真孤儿最多晚一个宽限期被标，代价可忽略）。
 
         相比 #4853 旧的 start_time 超时判定，心跳持有集才是"有 worker 在管这事"
         的真实信号：worker 正常在跑 → 心跳声明持有 → 不动；worker 死了 → 心跳过期
@@ -405,6 +574,8 @@ class BacktestTaskService(BaseService):
             running 总数）；Redis 不可达时 skipped=True 且 cleaned=0（防基础设施抖动误杀全量）。
         """
         try:
+            import datetime
+
             running = self._crud_repo.get_running_tasks()
             if not running:
                 return ServiceResult.success(
@@ -425,6 +596,19 @@ class BacktestTaskService(BaseService):
             for task in running:
                 if task.uuid in held:
                     continue
+                # 宽限期:worker 心跳是 10s 周期快照,任务登记进 self.tasks 后最长
+                # 10s 才随下一次心跳写进持有集。刚置 running(start_time 距今 <
+                # ORPHAN_GRACE_SECONDS)的任务天然可能缺席快照,跳过防误杀——
+                # 实例:2026-08-16 24ec2a63 重跑 10s 内被 Reaper 误标 failed,引擎
+                # 不知情跑完才被 completed 覆盖,期间用户看到"失败但进行中"。
+                # start_time 缺失(None)不宽限:保证兜底使命不受数据缺失影响。
+                # 消费方适配快照滞后语义,而非要求生产方(心跳)堵漏。
+                st = getattr(task, "start_time", None)
+                if st is not None:
+                    if st.tzinfo is not None:
+                        st = st.astimezone().replace(tzinfo=None)  # 归一 naive-local(#4853 语态漂移教训)
+                    if 0 <= (datetime.datetime.now() - st).total_seconds() < self.ORPHAN_GRACE_SECONDS:
+                        continue
                 bt = getattr(task, "business_timestamp", None)
                 bt_str = bt.strftime("%Y-%m-%d %H:%M:%S") if bt else "N/A"
                 self.update_status(
@@ -888,6 +1072,16 @@ class BacktestTaskService(BaseService):
                 real_uuid, status="pending", error_message="", **_run_summary_reset
             )
             if not status_result.is_success():
+                # 入口 startable 守卫是 check-then-act,非原子:并发双击的第二个
+                # start 可能在守卫通过后、此处写 pending 前,被第一个 start 的
+                # worker 认领抢先置成 running。状态机守卫拦下(2026-08-17 实例:
+                # running→pending 被拒报 400)——这恰是守卫的价值:旧版无守卫时
+                # 此处会静默打回 pending,重复清理+双引擎并发写入。转化为友好语义。
+                if getattr(status_result, "code", None) == "ILLEGAL_TRANSITION":
+                    return ServiceResult.error(
+                        f"Task is already being started (concurrent start detected). "
+                        f"Current status: {status_result.error}"
+                    )
                 return ServiceResult.error(f"Failed to update task status to pending: {status_result.error}")
 
             GLOG.DEBUG(f"Updated task {real_uuid} status to pending")
@@ -1179,6 +1373,8 @@ class BacktestTaskService(BaseService):
             win_rate=float(getattr(task, "win_rate", 0) or 0),
             final_portfolio_value=float(getattr(task, "final_portfolio_value", 0) or 0),
             created_at=self._format_dt(getattr(task, "create_at", None)) or "",
+            # 列表默认按 update_at 排序/展示;旧行 update_at 可能缺省,回退 create_at
+            update_at=self._format_dt(getattr(task, "update_at", None) or getattr(task, "create_at", None)) or "",
             started_at=self._format_dt(getattr(task, "start_time", None)),
             completed_at=self._format_dt(getattr(task, "end_time", None)),
             backtest_start_date=self._format_dt(getattr(task, "backtest_start_date", None)),
@@ -1203,9 +1399,13 @@ class BacktestTaskService(BaseService):
         from ginkgo.data.services.backtest_task_schemas import BacktestTaskSummary
 
         try:
+            # 时间字段下推 DB 级排序(分页前全局有序);指标字段仍走页内排序
+            db_sortable = ("create_at", "update_at")
             result = self.list(
                 page=page, page_size=page_size,
                 portfolio_id=portfolio_id, status=status,
+                sort_by=sort_by if sort_by in db_sortable else None,
+                sort_order=sort_order,
             )
             if not result.is_success():
                 return result
@@ -1232,8 +1432,8 @@ class BacktestTaskService(BaseService):
             for t in tasks:
                 summaries.append(self._task_to_summary(t, portfolio_names))
 
-            # 当前页内排序
-            sortable = {"annual_return", "sharpe_ratio", "max_drawdown", "win_rate", "created_at", "total_pnl"}
+            # 当前页内排序(仅指标字段;时间字段已在 DB 级排序,页内重排会破坏分页全局有序)
+            sortable = {"annual_return", "sharpe_ratio", "max_drawdown", "win_rate", "total_pnl"}
             if sort_by in sortable:
                 reverse = sort_order != "asc"
                 summaries.sort(key=lambda s: getattr(s, sort_by, 0) or 0, reverse=reverse)
@@ -1267,6 +1467,9 @@ class BacktestTaskService(BaseService):
             annual_returns: list[float] = []
             win_rates: list[float] = []
             latest_completed = None  # create_at 最近的已完成任务摘要
+            # 比较用 raw datetime（存储时才 _format_dt 成 str）：
+            # 若拿 datetime 与已格式化的 str 比较会 TypeError（多任务时必触发）
+            latest_created_raw = None
 
             for t in tasks:
                 if (getattr(t, "status", "") or "") != "completed":
@@ -1284,7 +1487,11 @@ class BacktestTaskService(BaseService):
                 win_rates.append(float(getattr(t, "win_rate", 0) or 0))
 
                 created = getattr(t, "create_at", None)
-                if latest_completed is None or (created or "") > (latest_completed["created_at"] or ""):
+                if latest_completed is None or (
+                    created is not None
+                    and (latest_created_raw is None or created > latest_created_raw)
+                ):
+                    latest_created_raw = created
                     latest_completed = {
                         "uuid": getattr(t, "uuid", ""),
                         "name": getattr(t, "name", ""),
@@ -1462,6 +1669,7 @@ class BacktestTaskService(BaseService):
             for o in orders:
                 items.append(BacktestOrderItem(
                     uuid=getattr(o, "uuid", ""),
+                    order_id=getattr(o, "order_id", "") or "",
                     portfolio_id=getattr(o, "portfolio_id", ""),
                     engine_id=getattr(o, "engine_id", ""),
                     task_id=getattr(o, "task_id", ""),
@@ -1475,6 +1683,7 @@ class BacktestTaskService(BaseService):
                     transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
                     fee=convert_to_float(getattr(o, "fee", 0)),
                     timestamp=self._format_dt(getattr(o, "timestamp", None)),
+                    signal_id=getattr(o, "signal_id", "") or "",
                 ))
 
             sr = ServiceResult.success(data=items, message="Orders retrieved")
@@ -1483,6 +1692,49 @@ class BacktestTaskService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"list_orders failed: {e}")
             return ServiceResult.error(f"Failed to list orders: {e}")
+
+    def list_order_records(self, uuid: str) -> "ServiceResult":
+        """获取回测订单状态流水(完整生命周期,不去重)。
+
+        与 list_orders 互补:同一 order_id 的每次状态变更
+        (NEW/SUBMITTED/PARTIAL_FILLED/FILLED/CANCELED/REJECTED)各一行,
+        前端用于还原订单生命周期时间线。血缘 signal_id 每行同值。
+        """
+        try:
+            task_id, portfolio_id, err = self._resolve_task_id(uuid)
+            if err:
+                return err
+
+            from ginkgo.data.containers import container
+            result = container.result_service().get_order_records(task_id=task_id)
+            if not result.is_success():
+                return ServiceResult.success(data=[], message=result.error)
+
+            records = result.data.get("data", []) if isinstance(result.data, dict) else (result.data or [])
+            items = []
+            for o in records:
+                items.append(BacktestOrderItem(
+                    uuid=getattr(o, "uuid", ""),
+                    order_id=getattr(o, "order_id", "") or "",
+                    portfolio_id=getattr(o, "portfolio_id", ""),
+                    engine_id=getattr(o, "engine_id", ""),
+                    task_id=getattr(o, "task_id", ""),
+                    code=getattr(o, "code", ""),
+                    direction=str(getattr(o, "direction", "")) if getattr(o, "direction", None) is not None else None,
+                    order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
+                    status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
+                    volume=int(getattr(o, "volume", 0) or 0),
+                    limit_price=convert_to_float(getattr(o, "limit_price", 0)) or None,
+                    transaction_price=convert_to_float(getattr(o, "transaction_price", 0)),
+                    transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
+                    fee=convert_to_float(getattr(o, "fee", 0)),
+                    timestamp=self._format_dt(getattr(o, "timestamp", None)),
+                    signal_id=getattr(o, "signal_id", "") or "",
+                ))
+            return ServiceResult.success(data=items, message="Order records retrieved")
+        except Exception as e:
+            GLOG.ERROR(f"list_order_records failed: {e}")
+            return ServiceResult.error(f"Failed to list order records: {e}")
 
     def list_fills(self, uuid: str) -> "ServiceResult":
         """获取回测已成交订单（fills），返回 list[BacktestOrderItem]。
@@ -1515,6 +1767,7 @@ class BacktestTaskService(BaseService):
             for o in filled:
                 items.append(BacktestOrderItem(
                     uuid=getattr(o, "uuid", ""),
+                    order_id=getattr(o, "order_id", "") or "",
                     portfolio_id=getattr(o, "portfolio_id", ""),
                     engine_id=getattr(o, "engine_id", ""),
                     task_id=getattr(o, "task_id", ""),
@@ -1580,6 +1833,7 @@ class BacktestTaskService(BaseService):
             for o in records:
                 items.append(BacktestOrderItem(
                     uuid=getattr(o, "uuid", ""),
+                    order_id=getattr(o, "order_id", "") or "",
                     portfolio_id=getattr(o, "portfolio_id", ""),
                     engine_id=getattr(o, "engine_id", ""),
                     task_id=getattr(o, "task_id", ""),
@@ -1593,6 +1847,7 @@ class BacktestTaskService(BaseService):
                     transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
                     fee=convert_to_float(getattr(o, "fee", 0)),
                     timestamp=self._format_dt(getattr(o, "timestamp", None)),
+                    signal_id=getattr(o, "signal_id", "") or "",
                 ))
 
             sr = ServiceResult.success(data=items, message="Order records retrieved")
@@ -1626,12 +1881,26 @@ class BacktestTaskService(BaseService):
                 volume = int(getattr(p, "volume", 0) or 0)
                 price = convert_to_float(getattr(p, "price", 0))
                 fee = convert_to_float(getattr(p, "fee", 0))
-                # cost 为每股加权均价（Position._cost 口径），派生市值/盈亏
-                # 公式对齐 Position 盈亏：total_position*(price-cost)-fee
-                market_value = price * volume
-                profit = (price - cost) * volume - fee
-                cost_basis = cost * volume
+                # 记录是持仓变更流水（volume 为带符号 delta：卖出为负），
+                # cost 为每股加权均价（Position._cost 口径）。
+                # 市值/盈亏按该笔变更的规模（|volume|）计，方向由 direction 表达：
+                #   BUY  行 profit = (price-cost)*vol-fee   （买入日 price≈cost，≈-fee）
+                #   SELL 行 profit = (price-cost)*|vol|-fee （已实现盈亏，卖<买为负）
+                # 直接用带符号 volume 会让卖出行的盈亏符号取反、市值成负数。
+                abs_volume = abs(volume)
+                # 变动方向:优先记录中的显式枚举,缺失/非法时按 volume 符号派生兜底
+                # （int() 对 None/Mock 抛 TypeError，须捕获后走派生）
+                try:
+                    direction = int(getattr(p, "direction", 0)) or (1 if volume >= 0 else 2)
+                except (TypeError, ValueError):
+                    direction = 1 if volume >= 0 else 2
+                market_value = price * abs_volume
+                profit = (price - cost) * abs_volume - fee
+                cost_basis = cost * abs_volume
                 profit_pct = (profit / cost_basis) if cost_basis > 0 else 0.0
+                # timestamp 主显事件时间（business_timestamp）；CH 记录的 timestamp
+                # 是写入时刻（回测结束落库时间），非行情时间
+                event_ts = getattr(p, "business_timestamp", None) or getattr(p, "timestamp", None)
                 items.append(BacktestPositionItem(
                     uuid=getattr(p, "uuid", ""),
                     portfolio_id=getattr(p, "portfolio_id", ""),
@@ -1643,9 +1912,9 @@ class BacktestTaskService(BaseService):
                     frozen_volume=int(getattr(p, "frozen_volume", 0) or 0),
                     price=price,
                     fee=fee,
-                    timestamp=self._format_dt(getattr(p, "timestamp", None)),
-                    # A股回测恒多头；volume<0 视为空头防御性派生
-                    direction=1 if volume >= 0 else 2,
+                    timestamp=self._format_dt(event_ts) or "",
+                    business_timestamp=self._format_dt(getattr(p, "business_timestamp", None)) or "",
+                    direction=direction,
                     market_value=market_value,
                     profit=profit,
                     profit_pct=profit_pct,

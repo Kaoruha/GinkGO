@@ -37,7 +37,14 @@ class DataSeeder:
     Refactored to separate concerns and provide better testability.
     """
 
-    def __init__(self):
+    def __init__(self, rebuild_seed: bool = False):
+        """
+        Args:
+            rebuild_seed: 显式完全重建 seed 数据(删旧建新,uuid 换新会悬空引用)。
+                默认 False:同名 seed 已存在即跳过(幂等且保引用,2026-08-17 事故
+                后的语义修正——portfolio/engine/file 三处原为无条件物理删除重建)。
+        """
+        self.rebuild_seed = rebuild_seed
         """Initialize the data seeder."""
         self.console = Console()
         self.results = {
@@ -51,13 +58,12 @@ class DataSeeder:
             'errors': []
         }
 
-    def run_all(self) -> Dict[str, Any]:
+    def run_all(self, rebuild_seed: bool = False) -> Dict[str, Any]:
         """
         Runs the complete example data seeding process.
-
-        Returns:
-            Dict containing seeding results and statistics
+        rebuild_seed 透传给实例开关;默认幂等跳过已存在 seed。
         """
+        self.rebuild_seed = rebuild_seed
         self._log_header()
 
         try:
@@ -256,28 +262,35 @@ class DataSeeder:
         engine_service = container.engine_service()
         engine_name = "present_engine"
 
-        # 1. Remove existing engines with same name using direct database deletion
+        # 1. 同名引擎已存在:默认跳过(幂等保引用);rebuild_seed 才物理删除重建
         try:
-            from ginkgo.data.crud.engine_crud import EngineCRUD
-            from sqlalchemy import text
+            _existing_engine = engine_service.get(name=engine_name)
+            if (not self.rebuild_seed) and _existing_engine.success and _existing_engine.data:
+                GLOG.INFO(f"同名引擎已存在,跳过创建: {engine_name}")
+                self.console.print(f":white_check_mark: Engine '{engine_name}' already exists, skipped.")
+                return _existing_engine
+        except Exception:
+            pass  # 检查失败继续走创建(不阻断)
 
-            engine_crud = EngineCRUD()
+        if self.rebuild_seed:
+            try:
+                from ginkgo.data.crud.engine_crud import EngineCRUD
+                from sqlalchemy import text
 
-            with engine_crud.get_session() as session:
-                # 直接使用SQL删除同名引擎
-                stmt = text("DELETE FROM engine WHERE name = :name")
-                result = session.execute(stmt, {"name": engine_name})
-                deleted_count = result.rowcount
+                engine_crud = EngineCRUD()
 
-                if deleted_count > 0:
-                    GLOG.WARN(f"直接SQL删除 {deleted_count} 个现有引擎: {engine_name}")
-                    self.console.print(f":broom: Direct SQL deleted {deleted_count} existing '{engine_name}' engines.")
-                else:
-                    GLOG.DEBUG(f"没有找到需要删除的引擎: {engine_name}")
+                with engine_crud.get_session() as session:
+                    stmt = text("DELETE FROM engine WHERE name = :name")
+                    result = session.execute(stmt, {"name": engine_name})
+                    deleted_count = result.rowcount
 
-        except Exception as e:
-            GLOG.ERROR(f"引擎删除失败: {engine_name}, 错误: {e}")
-            self.console.print(f":warning: Engine deletion had issues: {str(e)}")
+                    if deleted_count > 0:
+                        GLOG.WARN(f"[rebuild-seed] 物理删除 {deleted_count} 个现有引擎: {engine_name}")
+                        self.console.print(f":broom: [rebuild-seed] Deleted {deleted_count} existing '{engine_name}' engines.")
+
+            except Exception as e:
+                GLOG.ERROR(f"引擎删除失败: {engine_name}, 错误: {e}")
+                self.console.print(f":warning: Engine deletion had issues: {str(e)}")
 
         # 2. Create new engine with time range matching complete_backtest_example.py
         GLOG.DEBUG(f"创建新引擎: {engine_name} (is_live=False)")
@@ -353,38 +366,46 @@ class DataSeeder:
                 preset_name = file_name.split('.')[0]
                 GLOG.DEBUG(f"处理文件: {file_name} -> {preset_name}")
 
-                # Remove existing files with same name and type using direct database deletion
-                # 包括有present_前缀的旧版本和无前缀的新版本
+                # 同名文件已存在:默认跳过(幂等保引用——file 被 portfolio_file_mapping
+                # 引用,删了重建 uuid 换新会悬空所有组合的组件绑定);
+                # rebuild_seed 才物理删除重建
                 try:
-                    from ginkgo.data.crud.file_crud import FileCRUD
-                    from sqlalchemy import text
+                    _existing_file = container.file_service().get(name=preset_name, file_type=file_type)
+                    if (not self.rebuild_seed) and _existing_file.success and _existing_file.data:
+                        GLOG.DEBUG(f"同名文件已存在,跳过: {preset_name}")
+                        continue
+                except Exception:
+                    pass  # 检查失败继续走创建
 
-                    file_crud = FileCRUD()
+                if self.rebuild_seed:
+                    try:
+                        from ginkgo.data.crud.file_crud import FileCRUD
+                        from sqlalchemy import text
 
-                    with file_crud.get_session() as session:
-                        # 删除所有相关文件：原始名称、present_前缀版本、preset_前缀版本
-                        stmt = text("""
-                            DELETE FROM file WHERE
-                            (name = :name OR name = :present_name OR name = :preset2_name)
-                            AND type = :type
-                        """)
-                        result = session.execute(stmt, {
-                            "name": preset_name,
-                            "present_name": f"present_{preset_name}",
-                            "preset2_name": f"preset_{preset_name}",
-                            "type": file_type.value
-                        })
-                        deleted_count = result.rowcount
+                        file_crud = FileCRUD()
 
-                        if deleted_count > 0:
-                            GLOG.WARN(f"直接SQL删除 {deleted_count} 个现有文件: {preset_name} (包括所有前缀版本)")
-                            self.console.print(f":broom: Direct SQL deleted {deleted_count} existing '{preset_name}' files (including prefixed versions).")
-                        else:
-                            GLOG.DEBUG(f"没有找到需要删除的文件: {preset_name}")
+                        with file_crud.get_session() as session:
+                            # 删除所有相关文件：原始名称、present_前缀版本、preset_前缀版本
+                            stmt = text("""
+                                DELETE FROM file WHERE
+                                (name = :name OR name = :present_name OR name = :preset2_name)
+                                AND type = :type
+                            """)
+                            result = session.execute(stmt, {
+                                "name": preset_name,
+                                "present_name": f"present_{preset_name}",
+                                "preset2_name": f"preset_{preset_name}",
+                                "type": file_type.value
+                            })
+                            deleted_count = result.rowcount
 
-                except Exception as e:
-                    GLOG.ERROR(f"文件删除失败: {preset_name}, 错误: {e}")
-                    self.console.print(f":warning: File deletion had issues: {str(e)}")
+                            if deleted_count > 0:
+                                GLOG.WARN(f"[rebuild-seed] 物理删除 {deleted_count} 个现有文件: {preset_name}")
+                                self.console.print(f":broom: [rebuild-seed] Deleted {deleted_count} existing '{preset_name}' files.")
+
+                    except Exception as e:
+                        GLOG.ERROR(f"文件删除失败: {preset_name}, 错误: {e}")
+                        self.console.print(f":warning: File deletion had issues: {str(e)}")
 
                 # Read and add new file
                 file_path = os.path.join(folder_path, file_name)
@@ -434,25 +455,22 @@ class DataSeeder:
         portfolio_type = "实盘" if is_live else "回测"
         GLOG.INFO(f"创建{portfolio_type}投资组合: {portfolio_name}")
 
-        # 1. 删除已存在的同名portfolio
+        # 1. 同名已存在且非 rebuild_seed → 直接复用,跳过创建(幂等且不破坏引用)。
+        #    此前实现是"按 name 物理 DELETE 再重建"——uuid 换新,引用该组合的
+        #    回测任务全部悬空(2026-08-17 实例:init 触发 seeding 删了用户在用的
+        #    present_portfolio,hello 任务 portfolio_id 悬空 not found)。seed 数据
+        #    的幂等不应以破坏引用完整性为代价;如需强制重建,由用户显式删除。
         try:
-            from ginkgo.data.crud.portfolio_crud import PortfolioCRUD
-            from sqlalchemy import text
-
-            portfolio_crud = PortfolioCRUD()
-
-            with portfolio_crud.get_session() as session:
-                stmt = text("DELETE FROM portfolio WHERE name = :name")
-                result = session.execute(stmt, {"name": portfolio_name})
-                deleted_count = result.rowcount
-
-                if deleted_count > 0:
-                    GLOG.WARN(f"删除 {deleted_count} 个现有投资组合: {portfolio_name}")
-                    self.console.print(f":broom: Deleted {deleted_count} existing '{portfolio_name}' portfolios.")
-
+            existing = portfolio_service.get(name=portfolio_name)
+            if (not self.rebuild_seed) and existing is not None and existing.success and existing.data:
+                existing_uuid = getattr(existing.data, 'uuid', None) or (
+                    existing.data.get('uuid') if isinstance(existing.data, dict) else None)
+                if existing_uuid:
+                    GLOG.INFO(f"同名组合已存在,跳过创建: {portfolio_name} (UUID: {existing_uuid})")
+                    self.console.print(f":white_check_mark: Portfolio '{portfolio_name}' already exists, skipped.")
+                    return existing
         except Exception as e:
-            GLOG.ERROR(f"投资组合删除失败: {portfolio_name}, 错误: {e}")
-            self.console.print(f":warning: Portfolio deletion had issues: {str(e)}")
+            GLOG.WARN(f"同名组合检查失败(将继续走创建): {portfolio_name}, {e}")
 
         # 2. 创建新portfolio
         portfolio = portfolio_service.add(name=portfolio_name, is_live=is_live)
@@ -542,7 +560,11 @@ class DataSeeder:
                 "strategies": [{"name": "random_signal_strategy"}],
                 "selectors": [{"name": "fixed_selector"}],
                 "sizers": [{"name": "fixed_sizer"}],
-                "analyzers": [{"name": "net_value"}]
+                "analyzers": [{"name": "net_value"}],
+                "risk_managers": [
+                    {"name": "loss_limit_risk"},
+                    {"name": "profit_target_risk"},
+                ],
             }
 
             # 1. 为回测Portfolio创建组件绑定
@@ -761,9 +783,11 @@ class DataSeeder:
                 if "position_ratio_risk" in file_name_lower:
                     return {0: "0.2"}  # max_position_ratio
                 elif "loss_limit_risk" in file_name_lower:
-                    return {0: "0.05"}  # loss_limit
+                    # LossLimitRisk(name, loss_limit): index0=name, index1=止损阈值(小数比例,0.05=5%)
+                    return {0: "LossLimitRisk", 1: "0.05"}
                 elif "profit_target_risk" in file_name_lower:
-                    return {0: "0.15"}  # profit_limit
+                    # ProfitTargetRisk(profit_target, ...): index0=止盈目标(0-1比例,0.15=15%)
+                    return {0: "0.15"}
                 elif "no_risk" in file_name_lower:
                     return {}  # 无参数
 
@@ -861,13 +885,16 @@ class DataSeeder:
 _seeder_instance = None
 
 
-def run():
-    """Legacy run function for backward compatibility."""
-    global _seeder_instance
-    if _seeder_instance is None:
-        _seeder_instance = DataSeeder()
+def run(rebuild_seed: bool = False):
+    """Legacy run function for backward compatibility.
 
-    return _seeder_instance.run_all()
+    rebuild_seed=True 时完全重建 seed(删旧建新,uuid 换新,引用悬空——
+    显式选择才走);默认幂等跳过已存在 seed。
+    """
+    global _seeder_instance
+    _seeder_instance = DataSeeder(rebuild_seed=rebuild_seed)
+
+    return _seeder_instance.run_all(rebuild_seed=rebuild_seed)
 
 
 def get_seeder() -> DataSeeder:

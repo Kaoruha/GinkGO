@@ -45,18 +45,19 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
     def __init__(
         self,
         name: str = "MaxDrawdownRisk",
-        max_drawdown: float = 15.0,
-        warning_drawdown: float = 10.0,
-        critical_drawdown: float = 20.0,
+        max_drawdown: float = 0.15,
+        warning_drawdown: float = 0.10,
+        critical_drawdown: float = 0.20,
         lot_size: int = 100,
         *args,
         **kwargs,
     ):
         """
         Args:
-            max_drawdown(float): 最大允许回撤，百分比（例如：15.0表示15%）
-            warning_drawdown(float): 预警回撤阈值，百分比
-            critical_drawdown(float): 严重回撤阈值，百分比
+            max_drawdown(float): 最大允许回撤，小数比例（例如：0.15表示15%。
+                与 LossLimitRisk/ProfitTargetRisk 口径统一，均为小数，无百分数乘换算）
+            warning_drawdown(float): 预警回撤阈值，小数比例（0.10表示10%）
+            critical_drawdown(float): 严重回撤阈值，小数比例（0.20表示20%）
 
         Constraint:
             critical_drawdown 必须 > max_drawdown。减仓分支仅在
@@ -82,7 +83,7 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
         self._peak_values = {}  # code: peak_value
         self._portfolio_peak = Decimal('0')
 
-        self.set_name(f"{name}_max{self._max_drawdown}%_warn{self._warning_drawdown}%_critical{self._critical_drawdown}%")
+        self.set_name(f"{name}_max{self._max_drawdown:.0%}_warn{self._warning_drawdown:.0%}_critical{self._critical_drawdown:.0%}")
 
     @property
     def max_drawdown(self) -> float:
@@ -115,12 +116,13 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
         if order.direction == DIRECTION_TYPES.LONG:
             if current_drawdown > self._critical_drawdown:
                 # 严重回撤，停止新开仓
-                GLOG.CRITICAL(f"MaxDrawdownRisk: Critical drawdown {current_drawdown:.1f}% > {self._critical_drawdown}%, stopping new positions")
+                GLOG.CRITICAL(f"MaxDrawdownRisk: Critical drawdown {current_drawdown:.1%} > {self._critical_drawdown:.0%}, stopping new positions")
                 return None
             elif current_drawdown > self._max_drawdown:
                 # 超过最大回撤，减少开仓规模
                 # 分母 floor 防御 (#5486)：构造器已保证 critical>max 使分母恒正，此处为纵深保护
-                denominator = max(self._critical_drawdown - self._max_drawdown, 0.001)
+                # （小数口径下区间宽度为 0.0x 量级，floor 相应缩至 1e-6 防吞并窄区间）
+                denominator = max(self._critical_drawdown - self._max_drawdown, 0.000001)
                 reduction_factor = (self._critical_drawdown - current_drawdown) / denominator
                 # 返回副本而非原地修改 (#5495)：避免多风险链共享同一 order 引用导致过度缩减与状态污染
                 reduced_order = copy.deepcopy(order)
@@ -130,11 +132,11 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
                 # 调用方对 cal() 返回 None 走软拦截 ORDERBLOCKED,零侵入)(#6038)
                 aligned = self.align_to_lot(scaled)
                 if aligned < self._lot_size:
-                    GLOG.WARN(f"MaxDrawdownRisk: Drawdown {current_drawdown:.1f}% > {self._max_drawdown}%, "
+                    GLOG.WARN(f"MaxDrawdownRisk: Drawdown {current_drawdown:.1%} > {self._max_drawdown:.0%}, "
                              f"scaled {reduced_order.volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
                     return None
                 reduced_order.adjust_volume(aligned)
-                GLOG.WARN(f"MaxDrawdownRisk: Reducing position size due to drawdown {current_drawdown:.1f}%")
+                GLOG.WARN(f"MaxDrawdownRisk: Reducing position size due to drawdown {current_drawdown:.1%}")
                 return reduced_order
 
         # 卖出订单允许通过（减仓）
@@ -164,7 +166,7 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
 
         # 严重回撤 - 强制减仓
         if current_drawdown > self._critical_drawdown:
-            GLOG.CRITICAL(f"MaxDrawdownRisk: CRITICAL drawdown {current_drawdown:.1f}% > {self._critical_drawdown}%")
+            GLOG.CRITICAL(f"MaxDrawdownRisk: CRITICAL drawdown {current_drawdown:.1%} > {self._critical_drawdown:.0%}")
 
             # 为所有持仓生成减仓信号
             for code in portfolio_info.get("positions", {}):
@@ -172,14 +174,14 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
                     signal = self.create_signal(
                         code=code,
                         direction=DIRECTION_TYPES.SHORT,
-                        reason=f"CRITICAL: Max drawdown {current_drawdown:.1f}% exceeded {self._critical_drawdown}%",
+                        reason=f"CRITICAL: Max drawdown {current_drawdown:.1%} exceeded {self._critical_drawdown:.0%}",
                         strength=0.95,  # 高强度信号
                     )
                     signals.append(signal)
 
         # 超过最大回撤 - 警告减仓
         elif current_drawdown > self._max_drawdown:
-            GLOG.WARN(f"MaxDrawdownRisk: WARNING drawdown {current_drawdown:.1f}% > {self._max_drawdown}%")
+            GLOG.WARN(f"MaxDrawdownRisk: WARNING drawdown {current_drawdown:.1%} > {self._max_drawdown:.0%}")
 
             # 选择亏损最大的股票减仓
             worst_position = self._find_worst_performing_position(portfolio_info)
@@ -187,14 +189,14 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
                 signal = self.create_signal(
                     code=worst_position,
                     direction=DIRECTION_TYPES.SHORT,
-                    reason=f"WARNING: Max drawdown {current_drawdown:.1f}% exceeded {self._max_drawdown}%",
+                    reason=f"WARNING: Max drawdown {current_drawdown:.1%} exceeded {self._max_drawdown:.0%}",
                     strength=0.7,  # 中等强度信号
                 )
                 signals.append(signal)
 
         # 预警回撤 - 记录警告
         elif current_drawdown > self._warning_drawdown:
-            GLOG.INFO(f"MaxDrawdownRisk: WARNING level drawdown {current_drawdown:.1f}% > {self._warning_drawdown}%")
+            GLOG.INFO(f"MaxDrawdownRisk: WARNING level drawdown {current_drawdown:.1%} > {self._warning_drawdown:.0%}")
 
         return signals
 
@@ -220,7 +222,7 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
         if self._portfolio_peak <= 0 or current_value <= 0:
             return 0.0
 
-        drawdown = (1 - current_value / self._portfolio_peak) * 100
+        drawdown = 1 - current_value / self._portfolio_peak  # 小数比例
         return float(drawdown)
 
     def _find_worst_performing_position(self, portfolio_info: Dict) -> str:
@@ -235,7 +237,7 @@ class MaxDrawdownRisk(LotAlignableMixin, BaseRiskManagement):
                 current_value = Decimal(str(position.market_value))
 
                 if peak_value > 0 and current_value > 0:
-                    drawdown = (1 - current_value / peak_value) * 100
+                    drawdown = 1 - current_value / peak_value  # 小数比例
                     if drawdown > worst_ratio:
                         worst_ratio = drawdown
                         worst_code = code

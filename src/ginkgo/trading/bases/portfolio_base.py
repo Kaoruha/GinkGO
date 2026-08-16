@@ -536,6 +536,32 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
         # 传播 portfolio 上下文（engine/time_provider/data_feeder）
         self._propagate_context(selector)
 
+    def _iter_components(self):
+        """
+        全部已挂载组件的单一事实来源（组件清单收敛,2026-08-16）。
+
+        此前 bind_engine 重绑 / set_time_provider 下传各自手写四类组件清单,
+        risk_managers 在两处被遗漏——风控组件"挂上了但没人认领"（无时钟/无身份,
+        信号 business_timestamp 与 engine_id 全空）。所有对全量组件的传播遍历
+        （时钟/引擎/context 重绑/未来的任何下传）一律经本迭代器——新增组件类型
+        只改此处一份清单,遍历点自动覆盖。
+
+        顺序:strategies → sizer → selectors → risk_managers → analyzers。
+
+        形态注记:sizer 是五类中唯一的"单值槽位"(组合同一时刻只能有一个仓位
+        算法,双 sizer 对"这单买多少"会给冲突答案)——未绑定时为 None,须守卫,
+        否则 yield from None 抛 TypeError。其余四类为集合(list/dict),"没有
+        组件"即空集合,空迭代天然无害无需守卫。将来新增单值型组件同样要带
+        is not None 守卫,集合型直接 yield from。
+        """
+        yield from self._strategies
+        # 唯一单值槽位:None=未绑定,守卫防 yield from None;领域语义见 docstring
+        if self._sizer is not None:
+            yield self._sizer
+        yield from self._selectors
+        yield from self.risk_managers
+        yield from self._analyzers.values()
+
     def bind_engine(self, engine: BaseEngine):
         """
         Bind engine to portfolio and propagate to all bound components.
@@ -552,41 +578,18 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
         if engine._time_provider is not None:
             self.set_time_provider(engine._time_provider)
 
-        # 通过统一的ContextMixin同步给所有已绑定的组件
-        # 策略组件（支持多个）- 先 bind_portfolio 设置 _context，后 bind_engine
-        for strategy in self._strategies:
-            self._rebind_portfolio_and_engine(strategy, engine)
-
-        # Sizer组件（单个）- 需要engine_id创建Order
-        if self._sizer is not None:
-            self._rebind_portfolio_and_engine(self._sizer, engine)
-
-        # Selector组件（支持多个）
-        for selector in self._selectors:
-            self._rebind_portfolio_and_engine(selector, engine)
-
-        # 分析器组件（支持多个）- 需要更新 context 引用
-        # 当 portfolio 绑定到 engine 后，analyzer 需要重新绑定以获取正确的 engine_context
-        for analyzer in self._analyzers.values():
-            self._rebind_portfolio_and_engine(analyzer, engine)
+        # 全量组件重绑（单一清单,见 _iter_components）:
+        # bind_portfolio 设 _context → bind_engine 更新引擎引用与 context
+        for component in self._iter_components():
+            self._rebind_portfolio_and_engine(component, engine)
 
     def set_time_provider(self, time_provider) -> None:
         """
-        重写时间提供者设置，自动传递给所有已绑定的组件
+        重写时间提供者设置，自动传递给所有已绑定的组件（单一清单,见 _iter_components）
         """
         super().set_time_provider(time_provider)
-        # 传递时间提供者给已绑定的sizer
-        if self._sizer is not None:
-            self._sizer.set_time_provider(time_provider)
-        # 传递时间提供者给已绑定的selectors
-        for selector in self._selectors:
-            selector.set_time_provider(time_provider)
-        # 传递时间提供者给已绑定的strategies
-        for strategy in self._strategies:
-            strategy.set_time_provider(time_provider)
-        # 传递时间提供者给已绑定的analyzers
-        for analyzer in self._analyzers.values():
-            analyzer.set_time_provider(time_provider)
+        for component in self._iter_components():
+            component.set_time_provider(time_provider)
 
     def add_risk_manager(self, risk: RiskBase) -> None:
         """
@@ -597,6 +600,12 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
             return
         if risk not in self.risk_managers:
             self.risk_managers.append(risk)
+            # 传播 portfolio 上下文(engine/time_provider/data_feeder)——与其他组件
+            # 挂载方法(add_strategy/bind_sizer/bind_selector)对齐。此前风控是唯一
+            # 漏传播的组件:RiskBase.create_signal 工厂里 get_time_provider() 为 None
+            # → 风控信号 business_timestamp 落空(入库 epoch0/timestamp 退化真实时间),
+            # id 注入同样失效(2026-08-16 Loss Limit 信号实例)
+            self._propagate_context(risk)
 
     def add_strategy(self, strategy: "BaseStrategy") -> None:
         if strategy not in self.strategies:
@@ -630,13 +639,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
         if money > self.cash:
             GLOG.WARN(f"We cant freeze {money}, we only have {self.cash}.")
             return False
-        GLOG.DEBUG(f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
-        console.print(f":ice: TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
         self._frozen += money
         self._cash -= money
         GLOG.INFO(f"💰 [CASH MONITOR] freeze_cash: -{money} (old: {self._cash + money} -> new: {self._cash}, frozen: {self._frozen})")
-        GLOG.DEBUG(f"DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
-        console.print(f":money_bag: DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
         return True
 
     def unfreeze(self, money: any) -> Decimal:
@@ -692,8 +697,23 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
 
         # Check if we have enough frozen funds
         if cost > self.frozen:
-            GLOG.ERROR(f"Cannot deduct ${cost} from frozen ${self.frozen}")
-            raise ValueError(f"Insufficient frozen funds: have ${self.frozen}, need ${cost}")
+            shortfall = cost - self.frozen
+            if shortfall > self._cash:
+                # 真实超支:冻结+现金都不够 → 拒(合法拒绝)
+                GLOG.ERROR(f"Cannot deduct ${cost}: frozen ${self.frozen} + cash ${self._cash} insufficient")
+                raise ValueError(
+                    f"Insufficient funds: frozen ${self.frozen} + cash ${self._cash} < cost ${cost}"
+                )
+            # 常态兜底(2026-08-16):T日冻结按预估价、T+1成交按实际价,隔夜价差
+            # 使 cost 略超冻结是价格合法变动的常态而非超支——差额从现金补,
+            # 不再整单拒绝(旧语义:差$40拒一单,系统性"只让次日跌的买入成交")
+            GLOG.WARN(
+                f"[CASH MONITOR] frozen short ${shortfall}, covered from cash "
+                f"(T+1 price gap; frozen ${self.frozen} -> cost ${cost})"
+            )
+            self._cash -= shortfall
+            self._frozen = to_decimal(0)
+            return self._frozen
 
         # Deduct cost from frozen funds (cost is converted to position, not cash)
         self._frozen -= cost

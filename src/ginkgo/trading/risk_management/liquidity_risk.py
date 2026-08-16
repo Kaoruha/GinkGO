@@ -46,8 +46,8 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
         name: str = "LiquidityRisk",
         min_avg_volume_ratio: float = 0.1,
         warning_avg_volume_ratio: float = 0.2,
-        max_price_impact: float = 5.0,
-        warning_price_impact: float = 3.0,
+        max_price_impact: float = 0.05,
+        warning_price_impact: float = 0.03,
         min_turnover_ratio: float = 1000000,  # 最小日成交额
         warning_turnover_ratio: float = 5000000,
         liquidity_lookback_days: int = 20,
@@ -59,10 +59,11 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
         Args:
             min_avg_volume_ratio(float): 最小平均成交量比例（订单量/平均成交量）
             warning_avg_volume_ratio(float): 预警平均成交量比例
-            max_price_impact(float): 最大价格冲击影响，百分比
-            warning_price_impact(float): 预警价格冲击影响，百分比
-            min_turnover_ratio(float): 最小日成交额阈值
-            warning_turnover_ratio(float): 预警日成交额阈值
+            max_price_impact(float): 最大价格冲击影响，小数比例（例如：0.05表示5%。
+                与 LossLimitRisk/ProfitTargetRisk 口径统一，均为小数，无百分数乘换算）
+            warning_price_impact(float): 预警价格冲击影响，小数比例（0.03表示3%）
+            min_turnover_ratio(float): 最小日成交额阈值（金额，非比例，保持原量纲）
+            warning_turnover_ratio(float): 预警日成交额阈值（金额，非比例，保持原量纲）
             liquidity_lookback_days(int): 流动性数据回看天数
         """
         super().__init__(name, *args, **kwargs)
@@ -80,7 +81,7 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
         self._turnover_history = {}  # code: [turnover_list]
         self._price_history = {}    # code: [price_list]
 
-        self.set_name(f"{name}_volume{self._min_avg_volume_ratio}%_impact{self._max_price_impact}%_turnover{self._min_turnover_ratio}")
+        self.set_name(f"{name}_volume{self._min_avg_volume_ratio:.0%}_impact{self._max_price_impact:.0%}_turnover{self._min_turnover_ratio}")
 
     @property
     def min_avg_volume_ratio(self) -> float:
@@ -149,7 +150,7 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
         price_impact = self._calculate_price_impact(order, liquidity_metrics)
         if price_impact > self._max_price_impact:
             # 价格冲击过大，拒绝订单
-            GLOG.CRITICAL(f"LiquidityRisk: High price impact {price_impact:.2f}% > {self._max_price_impact}% for {order.code}, rejecting order")
+            GLOG.CRITICAL(f"LiquidityRisk: High price impact {price_impact:.2%} > {self._max_price_impact:.0%} for {order.code}, rejecting order")
             return None
         elif price_impact > self._warning_price_impact:
             # 价格冲击预警，减少订单
@@ -158,12 +159,12 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
             # lot_size 对齐 + 不足 1 手拒单(对齐 volatility_risk 模板)(#6038)
             aligned = self.align_to_lot(scaled)
             if aligned < self._lot_size:
-                GLOG.WARN(f"LiquidityRisk: Price impact warning {price_impact:.2f}% > {self._warning_price_impact}% for {order.code}, "
+                GLOG.WARN(f"LiquidityRisk: Price impact warning {price_impact:.2%} > {self._warning_price_impact:.0%} for {order.code}, "
                          f"scaled {order.volume} → {scaled} below 1 lot ({self._lot_size}), blocking order")
                 return None
             order.adjust_volume(aligned)
 
-            GLOG.WARN(f"LiquidityRisk: Price impact warning {price_impact:.2f}% > {self._warning_price_impact}% for {order.code}, "
+            GLOG.WARN(f"LiquidityRisk: Price impact warning {price_impact:.2%} > {self._warning_price_impact:.0%} for {order.code}, "
                      f"adjusting order to {order.volume}")
 
         # 检查日成交额
@@ -240,7 +241,7 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
                 signal = self.create_signal(
                     code=event.code,
                     direction=DIRECTION_TYPES.SHORT,
-                    reason=f"WARNING: High exit price impact {price_impact:.2f}% > {self._warning_price_impact}%",
+                    reason=f"WARNING: High exit price impact {price_impact:.2%} > {self._warning_price_impact:.0%}",
                     strength=0.6,  # 中等强度信号
                 )
                 signals.append(signal)
@@ -295,13 +296,13 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
         avg_volume = sum(volumes) / len(volumes)
         avg_turnover = sum(turnovers) / len(turnovers)
 
-        # 计算价格波动率
+        # 计算价格波动率（小数比例，与参数口径统一）
         volatility = 0.0
         if len(prices) >= 2:
             returns = []
             for i in range(1, len(prices)):
                 if prices[i-1] > 0:
-                    return_rate = (prices[i] / prices[i-1] - 1) * 100
+                    return_rate = prices[i] / prices[i-1] - 1
                     returns.append(return_rate)
 
             if len(returns) >= 2:
@@ -309,8 +310,10 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
                 variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
                 volatility = variance ** 0.5
 
-        # 价格稳定性（波动率越小越稳定）
-        price_stability = max(0.1, 1.0 / (1.0 + volatility))
+        # 价格稳定性（波动率越小越稳定）。
+        # 稳定性启发式沿用历史百分数尺度（volatility=2% → stability≈1/3），
+        # 小数口径下显式 ×100 桥接，保持既有行为不变。
+        price_stability = max(0.1, 1.0 / (1.0 + volatility * 100))
 
         return {
             'avg_volume': avg_volume,
@@ -346,8 +349,8 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
         if avg_turnover <= 0:
             return 999.0  # 流动性极差
 
-        # 基础价格冲击 = 订单金额 / 平均日成交额 * 稳定性因子
-        base_impact = (order_value / avg_turnover) * 100
+        # 基础价格冲击 = 订单金额 / 平均日成交额 * 稳定性因子（小数比例，与阈值口径统一）
+        base_impact = order_value / avg_turnover
 
         # 根据流动性调整
         liquidity_adjustment = 1.0 / price_stability
@@ -374,8 +377,9 @@ class LiquidityRisk(LotAlignableMixin, BaseRiskManagement):
         avg_turnover = metrics.get('avg_turnover', 0)
         volume_score = min(50, (avg_turnover / self._warning_turnover_ratio) * 50)
 
-        volatility = metrics.get('volatility', 100)
-        stability_score = max(0, 50 - volatility)
+        # volatility 为小数比例，评分启发式沿用历史百分数尺度，显式 ×100 桥接
+        volatility = metrics.get('volatility', 1.0)
+        stability_score = max(0, 50 - volatility * 100)
 
         price_stability = metrics.get('price_stability', 0)
         stability_bonus = price_stability * 10
