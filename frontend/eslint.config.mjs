@@ -40,5 +40,13 @@ export default defineConfig(
       'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
       'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     },
-  }
+  },
+  {
+    // ParamFields 的 config prop 为引用共享变异(与原 v-model="item.config[param.name]"
+    // 等价,父级 formData 同步感知),规则误报故对该文件关闭
+    files: ['src/renderer/components/common/ParamFields.vue'],
+    rules: {
+      'vue/no-mutating-props': 'off',
+    },
+  },
 )

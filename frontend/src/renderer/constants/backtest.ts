@@ -170,3 +170,18 @@ export function getBrokerAttitudeLabel(value: number): string {
 export function getStateStatus(state: string): string {
   return BACKTEST_STATE_COLORS[state] || 'default'
 }
+
+/**
+ * 回测列表状态筛选项(SegmentedControl options)
+ * BacktestListPage / portfolio BacktestTab 两处消费,统一一份
+ * (此前两页各自维护且项集不同:Tab 缺"待调度"筛选项)
+ */
+export const BACKTEST_STATUS_FILTER_OPTIONS: { key: string; label: string }[] = [
+  { key: '', label: '全部' },
+  { key: 'completed', label: '已完成' },
+  { key: 'running', label: '进行中' },
+  { key: 'pending', label: '排队中' },
+  { key: 'failed', label: '失败' },
+  { key: 'stopped', label: '已停止' },
+  { key: 'created', label: '待调度' },
+]

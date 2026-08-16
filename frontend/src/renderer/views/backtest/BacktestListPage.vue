@@ -143,6 +143,7 @@ import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { useWebSocket, useServerEvents } from '@/composables'
 import { formatDecimal } from '@/composables/useBacktestFormatters'
 import { formatDate, formatPercent, formatRelativeTime } from '@/utils/format'
+import { BACKTEST_STATUS_FILTER_OPTIONS } from '@/constants/backtest'
 import type { MenuItem } from '@/composables/useContextMenu'
 import { message } from '@/utils/toast'
 
@@ -177,15 +178,8 @@ const currentPage = ref(0)
 const pageSize = 20
 const statusFilter = ref('')
 
-const statusOptions = [
-  { key: '', label: '全部状态' },
-  { key: 'completed', label: '已完成' },
-  { key: 'running', label: '进行中' },
-  { key: 'pending', label: '排队中' },
-  { key: 'failed', label: '失败' },
-  { key: 'stopped', label: '已停止' },
-  { key: 'created', label: '待调度' },
-]
+// 状态筛选项与 portfolio BacktestTab 统一一份常量(首项 label 统一为"全部")
+const statusOptions = BACKTEST_STATUS_FILTER_OPTIONS
 const sortBy = ref('update_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 

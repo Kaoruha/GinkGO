@@ -150,6 +150,7 @@
             v-for="m in metrics"
             :key="m.label"
             class="metric-card"
+            :class="{ 'metric-empty': m.empty }"
             :title="m.hint"
           >
             <div class="metric-label">
@@ -157,8 +158,7 @@
             </div>
             <div
               class="metric-value"
-              :class="{ 'metric-empty': m.empty }"
-              :style="!m.empty && m.color ? { color: m.color } : undefined"
+              :style="m.color ? { color: m.color } : undefined"
             >
               {{ m.value }}
             </div>
@@ -290,223 +290,10 @@
         v-if="activeDetailTab === 'trades'"
         class="tab-panel"
       >
-        <!-- 交易子 tab(L3,状态进 URL query: &trade=) -->
-        <TabsNav
-          v-model="activeTradeTab"
-          size="small"
-          :items="tradeSubTabs"
-          class="bt-subtabs"
+        <TradesTab
+          ref="tradesTabRef"
+          :task-uuid="backtestId"
         />
-
-        <!-- 三表(信号/订单/持仓记录)共用的 code 多选筛选 -->
-        <CodeFilter
-          v-model:selected="selectedCodes"
-          :codes="allCodes"
-        />
-
-        <!-- 信号 -->
-        <div
-          v-if="activeTradeTab === 'signals'"
-          class="card"
-        >
-          <div
-            v-if="signalsLoading"
-            class="loading-center"
-          >
-            <div class="spinner spinner-sm" />
-          </div>
-          <table
-            v-else-if="filteredSignals.length > 0"
-            class="data-table"
-          >
-            <thead><tr><th>代码</th><th>方向</th><th>权重</th><th>原因</th><th>时间</th></tr></thead>
-            <tbody>
-              <tr
-                v-for="s in filteredSignals"
-                :key="s.uuid"
-                :data-uuid="s.uuid"
-                :class="{ 'row-highlight': highlightUuid === s.uuid }"
-              >
-                <td>{{ s.code }}</td>
-                <td><span :class="directionColor(s.direction)">{{ directionLabel(s.direction) }}</span></td>
-                <td>{{ (s.weight * 100).toFixed(1) }}%</td>
-                <td>{{ s.reason || '-' }}</td>
-                <td>{{ formatShortDate(s.business_timestamp || s.timestamp) }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p
-            v-else
-            class="empty-hint"
-          >
-            暂无信号记录
-          </p>
-        </div>
-
-        <!-- 订单 -->
-        <div
-          v-if="activeTradeTab === 'orders'"
-          class="card"
-        >
-          <div
-            v-if="ordersLoading"
-            class="loading-center"
-          >
-            <div class="spinner spinner-sm" />
-          </div>
-          <table
-            v-else-if="filteredOrders.length > 0"
-            class="data-table"
-          >
-            <thead><tr><th>代码</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>手续费</th><th>来源信号</th><th>时间</th><th /></tr></thead>
-            <tbody>
-              <template
-                v-for="o in filteredOrders"
-                :key="o.uuid"
-              >
-                <tr
-                  :data-order="o.order_id || o.uuid"
-                  :class="{ 'row-highlight': highlightOrder === (o.order_id || o.uuid) }"
-                >
-                  <td>{{ o.code }}</td>
-                  <td><span :class="directionColor(o.direction)">{{ directionLabel(o.direction) }}</span></td>
-                  <td>{{ o.order_type }}</td>
-                  <td>{{ o.transaction_volume }}</td>
-                  <td>{{ o.transaction_price }}</td>
-                  <td>{{ o.fee }}</td>
-                  <td>
-                    <span
-                      v-if="o.signal_id"
-                      class="lineage-chip"
-                      :title="`信号 ${o.signal_id}\n点击跳转`"
-                      @click="jumpToSignal(o.signal_id)"
-                    >{{ signalDigest(o.signal_id) }}</span>
-                    <span
-                      v-else
-                      class="empty-hint-inline"
-                    >-</span>
-                  </td>
-                  <td>{{ formatShortDate(o.timestamp) }}</td>
-                  <td>
-                    <button
-                      class="expand-btn"
-                      @click="toggleLifecycle(o.order_id || o.uuid)"
-                    >
-                      {{ expandedOrder === (o.order_id || o.uuid) ? '收起' : '生命周期' }}
-                    </button>
-                  </td>
-                </tr>
-                <!-- 生命周期时间线:该订单全部状态流转(order_record 流水) -->
-                <tr
-                  v-if="expandedOrder === (o.order_id || o.uuid)"
-                  class="lifecycle-row"
-                >
-                  <td :colspan="9">
-                    <div
-                      v-if="lifecycleLoading"
-                      class="loading-center"
-                    >
-                      <div class="spinner spinner-sm" />
-                    </div>
-                    <template v-else>
-                      <div
-                        v-if="lifecycleOf(o.order_id || o.uuid).length"
-                        class="lifecycle-timeline"
-                      >
-                        <div
-                          v-for="(st, i) in lifecycleOf(o.order_id || o.uuid)"
-                          :key="i"
-                          class="lifecycle-step"
-                        >
-                          <span
-                            class="step-dot"
-                            :class="stepClass(st.status)"
-                          />
-                          <span class="step-status">{{ orderStatusName(st.status) }}</span>
-                          <span
-                            v-if="Number(st.transaction_volume) > 0"
-                            class="step-meta"
-                          >{{ st.transaction_volume }}@{{ st.transaction_price || '-' }}</span>
-                          <span class="step-time">{{ st.timestamp || '-' }}</span>
-                        </div>
-                      </div>
-                      <p
-                        v-else
-                        class="empty-hint"
-                      >
-                        暂无状态流水
-                      </p>
-                    </template>
-                  </td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-          <p
-            v-else
-            class="empty-hint"
-          >
-            暂无订单记录
-          </p>
-        </div>
-
-        <!-- 持仓 -->
-        <div
-          v-if="activeTradeTab === 'positions'"
-          class="card"
-        >
-          <div
-            v-if="positionsLoading"
-            class="loading-center"
-          >
-            <div class="spinner spinner-sm" />
-          </div>
-          <table
-            v-else-if="filteredPositions.length > 0"
-            class="data-table"
-          >
-            <thead><tr><th>代码</th><th>方向</th><th>数量</th><th>成本</th><th>市值</th><th>盈亏</th><th>盈亏%</th><th>来源订单</th><th>时间</th></tr></thead>
-            <tbody>
-              <tr
-                v-for="p in filteredPositions"
-                :key="p.uuid"
-              >
-                <td>{{ p.code }}</td>
-                <td><span :class="directionColor(p.direction)">{{ directionLabel(p.direction) }}</span></td>
-                <td :style="{ color: p.volume >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
-                  {{ p.volume > 0 ? '+' : '' }}{{ p.volume }}
-                </td><!-- 变动流水:带符号,+买/-卖 -->
-                <td>{{ formatDecimal(p.cost) }}</td>
-                <td>{{ formatDecimal(p.market_value) }}</td>
-                <td :style="{ color: p.profit >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
-                  {{ formatDecimal(p.profit) }}
-                </td>
-                <td :style="{ color: p.profit_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
-                  {{ (p.profit_pct * 100).toFixed(2) }}%
-                </td>
-                <td>
-                  <span
-                    v-if="p.order_id"
-                    class="lineage-chip"
-                    title="点击查看该订单生命周期"
-                    @click="jumpToOrder(p.order_id)"
-                  >{{ p.order_id.slice(0, 8) }}</span>
-                  <span
-                    v-else
-                    class="empty-hint-inline"
-                  >-</span>
-                </td>
-                <td>{{ formatShortDate(p.business_timestamp || p.timestamp) }}</td><!-- 业务时间优先,同信号列口径 -->
-              </tr>
-            </tbody>
-          </table>
-          <p
-            v-else
-            class="empty-hint"
-          >
-            暂无持仓记录
-          </p>
-        </div>
       </div>
 
       <!-- 日志 -->
@@ -514,365 +301,10 @@
         v-if="activeDetailTab === 'logs'"
         class="tab-panel"
       >
-        <!-- 筛选栏 -->
-        <div class="card logs-filter">
-          <div class="filter-row">
-            <select
-              v-model="logFilters.level"
-              class="form-select filter-select"
-              @change="loadLogs(true)"
-            >
-              <option value="">
-                全部级别
-              </option>
-              <option value="DEBUG">
-                DEBUG
-              </option>
-              <option value="INFO">
-                INFO
-              </option>
-              <option value="WARNING">
-                WARNING
-              </option>
-              <option value="ERROR">
-                ERROR
-              </option>
-              <option value="CRITICAL">
-                CRITICAL
-              </option>
-            </select>
-            <select
-              v-model="logFilters.event_type"
-              class="form-select filter-select"
-              @change="loadLogs(true)"
-            >
-              <option value="">
-                全部事件
-              </option>
-              <option value="SIGNALGENERATION">
-                信号
-              </option>
-              <option value="ORDERSUBMITTED">
-                订单提交
-              </option>
-              <option value="ORDERFILLED">
-                成交
-              </option>
-              <option value="ORDERREJECTED">
-                订单拒绝
-              </option>
-              <option value="ORDERCANCELACK">
-                订单取消
-              </option>
-              <option value="ORDEREXPIRED">
-                订单过期
-              </option>
-              <option value="POSITIONUPDATE">
-                持仓更新
-              </option>
-              <option value="CAPITALUPDATE">
-                资金更新
-              </option>
-              <option value="RISKBREACH">
-                风控触发
-              </option>
-              <option value="ENGINESTART">
-                引擎启动
-              </option>
-              <option value="ENGINESTOP">
-                引擎停止
-              </option>
-              <option value="ENGINEERROR">
-                引擎错误
-              </option>
-              <option value="ENGINECOMPLETE">
-                引擎完成
-              </option>
-              <option value="T1SETTLEMENT">
-                T+1结算
-              </option>
-              <option value="T1DELAYDECISION">
-                T+1延迟
-              </option>
-              <option value="TIMEADVANCE">
-                时间推进
-              </option>
-              <option value="PRICERECEIVED">
-                行情接收
-              </option>
-              <option value="STRATEGYSIGNAL">
-                策略信号
-              </option>
-            </select>
-            <input
-              v-model="logFilters.start_time"
-              type="date"
-              class="form-input filter-date"
-              @change="loadLogs(true)"
-            >
-            <span class="filter-sep">~</span>
-            <input
-              v-model="logFilters.end_time"
-              type="date"
-              class="form-input filter-date"
-              @change="loadLogs(true)"
-            >
-            <!-- 关键词:前端过滤已加载日志(message/symbol/事件字段),后端无 keyword 参数 -->
-            <input
-              v-model="logKeyword"
-              type="search"
-              placeholder="关键词过滤已加载日志…"
-              class="form-input filter-keyword"
-            >
-          </div>
-        </div>
-
-        <!-- 日志列表 -->
-        <div
-          class="logs-container"
-          @scroll="onLogsScroll"
-        >
-          <div
-            v-if="logsLoading && logs.length === 0"
-            class="loading-center"
-          >
-            <div class="spinner spinner-sm" />
-          </div>
-          <template v-else-if="filteredLogs.length > 0">
-            <div
-              v-for="(log, i) in filteredLogs"
-              :key="i"
-              class="log-entry"
-            >
-              <span class="log-time-col">
-                <span class="log-bt">{{ formatLogTime(log.business_timestamp) }}</span>
-                <span class="log-wt">{{ formatLogTime(log.timestamp) }}</span>
-              </span>
-              <span
-                class="log-level"
-                :class="levelClass(log.level)"
-              >{{ log.level }}</span>
-              <span
-                v-if="log.event_type"
-                class="log-event"
-                :class="eventClass(log.event_type)"
-              >{{ log.event_type }}</span>
-              <!-- 结构化事件展示 -->
-              <span
-                v-if="log.event_type === 'SIGNALGENERATION'"
-                class="log-detail"
-              >
-                <span class="log-symbol">{{ log.symbol }}</span>
-                <span :class="directionColor(log.direction)">{{ dirLabel(log.direction) }}</span>
-                <span
-                  v-if="log.signal_volume"
-                  class="log-kv"
-                >vol={{ log.signal_volume }}</span>
-                <span
-                  v-if="log.signal_reason"
-                  class="log-reason"
-                >{{ log.signal_reason }}</span>
-                <span
-                  v-if="log.strategy_id"
-                  class="log-kv dim"
-                >strategy={{ log.strategy_id.substring(0, 8) }}</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'ORDERSUBMITTED'"
-                class="log-detail"
-              >
-                <span class="log-symbol">{{ log.symbol }}</span>
-                <span class="log-kv">{{ log.order_type || 'MARKET' }}</span>
-                <span
-                  v-if="log.limit_price"
-                  class="log-kv"
-                >price={{ log.limit_price }}</span>
-                <span
-                  v-if="log.order_id"
-                  class="log-kv dim"
-                >{{ log.order_id }}</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'ORDERACK'"
-                class="log-detail"
-              >
-                <span class="log-symbol">{{ log.symbol }}</span>
-                <span class="log-kv">accepted</span>
-                <span
-                  v-if="log.broker_order_id"
-                  class="log-kv dim"
-                >{{ log.broker_order_id }}</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'ORDERFILLED'"
-                class="log-detail"
-              >
-                <span class="log-symbol">{{ log.symbol }}</span>
-                <span :class="directionColor(log.direction)">{{ dirLabel(log.direction) }}</span>
-                <span class="log-kv">{{ log.transaction_volume }}@{{ log.transaction_price }}</span>
-                <span
-                  v-if="log.commission"
-                  class="log-kv dim"
-                >fee={{ log.commission }}</span>
-                <span
-                  v-if="log.slippage"
-                  class="log-kv dim"
-                >slip={{ log.slippage }}</span>
-                <span class="log-msg-inline">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'ORDERREJECTED'"
-                class="log-detail"
-              >
-                <span class="log-symbol">{{ log.symbol }}</span>
-                <span class="log-kv text-red">REJECTED</span>
-                <span
-                  v-if="log.reject_reason"
-                  class="log-reason"
-                >{{ log.reject_reason }}</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'ORDERCANCELACK'"
-                class="log-detail"
-              >
-                <span class="log-symbol">{{ log.symbol }}</span>
-                <span class="log-kv dim">cancelled</span>
-                <span
-                  v-if="log.cancel_reason"
-                  class="log-reason"
-                >{{ log.cancel_reason }}</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'POSITIONUPDATE'"
-                class="log-detail"
-              >
-                <span class="log-symbol">{{ log.position_code || log.symbol }}</span>
-                <span class="log-kv">vol={{ log.position_volume }}</span>
-                <span class="log-kv">cost={{ log.position_cost }}</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'CAPITALUPDATE'"
-                class="log-detail"
-              >
-                <span class="log-kv">NAV={{ log.net_value || log.total_value }}</span>
-                <span class="log-kv">cash={{ log.available_cash }}</span>
-                <span
-                  v-if="log.pnl"
-                  :style="{ color: log.pnl >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }"
-                >PnL={{ log.pnl }}</span>
-                <span
-                  v-if="log.drawdown"
-                  class="log-kv dim"
-                >DD={{ log.drawdown }}</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'ENGINESTART' || log.event_type === 'ENGINESTOP' || log.event_type === 'ENGINECOMPLETE'"
-                class="log-detail"
-              >
-                <span
-                  v-if="log.engine_status"
-                  class="log-kv"
-                >{{ log.engine_status }}</span>
-                <span
-                  v-if="log.progress"
-                  class="log-kv"
-                >{{ (log.progress * 100).toFixed(0) }}%</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'ENGINEERROR'"
-                class="log-detail"
-              >
-                <span
-                  v-if="log.error_code"
-                  class="log-kv text-red"
-                >{{ log.error_code }}</span>
-                <span class="log-reason">{{ log.error_message || log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'RISKBREACH'"
-                class="log-detail"
-              >
-                <span class="log-kv text-red">{{ log.risk_type }}</span>
-                <span
-                  v-if="log.risk_reason"
-                  class="log-reason"
-                >{{ log.risk_reason }}</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'T1SETTLEMENT'"
-                class="log-detail"
-              >
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'T1DELAYDECISION'"
-                class="log-detail"
-              >
-                <span
-                  v-if="log.symbol"
-                  class="log-kv"
-                >{{ log.symbol }}</span>
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'TIMEADVANCE'"
-                class="log-detail"
-              >
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'PRICERECEIVED'"
-                class="log-detail"
-              >
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <span
-                v-else-if="log.event_type === 'STRATEGYSIGNAL'"
-                class="log-detail"
-              >
-                <span class="log-kv dim">{{ log.message }}</span>
-              </span>
-              <!-- 默认：纯文本 -->
-              <span
-                v-else
-                class="log-msg"
-              >{{ log.message }}</span>
-            </div>
-            <div
-              v-if="logsLoading"
-              class="loading-center"
-            >
-              <div class="spinner spinner-sm" />
-            </div>
-            <div
-              v-if="!logsHasMore"
-              class="logs-end"
-            >
-              {{ logKeyword ? `已加载 ${logsTotal} 条中匹配 ${filteredLogs.length} 条` : `已加载全部 ${logsTotal} 条日志` }}
-            </div>
-          </template>
-          <p
-            v-else-if="logKeyword && logs.length > 0"
-            class="empty-hint"
-          >
-            已加载日志中无「{{ logKeyword }}」匹配（下拉加载更多后自动生效）
-          </p>
-          <p
-            v-else
-            class="empty-hint"
-          >
-            暂无日志数据
-          </p>
-        </div>
+        <LogsTab
+          :task-uuid="backtestId"
+          :default-range="logDateRange"
+        />
       </div>
     </div>
 
@@ -895,7 +327,7 @@
 
 <script setup lang="ts">
 import EmptyState from '@/components/common/EmptyState.vue'
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { backtestApi, portfolioApi } from '@/api'
 import type { BacktestTask, AnalyzerInfo } from '@/api'
@@ -911,13 +343,11 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import PageTitle from '@/components/common/PageTitle.vue'
 import TabsNav from '@/components/common/TabsNav.vue'
-import CodeFilter from '@/components/common/CodeFilter.vue'
 import { formatMoney } from '@/utils/format'
-import dayjs from 'dayjs'
+import LogsTab from '@/components/backtest/LogsTab.vue'
+import TradesTab from '@/components/backtest/TradesTab.vue'
 import {
-  formatShortDate, formatDecimal,
-  directionLabel, directionColor, dirLabel, fmtAnalyzer, getAnalyzerColor,
-  formatLogTime, levelClass, eventClass,
+  formatShortDate, fmtAnalyzer, getAnalyzerColor,
 } from '@/composables/useBacktestFormatters'
 
 const route = useRoute()
@@ -980,11 +410,6 @@ const activeDetailTab = computed<string>({
   get: () => DETAIL_TABS.includes(route.query.tab as any) ? String(route.query.tab) : 'overview',
   set: (v) => router.replace({ query: { ...route.query, tab: v } }),
 })
-const TRADE_TABS = ['signals', 'orders', 'positions'] as const
-const activeTradeTab = computed<string>({
-  get: () => TRADE_TABS.includes(route.query.trade as any) ? String(route.query.trade) : 'signals',
-  set: (v) => router.replace({ query: { ...route.query, trade: v } }),
-})
 
 // Analyzer value extraction
 const analyzerValue = (name: string): number | null => {
@@ -1006,26 +431,13 @@ const detailTabs = [
   { key: 'logs', label: '日志' },
 ]
 
-// 日志状态
-const logs = ref<any[]>([])
-const logsLoading = ref(false)
-const logsTotal = ref(0)
-const logsHasMore = ref(true)
-const logsOffset = ref(0)
-const logsPageSize = 100
-const logFilters = ref({ level: '', event_type: '', start_time: '', end_time: '' })
-// 关键词前端过滤:后端日志端点无 keyword 参数,对已加载批次做展示层过滤
-const logKeyword = ref('')
-const filteredLogs = computed(() => {
-  const kw = logKeyword.value.trim().toLowerCase()
-  if (!kw) return logs.value
-  return logs.value.filter((l: any) =>
-    [l.message, l.symbol, l.event_type, l.signal_reason, l.order_id, l.error_message]
-      .some(f => f && String(f).toLowerCase().includes(kw)))
-})
-// 切到日志 tab 时懒加载(深链直达由 onMounted 兜底;非 immediate,回调运行时 loadLogs 已初始化,无 TDZ)
-watch(activeDetailTab, (tab) => {
-  if (tab === 'logs' && logs.value.length === 0) loadLogs(true)
+// 日志默认筛选区间(回测起止,截 YYYY-MM-DD——date input 不收带时间的 ISO 串)
+const logDateRange = computed(() => {
+  const t = currentTask.value
+  return {
+    start: t?.backtest_start_date ? String(t.backtest_start_date).substring(0, 10) : '',
+    end: t?.backtest_end_date ? String(t.backtest_end_date).substring(0, 10) : '',
+  }
 })
 
 // 分析器详情
@@ -1037,99 +449,8 @@ const analyzerChartData = computed<LineData[]>(() =>
   analyzerTimeseries.value.map((r: any) => ({ time: String(r.time).substring(0, 10), value: Number(r.value) }))
 )
 
-// 交易记录
-const tradeSubTabs = [
-  { key: 'signals', label: '信号' },
-  { key: 'orders', label: '订单' },
-  { key: 'positions', label: '持仓记录' },
-]
-const signals = ref<any[]>([])
-const orders = ref<any[]>([])
-const positions = ref<any[]>([])
-const signalsLoading = ref(false)
-const ordersLoading = ref(false)
-const positionsLoading = ref(false)
-
-// code 多选筛选(三表共享,纯前端过滤):空=全部
-const selectedCodes = ref<string[]>([])
-const allCodes = computed<string[]>(() =>
-  [...new Set([...signals.value, ...orders.value, ...positions.value].map(x => x?.code).filter(Boolean))].sort())
-const filteredSignals = computed(() =>
-  selectedCodes.value.length ? signals.value.filter(s => selectedCodes.value.includes(s.code)) : signals.value)
-const filteredOrders = computed(() =>
-  selectedCodes.value.length ? orders.value.filter(o => selectedCodes.value.includes(o.code)) : orders.value)
-const filteredPositions = computed(() =>
-  selectedCodes.value.length ? positions.value.filter(p => selectedCodes.value.includes(p.code)) : positions.value)
-
-// ---- 血缘追溯(2026-08-17):Signal→Order→PositionRecord ----
-// 订单生命周期:expandedOrder=当前展开的 order uuid;orderRecords=全量状态流水
-// (懒加载一次,按 order_id 分组取用)
-const expandedOrder = ref<string | null>(null)
-const orderRecords = ref<any[]>([])
-const lifecycleLoading = ref(false)
-// 分组键 = order_id(状态流水按它分组;列表行的 uuid 是"去重取最新那条流水行"的
-// 行 uuid,与其它状态行的 uuid 各不相同,用它分组只能匹配到 1 条——即
-// "生命周期只有一条"的根因)
-const lifecycleOf = (orderId: string) =>
-  orderRecords.value
-    .filter(r => r.order_id === orderId || r.uuid === orderId)
-    .sort((a: any, b: any) => Number(a.status) - Number(b.status))  // NEW(1)→FILLED(4) 生命周期顺序
-const ORDER_STATUS_NAMES: Record<string, string> = {
-  '1': '已创建', 'NEW': '已创建', '2': '已提交', 'SUBMITTED': '已提交',
-  '3': '部分成交', 'PARTIAL_FILLED': '部分成交', '4': '已成交', 'FILLED': '已成交',
-  '5': '已取消', 'CANCELED': '已取消', '6': '已拒绝', 'REJECTED': '已拒绝',
-}
-const orderStatusName = (st: any) => ORDER_STATUS_NAMES[String(st)] || String(st)
-const stepClass = (st: any) => {
-  const n = orderStatusName(st)
-  if (n === '已成交') return 'ok'
-  if (n === '已拒绝' || n === '已取消') return 'bad'
-  return 'mid'
-}
-const toggleLifecycle = async (orderUuid: string) => {
-  if (expandedOrder.value === orderUuid) { expandedOrder.value = null; return }
-  expandedOrder.value = orderUuid
-  if (orderRecords.value.length === 0) {
-    lifecycleLoading.value = true
-    try {
-      const res = await backtestApi.getOrderRecords(backtestId.value)
-      orderRecords.value = ((res as any).data || res) as any[]
-    } catch { orderRecords.value = [] }
-    finally { lifecycleLoading.value = false }
-  }
-}
-// 持仓"来源订单"chip → 跳订单 tab 并展开该订单生命周期
-const jumpToOrder = async (orderUuid: string) => {
-  // activeTradeTab 是 computed(router query 驱动),经 router.replace 切子 tab
-  router.replace({ query: { ...route.query, trade: 'orders' } })
-  await toggleLifecycle(orderUuid)
-  await highlightRow(`[data-order="${orderUuid}"]`, 'highlightOrder', orderUuid)
-}
-// 订单"来源信号"chip → 跳信号 tab,滚动定位+高亮目标行(闭环 Signal→Order 追溯)
-const jumpToSignal = (signalId: string) => {
-  router.replace({ query: { ...route.query, trade: 'signals' } })
-  highlightRow(`[data-uuid="${signalId}"]`, 'highlightUuid', signalId)
-}
-
-// ---- 血缘跳转高亮:切 tab 后滚动到目标行并高亮 2.5s(行可能因筛选不可见则仅置态) ----
-const highlightUuid = ref<string | null>(null)
-const highlightOrder = ref<string | null>(null)
-let highlightTimer: ReturnType<typeof setTimeout> | null = null
-async function highlightRow(selector: string, key: 'highlightUuid' | 'highlightOrder', id: string) {
-  await nextTick()
-  if (highlightTimer) clearTimeout(highlightTimer)
-  if (key === 'highlightUuid') { highlightUuid.value = id; highlightOrder.value = null }
-  else { highlightOrder.value = id; highlightUuid.value = null }
-  document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  highlightTimer = setTimeout(() => { highlightUuid.value = null; highlightOrder.value = null }, 2500)
-}
-// 来源信号摘要:uuid → "代码 方向 日期"(uuid 本身不可读;join 本页已加载的信号数据)
-const signalDigest = (signalId: string) => {
-  const sig = signals.value.find(s => s.uuid === signalId)
-  if (!sig) return signalId
-  const dir = Number(sig.direction) === 2 ? '卖出' : '买入'
-  return `${sig.code} ${dir} ${formatShortDate(sig.business_timestamp || sig.timestamp).slice(5, 10)}`
-}
+// 交易记录 tab 组件引用(终态刷新时调 reload 重拉三表)
+const tradesTabRef = ref<InstanceType<typeof TradesTab> | null>(null)
 
 // ========== 详情方法 ==========
 // silent=true 时不切 detailLoading(不闪 spinner),用于运行中节流刷新
@@ -1154,10 +475,6 @@ const loadDetail = async (silent = false) => {
         if (!disposed && p?.name) currentTask.value.portfolio_name = p.name
       } catch { /* 组合可能已删,保留 id 展示 */ }
     }
-    // 日志筛选默认回测区间
-    const t = currentTask.value
-    if (t?.backtest_start_date) logFilters.value.start_time = dayjs(t.backtest_start_date).format('YYYY-MM-DD')
-    if (t?.backtest_end_date) logFilters.value.end_time = dayjs(t.backtest_end_date).format('YYYY-MM-DD')
     // net value
     try {
       const nv = await backtestApi.getNetValue(backtestId.value)
@@ -1175,8 +492,8 @@ const loadDetail = async (silent = false) => {
         loadAnalyzerData()
       }
     } catch { /* analyzers may not exist */ }
-    // trades
-    loadTrades()
+    // trades(组件挂载时自治加载;此处仅终态/静默刷新场景补拉)
+    tradesTabRef.value?.reload()
   } catch (e) {
     console.error('Failed to load detail:', e)
     // silent 刷新失败(如限流 429)保留旧数据续命,不清空页面——清空会让 WS 就地
@@ -1184,31 +501,6 @@ const loadDetail = async (silent = false) => {
     if (!disposed && !silent) currentTask.value = null
   } finally {
     if (!disposed && !silent) detailLoading.value = false
-  }
-}
-
-const loadTrades = async () => {
-  if (!backtestId.value || disposed) return
-  signalsLoading.value = true
-  ordersLoading.value = true
-  positionsLoading.value = true
-  try {
-    const [sigRes, ordRes, posRes] = await Promise.allSettled([
-      backtestApi.getSignals(backtestId.value),
-      backtestApi.getOrders(backtestId.value),
-      backtestApi.getPositions(backtestId.value),
-    ])
-    if (disposed) return
-    // request.ts 拦截器已拆包: 分页端点 = {items, total, ...}, 直接取 .items
-    if (sigRes.status === 'fulfilled') { signals.value = (sigRes.value as any)?.items || [] }
-    if (ordRes.status === 'fulfilled') { orders.value = (ordRes.value as any)?.items || [] }
-    if (posRes.status === 'fulfilled') { positions.value = (posRes.value as any)?.items || [] }
-  } finally {
-    if (!disposed) {
-      signalsLoading.value = false
-      ordersLoading.value = false
-      positionsLoading.value = false
-    }
   }
 }
 
@@ -1225,47 +517,6 @@ const loadAnalyzerData = async () => {
     analyzerTimeseries.value = []
   } finally {
     analyzerLoading.value = false
-  }
-}
-
-const loadLogs = async (reset = false) => {
-  if (!backtestId.value || disposed) return
-  if (reset) {
-    logsOffset.value = 0
-    logs.value = []
-    logsHasMore.value = true
-  }
-  if (!logsHasMore.value) return
-  logsLoading.value = true
-  try {
-    const params: any = { limit: logsPageSize, offset: logsOffset.value }
-    if (logFilters.value.level) params.level = logFilters.value.level
-    if (logFilters.value.event_type) params.event_type = logFilters.value.event_type
-    if (logFilters.value.start_time) params.start_time = logFilters.value.start_time
-    if (logFilters.value.end_time) params.end_time = logFilters.value.end_time
-    const res = await backtestApi.getLogs(backtestId.value, params)
-    if (disposed) return
-    const d = res
-    const newLogs = d.logs || []
-    logsTotal.value = d.total || 0
-    if (reset) {
-      logs.value = newLogs
-    } else {
-      logs.value.push(...newLogs)
-    }
-    logsOffset.value += newLogs.length
-    logsHasMore.value = logs.value.length < logsTotal.value
-  } catch {
-    logsHasMore.value = false
-  } finally {
-    if (!disposed) logsLoading.value = false
-  }
-}
-
-const onLogsScroll = (e: Event) => {
-  const el = e.target as HTMLElement
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50 && !logsLoading.value && logsHasMore.value) {
-    loadLogs()
   }
 }
 
@@ -1471,8 +722,6 @@ watch(() => currentTask.value?.status, (s) => {
 
 onMounted(() => {
   loadDetail()
-  // 深链直达 ?tab=logs 时 watch 不 fire(初始即 logs),须显式加载
-  if (route.query.tab === 'logs') loadLogs(true)
 
   setupWebSocketSubscription()
 })
@@ -1577,11 +826,6 @@ onUnmounted(() => {
   100% { background: transparent; }
 }
 
-.filter-keyword {
-  width: 200px;
-  padding: 5px 10px;
-  font-size: 12px;
-}
 
 /* Progress section */
 .progress-section {
@@ -1795,111 +1039,7 @@ onUnmounted(() => {
   padding: 20px 0;
 }
 
-/* 血缘追溯 chip + 订单生命周期时间线 */
-.lineage-chip {
-  font-family: monospace;
-  font-size: 11px;
-  color: hsl(var(--primary));
-  background: hsl(var(--primary) / 0.08);
-  border: 1px solid hsl(var(--primary) / 0.25);
-  border-radius: 4px;
-  padding: 1px 6px;
-  cursor: pointer;
-}
-.lineage-chip:hover { background: hsl(var(--primary) / 0.15); }
-.empty-hint-inline { color: hsl(var(--muted-foreground)); }
-.expand-btn {
-  font-size: 11px;
-  padding: 2px 8px;
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: hsl(var(--muted-foreground));
-  cursor: pointer;
-}
-.expand-btn:hover { color: hsl(var(--foreground)); border-color: hsl(var(--primary) / 0.5); }
-.lifecycle-row > td { background: hsl(var(--foreground) / 0.02); padding: 8px 14px; }
-.lifecycle-timeline { display: flex; flex-wrap: wrap; gap: 6px 22px; }
-.lifecycle-step { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-.step-dot { width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--muted-foreground)); }
-.step-dot.ok { background: hsl(var(--success)); }
-.step-dot.bad { background: hsl(var(--error)); }
-.step-dot.mid { background: hsl(var(--primary)); }
-.step-status { font-weight: 600; color: hsl(var(--foreground)); }
-.step-meta { color: hsl(var(--muted-foreground)); font-family: monospace; }
-.step-time { color: hsl(var(--muted-foreground)); font-size: 11px; }
 
-/* Logs */
-.logs-filter { margin-bottom: 8px; }
-.filter-row { display: flex; align-items: center; gap: 8px; }
-.filter-select { width: auto; min-width: 100px; }
-.filter-date { width: 140px; font-size: 12px; }
-.filter-sep { color: hsl(var(--muted-foreground)); font-size: 12px; }
-
-.logs-container {
-  max-height: 500px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.log-entry {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
-  border-radius: var(--radius-sm);
-}
-.log-entry:hover { background: hsl(var(--foreground) / 0.02); }
-
-.log-time-col { display: inline-flex; flex-direction: column; flex-shrink: 0; line-height: 1.3; }
-.log-bt { color: hsl(var(--muted-foreground)); font-size: 11px; white-space: nowrap; }
-.log-wt { color: hsl(var(--muted-foreground)); font-size: 9px; white-space: nowrap; }
-.log-level {
-  flex-shrink: 0;
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  display: inline-block;
-  min-width: 52px;
-  text-align: center;
-}
-.level-debug { background: hsl(var(--foreground) / 0.06); color: hsl(var(--muted-foreground)); }
-.level-info { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
-.level-warning { background: hsl(var(--warning) / 0.15); color: hsl(var(--warning)); }
-.level-error { background: hsl(var(--error) / 0.15); color: hsl(var(--error)); }
-.log-event {
-  flex-shrink: 0;
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  display: inline-block;
-  width: 110px;
-  text-align: center;
-}
-.event-signal { background: hsl(var(--secondary-foreground) / 0.15); color: hsl(var(--secondary-foreground)); }
-.event-order { background: hsl(var(--success) / 0.15); color: hsl(var(--success)); }
-.event-position { background: hsl(var(--warning) / 0.15); color: hsl(var(--warning)); }
-.event-capital { background: hsl(var(--success) / 0.15); color: hsl(var(--success)); }
-.event-engine { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
-.event-risk { background: hsl(var(--error) / 0.15); color: hsl(var(--error)); }
-.event-price { background: hsl(var(--foreground) / 0.06); color: hsl(var(--muted-foreground)); }
-.event-t1 { background: hsl(var(--warning) / 0.15); color: hsl(var(--warning)); }
-.text-orange { color: hsl(var(--warning)); }
-.log-detail { color: hsl(var(--muted-foreground)); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
-.log-symbol { color: hsl(var(--foreground)); font-weight: 600; }
-.log-kv { color: hsl(var(--muted-foreground)); }
-.log-kv.dim { color: hsl(var(--muted-foreground)); }
-.log-reason { color: hsl(var(--muted-foreground)); font-style: italic; }
-.log-msg { color: hsl(var(--foreground)); word-break: break-all; }
-.logs-end { text-align: center; font-size: 11px; color: hsl(var(--muted-foreground)); padding: 10px 0; }
 
 /* Responsive */
 @media (max-width: 768px) {

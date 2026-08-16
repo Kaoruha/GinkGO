@@ -188,175 +188,14 @@
           <div class="form-row">
             <div class="form-item">
               <label>开始日期</label>
-              <div
-                class="date-field"
-                @click="startPickerOpen = !startPickerOpen"
-              >
-                <span :class="{ placeholder: !createForm.start_date }">{{ createForm.start_date || '选择日期' }}</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                ><rect
-                  x="3"
-                  y="4"
-                  width="18"
-                  height="18"
-                  rx="2"
-                /><line
-                  x1="16"
-                  y1="2"
-                  x2="16"
-                  y2="6"
-                /><line
-                  x1="8"
-                  y1="2"
-                  x2="8"
-                  y2="6"
-                /><line
-                  x1="3"
-                  y1="10"
-                  x2="21"
-                  y2="10"
-                /></svg>
-                <div
-                  v-if="startPickerOpen"
-                  class="picker-panel"
-                  @click.stop
-                >
-                  <div class="picker-header">
-                    <button
-                      type="button"
-                      class="picker-nav"
-                      @click="startPickerMonth--"
-                    >
-                      ‹
-                    </button>
-                    <span class="picker-title">{{ startPickerYear }}年{{ startPickerMonth + 1 }}月</span>
-                    <button
-                      type="button"
-                      class="picker-nav"
-                      @click="startPickerMonth++"
-                    >
-                      ›
-                    </button>
-                  </div>
-                  <div class="picker-weekdays">
-                    <span
-                      v-for="d in ['一','二','三','四','五','六','日']"
-                      :key="d"
-                      class="picker-wd"
-                    >{{ d }}</span>
-                  </div>
-                  <div class="picker-days">
-                    <button
-                      v-for="(day, i) in startPickerDays"
-                      :key="i"
-                      type="button"
-                      class="picker-day"
-                      :class="{
-                        empty: !day,
-                        selected: day && createForm.start_date === formatPickerDay(day, startPickerYear, startPickerMonth),
-                        today: day && isToday(day, startPickerYear, startPickerMonth)
-                      }"
-                      :disabled="!day"
-                      @click="if (day) { createForm.start_date = formatPickerDay(day, startPickerYear, startPickerMonth); startPickerOpen = false }"
-                    >
-                      {{ day || '' }}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <DateField
+                v-model="createForm.start_date"
+                :initial="createForm.start_date"
+              />
             </div>
             <div class="form-item">
               <label>结束日期</label>
-              <div
-                class="date-field"
-                @click="endPickerOpen = !endPickerOpen"
-              >
-                <span :class="{ placeholder: !createForm.end_date }">{{ createForm.end_date || '选择日期' }}</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                ><rect
-                  x="3"
-                  y="4"
-                  width="18"
-                  height="18"
-                  rx="2"
-                /><line
-                  x1="16"
-                  y1="2"
-                  x2="16"
-                  y2="6"
-                /><line
-                  x1="8"
-                  y1="2"
-                  x2="8"
-                  y2="6"
-                /><line
-                  x1="3"
-                  y1="10"
-                  x2="21"
-                  y2="10"
-                /></svg>
-                <div
-                  v-if="endPickerOpen"
-                  class="picker-panel"
-                  @click.stop
-                >
-                  <div class="picker-header">
-                    <button
-                      type="button"
-                      class="picker-nav"
-                      @click="endPickerMonth--"
-                    >
-                      ‹
-                    </button>
-                    <span class="picker-title">{{ endPickerYear }}年{{ endPickerMonth + 1 }}月</span>
-                    <button
-                      type="button"
-                      class="picker-nav"
-                      @click="endPickerMonth++"
-                    >
-                      ›
-                    </button>
-                  </div>
-                  <div class="picker-weekdays">
-                    <span
-                      v-for="d in ['一','二','三','四','五','六','日']"
-                      :key="d"
-                      class="picker-wd"
-                    >{{ d }}</span>
-                  </div>
-                  <div class="picker-days">
-                    <button
-                      v-for="(day, i) in endPickerDays"
-                      :key="i"
-                      type="button"
-                      class="picker-day"
-                      :class="{
-                        empty: !day,
-                        selected: day && createForm.end_date === formatPickerDay(day, endPickerYear, endPickerMonth),
-                        today: day && isToday(day, endPickerYear, endPickerMonth)
-                      }"
-                      :disabled="!day"
-                      @click="if (day) { createForm.end_date = formatPickerDay(day, endPickerYear, endPickerMonth); endPickerOpen = false }"
-                    >
-                      {{ day || '' }}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <DateField v-model="createForm.end_date" />
             </div>
           </div>
           <div class="form-item">
@@ -474,10 +313,11 @@ import type { BacktestTask } from '@/api'
 import { useBacktestStore } from '@/stores'
 import { useBacktestStatus } from '@/composables'
 import { useServerEvents } from '@/composables'
-import { canStartByState, canStopByState, canCancelByState, BACKTEST_DEFAULT_RANGE_MONTHS } from '@/constants/backtest'
+import { canStartByState, canStopByState, canCancelByState, BACKTEST_DEFAULT_RANGE_MONTHS, BACKTEST_STATUS_FILTER_OPTIONS } from '@/constants/backtest'
 import { message } from '@/utils/toast'
 import { formatPercent } from '@/utils/format'
 import SegmentedControl from '@/components/common/SegmentedControl.vue'
+import DateField from '@/components/common/DateField.vue'
 import {
   formatShortDate, formatDecimal, getPnLColor, getSharpeColor, getDrawdownColor,
 } from '@/composables/useBacktestFormatters'
@@ -502,14 +342,8 @@ const size = ref(20)
 const filterStatus = ref('')
 const searchKeyword = ref('')
 
-const statusOptions = [
-  { key: '', label: '全部' },
-  { key: 'running', label: '进行中' },
-  { key: 'completed', label: '已完成' },
-  { key: 'stopped', label: '已停止' },
-  { key: 'failed', label: '失败' },
-  { key: 'pending', label: '排队中' },
-]
+// 状态筛选项与回测列表页统一(BacktestListPage 同源常量;统一后新增"待调度"项)
+const statusOptions = BACKTEST_STATUS_FILTER_OPTIONS
 
 // ========== 创建状态 ==========
 const showCreateModal = ref(false)
@@ -520,8 +354,6 @@ watch(showCreateModal, (open) => {
     const { start, end } = defaultDateRange()
     createForm.value.start_date = start
     createForm.value.end_date = end
-    startPickerYear.value = new Date(start).getFullYear()
-    startPickerMonth.value = new Date(start).getMonth()
   }
 })
 const defaultDateRange = () => {
@@ -555,53 +387,6 @@ function onCashInput(e: Event) {
 
 function onCashBlur() {
   // Re-format on blur in case partial input
-}
-
-// Date picker state
-const startPickerOpen = ref(false)
-const endPickerOpen = ref(false)
-const now = new Date()
-const startPickerYear = ref(now.getFullYear())
-const startPickerMonth = ref(now.getMonth())
-const endPickerYear = ref(now.getFullYear())
-const endPickerMonth = ref(now.getMonth())
-
-watch(startPickerMonth, (v) => {
-  if (v < 0) { startPickerMonth.value = 11; startPickerYear.value-- }
-  if (v > 11) { startPickerMonth.value = 0; startPickerYear.value++ }
-})
-watch(endPickerMonth, (v) => {
-  if (v < 0) { endPickerMonth.value = 11; endPickerYear.value-- }
-  if (v > 11) { endPickerMonth.value = 0; endPickerYear.value++ }
-})
-
-function getDaysInMonth(year: number, month: number): (number | null)[] {
-  const firstDay = new Date(year, month, 1).getDay()
-  const offset = firstDay === 0 ? 6 : firstDay - 1 // Monday=0
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const cells: (number | null)[] = []
-  for (let i = 0; i < offset; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
-  while (cells.length < 42) cells.push(null)
-  return cells
-}
-
-const startPickerDays = computed(() => getDaysInMonth(startPickerYear.value, startPickerMonth.value))
-const endPickerDays = computed(() => getDaysInMonth(endPickerYear.value, endPickerMonth.value))
-
-const formatPickerDay = (day: number, year?: number, month?: number) => {
-  const y = year ?? startPickerYear.value
-  const mo = month ?? startPickerMonth.value
-  const m = String(mo + 1).padStart(2, '0')
-  const d = String(day).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-const isToday = (day: number, year?: number, month?: number) => {
-  const t = new Date()
-  const y = year ?? startPickerYear.value
-  const mo = month ?? startPickerMonth.value
-  return day === t.getDate() && mo === t.getMonth() && y === t.getFullYear()
 }
 
 // ========== 列表方法 ==========
@@ -1046,101 +831,6 @@ onUnmounted(() => {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
-/* Date field */
-.date-field {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  color: hsl(var(--foreground));
-}
-
-.date-field .placeholder { color: hsl(var(--muted-foreground)); }
-.date-field svg { color: hsl(var(--muted-foreground)); flex-shrink: 0; }
-
-/* Picker panel */
-.picker-panel {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-lg);
-  padding: 10px;
-  z-index: 1100;
-  box-shadow: var(--shadow-lg);
-  width: 252px;
-}
-
-.picker-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.picker-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-}
-
-.picker-nav {
-  background: none;
-  border: none;
-  color: hsl(var(--muted-foreground));
-  font-size: 16px;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-}
-
-.picker-nav:hover { color: hsl(var(--foreground)); background: hsl(var(--border)); }
-
-.picker-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  margin-bottom: 4px;
-}
-
-.picker-wd {
-  text-align: center;
-  font-size: 11px;
-  color: hsl(var(--muted-foreground));
-  font-weight: 500;
-  height: 24px;
-  line-height: 24px;
-}
-
-.picker-days {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-}
-
-.picker-day {
-  width: 32px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  margin: 1px auto;
-}
-
-.picker-day:hover:not(:disabled) { background: hsl(var(--border)); color: hsl(var(--foreground)); }
-.picker-day:disabled { visibility: hidden; }
-.picker-day.selected { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
-.picker-day.today { font-weight: 700; color: hsl(var(--primary)); }
-.picker-day.today.selected { color: hsl(var(--primary-foreground)); }
 
 /* Responsive */
 @media (max-width: 768px) {
