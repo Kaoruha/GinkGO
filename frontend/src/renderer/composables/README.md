@@ -32,6 +32,16 @@ ADR-046 全局通知通道：一条 `/ws/portfolio` 长连接（登录即连、�
 
 `status` 与 REST/DB 枚举一致（小写）；`entity`+`id` 用于定位行；`data` 只放薄字段。
 
+**回测域事件**（worker → Kafka → API 消费广播，运行中 ~2s/条）：
+
+| event | 触发 | data 薄字段 |
+|---|---|---|
+| `backtest.stage` | 阶段切换（数据准备/引擎构建） | `stage`, `message` |
+| `backtest.progress` | 运行中进度 | `progress`, `current_date`, `state` |
+| `backtest.completed` / `failed` / `stopped` | 终态 | `progress`/`error` 等 |
+
+其余域（`deployment.changed`、`worker.changed`、`notification`）见 `frontend/docs/server-events-guide.md` 事件目录。
+
 ### 基本用法
 
 ```typescript
