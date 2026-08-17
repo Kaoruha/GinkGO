@@ -3,6 +3,12 @@ FROM node:20-alpine AS vue_builder
 
 WORKDIR /app
 
+# 国内镜像源(npm/pnpm 均读此变量;npmmirror 与 npmjs 内容一致,integrity 校验不受影响)
+ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+# 产物是 nginx 静态 Web,不需要 Electron 运行时二进制;
+# 不跳过则 postinstall 从 GitHub releases 下载(国内断网,曾卡 97s 后失败)
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
+
 # Install pnpm
 RUN npm install -g pnpm
 
