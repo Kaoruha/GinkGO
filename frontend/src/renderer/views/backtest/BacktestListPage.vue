@@ -128,6 +128,16 @@
     :loading="deleting"
     @confirm="doDelete"
   />
+
+  <!-- 重跑确认:后端 start 会先清理旧结果(日志三表/绩效归零)再重算,须让用户知晓覆盖 -->
+  <ConfirmDialog
+    v-model:open="rerunConfirmOpen"
+    :title="`重新运行「${rerunningTask?.name || rerunningTask?.uuid?.slice(0, 8) || ''}」?`"
+    description="将清理该任务旧结果(信号/订单/日志/绩效)后按原配置重新回测,新结果覆盖旧数据。"
+    confirm-text="重新运行"
+    :loading="rerunning"
+    @confirm="doReRun"
+  />
 </template>
 
 <script setup lang="ts">
@@ -143,7 +153,8 @@ import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { useWebSocket, useServerEvents } from '@/composables'
 import { formatDecimal } from '@/composables/useBacktestFormatters'
 import { formatDate, formatPercent, formatRelativeTime } from '@/utils/format'
-import { BACKTEST_STATUS_FILTER_OPTIONS } from '@/constants/backtest'
+import { BACKTEST_STATUS_FILTER_OPTIONS, canStartByState } from '@/constants/backtest'
+import { copyText } from '@/utils/clipboard'
 import type { MenuItem } from '@/composables/useContextMenu'
 import { message } from '@/utils/toast'
 
@@ -212,7 +223,26 @@ const stopTask = async (record: any) => {
   }
 }
 
-/** 行右键菜单:详情/复制ID/删除,运行中或排队中可停止 */
+/** 行右键菜单:详情/重跑/复制ID/跳组合/删除,运行中或排队中可停止 */
+const rerunConfirmOpen = ref(false)
+const rerunningTask = ref<any>(null)
+const rerunning = ref(false)
+
+const doReRun = async () => {
+  if (!rerunningTask.value) return
+  rerunning.value = true
+  try {
+    await backtestApi.start(rerunningTask.value.uuid)
+    message.success('已重新启动回测')
+    rerunConfirmOpen.value = false
+    fetchTasks(false)
+  } catch (e: any) {
+    message.error(e?.response?.data?.detail || e?.response?.data?.message || '重新运行失败')
+  } finally {
+    rerunning.value = false
+  }
+}
+
 const deleteConfirmOpen = ref(false)
 const deletingTask = ref<any>(null)
 const deleting = ref(false)
@@ -236,13 +266,20 @@ const rowMenu = (record: any): MenuItem[] => {
   const running = record.status === 'running' || record.status === 'pending' || record.status === 'created'
   return [
     { label: '详情', action: () => goDetail(record) },
+    // 终态任务可重跑(与详情页"重新运行"同口径,completed/stopped/failed)
+    ...(canStartByState(record.status)
+      ? [{ label: '重新运行', action: () => { rerunningTask.value = record; rerunConfirmOpen.value = true } }]
+      : []),
     {
       label: '复制ID',
       action: () => {
-        navigator.clipboard.writeText(record.uuid)
-        message.success('ID 已复制')
+        // http 局域网部署 clipboard API 不可用,copyText 内含 execCommand 降级
+        copyText(record.uuid).then((ok) => (ok ? message.success('ID 已复制') : message.info(`ID: ${record.uuid}`)))
       },
     },
+    ...(record.portfolio_id
+      ? [{ label: '打开所属组合', action: () => router.push(`/portfolios/${record.portfolio_id}`) }]
+      : []),
     ...(running ? [{ label: '停止', danger: true, action: () => stopTask(record) }] : []),
     { divider: true },
     { label: '删除', danger: true, action: () => { deletingTask.value = record; deleteConfirmOpen.value = true } },
