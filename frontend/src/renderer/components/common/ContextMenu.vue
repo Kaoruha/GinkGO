@@ -59,12 +59,26 @@ const runPending = () => {
   pendingItem.value = null
 }
 
-// 弹出后测量实际尺寸做视口翻转(贴右缘翻左/贴下缘翻上),模拟 OS 菜单不溢出屏幕
+// 弹出后测量实际尺寸做视口翻转(贴右缘翻左/贴下缘翻上),模拟 OS 菜单不溢出屏幕。
+// 同时按最长菜单项显式定宽:fixed+intrinsic(width:max-content/fit-content)在
+// Chromium 实测会算出远超内容的宽度(~284px),CSS 方案不可靠,故 JS 量内容定宽
 watch(() => state.visible, async v => {
   if (!v) return
   await nextTick()
   const el = menuRef.value
   if (!el) return
+  // 按钮此刻 width:100%(=拉伸后的容器宽),量天然宽须临时 width:auto 重排一次
+  const items = [...el.querySelectorAll<HTMLElement>('.ctx-item')]
+  if (items.length) {
+    const natural = Math.max(...items.map(b => {
+      const prev = b.style.width
+      b.style.width = 'auto'
+      const w = b.offsetWidth
+      b.style.width = prev
+      return w
+    }))
+    el.style.width = `${Math.min(240, Math.max(120, natural + 8))}px` // +8 = 容器 padding
+  }
   pos.value = {
     x: Math.max(8, Math.min(state.x, window.innerWidth - el.offsetWidth - 8)),
     y: Math.max(8, Math.min(state.y, window.innerHeight - el.offsetHeight - 8)),
@@ -116,7 +130,10 @@ onUnmounted(() => {
 .context-menu {
   position: fixed;
   z-index: 2000;
-  min-width: 168px;
+  /* 宽度由 setup 内 JS 按最长菜单项显式设定(120~240 clamp);
+     此处 min/max 仅作 JS 前一帧的兜底 */
+  min-width: 120px;
+  max-width: 240px;
   padding: 4px;
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
@@ -134,6 +151,9 @@ onUnmounted(() => {
   color: hsl(var(--foreground));
   font-size: 13px;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 
