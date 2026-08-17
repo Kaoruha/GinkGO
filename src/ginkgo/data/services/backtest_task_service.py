@@ -1693,49 +1693,6 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"list_orders failed: {e}")
             return ServiceResult.error(f"Failed to list orders: {e}")
 
-    def list_order_records(self, uuid: str) -> "ServiceResult":
-        """获取回测订单状态流水(完整生命周期,不去重)。
-
-        与 list_orders 互补:同一 order_id 的每次状态变更
-        (NEW/SUBMITTED/PARTIAL_FILLED/FILLED/CANCELED/REJECTED)各一行,
-        前端用于还原订单生命周期时间线。血缘 signal_id 每行同值。
-        """
-        try:
-            task_id, portfolio_id, err = self._resolve_task_id(uuid)
-            if err:
-                return err
-
-            from ginkgo.data.containers import container
-            result = container.result_service().get_order_records(task_id=task_id)
-            if not result.is_success():
-                return ServiceResult.success(data=[], message=result.error)
-
-            records = result.data.get("data", []) if isinstance(result.data, dict) else (result.data or [])
-            items = []
-            for o in records:
-                items.append(BacktestOrderItem(
-                    uuid=getattr(o, "uuid", ""),
-                    order_id=getattr(o, "order_id", "") or "",
-                    portfolio_id=getattr(o, "portfolio_id", ""),
-                    engine_id=getattr(o, "engine_id", ""),
-                    task_id=getattr(o, "task_id", ""),
-                    code=getattr(o, "code", ""),
-                    direction=str(getattr(o, "direction", "")) if getattr(o, "direction", None) is not None else None,
-                    order_type=str(getattr(o, "order_type", "")) if getattr(o, "order_type", None) is not None else None,
-                    status=str(getattr(o, "status", "")) if getattr(o, "status", None) is not None else None,
-                    volume=int(getattr(o, "volume", 0) or 0),
-                    limit_price=convert_to_float(getattr(o, "limit_price", 0)) or None,
-                    transaction_price=convert_to_float(getattr(o, "transaction_price", 0)),
-                    transaction_volume=int(getattr(o, "transaction_volume", 0) or 0),
-                    fee=convert_to_float(getattr(o, "fee", 0)),
-                    timestamp=self._format_dt(getattr(o, "timestamp", None)),
-                    signal_id=getattr(o, "signal_id", "") or "",
-                ))
-            return ServiceResult.success(data=items, message="Order records retrieved")
-        except Exception as e:
-            GLOG.ERROR(f"list_order_records failed: {e}")
-            return ServiceResult.error(f"Failed to list order records: {e}")
-
     def list_fills(self, uuid: str) -> "ServiceResult":
         """获取回测已成交订单（fills），返回 list[BacktestOrderItem]。
 
@@ -1883,10 +1840,13 @@ class BacktestTaskService(BaseService):
                 fee = convert_to_float(getattr(p, "fee", 0))
                 # 记录是持仓变更流水（volume 为带符号 delta：卖出为负），
                 # cost 为每股加权均价（Position._cost 口径）。
-                # 市值/盈亏按该笔变更的规模（|volume|）计，方向由 direction 表达：
-                #   BUY  行 profit = (price-cost)*vol-fee   （买入日 price≈cost，≈-fee）
-                #   SELL 行 profit = (price-cost)*|vol|-fee （已实现盈亏，卖<买为负）
-                # 直接用带符号 volume 会让卖出行的盈亏符号取反、市值成负数。
+                # 市值按该笔变更的规模（|volume|）计，方向由 direction 表达；
+                # 盈亏仅卖出行有意义（2026-08-17 定稿）：
+                #   SELL 行 profit = (卖价-剩余均价)*|vol|-fee = 已实现盈亏
+                #     （与 Position._sold 的 realized_gain 同口径，仅多扣 fee）
+                #   BUY  行 profit = None —— cost 是成交后加权均价（先 deal 再记
+                #     流水），(price-cost)*vol 是均价漂移残差：首仓恒=-fee（纯
+                #     手续费）、加仓为本笔价相对新均价的偏离（无金融语义）。
                 abs_volume = abs(volume)
                 # 变动方向:优先记录中的显式枚举,缺失/非法时按 volume 符号派生兜底
                 # （int() 对 None/Mock 抛 TypeError，须捕获后走派生）
@@ -1895,9 +1855,13 @@ class BacktestTaskService(BaseService):
                 except (TypeError, ValueError):
                     direction = 1 if volume >= 0 else 2
                 market_value = price * abs_volume
-                profit = (price - cost) * abs_volume - fee
-                cost_basis = cost * abs_volume
-                profit_pct = (profit / cost_basis) if cost_basis > 0 else 0.0
+                if direction == 2:  # SELL:已实现盈亏
+                    profit = (price - cost) * abs_volume - fee
+                    cost_basis = cost * abs_volume
+                    profit_pct = (profit / cost_basis) if cost_basis > 0 else None
+                else:               # BUY:无盈亏语义
+                    profit = None
+                    profit_pct = None
                 # timestamp 主显事件时间（business_timestamp）；CH 记录的 timestamp
                 # 是写入时刻（回测结束落库时间），非行情时间
                 event_ts = getattr(p, "business_timestamp", None) or getattr(p, "timestamp", None)
@@ -1918,6 +1882,9 @@ class BacktestTaskService(BaseService):
                     market_value=market_value,
                     profit=profit,
                     profit_pct=profit_pct,
+                    # 血缘:引发本次持仓变动的订单。漏传会断 Signal→Order→Position
+                    # 追溯链(前端 order_id 恒空→持仓列无法关联,2026-08-17 实证)
+                    order_id=getattr(p, "order_id", "") or "",
                 ))
 
             sr = ServiceResult.success(data=items, message="Positions retrieved")
@@ -1934,6 +1901,7 @@ class BacktestTaskService(BaseService):
         """
         from collections import OrderedDict
         from ginkgo.data.services.backtest_task_schemas import BacktestAnalyzerGroup
+        from ginkgo.trading.analysis.analyzers import ANALYZER_DESCRIPTIONS
 
         try:
             task_id, portfolio_id, err = self._resolve_task_id(uuid)
@@ -1972,6 +1940,7 @@ class BacktestTaskService(BaseService):
                 change = (values[0] - values[-1]) if len(values) > 1 else 0
                 groups.append(BacktestAnalyzerGroup(
                     name=name,
+                    description=ANALYZER_DESCRIPTIONS.get(name, ""),
                     latest_value=latest,
                     record_count=count,
                     stats={"count": count, "latest": latest, "change": change},

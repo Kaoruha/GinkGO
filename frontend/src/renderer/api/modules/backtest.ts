@@ -89,6 +89,8 @@ export interface BacktestNetValue {
 
 export interface AnalyzerInfo {
   name: string
+  /** 一句话指标说明(后端 analyzer 元数据带出,缺省为空) */
+  description?: string
   latest_value: number | null
   record_count: number
   stats: {

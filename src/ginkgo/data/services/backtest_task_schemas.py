@@ -121,10 +121,13 @@ class BacktestPositionItem(BaseModel):
     # 前端时间列恒空)。业务时间优先展示。
     timestamp: str = ""
     business_timestamp: str = ""
-    # 派生价值字段(同样早已计算未声明):市值/盈亏/盈亏率
+    # 派生价值字段(同样早已计算未声明):市值/盈亏/盈亏率。
+    # profit/profit_pct 仅卖出行有值(已实现盈亏);买入行无盈亏语义,恒 None
+    # (展示 '-'):买入 cost=成交后加权均价,(price-cost)*vol 是均价漂移残差
+    # 而非盈亏(首仓=纯手续费,加仓=无金融含义的算术残差,2026-08-17 定稿)。
     market_value: float = 0.0
-    profit: float = 0.0
-    profit_pct: float = 0.0
+    profit: Optional[float] = None
+    profit_pct: Optional[float] = None
     # 变动方向(对齐 signal 模式):1=LONG/2=SHORT
     direction: int = 0
     # 血缘(2026-08-17 追溯链):引发本次持仓变动的订单 uuid
@@ -134,6 +137,8 @@ class BacktestPositionItem(BaseModel):
 class BacktestAnalyzerGroup(BaseModel):
     """分析器聚合结果"""
     name: str
+    # 一句话指标说明(ANALYZER_DESCRIPTIONS 查表,未收录名为空串)
+    description: str = ""
     latest_value: Optional[float] = None
     record_count: int = 0
     stats: Dict[str, Any] = {}

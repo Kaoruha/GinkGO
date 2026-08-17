@@ -434,14 +434,13 @@ async def cleanup_stale_engines(
 # 历史：曾尝试用 AnalyzerRegistry 动态扫描内置子类，但其 import 即崩
 # （ANALYZER_CATEGORY_TYPES 全仓零定义），被 except 静默吞，端点运行时永远走此列表；
 # #6476 删除 AnalyzerRegistry 死层后将本列表提为唯一实现，消除误导性死壳。
+# 名称与描述统一取分析器域的 ANALYZER_DESCRIPTIONS(单一事实源,
+# /backtests/{uuid}/analyzers 的 group.description 同源)
+from ginkgo.trading.analysis.analyzers import ANALYZER_DESCRIPTIONS as _ANALYZER_DESCRIPTIONS
+
 _BUILTIN_ANALYZERS = [
-    {"name": "annualized_return", "type": "annualized_return", "description": "年化收益率"},
-    {"name": "sharpe_ratio", "type": "sharpe_ratio", "description": "夏普比率"},
-    {"name": "max_drawdown", "type": "max_drawdown", "description": "最大回撤"},
-    {"name": "order_count", "type": "order_count", "description": "订单统计"},
-    {"name": "volatility", "type": "volatility", "description": "波动率"},
-    {"name": "profit_factor", "type": "profit_factor", "description": "盈亏比"},
-    {"name": "win_rate", "type": "win_rate", "description": "胜率"},
+    {"name": n, "type": n, "description": d}
+    for n, d in _ANALYZER_DESCRIPTIONS.items()
 ]
 
 
@@ -539,29 +538,19 @@ async def create_backtest(data: BacktestTaskCreate):
 
     流程：
     1. 创建任务记录（写入数据库）
-    2. 发送到Kafka（后台任务，不阻塞响应）
-    3. 返回任务详情
+    2. 返回任务详情
+
+    2026-08-17:移除"创建即后台派发 Kafka"——前端创建后会显式调
+    /{uuid}/start（组合页 handleCreate: create → start），两路各派一条
+    assignment = 双引擎并发 + 状态机竞态（start 置 pending 撞上 worker
+    已认领的 running，被守卫拒为 concurrent start，但 create 侧的任务
+    已在跑——用户看到报错+任务运行，重试再创建，15 秒三个任务齐跑）。
+    start 端点（service.start_task）是唯一启动入口：清理+状态机+
+    单条派发全在那里。创建后不 start 的任务停在 created（CLI create
+    语义一致）。
     """
     try:
-        # 1. 创建任务（使用服务层）
         task = create_backtest_task(data)
-
-        # 2. 发送到Kafka（后台任务，不阻塞响应）
-        # 使用 asyncio.create_task 让 Kafka 发送在后台运行
-        dispatch_task = asyncio.create_task(
-            send_task_to_kafka(
-                task_uuid=task["uuid"],
-                portfolio_uuids=data.portfolio_uuids,
-                name=data.name,
-                config=task["config"],
-            )
-        )
-        # 派发失败（producer.send 抛异常）不再被静默吞：done_callback 记日志 +
-        # 落库 failed，使任务状态可查（#5478）。lambda 用默认参数捕获当前 uuid，
-        # 避免闭包在并发/多任务下捕获到漂移后的 task["uuid"]。
-        dispatch_task.add_done_callback(lambda t, _uuid=task["uuid"]: _on_kafka_dispatch_done(_uuid, t))
-
-        # 立即返回响应，不等待 Kafka
         return ok(data=task, message="Backtest task created successfully")
 
     except (NotFoundError, ValidationError, BusinessError):
@@ -840,37 +829,6 @@ async def get_backtest_orders(
     except Exception as e:
         logger.error(f"Error getting orders for {uuid}: {str(e)}")
         raise BusinessError(f"Error getting orders: {str(e)}")
-
-
-@router.get("/{uuid}/order-records")
-async def get_backtest_order_records(uuid: str):
-    """获取回测订单记录流水(完整状态流转, 不去重)。
-
-    与 /orders 区分: /orders 按 order_id 去重返回订单(最终态);
-    /order-records 返回同一 order_id 的全部状态变更记录(NEW/SUBMITTED/FILLED 等)。
-    """
-    try:
-        task_service = get_backtest_task_service()
-        result = task_service.list_order_records(uuid)
-
-        if not result.is_success():
-            return paginated(items=[], total=0, message=result.error or "Failed to retrieve order records")
-
-        items = result.data
-        total = result.metadata.get("total", 0)
-        return paginated(
-            items=[o.dict() for o in items],
-            total=total,
-            page=1,
-            page_size=max(total, 1),
-            message="Order records retrieved successfully",
-        )
-
-    except NotFoundError:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting order records for {uuid}: {str(e)}")
-        raise BusinessError(f"Error getting order records: {str(e)}")
 
 
 @router.get("/{uuid}/fills")

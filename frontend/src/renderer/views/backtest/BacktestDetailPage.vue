@@ -189,7 +189,16 @@
                 v-for="a in analyzers"
                 :key="a.name"
               >
-                <td><span class="tag tag-blue">{{ a.name }}</span></td>
+                <td>
+                  <span class="tag tag-blue">{{ a.name }}</span>
+                  <!-- 中文名注册名不可读,描述由后端 analyzer 元数据带出 -->
+                  <div
+                    v-if="a.description"
+                    class="analyzer-desc"
+                  >
+                    {{ a.description }}
+                  </div>
+                </td>
                 <td :style="{ color: getAnalyzerColor(a.name, a.latest_value) }">
                   {{ fmtAnalyzer(a.name, a.latest_value) }}
                 </td>
@@ -244,6 +253,11 @@
                   {{ a.name }}
                 </option>
               </select>
+              <!-- 选中项描述由后端 analyzer 元数据带出,帮助理解指标含义 -->
+              <span
+                v-if="selectedAnalyzerDescription"
+                class="analyzer-desc-inline"
+              >{{ selectedAnalyzerDescription }}</span>
             </div>
             <div class="stats-row">
               <span>Count: {{ analyzerStats.count }}</span>
@@ -442,6 +456,9 @@ const logDateRange = computed(() => {
 
 // 分析器详情
 const selectedAnalyzer = ref('')
+// 选中分析器的一句话描述(后端 analyzer 元数据带出,缺省为空不显示)
+const selectedAnalyzerDescription = computed(() =>
+  analyzers.value.find(a => a.name === selectedAnalyzer.value)?.description || '')
 const analyzerLoading = ref(false)
 const analyzerStats = ref<any>(null)
 const analyzerTimeseries = ref<any[]>([])
@@ -941,6 +958,19 @@ onUnmounted(() => {
 
 /* Analyzer header */
 .analyzer-header { margin-bottom: 12px; }
+/* 分析器描述:概览表格名称下方小字 + 详情页 select 旁行内说明 */
+.analyzer-desc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.4;
+}
+.analyzer-desc-inline {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
 
 .form-select {
   width: 100%; padding: 8px 12px;
