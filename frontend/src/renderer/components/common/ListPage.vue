@@ -280,7 +280,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, useSlots, watch } from 'vue'
 import PageLayout from './PageLayout.vue'
 import ProTable, { type Column } from './ProTable.vue'
 import type { MenuItem } from '@/composables/useContextMenu'
@@ -350,9 +350,14 @@ const emit = defineEmits<{
 
 const isEmpty = computed(() => !props.loading && props.dataSource.length === 0)
 
-// 列 slot 转发名单(排除 __actions,它走独立 #actions 转发)
+// 列 slot 转发名单(排除 __actions,它走独立 #actions 转发)。
+// 只转发页面实际提供的 slot:ProTable 以 $slots[col.key] 判定自定义渲染,
+// 若给未提供内容的列也转发空壳,会遮蔽其 formatValue 默认渲染(列显示空白)
+const slots = useSlots()
 const slotColumns = computed(() =>
-  props.columns.map(c => ({ ...c, key: c.key || c.dataIndex })).filter(c => c.key !== '__actions')
+  props.columns
+    .map(c => ({ ...c, key: c.key || c.dataIndex }))
+    .filter(c => c.key !== '__actions' && !!slots[c.key])
 )
 
 // ===== 无限滚动 sentinel(此前 PortfolioList/BacktestListPage 各写一份 observer) =====
