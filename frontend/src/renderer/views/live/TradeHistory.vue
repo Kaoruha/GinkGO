@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { RefreshCw, Download, Filter } from 'lucide-vue-next'
 import PageLayout from '@/components/common/PageLayout.vue'
+import DateField from '@/components/common/DateField.vue'
 import { tradeHistoryApi, liveAccountApi } from '@/api'
 import {
   DialogRoot,
@@ -444,19 +445,21 @@ onMounted(() => {
           <div class="space-y-4 py-4">
             <div>
               <label class="text-sm font-medium">开始日期</label>
-              <input
+              <DateField
                 v-model="dateFilter.start_date"
-                type="date"
-                class="w-full mt-1 px-3 py-2 border rounded-md"
-              >
+                class="w-full mt-1"
+                bordered
+                clearable
+              />
             </div>
             <div>
               <label class="text-sm font-medium">结束日期</label>
-              <input
+              <DateField
                 v-model="dateFilter.end_date"
-                type="date"
-                class="w-full mt-1 px-3 py-2 border rounded-md"
-              >
+                class="w-full mt-1"
+                bordered
+                clearable
+              />
             </div>
           </div>
 

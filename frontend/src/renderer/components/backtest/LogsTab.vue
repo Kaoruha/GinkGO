@@ -90,19 +90,21 @@
             策略信号
           </option>
         </select>
-        <input
+        <DateField
           v-model="logFilters.start_time"
-          type="date"
-          class="form-input filter-date"
-          @change="loadLogs(true)"
-        >
+          class="filter-date"
+          bordered
+          clearable
+          @update:model-value="loadLogs(true)"
+        />
         <span class="filter-sep">~</span>
-        <input
+        <DateField
           v-model="logFilters.end_time"
-          type="date"
-          class="form-input filter-date"
-          @change="loadLogs(true)"
-        >
+          class="filter-date"
+          bordered
+          clearable
+          @update:model-value="loadLogs(true)"
+        />
         <!-- 关键词:前端过滤已加载日志(message/symbol/事件字段),后端无 keyword 参数 -->
         <input
           v-model="logKeyword"
@@ -372,6 +374,7 @@
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { backtestApi } from '@/api'
+import DateField from '@/components/common/DateField.vue'
 import {
   formatLogTime, levelClass, eventClass, dirLabel, directionColor,
 } from '@/composables/useBacktestFormatters'

@@ -16,16 +16,14 @@
       >{{ selectedLabel || selectedCode }}</span>
     </template>
     <template #actions>
-      <input
+      <DateField
         v-model="startDate"
-        type="date"
         class="control-input"
-      >
-      <input
+      />
+      <DateField
         v-model="endDate"
-        type="date"
         class="control-input"
-      >
+      />
       <button
         class="btn-query"
         :disabled="!selectedCode || loading"
@@ -156,6 +154,7 @@ import PageLayout from '@/components/common/PageLayout.vue'
 import PageTitle from '@/components/common/PageTitle.vue'
 import { useRoute } from 'vue-router'
 import ProTable from '@/components/common/ProTable.vue'
+import DateField from '@/components/common/DateField.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
 import * as echarts from 'echarts'
 import { cssColor, upColor, downColor } from '@/composables/useChartTheme'
