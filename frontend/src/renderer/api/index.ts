@@ -37,6 +37,36 @@ export type { GridSearchConfig, GridSearchResult, GeneticOptimizerConfig, Geneti
 
 // 实盘账号模块
 export { liveAccountApi } from './modules/live'
+export type {
+  LiveAccount,
+  CreateLiveAccountRequest,
+  UpdateLiveAccountRequest,
+  ValidateAccountResponse,
+  AccountStatusType,
+  PaginationResponse
+} from './modules/live'
+// ExchangeType/EnvironmentType 定义源在 market(live 只是转发),barrel 从 market 导出
+
+// 行情模块
+export { marketApi } from './modules/market'
+export type { ExchangeType, EnvironmentType, TradingPair, MarketSubscription, TickerData } from './modules/market'
+
+// 订单/持仓模块
+export { orderApi, positionApi } from './modules/order'
+export type { Order, Position, PositionSummary, OrderListParams, PositionListParams } from './modules/order'
+
+// 定时任务模块
+export { taskTimerApi } from './modules/taskTimer'
+export type { TaskTimerJob, TaskTimerExecution, ExecutionSummary } from './modules/taskTimer'
+
+// API Key 模块
+export { apiKeyApi } from './modules/apiKey'
+export type { ApiKey, CreateApiKeyRequest, UpdateApiKeyRequest, PermissionType, ApiKeyStatus } from './modules/apiKey'
+
+// 用户/用户组/通知管理模块
+// UserInfo 别名 SystemUserInfo:auth.UserInfo 是登录会话用户,本模块是管理域用户实体
+export { usersApi, userGroupsApi, notificationsApi } from './modules/users'
+export type { UserInfo as SystemUserInfo, UserCreate, UserUpdate, UserGroupInfo, UserGroupCreate, NotificationTemplate, NotificationHistory, NotificationRecipient } from './modules/users'
 
 // 部署模块
 export { deploymentApi } from './modules/deployment'
@@ -49,13 +79,3 @@ export type { BrokerInstance, BrokerState } from './modules/broker'
 // 交易历史模块
 export { tradeHistoryApi } from './modules/tradeHistory'
 export type { TradeRecord, TradeStatistics, DailySummary, TradeHistoryParams } from './modules/tradeHistory'
-export type {
-  LiveAccount,
-  CreateLiveAccountRequest,
-  UpdateLiveAccountRequest,
-  ValidateAccountResponse,
-  ExchangeType,
-  EnvironmentType,
-  AccountStatusType,
-  PaginationResponse
-} from './modules/live'

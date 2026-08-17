@@ -147,7 +147,7 @@ import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import FormModal from '@/components/common/FormModal.vue'
-import { userGroupsApi, type UserGroupInfo } from '@/api/modules/settings'
+import { userGroupsApi, type UserGroupInfo } from '@/api/modules/users'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu, useAsyncAction } from '@/composables'
 

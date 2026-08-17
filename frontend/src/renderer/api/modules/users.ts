@@ -1,3 +1,8 @@
+/**
+ * 用户/用户组/通知管理域 API
+ * (文件原名 settings.ts,名实不符更名;与 auth.ts 的登录会话域互补——
+ * 本文件 UserInfo 是管理域用户实体,barrel 以 SystemUserInfo 别名导出防撞)
+ */
 import request from '../request'
 import type { RequestOptions } from '@/types/api-request'
 
