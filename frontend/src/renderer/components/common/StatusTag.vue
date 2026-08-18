@@ -36,7 +36,7 @@ const systemConfig: Record<string, { color: string; label: string }> = {
   unhealthy: { color: 'red', label: '异常' },
 }
 
-// Worker/组件运行状态配置（SystemStatus/WorkerManagement 共用）
+// Worker/组件运行状态配置（SystemStatus 组件详情表用）
 const workerConfig: Record<string, { color: string; label: string }> = {
   running: { color: 'green', label: '运行中' },
   active: { color: 'green', label: '活跃' },

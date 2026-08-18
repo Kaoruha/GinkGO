@@ -80,7 +80,6 @@ export const menuConfigs: MenuConfig[] = [
     key: 'admin', label: '管理', icon: Wrench, route: '/admin', matchPrefixes: ['/admin/'],
     children: [
       { label: '系统状态', route: '/admin', exact: true },
-      { label: 'Worker 管理', route: '/admin/workers' },
       { label: 'API Key', route: '/admin/api-keys' },
       { label: '用户管理', route: '/admin/users' },
       { label: '用户组', route: '/admin/groups' },

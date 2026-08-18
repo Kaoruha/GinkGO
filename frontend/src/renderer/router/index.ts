@@ -74,7 +74,8 @@ const routes: RouteRecordRaw[] = [
 
   // ===== 管理（系统级功能,叶子路由直达） =====
   { path: '/admin', name: 'Admin', component: () => import('@/views/admin/SystemStatus.vue'), meta: { title: '系统状态' } },
-  { path: '/admin/workers', name: 'WorkerManagement', component: () => import('@/views/admin/WorkerManagement.vue'), meta: { title: 'Worker 管理' } },
+  // 2026-08-19 Worker 管理页并入系统状态(数据同源+同表,无独占操作),redirect 保深链
+  { path: '/admin/workers', redirect: '/admin' },
   { path: '/admin/api-keys', name: 'ApiKeyManagement', component: () => import('@/views/admin/ApiKeyManagement.vue'), meta: { title: 'API Key 管理' } },
   { path: '/admin/users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { title: '用户管理' } },
   { path: '/admin/groups', name: 'UserGroupManagement', component: () => import('@/views/admin/UserGroupManagement.vue'), meta: { title: '用户组管理' } },

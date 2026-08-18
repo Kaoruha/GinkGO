@@ -185,6 +185,7 @@
       <WorkerTable
         :workers="filteredWorkers"
         :loading="workerLoading"
+        expandable
         id-header="组件 ID"
         :empty-text="typeFilter === 'all' ? '暂无组件' : '该类型暂无组件'"
         :heartbeat-tick="systemStore.lastUpdate"

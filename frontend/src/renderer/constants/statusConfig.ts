@@ -14,7 +14,7 @@ export interface TypeEntry {
   label: string
 }
 
-// ===== Worker 类型(WorkerManagement 下拉 / SystemStatus 类型筛选共用) =====
+// ===== Worker 类型(SystemStatus 类型筛选用;countsKey 对应 system status 接口 counts 字段) =====
 export interface WorkerTypeConfig extends TypeEntry {
   key: string
   /** system status 接口 counts 字段名 */

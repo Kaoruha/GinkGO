@@ -162,8 +162,9 @@
 /**
  * Worker/组件 5 列表(ID/类型/状态/详情/最后心跳)
  *
- * 自 WorkerManagement 与 SystemStatus 逐字重复的两份表格合并。
- * 任务下钻(expandable)仅 Worker 管理页启用,展开态组件自持——
+ * 自 WorkerManagement 与 SystemStatus 逐字重复的两份表格合并;
+ * 2026-08-19 Worker 管理页并入系统状态,本表仅 SystemStatus 使用。
+ * 任务下钻(expandable)展开态组件自持——
  * 自动刷新只重传列表 props,不刷新已展开任务(收起再展开即重新拉取)。
  * 心跳 stale 预警两档(>30s 警告 / >60s 异常),随 heartbeatTick 重渲染。
  */
