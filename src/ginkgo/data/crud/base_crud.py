@@ -710,11 +710,14 @@ class _CoreCRUD(Generic[T], ABC):
             int: Number of records updated
         """
         with self._session_scope(session) as s:
-            # Build filter conditions
-            filter_conditions = []
-            for field, value in filters.items():
-                if hasattr(self.model_class, field):
-                    filter_conditions.append(getattr(self.model_class, field) == value)
+            # 查询逻辑与 _do_find 同源(2026-08-18,用户拍板):走 _parse_filters,
+            # __in/__like/__lt/__or__ 等算子全谱可用。旧实现手搓
+            # hasattr(model, field) == value 等值——算子条件(field__in 不是
+            # 属性名)被静默蒸发:纯算子条件 → WHERE 空 → 0 行更新无报错;
+            # 等值+算子混合 → 算子丢失后按放宽条件更新(危险形态,实测
+            # status=success 的行无视 status__in:[running] 仍被更新)。
+            # 同一 filters 字典在 find 与 modify 下语义自此一致。
+            filter_conditions = self._parse_filters(filters) or []
 
             # Automatically update update_at timestamp for MySQL models
             if self._is_mysql and hasattr(self.model_class, "update_at"):
@@ -730,6 +733,10 @@ class _CoreCRUD(Generic[T], ABC):
                 updated_rows = result.rowcount if result else 0
                 GLOG.INFO(f"Updated {self.model_class.__name__} records: {updated_rows}")
                 return updated_rows
+            GLOG.WARN(
+                f"Modify on {self.model_class.__name__} produced no WHERE conditions "
+                f"(filters={filters}); refusing full-table update"
+            )
             return 0
 
     def _do_count(self, filters: Optional[Dict[str, Any]] = None, session: Optional[Session] = None) -> int:
