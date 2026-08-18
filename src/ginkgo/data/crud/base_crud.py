@@ -840,11 +840,20 @@ class _CoreCRUD(Generic[T], ABC):
                         conditions.append(attr.like(f"%{value}%"))
                     else:
                         from ginkgo.libs import GLOG
-                        GLOG.DEBUG(f"Unknown filter operator: {operator}")
+                        # 未知算子响亮(原 DEBUG 静默):条件被丢即查询/更新面失真
+                        GLOG.WARN(f"Unknown filter operator '{operator}' on {self.model_class.__name__}; condition dropped")
+                else:
+                    from ginkgo.libs import GLOG
+                    GLOG.WARN(f"Unknown filter field '{field}' on {self.model_class.__name__}; condition dropped")
             else:
                 # Standard equality filter
                 if hasattr(self.model_class, key):
                     conditions.append(getattr(self.model_class, key) == value)
+                else:
+                    from ginkgo.libs import GLOG
+                    # 拼错字段响亮(2026-08-18,原静默跳过):单条丢失不再无声,
+                    # 行为仍为跳过(find 容错不破坏),可见性交日志
+                    GLOG.WARN(f"Unknown filter field '{key}' on {self.model_class.__name__}; condition dropped")
 
         return conditions
 
