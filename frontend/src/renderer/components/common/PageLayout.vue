@@ -139,5 +139,12 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  /* 直接子项垂直间距由布局容器统一提供(2026-08-19 收口):
+     此前无 gap,靠子项各自 margin(.card 全局有,.stats-grid 等容器类无)→ 页面间贴靠不一 */
+  gap: 16px;
+  /* 滚动收口在 body(2026-08-19):header/meta/tabs/filters 固定不随滚,
+     页面内容在此内部滚动(ListPage .list-content 同款模式上提为全局默认)。
+     自持内滚的页面(ListPage)子项不超高 → 本滚动条不触发,无双滚。 */
+  overflow-y: auto;
 }
 </style>

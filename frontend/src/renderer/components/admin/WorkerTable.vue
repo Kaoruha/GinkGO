@@ -259,9 +259,13 @@ const toggleExpand = async (worker: WorkerInfo) => {
   font-size: 12px;
 }
 
+/* flex:1 内滚:外层卡(works-card)定高 flex 列时表格区自己滚,表头 sticky 贴卡内顶 */
 .table-wrapper {
+  flex: 1;
+  min-height: 0;
   padding: 20px;
   overflow-x: clip;
+  overflow-y: auto;
 }
 
 .monospace {

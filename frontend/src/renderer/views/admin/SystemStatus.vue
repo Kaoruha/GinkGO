@@ -160,7 +160,7 @@
     </div>
 
     <!-- 组件详情:统计 chips 兼作类型筛选,异常组件排序置顶 -->
-    <div class="card">
+    <div class="card workers-card">
       <div class="card-header">
         <h3>组件详情</h3>
         <div class="type-chips">
@@ -352,6 +352,22 @@ onUnmounted(() => {
 
 <style scoped>
 /* 表在 WorkerTable 子组件内;此页保留表头底色差异 */
+/* 组件详情卡占满剩余高:标题/横幅/统计/基础设施固定,表格在卡内自滚。
+   min-height 保底:横幅+基建卡挤占过多时不把表区压成窄条,
+   空间不足退化为 body 内滚(标题仍固定) */
+.workers-card {
+  flex: 1;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  /* body gap 已提供间距,去掉 .card 尾 margin 避免幽灵滚动 */
+  margin-bottom: 0;
+}
+
+.workers-card .card-header {
+  flex-shrink: 0;
+}
+
 .card :deep(.data-table th) {
   background: hsl(var(--muted));
 }
@@ -442,6 +458,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* 多组件异常时清单可很长:封顶内滚,避免横幅撑爆固定布局 */
+  max-height: 96px;
+  overflow-y: auto;
 }
 
 /* 统计卡片间距(列数/间距走全局 .stats-grid) */
