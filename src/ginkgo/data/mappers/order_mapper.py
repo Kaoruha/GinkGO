@@ -65,6 +65,71 @@ class OrderMapper:
         )
 
     @staticmethod
+    def entity_to_record_kwargs(
+        entity: Order,
+        status: ORDERSTATUS_TYPES,
+        *,
+        portfolio_id: str,
+        engine_id: str,
+        task_id: str,
+        transaction_price: float = 0,
+        transaction_volume: float = 0,
+        fee: float = 0,
+        remain: Optional[float] = None,
+    ) -> dict:
+        """Entity → MOrderRecord 落库参数（#6911 单一事实源）。
+
+        ``entity_to_model`` 的姊妹方法：前者转 MOrder（MySQL 当前态，配
+        ``upsert_order``），本方法转 MOrderRecord（CH 审计快照，配
+        ``create_order_record``）。不返回 Model——写入必须过
+        ``OrderRecordCRUD.create`` 的字段校验防线（#6911 正是 required
+        校验拦下 SUBMITTED 漏 signal_id），``add(model)`` 是绕防线的裸写。
+
+        MOrderRecord 新增字段只改这里：t1backtest._save_order_record
+        （NEW/FILLED/REJECTED/CANCELED 四态行）与 trade_gateway.
+        _save_submitted_order_record（SUBMITTED 行）共用本方法。此前两处
+        手抄 18 字段，漏一即静默缺陷（#5940 frozen、#6911 signal_id 两次
+        同根因）。
+
+        Args:
+            entity: Order 实体（signal_id 由引擎 on_signal 绑定；
+                手工/外部单无值落空串，合法）
+            status: 目标状态（事件后状态——事件链中 entity.status 是
+                事件前状态）
+            portfolio_id/engine_id/task_id: 上下文三元组。调用方来源不同：
+                portfolio 侧传 self.*，gateway 侧传 event/engine 绑定值
+            transaction_price/transaction_volume/fee: 成交三元组，
+                SUBMITTED 等未成交态保持默认 0
+            remain: 剩余量；None → entity.remain（属性缺失 0）。
+                SUBMITTED 全未成交，调用方显式传 entity.volume
+
+        Returns:
+            dict: ``create_order_record`` / ``OrderRecordCRUD.create`` kwargs
+        """
+        return dict(
+            order_id=entity.uuid,
+            portfolio_id=portfolio_id,
+            engine_id=engine_id,
+            task_id=task_id,
+            # 血缘:触发本订单的信号(三态行 NEW/SUBMITTED/FILLED 全覆盖)
+            signal_id=getattr(entity, "signal_id", ""),
+            code=entity.code,
+            direction=entity.direction,
+            order_type=entity.order_type,
+            status=status,
+            volume=entity.volume,
+            limit_price=entity.limit_price,
+            frozen_money=getattr(entity, "frozen_money", 0),
+            frozen_volume=getattr(entity, "frozen_volume", 0),
+            transaction_price=transaction_price,
+            transaction_volume=transaction_volume,
+            remain=getattr(entity, "remain", 0) if remain is None else remain,
+            fee=fee,
+            timestamp=entity.timestamp,
+            business_timestamp=getattr(entity, "business_timestamp", entity.timestamp),
+        )
+
+    @staticmethod
     def model_to_entity(model: MOrder) -> Order:
         """ORM → Entity。修正：uuid=model.uuid（旧版 order_id= 被丢弃）。"""
         if not isinstance(model, MOrder):
