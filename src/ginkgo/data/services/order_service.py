@@ -285,7 +285,7 @@ class OrderService(BaseService):
             return ServiceResult.error(str(e))
 
     @retry(max_try=3)
-    def create_order_record(self, **kwargs) -> ServiceResult:
+    def create_order_record(self, *, signal_id: str, **kwargs) -> ServiceResult:
         """ADR-029 Task 8：MOrderRecord 写入收敛到 OrderService。
 
         原 ``result_service.create_order_record:648`` 写逻辑迁此。``result_service``
@@ -297,6 +297,9 @@ class OrderService(BaseService):
         走懒 import——与原 ``result_service`` 写路径同模式。
 
         Args:
+            signal_id: 血缘字段,keyword-only 显式必传。三态行(NEW/SUBMITTED/FILLED)
+                全覆盖;回测订单必有值,手工/外部单传空串。显式签名让漏传在调用
+                瞬间 TypeError,而非 CRUD 校验失败后经 retry 放大才在日志暴露
             **kwargs: MOrderRecord 字段（order_id/portfolio_id/engine_id/task_id/
                 code/direction/order_type/status/volume/limit_price/frozen_money/
                 frozen_volume/transaction_price/transaction_volume/remain/fee/
@@ -309,7 +312,8 @@ class OrderService(BaseService):
             from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
             order_record_crud = OrderRecordCRUD()
 
-            order_record_crud.create(**kwargs)
+            # signal_id 是 keyword-only 显式参数,不在 **kwargs 内,须显式传递
+            order_record_crud.create(signal_id=signal_id, **kwargs)
 
             GLOG.INFO(f"订单记录创建成功: code={kwargs.get('code')} task_id={kwargs.get('task_id')}")
             return ServiceResult.success({"message": "Order record created"})

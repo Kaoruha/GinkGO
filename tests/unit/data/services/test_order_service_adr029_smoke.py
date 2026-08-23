@@ -94,9 +94,9 @@ def test_create_order_record_delegates_to_crud():
         return_value=fake_crud,
     ):
         svc = OrderService(crud_repo=_FakeCrud())
-        res = svc.create_order_record(code="000001", portfolio_id="p")
+        res = svc.create_order_record(signal_id="", code="000001", portfolio_id="p")
     assert res.success
-    fake_crud.create.assert_called_once_with(code="000001", portfolio_id="p")
+    fake_crud.create.assert_called_once_with(signal_id="", code="000001", portfolio_id="p")
 
 
 # ---------------- get_orders_df ----------------
@@ -136,5 +136,5 @@ def test_create_order_record_exception_returns_error():
         return_value=fake_crud,
     ):
         svc = OrderService(crud_repo=_FakeCrud())
-        res = svc.create_order_record(code="000001")
+        res = svc.create_order_record(signal_id="", code="000001")
     assert not res.success

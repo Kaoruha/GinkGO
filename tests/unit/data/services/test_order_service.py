@@ -361,6 +361,7 @@ class TestCreateOrderRecord:
         kwargs = dict(
             order_id="order-uuid-1",
             portfolio_id="p1",
+            signal_id="signal-uuid-1",
             engine_id="e1",
             task_id="t1",
             code="000001.SZ",
@@ -399,7 +400,7 @@ class TestCreateOrderRecord:
         )
 
         result = order_svc.create_order_record(
-            order_id="o1", portfolio_id="p1", code="000001.SZ",
+            signal_id="", order_id="o1", portfolio_id="p1", code="000001.SZ",
             direction=DIRECTION_TYPES.LONG, order_type=ORDER_TYPES.MARKETORDER,
             status=ORDERSTATUS_TYPES.NEW, volume=100, limit_price=10.0,
         )

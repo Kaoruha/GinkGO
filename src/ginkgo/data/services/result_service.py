@@ -649,7 +649,7 @@ class ResultService(BaseService):
             filters["task_id"] = task_id
         return filters
 
-    def create_order_record(self, **kwargs) -> ServiceResult:
+    def create_order_record(self, *, signal_id: str, **kwargs) -> ServiceResult:
         """ADR-029 Task 8：thin delegate 到 ``OrderService.create_order_record``。
 
         写逻辑（MOrderRecord 经 OrderRecordCRUD）已迁入 ``OrderService``，
@@ -658,13 +658,15 @@ class ResultService(BaseService):
         ``OrderService.create_order_record``，此处不再叠 @retry（否则 3×3=9 次重试）。
 
         Args:
+            signal_id: 血缘字段,与 OrderService.create_order_record 同步显式必传
+                (契约上移:漏传在调用瞬间 TypeError 而非 CRUD 校验后放大)
             **kwargs: MOrderRecord 字段（透传 OrderService.create_order_record）
 
         Returns:
             ServiceResult: 创建结果（来自 OrderService）
         """
         from ginkgo.data.containers import container
-        return container.order_service().create_order_record(**kwargs)
+        return container.order_service().create_order_record(signal_id=signal_id, **kwargs)
 
     @retry(max_try=3)
     def create_position_record(self, **kwargs) -> ServiceResult:

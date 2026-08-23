@@ -340,6 +340,9 @@ class TradeGateway(BaseTradeGateway):
                 portfolio_id=portfolio_id,
                 engine_id=engine_id,
                 task_id=task_id,
+                # 血缘:三态行 NEW/SUBMITTED/FILLED 全覆盖(t1backtest._save_order_record 同款)。
+                # 回测订单必有值(on_signal 绑定);手工/外部单为空串,合法落库
+                signal_id=getattr(order, 'signal_id', ''),
                 code=order.code,
                 direction=order.direction,
                 order_type=order.order_type,
@@ -357,8 +360,14 @@ class TradeGateway(BaseTradeGateway):
                 timestamp=order.timestamp,
                 business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
             )
-            GLOG.DEBUG(f"[PERSISTENCE] SUBMITTED order record saved: code={order.code} order_id={order.uuid[:8]}")
-            GLOG.INFO(f"Order SUBMITTED record saved: {order.code} {order.uuid[:8]}")
+            # result 须检查:create_order_record 失败返回 ServiceResult.error 不抛异常,
+            # 不检查会打假成功日志(此前 SUBMITTED 行落库失败但 INFO 照常 "record saved")
+            if result.is_success():
+                GLOG.DEBUG(f"[PERSISTENCE] SUBMITTED order record saved: code={order.code} order_id={order.uuid[:8]}")
+                GLOG.INFO(f"Order SUBMITTED record saved: {order.code} {order.uuid[:8]}")
+            else:
+                GLOG.ERROR(f"[PERSISTENCE ERROR] SUBMITTED order record save failed: code={order.code} "
+                           f"order_id={order.uuid[:8]} error={result.error}")
         except Exception as e:
             GLOG.ERROR(f"[PERSISTENCE ERROR] Failed to save SUBMITTED order record: {e}")
             GLOG.ERROR(f"Failed to save SUBMITTED order record: {e}")
