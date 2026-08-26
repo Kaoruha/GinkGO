@@ -33,7 +33,7 @@ def _model_list():
 # （三者 __init__ 都赋给 self._crud_repo，df 方法经 self._crud_repo.find）。
 _INJECTABLE = [
     (lambda m: SignalService(crud_repo=m), "get_signals_df"),
-    (lambda m: OrderService(crud_repo=m), "get_orders_df"),
+    (lambda m: OrderService(crud_repo=m, order_record_crud=MagicMock()), "get_orders_df"),
     (lambda m: AnalyzerService(analyzer_crud=m), "get_records_df"),
 ]
 

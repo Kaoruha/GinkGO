@@ -23,7 +23,7 @@ def mock_crud():
 
 @pytest.fixture
 def order_svc(mock_crud):
-    return OrderService(crud_repo=mock_crud)
+    return OrderService(crud_repo=mock_crud, order_record_crud=MagicMock())
 
 
 class TestGetOrdersByStatus:
@@ -345,18 +345,12 @@ class TestCreateOrderRecord:
     原 result_service.create_order_record:648 写逻辑迁此。
     """
 
-    def test_calls_order_record_crud_create(self, order_svc, monkeypatch):
-        """create(**kwargs) 透传给 OrderRecordCRUD.create。"""
+    def test_calls_order_record_crud_create(self, mock_crud):
+        """create(**kwargs) 透传给构造注入的 order_record_crud.create。"""
         from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 
-        # 模拟 OrderRecordCRUD 懒 import
-        mock_crud_module = MagicMock()
         mock_record_crud = MagicMock()
-        mock_crud_module.OrderRecordCRUD.return_value = mock_record_crud
-        import sys
-        monkeypatch.setitem(
-            sys.modules, "ginkgo.data.crud.order_record_crud", mock_crud_module
-        )
+        svc = OrderService(crud_repo=mock_crud, order_record_crud=mock_record_crud)
 
         kwargs = dict(
             order_id="order-uuid-1",
@@ -380,26 +374,20 @@ class TestCreateOrderRecord:
             business_timestamp="2024-01-01",
         )
 
-        result = order_svc.create_order_record(**kwargs)
+        result = svc.create_order_record(**kwargs)
 
         assert result.is_success()
-        mock_crud_module.OrderRecordCRUD.assert_called_once()
         mock_record_crud.create.assert_called_once_with(**kwargs)
 
-    def test_returns_error_on_exception(self, order_svc, monkeypatch):
-        """OrderRecordCRUD.create 抛错 → ServiceResult.error（响亮失败非静默）。"""
+    def test_returns_error_on_exception(self, mock_crud):
+        """order_record_crud.create 抛错 → ServiceResult.error（响亮失败非静默）。"""
         from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 
-        mock_crud_module = MagicMock()
         mock_record_crud = MagicMock()
         mock_record_crud.create.side_effect = RuntimeError("DB connection failed")
-        mock_crud_module.OrderRecordCRUD.return_value = mock_record_crud
-        import sys
-        monkeypatch.setitem(
-            sys.modules, "ginkgo.data.crud.order_record_crud", mock_crud_module
-        )
+        svc = OrderService(crud_repo=mock_crud, order_record_crud=mock_record_crud)
 
-        result = order_svc.create_order_record(
+        result = svc.create_order_record(
             signal_id="", order_id="o1", portfolio_id="p1", code="000001.SZ",
             direction=DIRECTION_TYPES.LONG, order_type=ORDER_TYPES.MARKETORDER,
             status=ORDERSTATUS_TYPES.NEW, volume=100, limit_price=10.0,

@@ -23,7 +23,7 @@ class TestSignalIdKeywordOnlyContract:
         """OrderService.create_order_record 漏传 signal_id → TypeError(非静默)。"""
         from ginkgo.data.services.order_service import OrderService
 
-        svc = OrderService(crud_repo=MagicMock())
+        svc = OrderService(crud_repo=MagicMock(), order_record_crud=MagicMock())
         with pytest.raises(TypeError, match="signal_id"):
             svc.create_order_record(order_id="o1", code="000001.SZ")
 
@@ -45,12 +45,8 @@ class TestSignalIdKeywordOnlyContract:
         from ginkgo.data.services.order_service import OrderService
 
         fake_crud = MagicMock()
-        with patch(
-            "ginkgo.data.crud.order_record_crud.OrderRecordCRUD",
-            return_value=fake_crud,
-        ):
-            svc = OrderService(crud_repo=MagicMock())
-            res = svc.create_order_record(signal_id="", code="000001.SZ")
+        svc = OrderService(crud_repo=MagicMock(), order_record_crud=fake_crud)
+        res = svc.create_order_record(signal_id="", code="000001.SZ")
         assert res.is_success()
         # 空串原样到达 CRUD(非丢弃)
         assert fake_crud.create.call_args.kwargs.get("signal_id") == ""

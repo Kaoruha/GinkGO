@@ -70,7 +70,7 @@ def _make_order_service(find_return) -> OrderService:
     with patch("ginkgo.libs.GLOG"):
         crud_repo = MagicMock()
         crud_repo.find.return_value = find_return
-        svc = OrderService(crud_repo=crud_repo)
+        svc = OrderService(crud_repo=crud_repo, order_record_crud=MagicMock())
     return svc
 
 

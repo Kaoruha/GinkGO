@@ -15,8 +15,8 @@ from ginkgo.libs import GLOG, retry
 class OrderService(BaseService):
     """订单业务服务层"""
 
-    def __init__(self, crud_repo=None, **kwargs):
-        super().__init__(crud_repo=crud_repo, **kwargs)
+    def __init__(self, crud_repo, order_record_crud, **kwargs):
+        super().__init__(crud_repo=crud_repo, order_record_crud=order_record_crud, **kwargs)
 
     # See #18: 从空壳改为真实实现，支持多状态查询
     def get_orders_by_status(self, status_list: List) -> ServiceResult:
@@ -293,8 +293,7 @@ class OrderService(BaseService):
         （``trade_gateway:338`` / ``t1backtest:522``）。
 
         OrderService 统管 MOrder（``upsert_order``）+ MOrderRecord（本方法），
-        但 ``OrderRecordCRUD`` 不经构造注入（避免 container wiring 改动），
-        走懒 import——与原 ``result_service`` 写路径同模式。
+        ``OrderRecordCRUD`` 经构造注入（与 containers 具名 provider 共享实例）。
 
         Args:
             signal_id: 血缘字段,keyword-only 显式必传。三态行(NEW/SUBMITTED/FILLED)
@@ -309,11 +308,8 @@ class OrderService(BaseService):
             ServiceResult: 创建结果
         """
         try:
-            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
-            order_record_crud = OrderRecordCRUD()
-
             # signal_id 是 keyword-only 显式参数,不在 **kwargs 内,须显式传递
-            order_record_crud.create(signal_id=signal_id, **kwargs)
+            self._order_record_crud.create(signal_id=signal_id, **kwargs)
 
             GLOG.INFO(f"订单记录创建成功: code={kwargs.get('code')} task_id={kwargs.get('task_id')}")
             return ServiceResult.success({"message": "Order record created"})

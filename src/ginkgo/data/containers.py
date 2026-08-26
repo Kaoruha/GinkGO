@@ -288,7 +288,9 @@ class Container(containers.DeclarativeContainer):
 
     # Order service with OrderCRUD dependency
     order_service = providers.Singleton(
-        OrderService, crud_repo=order_crud
+        OrderService,
+        crud_repo=order_crud,
+        order_record_crud=order_record_crud,
     )
 
     # Factor service with FactorCRUD dependency
