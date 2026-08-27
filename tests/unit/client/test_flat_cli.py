@@ -258,37 +258,47 @@ class TestComponentCreate:
     """Tests for 'component create' command."""
 
     def test_create_component_with_required_options(self, cli_runner):
-        result = cli_runner.invoke(
-            flat_cli.component_app,
-            ["create", "--type", "strategy", "--name", "MyStrategy", "--class", "MyStrategyClass"],
+        """create 须 mock file_service:直连真库会真写入(历史残骸 MyStrategy 曾
+        入 mysql-test),且第二次跑撞重名 exit 1——单测不得依赖/污染真库"""
+        # c870e999d 起 create 无 --class(类名由模板生成),签名=type/name/template/description
+        mock_fs = MagicMock()
+        mock_fs.get_by_name.return_value = MagicMock(success=True, data={"count": 0})
+        mock_fs.add.return_value = MagicMock(
+            success=True, data={"file_info": {"uuid": "test-uuid"}}, message="ok"
         )
+        with patch("ginkgo.data.containers.container.file_service", return_value=mock_fs):
+            result = cli_runner.invoke(
+                flat_cli.component_app,
+                ["create", "--type", "strategy", "--name", "MyStrategy"],
+            )
         assert result.exit_code == 0
         assert "MyStrategy" in result.output
         assert "created successfully" in result.output
 
     def test_create_component_with_all_options(self, cli_runner):
-        result = cli_runner.invoke(
-            flat_cli.component_app,
-            [
-                "create",
-                "--type",
-                "risk",
-                "--name",
-                "StopLoss",
-                "--class",
-                "StopLossRisk",
-                "--description",
-                "Stop loss risk manager",
-                "--tags",
-                "risk,stop",
-                "--author",
-                "testuser",
-            ],
+        mock_fs = MagicMock()
+        mock_fs.get_by_name.return_value = MagicMock(success=True, data={"count": 0})
+        mock_fs.add.return_value = MagicMock(
+            success=True, data={"file_info": {"uuid": "test-uuid"}}, message="ok"
         )
+        with patch("ginkgo.data.containers.container.file_service", return_value=mock_fs):
+            result = cli_runner.invoke(
+                flat_cli.component_app,
+                [
+                    "create",
+                    "--type",
+                    "risk",
+                    "--name",
+                    "StopLoss",
+                    "--template",
+                    "basic",
+                    "--description",
+                    "Stop loss risk manager",
+                ],
+            )
         assert result.exit_code == 0
         assert "StopLoss" in result.output
-        assert "StopLossRisk" in result.output
-        assert "testuser" in result.output
+        assert "created successfully" in result.output
 
     def test_create_component_missing_required_option(self, cli_runner):
         result = cli_runner.invoke(flat_cli.component_app, ["create"])
