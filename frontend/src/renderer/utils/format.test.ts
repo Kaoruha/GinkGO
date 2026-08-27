@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   formatDate,
+  formatDecimal,
   formatNumber,
   formatPercent,
   formatDuration,
@@ -51,6 +52,28 @@ describe('formatNumber', () => {
 
   it('无效数字应返回 0', () => {
     expect(formatNumber('abc')).toBe('0')
+  })
+})
+
+describe('formatDecimal', () => {
+  it('应保留指定位数小数', () => {
+    expect(formatDecimal(1.2345)).toBe('1.23')
+    expect(formatDecimal(1.2345, 4)).toBe('1.2345')
+    expect(formatDecimal(2, 0)).toBe('2')
+  })
+
+  it('空值与无效数字应返回 -', () => {
+    expect(formatDecimal(null)).toBe('-')
+    expect(formatDecimal(undefined)).toBe('-')
+    expect(formatDecimal('abc')).toBe('-')
+  })
+
+  it('字符串入参应安全解析', () => {
+    expect(formatDecimal('12.345')).toBe('12.35')
+  })
+
+  it('0 应正常展示而非落到 - 分支', () => {
+    expect(formatDecimal(0)).toBe('0.00')
   })
 })
 

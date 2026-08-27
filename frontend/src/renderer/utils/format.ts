@@ -65,6 +65,17 @@ export function formatFixed(num: string | number, decimals = 2): string {
 }
 
 /**
+ * 定点小数(通用展示契约):空值/无效数字→'-',字符串入参安全,小数位可调。
+ * 与回测域 useBacktestFormatters.formatDecimal 同契约,新增参数化入口后,
+ * 页面侧 `x?.toFixed(d) || '-'` 样板统一收编到这里。
+ */
+export function formatDecimal(val: number | string | null | undefined, decimals = 2): string {
+  if (val == null) return '-'
+  const n = typeof val === 'string' ? parseFloat(val) : val
+  return isNaN(n) ? '-' : n.toFixed(decimals)
+}
+
+/**
  * 格式化百分比
  */
 export function formatPercent(val: number | string | null | undefined, decimals = 2): string {

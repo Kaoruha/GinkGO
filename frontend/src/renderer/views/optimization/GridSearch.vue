@@ -89,7 +89,7 @@
                 class="stat-value"
                 :class="result.best_return >= 0 ? 'stat-danger' : 'stat-success'"
               >
-                {{ (result.best_return * 100).toFixed(2) }}%
+                {{ formatPercent(result.best_return) }}
               </div>
             </div>
             <div class="stat-card">
@@ -130,10 +130,10 @@
                 </td>
                 <td>{{ record.params }}</td>
                 <td class="num">
-                  {{ (record.total_return * 100).toFixed(2) }}%
+                  {{ formatPercent(record.total_return) }}
                 </td>
                 <td class="num">
-                  {{ record.sharpe_ratio?.toFixed(2) || '-' }}
+                  {{ formatDecimal(record.sharpe_ratio) }}
                 </td>
               </tr>
             </table>
@@ -151,6 +151,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal, formatPercent } from '@/utils/format'
 import { message } from '@/utils/toast'
 import EmptyState from '@/components/common/EmptyState.vue'
 

@@ -76,7 +76,7 @@
                 综合评分
               </div>
               <div class="stat-value">
-                {{ result.best_score?.toFixed(4) || '-' }}
+                {{ formatDecimal(result.best_score, 4) }}
               </div>
             </div>
           </div>
@@ -106,13 +106,13 @@
               >
                 <td>{{ record.name }}</td>
                 <td class="num">
-                  {{ record.ic?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.ic, 4) }}
                 </td>
                 <td class="num">
-                  {{ record.icir?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.icir, 4) }}
                 </td>
                 <td class="num">
-                  {{ record.turnover?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.turnover, 4) }}
                 </td>
               </tr>
             </table>
@@ -131,6 +131,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal } from '@/utils/format'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])

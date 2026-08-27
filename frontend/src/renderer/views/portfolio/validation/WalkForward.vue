@@ -115,7 +115,7 @@
                 class="stat-value"
                 :class="{ 'stat-danger': result.avg_train_return >= 0, 'stat-success': result.avg_train_return < 0 }"
               >
-                {{ (result.avg_train_return * 100).toFixed(2) }}%
+                {{ formatPercent(result.avg_train_return) }}
               </div>
             </div>
             <div class="stat-card">
@@ -126,7 +126,7 @@
                 class="stat-value"
                 :class="{ 'stat-danger': result.avg_test_return >= 0, 'stat-success': result.avg_test_return < 0 }"
               >
-                {{ (result.avg_test_return * 100).toFixed(2) }}%
+                {{ formatPercent(result.avg_test_return) }}
               </div>
             </div>
             <div class="stat-card">
@@ -137,7 +137,7 @@
                 class="stat-value"
                 :class="{ 'stat-danger': result.degradation >= 0, 'stat-success': result.degradation < 0 }"
               >
-                {{ (result.degradation * 100).toFixed(2) }}%
+                {{ formatPercent(result.degradation) }}
               </div>
             </div>
             <div class="stat-card">
@@ -145,7 +145,7 @@
                 稳定性评分
               </div>
               <div class="stat-value">
-                {{ result.stability_score?.toFixed(2) || '-' }}
+                {{ formatDecimal(result.stability_score) }}
               </div>
             </div>
           </div>
@@ -185,12 +185,12 @@
                 <td>{{ record.test_end }}</td>
                 <td class="num">
                   <span :class="record.train_return >= 0 ? 'text-success' : 'text-danger'">
-                    {{ (record.train_return * 100).toFixed(2) }}%
+                    {{ formatPercent(record.train_return) }}
                   </span>
                 </td>
                 <td class="num">
                   <span :class="record.test_return >= 0 ? 'text-success' : 'text-danger'">
-                    {{ (record.test_return * 100).toFixed(2) }}%
+                    {{ formatPercent(record.test_return) }}
                   </span>
                 </td>
               </tr>
@@ -210,6 +210,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal, formatPercent } from '@/utils/format'
 import { message } from '@/utils/toast'
 
 const loading = ref(false)

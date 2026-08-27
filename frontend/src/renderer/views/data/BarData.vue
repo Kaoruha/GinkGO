@@ -46,7 +46,7 @@
           v-if="barData.length > 0"
           class="stats-inline"
         >
-          <span class="stat-item">最新 <strong>{{ latestBar?.close?.toFixed(2) }}</strong></span>
+          <span class="stat-item">最新 <strong>{{ formatDecimal(latestBar?.close) }}</strong></span>
           <span
             class="stat-item"
             :class="priceChange >= 0 ? 'text-up' : 'text-down'"
@@ -107,16 +107,16 @@
         {{ formatDay(record.timestamp) }}
       </template>
       <template #open="{ record }">
-        {{ record.open?.toFixed(2) }}
+        {{ formatDecimal(record.open) }}
       </template>
       <template #high="{ record }">
-        {{ record.high?.toFixed(2) }}
+        {{ formatDecimal(record.high) }}
       </template>
       <template #low="{ record }">
-        {{ record.low?.toFixed(2) }}
+        {{ formatDecimal(record.low) }}
       </template>
       <template #close="{ record }">
-        {{ record.close?.toFixed(2) }}
+        {{ formatDecimal(record.close) }}
       </template>
       <template #change="{ record }">
         <span :class="record.change >= 0 ? 'text-up' : 'text-down'">
@@ -141,7 +141,7 @@ import ProTable from '@/components/common/ProTable.vue'
 import SearchSelect from '@/components/common/SearchSelect.vue'
 import dayjs, { Dayjs } from 'dayjs'
 import { dataApi } from '@/api'
-import { formatCompact, formatDay, formatDateTime } from '@/utils/format'
+import { formatCompact, formatDay, formatDateTime, formatDecimal } from '@/utils/format'
 import { message as toast } from '@/utils/toast'
 import type { MenuItem } from '@/composables/useContextMenu'
 import {
@@ -155,6 +155,7 @@ import {
   Time,
 } from 'lightweight-charts'
 import { useChartTheme, cssColor, upColor, downColor } from '@/composables/useChartTheme'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 
 const route = useRoute()
 const { theme } = useChartTheme()
@@ -164,7 +165,7 @@ const chartContainer = ref<HTMLElement | null>(null)
 const selectedCode = ref<string>('')
 const barData = ref<any[]>([])
 const lastSyncTime = ref<string>('')
-const syncing = ref(false)
+// syncing 由 useAsyncAction 的 running 提供(见 handleSync)
 const selectedLabel = ref('')
 
 const hasMoreHistory = ref(true)
@@ -454,19 +455,12 @@ const fetchLastSyncTime = async () => {
   } catch { /* ignore */ }
 }
 
-const handleSync = async () => {
-  if (!selectedCode.value || syncing.value) return
-  syncing.value = true
-  try {
-    await dataApi.sync({ type: 'bars', codes: [selectedCode.value] })
-    await loadBars()
-    await fetchLastSyncTime()
-  } catch (e: any) {
-    console.error('同步失败:', e.message)
-  } finally {
-    syncing.value = false
-  }
-}
+const { running: syncing, run: handleSync } = useAsyncAction(async () => {
+  if (!selectedCode.value) return
+  await dataApi.sync({ type: 'bars', codes: [selectedCode.value] })
+  await loadBars()
+  await fetchLastSyncTime()
+}, { success: false })
 
 onMounted(async () => {
   const code = route.query.code as string

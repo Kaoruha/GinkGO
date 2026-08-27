@@ -77,13 +77,13 @@
         {{ formatDay(record.timestamp) }}
       </template>
       <template #foreadjustfactor="{ record }">
-        {{ record.foreadjustfactor?.toFixed(6) }}
+        {{ formatDecimal(record.foreadjustfactor, 6) }}
       </template>
       <template #backadjustfactor="{ record }">
-        {{ record.backadjustfactor?.toFixed(6) }}
+        {{ formatDecimal(record.backadjustfactor, 6) }}
       </template>
       <template #adjustfactor="{ record }">
-        {{ record.adjustfactor?.toFixed(6) }}
+        {{ formatDecimal(record.adjustfactor, 6) }}
       </template>
     </ProTable>
     <!-- 加载失败:区别于空态,提供重试 -->
@@ -138,7 +138,7 @@ import { dataApi } from '@/api/modules/data'
 import type { AdjustFactorData } from '@/api/modules/data'
 import { message as toast } from '@/utils/toast'
 import type { MenuItem } from '@/composables/useContextMenu'
-import { formatDay, formatNumber } from '@/utils/format'
+import { formatDay, formatNumber, formatDecimal } from '@/utils/format'
 
 const columns = [
   { title: '日期', dataIndex: 'timestamp' },
@@ -173,8 +173,8 @@ const stats = computed(() => {
   const latest = factors.value[factors.value.length - 1]
   return {
     codeCount: codes.size,
-    latestFore: latest?.foreadjustfactor?.toFixed(6) || '-',
-    latestBack: latest?.backadjustfactor?.toFixed(6) || '-',
+    latestFore: formatDecimal(latest?.foreadjustfactor, 6),
+    latestBack: formatDecimal(latest?.backadjustfactor, 6),
   }
 })
 

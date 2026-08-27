@@ -99,7 +99,7 @@
                 class="stat-value"
                 :class="result.best_value >= 0 ? 'stat-danger' : 'stat-success'"
               >
-                {{ (result.best_value * 100).toFixed(2) }}%
+                {{ formatPercent(result.best_value) }}
               </div>
             </div>
             <div class="stat-card">
@@ -140,10 +140,10 @@
                 </td>
                 <td>{{ record.params }}</td>
                 <td class="num">
-                  {{ record.score?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.score, 4) }}
                 </td>
                 <td class="num">
-                  {{ record.uncertainty?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.uncertainty, 4) }}
                 </td>
               </tr>
             </table>
@@ -162,6 +162,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal, formatPercent } from '@/utils/format'
 import { message } from '@/utils/toast'
 
 const loading = ref(false)

@@ -261,7 +261,7 @@ import PageLayout from '@/components/common/PageLayout.vue'
 import { marketApi, type TradingPair, type MarketSubscription, DataType } from '@/api/modules/market'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
-import { usePolling } from '@/composables'
+import { usePolling, useAsyncAction } from '@/composables'
 import { createReconnectingSocket } from '@/composables/reconnectingSocket'
 
 /** 交易对卡片右键菜单(替代卡片内订阅按钮) */
@@ -382,32 +382,23 @@ const isSubscribed = (symbol: string) => {
   return subscriptions.value.some(sub => sub.symbol === symbol)
 }
 
-const subscribe = async (symbol: string) => {
-  try {
-    await marketApi.createSubscription({
-      exchange: 'okx',
-      symbol,
-      data_types: ['ticker']
-    })
-    await loadSubscriptions()
-    subscribeWs(symbol)
-  } catch (error) {
-    console.error('订阅失败:', error)
-  }
-}
+const { run: subscribe } = useAsyncAction(async (symbol: string) => {
+  await marketApi.createSubscription({
+    exchange: 'okx',
+    symbol,
+    data_types: ['ticker']
+  })
+  await loadSubscriptions()
+  subscribeWs(symbol)
+}, { success: false })
 
-const unsubscribe = async (symbol: string) => {
-  try {
-    const sub = subscriptions.value.find(s => s.symbol === symbol)
-    if (sub) {
-      await marketApi.deleteSubscription(sub.uuid)
-      await loadSubscriptions()
-      unsubscribeWs(symbol)
-    }
-  } catch (error) {
-    console.error('取消订阅失败:', error)
-  }
-}
+const { run: unsubscribe } = useAsyncAction(async (symbol: string) => {
+  const sub = subscriptions.value.find(s => s.symbol === symbol)
+  if (!sub) return
+  await marketApi.deleteSubscription(sub.uuid)
+  await loadSubscriptions()
+  unsubscribeWs(symbol)
+}, { success: false })
 
 const refreshPairs = async () => {
   await loadPairs()

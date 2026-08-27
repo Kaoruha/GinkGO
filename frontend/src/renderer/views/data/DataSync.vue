@@ -307,6 +307,7 @@ import type { SyncHistoryRecord, StockInfo } from '@/api'
 import { formatRelativeTime, formatCompact } from '@/utils/format'
 import { SYNC_TYPE_CONFIG, SYNC_STATUS_CONFIG } from '@/constants/statusConfig'
 import { message as toast } from '@/utils/toast'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 
 // ===== ① 存量统计 =====
 const loading = ref(true)
@@ -340,7 +341,7 @@ const isAllMarket = computed(() => supportsAll.value && scope.value === 'all')
 
 // 同步范围:all=全市场(bars 传 codes=["all"]) / select=指定代码(搜索选择,免手敲)
 const scope = ref<'all' | 'select'>('all')
-const sending = ref(false)
+// sending 由 useAsyncAction 的 running 提供(见 sendSync)
 const scopeOptions = [
   { key: 'all', label: '全市场' },
   { key: 'select', label: '指定代码' },
@@ -411,19 +412,18 @@ function removeCode(code: string) {
   selectedCodes.value = selectedCodes.value.filter(c => c.code !== code)
 }
 
-const onSubmit = async () => {
-  if (sending.value) return
+type SyncParams = { type: string; codes?: string[]; start_date?: string; end_date?: string }
 
-  const params: { type: string; codes?: string[]; start_date?: string; end_date?: string } = {
-    type: command.type,
-  }
+// 参数组装与校验独立于提交动作,便于 onSubmit 先校验再入队(useAsyncAction 防重入)
+function buildSyncParams(): SyncParams | null {
+  const params: SyncParams = { type: command.type }
   if (needsCodes.value) {
     if (isAllMarket.value) {
       params.codes = ['all']
     } else {
       if (selectedCodes.value.length === 0) {
         toast.error('请搜索并选择至少一只股票')
-        return
+        return null
       }
       params.codes = selectedCodes.value.map(c => c.code)
     }
@@ -432,28 +432,37 @@ const onSubmit = async () => {
     if (command.startDate) params.start_date = command.startDate
     if (command.endDate) params.end_date = command.endDate
   }
+  return params
+}
 
-  sending.value = true
+const { running: sending, run: sendSync } = useAsyncAction(async (params: SyncParams) => {
+  let res: any
   try {
-    const res: any = await dataApi.sync(params)
-    // #6071: 后端 bars/ticks 循环单 code 失败被 except 吞、整体仍 200,凭 failed 计数区分
-    const failed = Number(res?.failed ?? 0)
-    const total = Number(res?.total ?? 0)
-    if (failed > 0) {
-      toast.warning(`同步完成：${total} 只中 ${failed} 只失败，详情见同步历史`)
-    } else if (total > 0) {
-      toast.success(`同步命令已完成（${total} 只代码），结果见同步历史`)
-    } else {
-      toast.success('同步命令已完成，结果见同步历史')
-    }
-    // 同步在请求内完成、返回时历史已落库,刷新即见 partial/0 条等真实状态
-    await Promise.all([fetchHistory(false), fetchStats()])
+    res = await dataApi.sync(params)
   } catch (e: any) {
+    // 转译后端 detail 为可读文案,交由 useAsyncAction 默认失败 toast 展示
     const detail = e?.response?.data?.detail || e?.message || '未知错误'
-    toast.error(`发送失败：${detail}`)
-  } finally {
-    sending.value = false
+    throw new Error(`发送失败：${detail}`, { cause: e })
   }
+  // #6071: 后端 bars/ticks 循环单 code 失败被 except 吞、整体仍 200,凭 failed 计数区分
+  const failed = Number(res?.failed ?? 0)
+  const total = Number(res?.total ?? 0)
+  if (failed > 0) {
+    toast.warning(`同步完成：${total} 只中 ${failed} 只失败，详情见同步历史`)
+  } else if (total > 0) {
+    toast.success(`同步命令已完成（${total} 只代码），结果见同步历史`)
+  } else {
+    toast.success('同步命令已完成，结果见同步历史')
+  }
+  // 同步在请求内完成、返回时历史已落库,刷新即见 partial/0 条等真实状态
+  await Promise.all([fetchHistory(false), fetchStats()])
+}, { success: false })
+
+const onSubmit = async () => {
+  if (sending.value) return
+  const params = buildSyncParams()
+  if (!params) return
+  await sendSync(params)
 }
 
 const clearForm = () => {

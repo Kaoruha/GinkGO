@@ -78,11 +78,11 @@
           class="stats-grid"
         >
           <div class="stat-card">
-            <span class="stat-value">{{ result.original_avg_corr?.toFixed(4) || '-' }}</span>
+            <span class="stat-value">{{ formatDecimal(result.original_avg_corr, 4) }}</span>
             <span class="stat-label">原始平均相关系数</span>
           </div>
           <div class="stat-card">
-            <span class="stat-value">{{ result.orthogonal_avg_corr?.toFixed(4) || '-' }}</span>
+            <span class="stat-value">{{ formatDecimal(result.orthogonal_avg_corr, 4) }}</span>
             <span class="stat-label">正交后平均相关系数</span>
           </div>
         </div>
@@ -99,6 +99,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal } from '@/utils/format'
 import { backtestApi } from '@/api/modules/backtest'
 import { message } from '@/utils/toast'
 

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 import { formatDate } from '@/utils/format'
 
 /** 行右键菜单(本页无行操作,给复制类) */
@@ -177,21 +178,17 @@ const loadDailySummary = async () => {
 }
 
 // 导出CSV
-const exportCSV = async () => {
+const { run: exportCSV } = useAsyncAction(async () => {
   if (!selectedAccount.value) return
 
-  try {
-    const blob = await tradeHistoryApi.exportCSV(selectedAccount.value) as any
-    const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/csv' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `trades_${selectedAccount.value.slice(0, 8)}.csv`
-    a.click()
-    window.URL.revokeObjectURL(url)
-  } catch (error) {
-    console.error('Failed to export CSV:', error)
-  }
-}
+  const blob = await tradeHistoryApi.exportCSV(selectedAccount.value) as any
+  const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/csv' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `trades_${selectedAccount.value.slice(0, 8)}.csv`
+  a.click()
+  window.URL.revokeObjectURL(url)
+}, { success: false })
 
 // 应用日期筛选
 const applyDateFilter = () => {

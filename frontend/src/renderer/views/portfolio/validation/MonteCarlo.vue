@@ -83,7 +83,7 @@
             VaR
           </div>
           <div class="stat-value stat-danger">
-            {{ (result.var * 100).toFixed(2) }}%
+            {{ formatPercent(result.var) }}
           </div>
         </div>
         <div class="stat-card">
@@ -91,7 +91,7 @@
             CVaR
           </div>
           <div class="stat-value stat-danger">
-            {{ (result.cvar * 100).toFixed(2) }}%
+            {{ formatPercent(result.cvar) }}
           </div>
         </div>
         <div class="stat-card">
@@ -102,7 +102,7 @@
             class="stat-value"
             :class="result.expected_return >= 0 ? 'stat-success' : 'stat-danger'"
           >
-            {{ (result.expected_return * 100).toFixed(2) }}%
+            {{ formatPercent(result.expected_return) }}
           </div>
         </div>
         <div class="stat-card">
@@ -110,7 +110,7 @@
             损失概率
           </div>
           <div class="stat-value">
-            {{ (result.loss_probability * 100).toFixed(2) }}%
+            {{ formatPercent(result.loss_probability) }}
           </div>
         </div>
       </div>
@@ -127,7 +127,7 @@
                 最大收益
               </div>
               <div class="stat-value stat-success">
-                {{ (result.max_return * 100).toFixed(2) }}%
+                {{ formatPercent(result.max_return) }}
               </div>
             </div>
             <div class="stat-card">
@@ -135,7 +135,7 @@
                 最小收益
               </div>
               <div class="stat-value stat-danger">
-                {{ (result.min_return * 100).toFixed(2) }}%
+                {{ formatPercent(result.min_return) }}
               </div>
             </div>
             <div class="stat-card">
@@ -143,7 +143,7 @@
                 标准差
               </div>
               <div class="stat-value">
-                {{ (result.std_dev * 100).toFixed(2) }}%
+                {{ formatPercent(result.std_dev) }}
               </div>
             </div>
             <div class="stat-card">
@@ -151,7 +151,7 @@
                 偏度
               </div>
               <div class="stat-value">
-                {{ result.skewness?.toFixed(2) || '-' }}
+                {{ formatDecimal(result.skewness) }}
               </div>
             </div>
           </div>
@@ -175,6 +175,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal, formatPercent } from '@/utils/format'
 import { validationApi } from '@/api/modules/validation'
 import { backtestApi } from '@/api/modules/backtest'
 import { message } from '@/utils/toast'

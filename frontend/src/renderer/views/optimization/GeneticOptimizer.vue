@@ -110,7 +110,7 @@
                 class="stat-value"
                 :class="result.best_fitness >= 0 ? 'stat-danger' : 'stat-success'"
               >
-                {{ (result.best_fitness * 100).toFixed(2) }}%
+                {{ formatPercent(result.best_fitness) }}
               </div>
             </div>
             <div class="stat-card">
@@ -160,13 +160,13 @@
                   {{ record.generation }}
                 </td>
                 <td class="num">
-                  {{ record.best_fitness?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.best_fitness, 4) }}
                 </td>
                 <td class="num">
-                  {{ record.avg_fitness?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.avg_fitness, 4) }}
                 </td>
                 <td class="num">
-                  {{ record.diversity?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.diversity, 4) }}
                 </td>
               </tr>
             </table>
@@ -185,6 +185,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal, formatPercent } from '@/utils/format'
 import { message } from '@/utils/toast'
 
 const loading = ref(false)

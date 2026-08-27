@@ -81,7 +81,7 @@
                 class="stat-value"
                 :class="result.long_short_return >= 0 ? 'stat-danger' : 'stat-success'"
               >
-                {{ ((result.long_short_return || 0) * 100).toFixed(2) }}%
+                {{ formatPercent(result.long_short_return || 0) }}
               </div>
             </div>
             <div class="stat-card">
@@ -100,7 +100,7 @@
                 class="stat-value"
                 :class="result.best_group_return >= 0 ? 'stat-danger' : 'stat-success'"
               >
-                {{ ((result.best_group_return || 0) * 100).toFixed(2) }}%
+                {{ formatPercent(result.best_group_return || 0) }}
               </div>
             </div>
           </div>
@@ -128,7 +128,7 @@
                 <td>{{ record.layer }}</td>
                 <td class="num">
                   <span :class="record.return_mean >= 0 ? 'text-danger' : 'text-success'">
-                    {{ ((record.return_mean || 0) * 100).toFixed(2) }}%
+                    {{ formatPercent(record.return_mean || 0) }}
                   </span>
                 </td>
                 <td class="num">
@@ -151,6 +151,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatPercent } from '@/utils/format'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])

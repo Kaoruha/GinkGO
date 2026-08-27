@@ -103,7 +103,7 @@
         {{ formatDate(record.timestamp) }}
       </template>
       <template #price="{ record }">
-        {{ record.price?.toFixed(2) }}
+        {{ formatDecimal(record.price) }}
       </template>
       <template #volume="{ record }">
         {{ formatVolume(record.volume) }}
@@ -163,7 +163,7 @@ import { dataApi } from '@/api/modules/data'
 import type { TickData } from '@/api/modules/data'
 import dayjs from 'dayjs'
 import { message as toast } from '@/utils/toast'
-import { formatCompact, formatDate } from '@/utils/format'
+import { formatCompact, formatDate, formatDecimal } from '@/utils/format'
 import type { MenuItem } from '@/composables/useContextMenu'
 
 const route = useRoute()
@@ -279,7 +279,7 @@ const stats = computed(() => {
   const buyCount = data.filter(t => t.direction === 1).length
   return {
     totalTicks: data.length,
-    latestPrice: latest?.price?.toFixed(2) || '-',
+    latestPrice: formatDecimal(latest?.price),
     totalVolume: totalVol,
     buyRatio: data.length > 0 ? buyCount / data.length : 0,
   }

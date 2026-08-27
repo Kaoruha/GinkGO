@@ -88,7 +88,7 @@
                 IC 均值
               </div>
               <div class="stat-value">
-                {{ result.ic_mean?.toFixed(4) || '-' }}
+                {{ formatDecimal(result.ic_mean, 4) }}
               </div>
             </div>
             <div class="stat-card">
@@ -96,7 +96,7 @@
                 IC 标准差
               </div>
               <div class="stat-value">
-                {{ result.ic_std?.toFixed(4) || '-' }}
+                {{ formatDecimal(result.ic_std, 4) }}
               </div>
             </div>
             <div class="stat-card">
@@ -104,7 +104,7 @@
                 ICIR
               </div>
               <div class="stat-value">
-                {{ result.icir?.toFixed(4) || '-' }}
+                {{ formatDecimal(result.icir, 4) }}
               </div>
             </div>
             <div class="stat-card">
@@ -112,7 +112,7 @@
                 IC > 0 比例
               </div>
               <div class="stat-value">
-                {{ ((result.ic_positive_ratio || 0) * 100).toFixed(2) }}%
+                {{ formatPercent(result.ic_positive_ratio || 0) }}
               </div>
             </div>
           </div>
@@ -139,10 +139,10 @@
               >
                 <td>{{ record.date }}</td>
                 <td class="num">
-                  {{ record.ic?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.ic, 4) }}
                 </td>
                 <td class="num">
-                  {{ record.rank_ic?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.rank_ic, 4) }}
                 </td>
               </tr>
             </table>
@@ -161,6 +161,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal, formatPercent } from '@/utils/format'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])

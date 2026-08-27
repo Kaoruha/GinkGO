@@ -117,10 +117,10 @@
                   {{ record.lag }}
                 </td>
                 <td class="num">
-                  {{ record.ic?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.ic, 4) }}
                 </td>
                 <td class="num">
-                  {{ record.autocorrelation?.toFixed(4) || '-' }}
+                  {{ formatDecimal(record.autocorrelation, 4) }}
                 </td>
               </tr>
             </table>
@@ -139,6 +139,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal } from '@/utils/format'
 
 const loading = ref(false)
 const backtestList = ref<any[]>([])

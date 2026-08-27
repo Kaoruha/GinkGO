@@ -127,7 +127,7 @@
               class="stat-value"
               :class="scoreClass(w.stability_score)"
             >
-              {{ (w.stability_score * 100).toFixed(1) }}%
+              {{ formatPercent(w.stability_score, 1) }}
             </div>
           </div>
         </div>
@@ -154,7 +154,7 @@
           >
             <div class="card-header">
               <h3>{{ w.n_segments }} 段分析</h3>
-              <span :class="scoreClass(w.stability_score)">评分 {{ (w.stability_score * 100).toFixed(1) }}%</span>
+              <span :class="scoreClass(w.stability_score)">评分 {{ formatPercent(w.stability_score, 1) }}</span>
             </div>
             <div class="card-body">
               <div
@@ -207,6 +207,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatPercent } from '@/utils/format'
 import * as echarts from 'echarts'
 import { useChartTheme, cssColor } from '@/composables/useChartTheme'
 import { useECharts, createChartController } from '@/composables/useECharts'

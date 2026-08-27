@@ -105,7 +105,7 @@
               最优收益
             </div>
             <div class="stat-value">
-              {{ (result.optimal_return * 100).toFixed(2) }}%
+              {{ formatPercent(result.optimal_return) }}
             </div>
           </div>
         </div>
@@ -141,14 +141,14 @@
               </td>
               <td class="num">
                 <span :style="{ color: record.return >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))' }">
-                  {{ (record.return * 100).toFixed(2) }}%
+                  {{ formatPercent(record.return) }}
                 </span>
               </td>
               <td class="num">
-                {{ record.sharpe_ratio?.toFixed(2) || '-' }}
+                {{ formatDecimal(record.sharpe_ratio) }}
               </td>
               <td class="num">
-                {{ record.max_drawdown?.toFixed(2) || '-' }}
+                {{ formatDecimal(record.max_drawdown) }}
               </td>
               <td>
                 <span
@@ -172,6 +172,7 @@
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
+import { formatDecimal, formatPercent } from '@/utils/format'
 import { message } from '@/utils/toast'
 
 const loading = ref(false)

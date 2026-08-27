@@ -5,7 +5,7 @@ import AccountCard from '@/components/live/AccountCard.vue'
 import { Button } from '@/components/ui/button'
 import { RefreshCw, Wallet, AlertCircle, DollarSign, Coins, Clock, Activity } from 'lucide-vue-next'
 import { liveAccountApi } from '@/api'
-import { usePolling } from '@/composables'
+import { usePolling, useAsyncAction } from '@/composables'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
 import { formatFixed } from '@/utils/format'
@@ -23,7 +23,7 @@ const openAccountInfoMenu = (e: MouseEvent, account: AccountData) => {
 // 状态
 const accounts = ref<AccountData[]>([])
 const loading = ref(true)
-const refreshing = ref(false)
+// refreshing 由 useAsyncAction 的 running 提供(见 refreshAll)
 // 列表加载失败(后端 500/网络断):须与"暂无账户"空态区分,否则误导用户去配账号
 const listError = ref('')
 const accountLoadingStates = ref<Record<string, { balance: boolean; positions: boolean }>>({})
@@ -169,16 +169,15 @@ const refreshAccount = async (accountId: string) => {
 }
 
 // 刷新全部（只更新数据，不重新创建对象）
+const { running: refreshing, run: runRefreshAll } = useAsyncAction(async () => {
+  await Promise.all(
+    accounts.value.map(account => updateAccountDetails(account))
+  )
+}, { success: false })
+
+// 薄包装对齐 usePolling 的 () => Promise<void> 回调契约(run 返回 boolean 表是否执行)
 const refreshAll = async () => {
-  refreshing.value = true
-  try {
-    // 只更新每个账户的数据，不重新加载账号列表
-    await Promise.all(
-      accounts.value.map(account => updateAccountDetails(account))
-    )
-  } finally {
-    refreshing.value = false
-  }
+  await runRefreshAll()
 }
 
 // 组件挂载:首次加载账号列表(loadAccountInfo 拉账号列表,区别于 refreshAll 只刷已有账号数据)

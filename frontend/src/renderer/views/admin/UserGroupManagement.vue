@@ -212,15 +212,9 @@ const managePermissions = (record: UserGroupInfo) => {
   showPermissionModal.value = true
 }
 
-const deleteGroup = async (record: UserGroupInfo) => {
-  try {
-    await userGroupsApi.delete(record.uuid)
-    toast.success('用户组已删除')
-    await loadGroups()
-  } catch (e: any) {
-    toast.error(e.message || '删除失败')
-  }
-}
+const { run: deleteGroup } = useAsyncAction(async (record: UserGroupInfo) => {
+  await userGroupsApi.delete(record.uuid)
+}, { success: '用户组已删除', onSuccess: loadGroups })
 
 const closeModal = () => {
   showCreateModal.value = false

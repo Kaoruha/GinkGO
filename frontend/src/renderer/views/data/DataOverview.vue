@@ -239,8 +239,9 @@ import { SYNC_TYPE_CONFIG } from '@/constants/statusConfig'
 import { dataApi } from '@/api'
 import { message as toast } from '@/utils/toast'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 
-const refreshing = ref(false)
+// refreshing 由 useAsyncAction 的 running 提供(见 refreshStats)
 
 const dataStats = reactive({
   totalStocks: 0,
@@ -278,49 +279,42 @@ const dataSources = ref<DataSource[]>([])
 const formatTime = (iso: string | null): string =>
   iso ? formatDate(iso) : '--'
 
-const refreshStats = async () => {
-  refreshing.value = true
-  try {
-    const [statsRes, sourcesRes, syncHistoryRes] = await Promise.allSettled([
-      dataApi.getStats(),
-      dataApi.getSources(),
-      dataApi.getSyncHistory({ page: 1, page_size: 10 }),
-    ])
+const { running: refreshing, run: refreshStats } = useAsyncAction(async () => {
+  const [statsRes, sourcesRes, syncHistoryRes] = await Promise.allSettled([
+    dataApi.getStats(),
+    dataApi.getSources(),
+    dataApi.getSyncHistory({ page: 1, page_size: 10 }),
+  ])
 
-    if (statsRes.status === 'fulfilled') {
-      const stats = (statsRes.value as any)?.data ?? statsRes.value
-      dataStats.totalStocks = stats.total_stocks ?? 0
-      dataStats.totalBars = stats.total_bars ?? 0
-      dataStats.totalTicks = stats.total_ticks ?? 0
-      dataStats.totalAdjustFactors = stats.total_adjust_factors ?? 0
-    }
-
-    if (sourcesRes.status === 'fulfilled') {
-      const raw = (sourcesRes.value as any)?.data ?? sourcesRes.value
-      const list: DataSource[] = (Array.isArray(raw) ? raw : []).map((s: any) => ({
-        name: s.name,
-        description: s.description || '',
-        status: s.status === 'active' ? 'online' : 'offline',
-      }))
-      dataSources.value = list
-    }
-
-    if (syncHistoryRes.status === 'fulfilled') {
-      const raw = (syncHistoryRes.value as any)?.data ?? []
-      const items: any[] = Array.isArray(raw) ? raw : []
-      recentSyncs.value = items.map((s: any) => ({
-        type: SYNC_TYPE_CONFIG[s.sync_type]?.label ?? s.sync_type,
-        code: s.code,
-        time: formatTime(s.completed_at || s.started_at),
-        status: s.status,
-      }))
-    }
-  } catch (error: any) {
-    console.error(`刷新失败: ${error.message}`)
-  } finally {
-    refreshing.value = false
+  if (statsRes.status === 'fulfilled') {
+    const stats = (statsRes.value as any)?.data ?? statsRes.value
+    dataStats.totalStocks = stats.total_stocks ?? 0
+    dataStats.totalBars = stats.total_bars ?? 0
+    dataStats.totalTicks = stats.total_ticks ?? 0
+    dataStats.totalAdjustFactors = stats.total_adjust_factors ?? 0
   }
-}
+
+  if (sourcesRes.status === 'fulfilled') {
+    const raw = (sourcesRes.value as any)?.data ?? sourcesRes.value
+    const list: DataSource[] = (Array.isArray(raw) ? raw : []).map((s: any) => ({
+      name: s.name,
+      description: s.description || '',
+      status: s.status === 'active' ? 'online' : 'offline',
+    }))
+    dataSources.value = list
+  }
+
+  if (syncHistoryRes.status === 'fulfilled') {
+    const raw = (syncHistoryRes.value as any)?.data ?? []
+    const items: any[] = Array.isArray(raw) ? raw : []
+    recentSyncs.value = items.map((s: any) => ({
+      type: SYNC_TYPE_CONFIG[s.sync_type]?.label ?? s.sync_type,
+      code: s.code,
+      time: formatTime(s.completed_at || s.started_at),
+      status: s.status,
+    }))
+  }
+}, { success: false })
 
 const formatNumber = (num: number): string => formatCompact(num, 1)
 

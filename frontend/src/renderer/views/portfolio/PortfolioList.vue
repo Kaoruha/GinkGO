@@ -44,7 +44,7 @@
         <span class="stat-sep">·</span>
         <span class="stat-item">运行中 <strong class="text-success">{{ stats.running }}</strong></span>
         <span class="stat-sep">·</span>
-        <span class="stat-item">平均净值 <strong>{{ stats.avgNetValue?.toFixed(3) || '-' }}</strong></span>
+        <span class="stat-item">平均净值 <strong>{{ formatDecimal(stats.avgNetValue, 3) }}</strong></span>
         <span class="stat-sep">·</span>
         <span class="stat-item">总资产 <strong>{{ formatMoney(stats.totalAssets) }}</strong></span>
         <template v-if="showCtxHint">
@@ -326,7 +326,7 @@ import { useRouter } from 'vue-router'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { storeToRefs } from 'pinia'
 import { usePortfolioMode, usePortfolioState, useContextMenu, useAsyncAction } from '@/composables'
-import { formatMoney } from '@/utils/format'
+import { formatMoney, formatDecimal, formatPercent as formatBarePercent } from '@/utils/format'
 import ListPage from '@/components/common/ListPage.vue'
 import FormModal from '@/components/common/FormModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -449,27 +449,18 @@ const getReturnLabel = (mode: any) => {
   return m === 'BACKTEST' || m === 0 || m === '0' ? '年化收益' : '累计收益'
 }
 
-// 0 是有效值须显示(原实现 val===0 返回 '--',0% 收益被吞);仅 null/undefined/NaN 显示占位
+// 数值展示统一走 utils/format;本文件仅保留两个领域特化语义:
+// 带符号百分比(收益列显式 +,0 是有效值须显示)与恒负回撤
 const formatPercent = (val: any) => {
-  if (val === null || val === undefined) return '--'
   const n = typeof val === 'string' ? parseFloat(val) : val
-  if (isNaN(n)) return '--'
-  const sign = n > 0 ? '+' : ''
-  return `${sign}${(n * 100).toFixed(2)}%`
-}
-
-const formatDecimal = (val: any) => {
-  if (val === null || val === undefined) return '--'
-  const n = typeof val === 'string' ? parseFloat(val) : val
-  if (isNaN(n)) return '--'
-  return n.toFixed(2)
+  if (n === null || n === undefined || isNaN(n)) return '-'
+  return `${n > 0 ? '+' : ''}${formatBarePercent(n)}`
 }
 
 const formatDrawdown = (val: any) => {
-  if (val === null || val === undefined) return '--'
   const n = typeof val === 'string' ? parseFloat(val) : val
-  if (isNaN(n)) return '--'
-  return `-${(Math.abs(n) * 100).toFixed(1)}%`
+  if (n === null || n === undefined || isNaN(n)) return '-'
+  return formatBarePercent(-Math.abs(n), 1)
 }
 
 const getValueClass = (val: any) => {

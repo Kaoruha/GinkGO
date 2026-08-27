@@ -441,34 +441,19 @@ const closeTemplateModal = () => {
   editingTemplate.value = null
 }
 
-const toggleTemplate = async (record: NotificationTemplate, checked: boolean) => {
-  try {
-    await notificationsApi.toggleTemplate(record.uuid, checked)
-    record.enabled = checked
-    toast.success(`模板已${checked ? '启用' : '禁用'}`)
-  } catch (e: any) {
-    toast.error(e.message || '操作失败')
-  }
-}
+const { run: toggleTemplate } = useAsyncAction(async (record: NotificationTemplate, checked: boolean) => {
+  await notificationsApi.toggleTemplate(record.uuid, checked)
+  record.enabled = checked
+  toast.success(`模板已${checked ? '启用' : '禁用'}`)
+}, { success: false })
 
-const testTemplate = async (record: NotificationTemplate) => {
-  try {
-    await notificationsApi.testTemplate(record.uuid)
-    toast.success('测试通知已发送')
-  } catch (e: any) {
-    toast.error(e.message || '测试失败')
-  }
-}
+const { run: testTemplate } = useAsyncAction(async (record: NotificationTemplate) => {
+  await notificationsApi.testTemplate(record.uuid)
+}, { success: '测试通知已发送' })
 
-const deleteTemplate = async (record: NotificationTemplate) => {
-  try {
-    await notificationsApi.deleteTemplate(record.uuid)
-    toast.success('模板已删除')
-    await loadTemplates()
-  } catch (e: any) {
-    toast.error(e.message || '删除失败')
-  }
-}
+const { run: deleteTemplate } = useAsyncAction(async (record: NotificationTemplate) => {
+  await notificationsApi.deleteTemplate(record.uuid)
+}, { success: '模板已删除', onSuccess: loadTemplates })
 
 const handleTemplateSubmit = () => {
   if (!templateForm.name) {
@@ -517,24 +502,14 @@ const closeRecipientModal = () => {
   editingRecipient.value = null
 }
 
-const testRecipient = async (record: NotificationRecipient) => {
-  try {
-    const data: any = await notificationsApi.testRecipient(record.uuid)
-    toast.success(`测试通知已发送 (${data?.success_count || 0} 成功, ${data?.failed_count || 0} 失败)`)
-  } catch (e: any) {
-    toast.error(e.message || '测试失败')
-  }
-}
+const { run: testRecipient } = useAsyncAction(async (record: NotificationRecipient) => {
+  const data: any = await notificationsApi.testRecipient(record.uuid)
+  toast.success(`测试通知已发送 (${data?.success_count || 0} 成功, ${data?.failed_count || 0} 失败)`)
+}, { success: false })
 
-const deleteRecipient = async (record: NotificationRecipient) => {
-  try {
-    await notificationsApi.deleteRecipient(record.uuid)
-    toast.success('接收人已删除')
-    await loadRecipients()
-  } catch (e: any) {
-    toast.error(e.message || '删除失败')
-  }
-}
+const { run: deleteRecipient } = useAsyncAction(async (record: NotificationRecipient) => {
+  await notificationsApi.deleteRecipient(record.uuid)
+}, { success: '接收人已删除', onSuccess: loadRecipients })
 
 const handleRecipientSubmit = () => {
   if (!recipientForm.name) {

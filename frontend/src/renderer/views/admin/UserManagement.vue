@@ -346,15 +346,9 @@ const { running: resetting, run: runResetPassword } = useAsyncAction(async () =>
   },
 })
 
-const deleteUser = async (record: UserInfo) => {
-  try {
-    await usersApi.delete(record.uuid)
-    toast.success('用户已删除')
-    await loadUsers()
-  } catch (e: any) {
-    toast.error(e.message || '删除失败')
-  }
-}
+const { run: deleteUser } = useAsyncAction(async (record: UserInfo) => {
+  await usersApi.delete(record.uuid)
+}, { success: '用户已删除', onSuccess: loadUsers })
 
 onMounted(() => {
   loadUsers()
