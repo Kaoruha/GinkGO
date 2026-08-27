@@ -54,6 +54,8 @@ export interface SyncHistoryRecord {
   uuid: string
   sync_type: string
   code: string
+  /** 触发来源(2026-08-18):manual=Web手动 / scheduled=tasktimer定时 */
+  trigger_source?: string
   status: string
   started_at: string | null
   completed_at: string | null
@@ -168,6 +170,7 @@ export const dataApi = {
    */
   getSyncHistory(params?: {
     sync_type?: string
+    trigger_source?: string
     page?: number
     page_size?: number
   }): Promise<PaginatedData<SyncHistoryRecord>> {

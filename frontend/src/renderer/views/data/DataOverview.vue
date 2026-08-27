@@ -1,7 +1,6 @@
 <template>
   <PageLayout>
     <template #title>
-      <span class="tag tag-cyan">数据</span>
       数据概览
     </template>
     <template #actions>
@@ -42,7 +41,11 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <div class="stat-card stat-blue">
+      <div
+        class="stat-card stat-blue stat-clickable"
+        title="点击浏览股票信息"
+        @click="goBrowser('stocks')"
+      >
         <div class="stat-icon">
           <svg
             width="24"
@@ -64,16 +67,20 @@
           </svg>
         </div>
         <div class="stat-content">
-          <div class="stat-value">
-            {{ formatNumber(dataStats.totalStocks) }}
-          </div>
           <div class="stat-label">
             股票总数
+          </div>
+          <div class="stat-value">
+            {{ formatNumber(dataStats.totalStocks) }}
           </div>
         </div>
       </div>
 
-      <div class="stat-card stat-green">
+      <div
+        class="stat-card stat-green stat-clickable"
+        title="点击浏览K线数据"
+        @click="goBrowser('bars')"
+      >
         <div class="stat-icon">
           <svg
             width="24"
@@ -90,16 +97,20 @@
           </svg>
         </div>
         <div class="stat-content">
-          <div class="stat-value">
-            {{ formatNumber(dataStats.totalBars) }}
-          </div>
           <div class="stat-label">
             K线数据量
+          </div>
+          <div class="stat-value">
+            {{ formatNumber(dataStats.totalBars) }}
           </div>
         </div>
       </div>
 
-      <div class="stat-card stat-orange">
+      <div
+        class="stat-card stat-orange stat-clickable"
+        title="点击浏览 Tick 数据"
+        @click="goBrowser('ticks')"
+      >
         <div class="stat-icon">
           <svg
             width="24"
@@ -113,16 +124,20 @@
           </svg>
         </div>
         <div class="stat-content">
-          <div class="stat-value">
-            {{ formatNumber(dataStats.totalTicks) }}
-          </div>
           <div class="stat-label">
             Tick数据量
+          </div>
+          <div class="stat-value">
+            {{ formatNumber(dataStats.totalTicks) }}
           </div>
         </div>
       </div>
 
-      <div class="stat-card stat-purple">
+      <div
+        class="stat-card stat-purple stat-clickable"
+        title="点击浏览复权因子"
+        @click="goBrowser('adjust')"
+      >
         <div class="stat-icon">
           <svg
             width="24"
@@ -153,11 +168,11 @@
           </svg>
         </div>
         <div class="stat-content">
-          <div class="stat-value">
-            {{ formatNumber(dataStats.totalAdjustFactors) }}
-          </div>
           <div class="stat-label">
             复权因子
+          </div>
+          <div class="stat-value">
+            {{ formatNumber(dataStats.totalAdjustFactors) }}
           </div>
         </div>
       </div>
@@ -166,63 +181,78 @@
     <!-- 最近更新 -->
     <div class="two-column-grid">
       <div class="card">
-        <h3 class="card-title">
-          最近同步记录
-        </h3>
-        <div
-          v-if="recentSyncs.length > 0"
-          class="timeline"
-        >
+        <div class="card-header">
+          <h3 class="card-title">
+            最近同步记录
+          </h3>
+          <!-- 动线打通(2026-08-20):概览只留摘要,失败排查/筛选/详情去同步页 -->
+          <RouterLink
+            class="view-all"
+            to="/data/sync"
+          >
+            查看全部 →
+          </RouterLink>
+        </div>
+        <div class="card-body">
           <div
-            v-for="(item, index) in recentSyncs"
-            :key="index"
-            class="timeline-item"
-            @contextmenu="openSyncMenu($event, item)"
+            v-if="recentSyncs.length > 0"
+            class="timeline"
           >
             <div
-              class="timeline-dot"
-              :class="item.status"
-            />
-            <div class="timeline-content">
-              <div class="timeline-title">
-                {{ item.type }} - {{ item.code }}
-              </div>
-              <div class="timeline-time">
-                {{ item.time }}
+              v-for="(item, index) in recentSyncs"
+              :key="index"
+              class="timeline-item"
+              @contextmenu="openSyncMenu($event, item)"
+            >
+              <div
+                class="timeline-dot"
+                :class="item.status"
+              />
+              <div class="timeline-content">
+                <div class="timeline-title">
+                  {{ item.type }} - {{ item.code }}
+                </div>
+                <div class="timeline-time">
+                  {{ item.time }}
+                </div>
               </div>
             </div>
           </div>
+          <EmptyState
+            v-else
+            description="暂无同步记录"
+          />
         </div>
-        <EmptyState
-          v-else
-          description="暂无同步记录"
-        />
       </div>
 
       <div class="card">
-        <h3 class="card-title">
-          数据源状态
-        </h3>
-        <div class="data-sources">
-          <div
-            v-for="source in dataSources"
-            :key="source.name"
-            class="data-source-item"
-          >
-            <div class="source-info">
-              <div class="source-name">
-                {{ source.name }}
-              </div>
-              <div class="source-desc">
-                {{ source.description }}
-              </div>
-            </div>
-            <span
-              class="status-tag"
-              :class="source.status"
+        <div class="card-header">
+          <h3 class="card-title">
+            数据源状态
+          </h3>
+        </div>
+        <div class="card-body">
+          <div class="data-sources">
+            <div
+              v-for="source in dataSources"
+              :key="source.name"
+              class="data-source-item"
             >
-              {{ source.status === 'online' ? '在线' : '离线' }}
-            </span>
+              <div class="source-info">
+                <div class="source-name">
+                  {{ source.name }}
+                </div>
+                <div class="source-desc">
+                  {{ source.description }}
+                </div>
+              </div>
+              <span
+                class="tag"
+                :class="source.status === 'online' ? 'tag-green' : 'tag-red'"
+              >
+                {{ source.status === 'online' ? '在线' : '离线' }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -233,6 +263,7 @@
 <script setup lang="ts">
 import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { formatCompact, formatDate } from '@/utils/format'
 import { SYNC_TYPE_CONFIG } from '@/constants/statusConfig'
@@ -324,58 +355,46 @@ const refreshStats = async () => {
 
 const formatNumber = (num: number): string => formatCompact(num, 1)
 
+// 枢纽导航(2026-08-18):统计卡=数据资产入口,点击直达浏览器对应类型
+const router = useRouter()
+const goBrowser = (type: string) => {
+  router.push({ path: '/data/browser', query: { type } })
+}
+
 onMounted(() => {
   refreshStats()
 })
 </script>
 
 <style scoped>
-/* 统计卡片 */
+/* 统计卡片:结构/图标位基础走全局 cards.less,此处仅色变体(2026-08-19 顶条删除,对齐全站统计卡无顶条形态) */
 
-.stat-card::before {
-  content: '';
+/* 枢纽卡:可点击直达数据浏览器,hover 反馈 + 右上角浏览提示 */
+.stat-clickable { cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+.stat-clickable:hover {
+  border-color: hsl(var(--primary) / 0.5);
+  transform: translateY(-2px);
+}
+.stat-clickable::after {
+  content: '浏览 →';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
+  right: 10px;
+  top: 8px;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  opacity: 0;
+  transition: opacity 0.15s;
 }
+.stat-clickable:hover::after { opacity: 1; color: hsl(var(--primary)); }
 
-.stat-card.stat-blue::before { background: hsl(var(--primary)); }
-.stat-card.stat-green::before { background: hsl(var(--success)); }
-.stat-card.stat-orange::before { background: hsl(var(--warning)); }
-.stat-card.stat-purple::before { background: hsl(var(--secondary-foreground)); }
-
-.stat-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-lg);
-  margin-bottom: 12px;
-}
+/* 图标位基础走全局 .stat-icon(cards.less),此处仅色变体 */
 
 .stat-blue .stat-icon { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); }
 .stat-green .stat-icon { background: hsl(var(--success) / 0.1); color: hsl(var(--success)); }
 .stat-orange .stat-icon { background: hsl(var(--warning) / 0.1); color: hsl(var(--warning)); }
 .stat-purple .stat-icon { background: hsl(var(--secondary-foreground) / 0.1); color: hsl(var(--secondary-foreground)); }
 
-/* 卡片 */
-
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  margin: 0 0 16px 0;
-}
-
-/* 两列网格 */
-.two-column-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
+/* 卡片结构(card-header/card-body)/标题排版/双列网格走全局 cards.less(2026-08-19 对齐全站) */
 
 /* 时间线 */
 .timeline {
@@ -424,8 +443,14 @@ onMounted(() => {
   background: hsl(var(--warning));
 }
 
-.timeline-dot.error {
+.timeline-dot.failed {
   background: hsl(var(--error));
+}
+
+/* queued/lost(2026-08-18 派发即落库):无色则空心点不可辨 */
+.timeline-dot.queued,
+.timeline-dot.lost {
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
 .timeline-content {
@@ -454,7 +479,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: hsl(var(--border));
+  background: hsl(var(--muted));
   border-radius: var(--radius-sm);
 }
 
@@ -470,24 +495,19 @@ onMounted(() => {
 
 .source-desc {
   font-size: 12px;
-  color: hsl(var(--foreground));
+  color: hsl(var(--muted-foreground));
 }
 
-.status-tag {
-  padding: 4px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 500;
+/* 在线/离线标签走全局 tags.less .tag 体系(2026-08-19 收口,弃自定义 status-tag) */
+
+/* 卡头"查看全部"链接(视觉同 Dashboard .list-link):概览摘要 → 同步页全量 */
+.view-all {
+  font-size: 14px;
+  font-weight: 400;
+  color: hsl(var(--primary));
 }
 
-/* badge 字色走 *-fg 文字专用 token: 浅色暗(白底可读)/ 深色亮(深底可读) */
-.status-tag.online {
-  background: hsl(var(--success) / 0.12);
-  color: hsl(var(--success-fg));
-}
-
-.status-tag.offline {
-  background: hsl(var(--error) / 0.12);
-  color: hsl(var(--error-fg));
+.view-all:hover {
+  text-decoration: underline;
 }
 </style>
