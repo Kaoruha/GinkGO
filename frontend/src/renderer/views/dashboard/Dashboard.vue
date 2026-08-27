@@ -72,16 +72,20 @@
             <div class="stat-label">
               {{ card.label }}
             </div>
-            <div class="stat-value">
-              <template v-if="card.value !== null">
-                {{ card.value }} <span
-                  v-if="card.suffix"
-                  class="stat-suffix"
-                >{{ card.suffix }}</span>
-              </template>
-              <template v-else>
-                --
-              </template>
+            <!-- 加载骨架(脉动条)替代 --: 防数值到达瞬间跳变 -->
+            <div
+              v-if="card.value === null"
+              class="stat-skeleton"
+              :data-testid="`${card.testid}-skeleton`"
+            />
+            <div
+              v-else
+              class="stat-value"
+            >
+              {{ card.value }} <span
+                v-if="card.suffix"
+                class="stat-suffix"
+              >{{ card.suffix }}</span>
             </div>
           </div>
         </div>
@@ -93,13 +97,14 @@
         data-testid="stages-grid"
       >
         <div
-          v-for="card in stageCards"
+          v-for="(card, i) in stageCards"
           :key="card.key"
-          :class="['stage-card', card.cls]"
+          class="stage-card"
           :data-testid="card.testid"
           @click="$router.push(card.to)"
         >
           <div class="stage-header">
+            <span class="stage-step">STEP {{ i + 1 }}</span>
             <h3>{{ card.title }}</h3>
           </div>
           <div class="stage-stats">
@@ -107,12 +112,16 @@
               v-for="s in card.stats"
               :key="s.label"
               class="stage-stat"
+              :title="s.hint"
             >
               <span class="stat-label">{{ s.label }}</span>
               <span
                 class="stat-number"
                 :class="{ 'is-running': s.running }"
-              >{{ s.value }}</span>
+              ><span
+                v-if="s.running"
+                class="run-dot"
+              />{{ s.value }}</span>
             </div>
           </div>
           <span
@@ -412,18 +421,28 @@ const STAT_ICONS: Record<string, string> = {
   netValue: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" />',
 }
 
-// 统计卡展示配置:value=null 显示 --(加载中/实盘资产为 0 与原条件一致)
+// 统计卡展示配置:value=null 显示加载骨架;0 是真实数据照常显示(旧版 0 显示 -- 误表意为未知)
 const statCards = computed(() => [
   { key: 'portfolio', testid: 'stat-portfolio', label: '运行中 Portfolio', value: loading.value ? null : `${stats.value.running}`, suffix: '个' },
   { key: 'total', testid: 'stat-backtest', label: 'Portfolio 总数', value: loading.value ? null : `${stats.value.total}`, suffix: '个' },
-  { key: 'assets', testid: 'stat-worker', label: '实盘资产', value: loading.value || stats.value.totalAssets <= 0 ? null : formatNumber(stats.value.totalAssets), suffix: '元' },
+  { key: 'assets', testid: 'stat-worker', label: '实盘资产', value: loading.value ? null : formatNumber(stats.value.totalAssets), suffix: '元' },
   { key: 'netValue', testid: 'stat-system', label: '平均净值', value: loading.value ? null : stats.value.avgNetValue.toFixed(4), suffix: '' },
 ])
 
-// 4 阶段卡展示配置:验证域无统计数据,占位 -- 与原模板一致
-const stageCards = computed(() => [
+// 4 阶段卡展示配置(回测→验证→模拟→实盘漏斗,顺序即 STEP 序号);
+// 验证域暂无统计数据源,占位 -- 悬停有说明
+interface StageStat {
+  label: string
+  value: string
+  running: boolean
+  hint?: string
+}
+const stageCards = computed<Array<{
+  key: string; testid: string; title: string; to: string
+  linkTestid: string; link: string; stats: StageStat[]
+}>>(() => [
   {
-    key: 'backtest', cls: 'stage-1', testid: 'stage-backtest', title: '回测', to: '/backtest',
+    key: 'backtest', testid: 'stage-backtest', title: '回测', to: '/backtest',
     linkTestid: 'stage-link-backtest', link: '进入回测 →',
     stats: [
       { label: '回测组合', value: `${backtestCount.value}`, running: false },
@@ -431,15 +450,15 @@ const stageCards = computed(() => [
     ],
   },
   {
-    key: 'validation', cls: 'stage-2', testid: 'stage-validation', title: '验证', to: '/validation/walkforward',
+    key: 'validation', testid: 'stage-validation', title: '验证', to: '/validation/walkforward',
     linkTestid: 'stage-link-validation', link: '进入验证 →',
     stats: [
-      { label: '验证组合', value: '--', running: false },
-      { label: '通过验证', value: '--', running: false },
+      { label: '验证组合', value: '--', running: false, hint: '验证域数据暂未接入' },
+      { label: '通过验证', value: '--', running: false, hint: '验证域数据暂未接入' },
     ],
   },
   {
-    key: 'paper', cls: 'stage-3', testid: 'stage-paper', title: '模拟', to: '/paper',
+    key: 'paper', testid: 'stage-paper', title: '模拟', to: '/paper',
     linkTestid: 'stage-link-paper', link: '进入模拟 →',
     stats: [
       { label: '模拟组合', value: `${paperCount.value}`, running: false },
@@ -447,7 +466,7 @@ const stageCards = computed(() => [
     ],
   },
   {
-    key: 'live', cls: 'stage-4', testid: 'stage-live', title: '实盘', to: '/live',
+    key: 'live', testid: 'stage-live', title: '实盘', to: '/live',
     linkTestid: 'stage-link-live', link: '进入实盘 →',
     stats: [
       { label: '实盘组合', value: `${liveCount.value}`, running: false },
@@ -637,10 +656,11 @@ onUnmounted(() => {
 
 /* 统计卡片网格 */
 
-/* 图标统一灰阶(ADR-045:色彩只留给数据语义),muted-fg on muted 双主题可读 */
+/* 图标统一灰阶(ADR-045:色彩只留给数据语义),muted-fg on muted 双主题可读;
+   40px 收紧——stat tile 的主角是数字,图标仅弱标识 */
 .stat-icon {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -654,10 +674,29 @@ onUnmounted(() => {
   flex: 1;
 }
 
+.stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
 .stat-suffix {
   font-size: 14px;
   color: hsl(var(--muted-foreground));
   font-weight: 400;
+}
+
+/* 加载骨架:脉动条占位,数值到达时不跳变 */
+.stat-skeleton {
+  width: 72px;
+  height: 22px;
+  margin: 3px 0;
+  border-radius: var(--radius-sm);
+  background: hsl(var(--muted) / 0.8);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
 }
 
 /* 阶段卡片网格 */
@@ -681,20 +720,16 @@ onUnmounted(() => {
   box-shadow: var(--shadow-md);
 }
 
-.stage-card.stage-1 {
-  border-top: 3px solid hsl(var(--primary));
-}
-
-.stage-card.stage-2 {
-  border-top: 3px solid hsl(var(--success));
-}
-
-.stage-card.stage-3 {
-  border-top: 3px solid hsl(var(--warning));
-}
-
-.stage-card.stage-4 {
-  border-top: 3px solid hsl(var(--error));
+/* 阶段是流程位置不是状态——去旧版四色顶边(status 色只留给数据语义,ADR-045),
+   顺序感由 STEP 序号表达 */
+.stage-step {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
 }
 
 .stage-header h3 {
@@ -727,11 +762,27 @@ onUnmounted(() => {
   font-weight: 600;
   color: hsl(var(--foreground));
   font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* 运行中 >0 用文字专用 success-fg(双主题可读) */
+/* 运行中 >0 用文字专用 success-fg(双主题可读) + 脉冲点(不只靠文字颜色) */
 .stage-stat .stat-number.is-running {
   color: hsl(var(--success-fg));
+}
+
+.run-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: hsl(var(--success-fg));
+  animation: run-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes run-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 .stage-link {
