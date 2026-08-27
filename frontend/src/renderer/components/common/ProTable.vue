@@ -15,7 +15,7 @@
               v-for="col in resolvedColumns"
               :key="col.key"
               :style="{ width: col.width ? col.width + 'px' : undefined }"
-              :class="{ sortable: col.sortable }"
+              :class="{ sortable: col.sortable, 'col-num': col.num }"
               @click="col.sortable && handleSort(col.dataIndex)"
             >
               {{ col.title }}

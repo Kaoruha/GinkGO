@@ -200,13 +200,13 @@ const rowMenu = (record: any): MenuItem[] => [
 
 const barColumns = [
   { title: '日期', dataIndex: 'timestamp' },
-  { title: '开盘', dataIndex: 'open' },
-  { title: '最高', dataIndex: 'high' },
-  { title: '最低', dataIndex: 'low' },
-  { title: '收盘', dataIndex: 'close' },
-  { title: '涨跌幅', dataIndex: 'change' },
-  { title: '成交量', dataIndex: 'volume' },
-  { title: '成交额', dataIndex: 'amount' },
+  { title: '开盘', dataIndex: 'open', num: true },
+  { title: '最高', dataIndex: 'high', num: true },
+  { title: '最低', dataIndex: 'low', num: true },
+  { title: '收盘', dataIndex: 'close', num: true },
+  { title: '涨跌幅', dataIndex: 'change', num: true },
+  { title: '成交量', dataIndex: 'volume', num: true },
+  { title: '成交额', dataIndex: 'amount', num: true },
 ]
 
 const searchStocks = async (query: string) => {

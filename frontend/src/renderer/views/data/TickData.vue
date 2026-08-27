@@ -257,8 +257,8 @@ const chartContainer = ref<HTMLElement>()
 const tickColumns = [
   { title: '时间', dataIndex: 'timestamp' },
   { title: '代码', dataIndex: 'code' },
-  { title: '价格', dataIndex: 'price' },
-  { title: '成交量', dataIndex: 'volume' },
+  { title: '价格', dataIndex: 'price', num: true },
+  { title: '成交量', dataIndex: 'volume', num: true },
   { title: '方向', dataIndex: 'direction' },
 ]
 

@@ -105,7 +105,7 @@ const basePath = computed(() => `/components/${route.params.type}`)
 const columns = [
   { title: '文件名', dataIndex: 'name' },
   { title: '描述', dataIndex: 'description' },
-  { title: '持有组合', dataIndex: 'portfolio_count', sortable: true },
+  { title: '持有组合', dataIndex: 'portfolio_count', sortable: true, num: true },
   { title: '更新时间', dataIndex: 'updated_at' },
 ]
 

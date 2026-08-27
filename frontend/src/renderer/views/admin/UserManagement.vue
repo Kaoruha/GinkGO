@@ -382,8 +382,9 @@ onMounted(() => {
   border: 1px solid hsl(var(--secondary));
   border-radius: var(--radius-sm);
   padding: 6px 12px;
-  flex: 1;
-  max-width: 400px;
+  /* 固定份额:flex:1 会被 width:100% 的 select 挤到只剩 min-content(input 塌成 0 宽) */
+  flex: 0 1 360px;
+  min-width: 220px;
 }
 
 .search-input-wrapper svg {
@@ -422,6 +423,13 @@ onMounted(() => {
   margin: 0 0 8px;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
+}
+
+/* width:100%(forms.less 全局)在 flex 行内会抢占整行,改为占满剩余空间 */
+.filter-row .form-select {
+  flex: 1;
+  width: auto;
+  min-width: 180px;
 }
 
 /* Table */
