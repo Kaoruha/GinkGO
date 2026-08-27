@@ -35,7 +35,8 @@ export const formatDecimal = (val: string | number) => {
 export const getPnLColor = (val: string | number) => {
   const n = typeof val === 'number' ? val : parseFloat(String(val))
   // ADR-045 §2 西式涨绿跌红(原中式 #cf1322=红涨/#3f8600=绿跌 → 反转)
-  return isNaN(n) ? 'hsl(var(--muted-foreground))' : n >= 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
+  // 0 为中性(无盈亏)——绿色会误导,尤其失败任务指标落 0 的场景
+  return isNaN(n) || n === 0 ? 'hsl(var(--muted-foreground))' : n > 0 ? 'hsl(var(--success))' : 'hsl(var(--error))'
 }
 
 export const getSharpeColor = (val: string | number) => {

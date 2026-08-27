@@ -17,6 +17,7 @@
       class="empty-icon"
     >
       <slot name="icon">
+        <!-- 默认中性 inbox 图标:原 X(关闭)图标语义误导,空态 ≠ 关闭 -->
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="64"
@@ -26,26 +27,8 @@
           stroke="currentColor"
           stroke-width="1"
         >
-          <rect
-            x="3"
-            y="3"
-            width="18"
-            height="18"
-            rx="2"
-            ry="2"
-          />
-          <line
-            x1="9"
-            y1="9"
-            x2="15"
-            y2="15"
-          />
-          <line
-            x1="15"
-            y1="9"
-            x2="9"
-            y2="15"
-          />
+          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+          <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
         </svg>
       </slot>
     </div>

@@ -53,9 +53,11 @@
             >
           </div>
           <div class="form-group">
+            <!-- stub 页:后端接口未实现,主按钮置禁用而非可点(失败提示前置) -->
             <button
               class="btn-primary"
-              :disabled="loading"
+              :disabled="true"
+              title="后端接口开发中，暂不可用"
               @click="runOptimization"
             >
               {{ loading ? '搜索中...' : '开始搜索' }}

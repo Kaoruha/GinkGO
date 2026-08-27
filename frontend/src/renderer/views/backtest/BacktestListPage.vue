@@ -85,23 +85,51 @@
     </template>
 
     <template #annual_return="{ record }">
-      <span :class="Number(record.annual_return) >= 0 ? 'val-green' : 'val-red'">
+      <!-- 失败任务指标落 0,展示 0.00% 是伪数据;-- 才是诚实口径 -->
+      <span
+        v-if="record.status === 'failed'"
+        class="val-muted"
+      >--</span>
+      <span
+        v-else
+        :class="Number(record.annual_return) > 0 ? 'val-green' : Number(record.annual_return) < 0 ? 'val-red' : ''"
+      >
         {{ formatPercent(record.annual_return) }}
       </span>
     </template>
 
     <template #sharpe_ratio="{ record }">
-      <span :class="Number(record.sharpe_ratio) >= 0 ? 'val-green' : 'val-red'">
+      <span
+        v-if="record.status === 'failed'"
+        class="val-muted"
+      >--</span>
+      <span
+        v-else
+        :class="Number(record.sharpe_ratio) > 0 ? 'val-green' : Number(record.sharpe_ratio) < 0 ? 'val-red' : ''"
+      >
         {{ formatDecimal(record.sharpe_ratio) }}
       </span>
     </template>
 
     <template #max_drawdown="{ record }">
-      <span class="val-red">{{ formatPercent(record.max_drawdown) }}</span>
+      <span
+        v-if="record.status === 'failed'"
+        class="val-muted"
+      >--</span>
+      <span
+        v-else
+        :class="Number(record.max_drawdown) > 0 ? 'val-red' : ''"
+      >{{ formatPercent(record.max_drawdown) }}</span>
     </template>
 
     <template #win_rate="{ record }">
-      {{ formatPercent(record.win_rate) }}
+      <span
+        v-if="record.status === 'failed'"
+        class="val-muted"
+      >--</span>
+      <template v-else>
+        {{ formatPercent(record.win_rate) }}
+      </template>
     </template>
 
     <template #total_signals="{ record }">

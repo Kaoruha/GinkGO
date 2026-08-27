@@ -57,7 +57,8 @@ export const menuConfigs: MenuConfig[] = [
     key: 'trading', label: '交易', icon: TrendingUp, route: '/trading', matchPrefixes: ['/trading/'],
     children: [
       { label: '模拟盘', route: '/trading/paper' },
-      { label: '概览', route: '/trading/live', exact: true },
+      // 实盘入口:原「概览」与顶部一级菜单重名且语义混(paper 页也高亮它),改为实盘
+      { label: '实盘', route: '/trading/live', exact: true },
       { label: '账号配置', route: '/trading/live/accounts' },
       { label: '账户监控', route: '/trading/live/monitor' },
       { label: 'Broker', route: '/trading/live/brokers' },

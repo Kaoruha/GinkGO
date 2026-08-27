@@ -100,8 +100,9 @@
           v-for="(card, i) in stageCards"
           :key="card.key"
           class="stage-card"
+          :class="{ 'stage-disabled': card.enabled === false }"
           :data-testid="card.testid"
-          @click="$router.push(card.to)"
+          @click="goStage(card)"
         >
           <div class="stage-header">
             <span class="stage-step">STEP {{ i + 1 }}</span>
@@ -127,7 +128,7 @@
           <span
             class="stage-link"
             :data-testid="card.linkTestid"
-          >{{ card.link }}</span>
+          >{{ card.enabled === false ? '暂未启用' : card.link }}</span>
         </div>
       </div>
 
@@ -239,8 +240,11 @@
               >{{ (t.progress || 0).toFixed(0) }}%</span>
               <span
                 class="recent-pnl"
-                :style="{ color: getPnLColor(t.total_pnl) }"
-              >{{ formatDecimal(t.total_pnl) }}</span>
+                :style="{ color: t.status === 'failed' ? 'hsl(var(--muted-foreground))' : getPnLColor(t.total_pnl) }"
+              >
+                <template v-if="t.status === 'failed'">--</template>
+                <template v-else>{{ formatDecimal(t.total_pnl) }}<span class="pnl-unit">元</span></template>
+              </span>
               <span
                 class="recent-date"
                 :title="t.update_at || t.created_at"
@@ -373,6 +377,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import PageLayout from '@/components/common/PageLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { portfolioApi, backtestApi, dataApi } from '@/api'
@@ -413,6 +418,13 @@ const paperRunning = computed(() => countByMode('PAPER', true))
 const liveCount = computed(() => countByMode('LIVE'))
 const liveRunning = computed(() => countByMode('LIVE', true))
 
+// 阶段卡导航:enabled:false(验证未启用)不跳转,其余按配置路由
+const router = useRouter()
+function goStage(card: { enabled?: boolean; to: string }) {
+  if (card.enabled === false) return
+  void router.push(card.to)
+}
+
 // 顶部 4 张统计卡图标(SVG innerHTML,配置数组 v-for 渲染;图标原样自旧模板迁入)
 const STAT_ICONS: Record<string, string> = {
   portfolio: '<circle cx="12" cy="12" r="10" /><polygon points="10,8 16,12 10,16" />',
@@ -430,7 +442,8 @@ const statCards = computed(() => [
 ])
 
 // 4 阶段卡展示配置(回测→验证→模拟→实盘漏斗,顺序即 STEP 序号);
-// 验证域暂无统计数据源,占位 -- 悬停有说明
+// enabled:false = 路由已退役(/validation/* 重定向 /portfolios),卡片只读不可点,
+// 避免点了「进入验证」被静默甩到组合列表的断链体验
 interface StageStat {
   label: string
   value: string
@@ -439,7 +452,7 @@ interface StageStat {
 }
 const stageCards = computed<Array<{
   key: string; testid: string; title: string; to: string
-  linkTestid: string; link: string; stats: StageStat[]
+  linkTestid: string; link: string; enabled?: boolean; stats: StageStat[]
 }>>(() => [
   {
     key: 'backtest', testid: 'stage-backtest', title: '回测', to: '/backtest',
@@ -451,10 +464,10 @@ const stageCards = computed<Array<{
   },
   {
     key: 'validation', testid: 'stage-validation', title: '验证', to: '/validation/walkforward',
-    linkTestid: 'stage-link-validation', link: '进入验证 →',
+    linkTestid: 'stage-link-validation', link: '进入验证 →', enabled: false,
     stats: [
-      { label: '验证组合', value: '--', running: false, hint: '验证域数据暂未接入' },
-      { label: '通过验证', value: '--', running: false, hint: '验证域数据暂未接入' },
+      { label: '验证组合', value: '--', running: false, hint: '验证功能暂未启用' },
+      { label: '通过验证', value: '--', running: false, hint: '验证功能暂未启用' },
     ],
   },
   {
@@ -718,6 +731,22 @@ onUnmounted(() => {
 .stage-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+/* 未启用阶段(验证):只读展示,无 hover 反馈,链接置灰 */
+.stage-card.stage-disabled {
+  cursor: default;
+}
+
+.stage-card.stage-disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.stage-card.stage-disabled .stage-link {
+  color: hsl(var(--muted-foreground));
+  cursor: default;
+  text-decoration: none;
 }
 
 /* 阶段是流程位置不是状态——去旧版四色顶边(status 色只留给数据语义,ADR-045),
@@ -1108,10 +1137,17 @@ onUnmounted(() => {
 }
 
 .recent-pnl {
-  flex: 0 0 72px;
+  flex: 0 0 84px;
   text-align: right;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+
+/* 金额单位后缀:与百分比列区分(数字为主,单位弱化) */
+.pnl-unit {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  margin-left: 1px;
 }
 
 .recent-date {
@@ -1255,6 +1291,7 @@ onUnmounted(() => {
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .badge-running {

@@ -47,11 +47,13 @@
           class="stats-inline"
         >
           <span class="stat-item">最新 <strong>{{ formatDecimal(latestBar?.close) }}</strong></span>
+          <!-- 数据不足(或 0 涨跌)不渲染涨跌:0 着色会被误读为方向 -->
           <span
+            v-if="latestBar && prevBar && priceChange !== 0"
             class="stat-item"
-            :class="priceChange >= 0 ? 'text-up' : 'text-down'"
+            :class="priceChange > 0 ? 'text-up' : 'text-down'"
           >
-            {{ priceChange >= 0 ? '+' : '' }}{{ priceChange.toFixed(2) }}%
+            {{ priceChange > 0 ? '+' : '' }}{{ priceChange.toFixed(2) }}%
           </span>
           <span class="stat-item">高 {{ priceStats.high.toFixed(2) }}</span>
           <span class="stat-item">低 {{ priceStats.low.toFixed(2) }}</span>
@@ -119,8 +121,15 @@
         {{ formatDecimal(record.close) }}
       </template>
       <template #change="{ record }">
-        <span :class="record.change >= 0 ? 'text-up' : 'text-down'">
-          {{ record.change >= 0 ? '+' : '' }}{{ record.change?.toFixed(2) }}%
+        <span
+          v-if="record.change == null"
+          style="color: hsl(var(--muted-foreground))"
+        >--</span>
+        <span
+          v-else
+          :class="record.change > 0 ? 'text-up' : record.change < 0 ? 'text-down' : ''"
+        >
+          {{ record.change > 0 ? '+' : '' }}{{ record.change.toFixed(2) }}%
         </span>
       </template>
       <template #volume="{ record }">
@@ -210,8 +219,10 @@ const searchStocks = async (query: string) => {
   }))
 }
 
-const latestBar = computed(() => barData.value[barData.value.length - 1])
-const prevBar = computed(() => barData.value[barData.value.length - 2])
+// API 返回降序(新→旧):最新=首元素,前一日=次元素
+// (旧版误取末元素,「最新」实际显示的是最早已加载日的价格)
+const latestBar = computed(() => barData.value[0])
+const prevBar = computed(() => barData.value[1])
 const priceChange = computed(() => {
   if (!latestBar.value || !prevBar.value) return 0
   return ((latestBar.value.close - prevBar.value.close) / prevBar.value.close) * 100
@@ -236,13 +247,20 @@ const fetchBarsFromAPI = async (code: string, startDate: Dayjs, pageSize: number
   return items.map((bar: any) => ({
     timestamp: bar.date || bar.timestamp,
     open: bar.open, high: bar.high, low: bar.low, close: bar.close,
-    volume: bar.volume, amount: bar.amount, change: 0,
+    volume: bar.volume, amount: bar.amount,
+    // null = 参照日未加载(未知),区别于 0(真实平盘);展示为 --
+    change: null as number | null,
   }))
 }
 
+// 涨跌幅:数组为降序(新→旧),须与后一元素(更早一日收盘)比较。
+// 旧版方向取反(涨跌幅变号)且每页首行无参照恒 0,与相邻收盘价明显矛盾。
+// 全量最早一行的参照日可能未加载,保持 null(展示 --)。
 const computeChanges = (data: any[]) => {
-  for (let i = 1; i < data.length; i++) {
-    if (data[i - 1].close) data[i].change = ((data[i].close - data[i - 1].close) / data[i - 1].close) * 100
+  for (const d of data) d.change = null
+  for (let i = 0; i < data.length - 1; i++) {
+    const prev = data[i + 1].close
+    if (prev) data[i].change = ((data[i].close - prev) / prev) * 100
   }
 }
 
@@ -380,9 +398,10 @@ const loadMoreHistory = async (preserveView = true) => {
     const newEndDate = earliestDate.value.subtract(1, 'day')
     const visibleTimeRange = preserveView ? (chart?.timeScale().getVisibleRange() ?? null) : null
     const historicalData = await fetchBarsFromAPI(selectedCode.value, newStartDate, BATCH_SIZE, newEndDate)
-    computeChanges(historicalData)
     if (historicalData.length === 0) { hasMoreHistory.value = false; return }
+    // 先并再全量重算:新批最旧一行的参照日可能在旧数据尾部,逐批独立算会漏
     barData.value = [...historicalData, ...barData.value]
+    computeChanges(barData.value)
     earliestDate.value = dayjs(historicalData[0].timestamp)
     updateChartDataPrepend(historicalData, visibleTimeRange)
   } catch (error: any) {

@@ -63,9 +63,11 @@
             </select>
           </div>
           <div class="form-group">
+            <!-- stub 页:后端接口未实现,主按钮置禁用而非可点(失败提示前置) -->
             <button
               class="btn-primary"
-              :disabled="loading"
+              :disabled="true"
+              title="后端接口开发中，暂不可用"
               @click="runAnalysis"
             >
               {{ loading ? '分析中...' : '开始分析' }}

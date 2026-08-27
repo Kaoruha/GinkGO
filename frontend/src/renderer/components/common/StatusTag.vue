@@ -117,6 +117,8 @@ const label = computed(() => config.value.label)
   border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 500;
+  /* 窄视口(1024)下表格挤压,badge 逐字竖排("已/完/成")不可读 */
+  white-space: nowrap;
 }
 
 </style>

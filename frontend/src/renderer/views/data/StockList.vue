@@ -66,6 +66,7 @@
       default-sort-by="code"
       default-sort-order="asc"
       :page-sizes="[20, 50, 100]"
+      :max-height="640"
       :context-menu="stockMenu"
       @sort="onSort"
       @row-click="viewStockDetail"

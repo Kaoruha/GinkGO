@@ -169,6 +169,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useContextMenu, type MenuItem } from '@/composables/useContextMenu'
+import { formatDate } from '@/utils/format'
 
 export interface Column {
   title: string
@@ -311,7 +312,8 @@ function handleSort(field: string) {
 function formatValue(val: any): string {
   if (val == null) return '-'
   if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
-    return new Date(val).toLocaleString('zh-CN')
+    // 走统一 formatter(toLocaleString 产出 "2026/8/17 2:49:43" 不补零,列内不对齐)
+    return formatDate(val)
   }
   return String(val)
 }

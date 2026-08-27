@@ -72,6 +72,9 @@
         v-else-if="users.length > 0"
         class="table-wrapper"
       >
+        <p class="table-hint">
+          提示：右键点击用户行可编辑 / 重置密码 / 删除
+        </p>
         <table class="data-table">
           <thead>
             <tr>
@@ -409,6 +412,16 @@ onMounted(() => {
   color: hsl(var(--primary-foreground));
   font-size: 13px;
   cursor: pointer;
+  /* 容器挤压时按钮内文字逐字竖排("搜/索"),禁换行 + 禁收缩 */
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 行操作走右键菜单(与回测中心同约定),菜单无视觉示证,补一行提示 */
+.table-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
 }
 
 /* Table */
