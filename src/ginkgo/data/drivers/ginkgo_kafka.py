@@ -306,6 +306,13 @@ def kafka_topic_set():
         "ginkgo.schedule.updates": (3, 1),
         "ginkgo.live.schedule.updates": (3, 1),
         "ginkgo.live.system.events": (3, 1),
+        # 回测三 topic(2026-08-17 实证缺口):KafkaTopics.ALL_TOPICS 早已收录,
+        # 但本清单漂移未同步——容器重建后集群空 topic,producer 向不存在的
+        # topic 发送→KafkaTimeoutError→任务被标 failed("创建超时失败"),
+        # 且 -kafkainit 也建不回来,只能手动。此处对齐后重建即可自愈。
+        "backtest.assignments": (3, 1),
+        "backtest.progress": (3, 1),
+        "backtest.results": (3, 1),
     }
 
     # 获取当前 Kafka 中所有的 topics
@@ -336,8 +343,10 @@ def kafka_topic_set():
             )
 
             # 检查创建结果
-            # result.topic_errors 可能是 dict 或 list
-            topic_errors = result.topic_errors
+            # result.topic_errors 可能是 dict 或 list;kafka-python 3.x 返回结构
+            # 已无该属性——getattr 守卫降级为 WARN,不能把"实际创建成功"误报成
+            # ERROR(2026-08-17 实证:18 topic 全部建成,日志却 18 个 ✗)
+            topic_errors = getattr(result, "topic_errors", None)
             if isinstance(topic_errors, dict):
                 for topic, future in topic_errors.items():
                     if future.error_code == 0:

@@ -6,6 +6,8 @@ Backtest Progress Consumer
 
 import asyncio
 import json
+import os
+import socket
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -14,6 +16,18 @@ from ginkgo.interfaces.kafka_topics import KafkaTopics
 from core.logging import logger
 from core.redis_client import set_backtest_progress, delete_backtest_progress
 from websocket.events import broadcast_event, canonical_status
+
+
+def _broadcast_group_id(base: str) -> str:
+    """广播型 consumer 的 group 必须实例唯一(2026-08-17 实证)。
+
+    宿主机 API 与容器 api-server 并存时共用 "api-server" 组,rebalance 把
+    分区劈成两半:消息一半进容器(其 WS 页面连不到),一半卡在另一实例
+    (broker 重建后持有分区却 poll 不动,offset 恒不提交)——详情页实时
+    推送静默死亡。广播场景每实例独立 group 各取全量,处理幂等(进度
+    覆盖写库+WS 无状态),重复消费无害。
+    """
+    return f"{base}-{socket.gethostname()}-{os.getpid()}"
 
 
 def _get_task_service():
@@ -133,8 +147,11 @@ class BacktestProgressConsumer:
                 None,  # 使用默认线程池
                 _create_consumer_sync,
                 KafkaTopics.BACKTEST_PROGRESS,
-                "api-server",
-                "earliest"
+                _broadcast_group_id("api-progress"),
+                # latest:group 随进程唯一,重启即新组——earliest 会重放全部
+                # 历史进度消息(闪屏+无谓回放);启动前的进度由页面刷新从
+                # DB 拿最新状态,无需从 Kafka 重放
+                "latest"
             )
             self._initialized = True
 
