@@ -45,8 +45,60 @@ def _parse_a_share_code(code: str) -> "tuple[str, str] | None":
 
 
 class GinkgoTDX(GinkgoSourceBase):
-    def __init__(self):
-        self.client = Quotes.factory(market="std", bestip=False, timeout=15, quiet=True, verbose=0)
+    # 连接池上限:tdxpy 内置 104 台,实测可用率 ~12%(2026-08-26 抽样 3/25)。
+    # mootdx bestip 只测其窄池前几台,全废概率高(两轮实证:12 台手挑池全灭、
+    # bestip 两种时段均失败)——改为 tdxpy 全量池随机起点试连,协议级验证
+    # (get_security_bars 真拉数据,非仅 TCP),命中即用,上限控制启动耗时
+    FAILOVER_SAMPLE = 15
+    FAILOVER_TIMEOUT = 6
+
+    def __init__(self, server=None):
+        self.client = self._connect_with_failover(server)
+
+    def _connect_with_failover(self, server=None):
+        """显式 server 优先;否则从 tdxpy 内置池随机抽样试连(协议级验证)。
+
+        Returns: 可用的 Quotes 客户端;全部失败时抛最后一次异常。
+        """
+        import random as _random
+        last_err: Exception = RuntimeError("no TDX server attempted")
+
+        # 1) 显式指定(配置/测试用)
+        if server:
+            return Quotes.factory(
+                market="std", server=server, timeout=self.FAILOVER_TIMEOUT,
+                quiet=True, verbose=0,
+            )
+
+        # 2) tdxpy 内置池随机抽样 + 协议级验证
+        from tdxpy.hq import TdxHq_API
+        from tdxpy.constants import hq_hosts
+
+        pool = [(h[1], int(h[2])) for h in hq_hosts]
+        _random.shuffle(pool)
+        for ip, port in pool[: self.FAILOVER_SAMPLE]:
+            probe = TdxHq_API()
+            try:
+                if not probe.connect(ip, port, time_out=self.FAILOVER_TIMEOUT):
+                    continue
+                bars = probe.get_security_bars(9, 1, "600036", 0, 5)
+                if bars is not None and len(bars) > 0:
+                    GLOG.INFO(f"TDX failover connected: {ip}:{port} (pool sample)")
+                    return Quotes.factory(
+                        market="std", server=(ip, port),
+                        timeout=15, quiet=True, verbose=0,
+                    )
+            except Exception as e:
+                last_err = e
+            finally:
+                try:
+                    probe.disconnect()
+                except Exception:
+                    pass
+
+        # 3) 兜底:mootdx bestip(维持旧行为,给窄池一次机会)
+        GLOG.WARN("TDX pool sample all dead, fallback to mootdx bestip")
+        return Quotes.factory(market="std", bestip=True, timeout=15, quiet=True, verbose=0)
         self.bar_type = {
             "0": "5m",
             "1": "15m",
