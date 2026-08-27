@@ -13,6 +13,7 @@ from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MDataSyncRecord
+from ginkgo.enums import TRIGGER_SOURCE_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.data.access_control import restrict_crud_access
 
@@ -47,6 +48,8 @@ class DataSyncRecordCRUD(BaseCRUD[MDataSyncRecord]):
         self,
         sync_type: str,
         code: str,
+        trigger_source: str = "manual",
+        status: str = "running",
     ) -> Optional[MDataSyncRecord]:
         """
         记录同步开始，创建 running 记录
@@ -62,13 +65,40 @@ class DataSyncRecordCRUD(BaseCRUD[MDataSyncRecord]):
             model = MDataSyncRecord()
             model.sync_type = sync_type
             model.code = code
-            model.status = "running"
+            # 字符串(web/cli/task_timer/other)归一为枚举 int 入库;未知→OTHER
+            enum_val = TRIGGER_SOURCE_TYPES.enum_convert(str(trigger_source)) if trigger_source else None
+            model.trigger_source = (enum_val or TRIGGER_SOURCE_TYPES.OTHER).value
+            model.status = status
             model.started_at = datetime.now()
             self.add(model)
             return model
         except Exception as e:
             GLOG.ERROR(f"Failed to record sync start for {sync_type}/{code}: {e}")
             return None
+
+    def record_dispatch_batch(self, sync_type: str, codes: list, trigger_source: str = "web") -> list:
+        """批量建立 queued 记录,单事务;返回 uuid 列表与 codes 顺序对齐。
+        状态列 String(16),queued 值无需迁移。"""
+        from ginkgo.enums import TRIGGER_SOURCE_TYPES
+        enum_val = TRIGGER_SOURCE_TYPES.enum_convert(str(trigger_source)) or TRIGGER_SOURCE_TYPES.OTHER
+        now = datetime.now()
+        models = []
+        for c in codes:
+            m = MDataSyncRecord()
+            m.sync_type = sync_type
+            m.code = c
+            m.trigger_source = enum_val.value
+            m.status = "queued"
+            m.started_at = now
+            models.append(m)
+        try:
+            with self.get_session() as session:
+                session.add_all(models)
+                session.commit()
+                return [m.uuid for m in models]
+        except Exception as e:
+            GLOG.ERROR(f"record_dispatch_batch failed: {e}")
+            return []
 
     def record_complete(
         self,
@@ -140,13 +170,18 @@ class DataSyncRecordCRUD(BaseCRUD[MDataSyncRecord]):
     def find_recent(
         self,
         sync_type: Optional[str] = None,
+        trigger_source: Optional[str] = None,
         page: int = 0,
         page_size: int = 20,
     ) -> list:
-        """查询最近的同步记录，按开始时间倒序"""
+        """查询最近的同步记录，按开始时间倒序;trigger_source 区分手动/定时"""
         filters: Dict[str, Any] = {}
         if sync_type:
             filters["sync_type"] = sync_type
+        if trigger_source:
+            enum_val = TRIGGER_SOURCE_TYPES.enum_convert(str(trigger_source))
+            if enum_val is not None:
+                filters["trigger_source"] = enum_val.value
         return self.find(
             filters=filters,
             order_by="started_at",

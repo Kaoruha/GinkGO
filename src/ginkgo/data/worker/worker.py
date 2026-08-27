@@ -259,24 +259,30 @@ class DataWorker(threading.Thread):
                                 # 获取消息值 - GinkgoConsumer已反序列化
                                 message_value = message.value
 
-                                if message_value is not None:
-                                    if isinstance(message_value, dict):
-                                        # 已反序列化为dict，直接处理
-                                        self._process_kafka_message_dict(message_value)
-                                    elif isinstance(message_value, str):
-                                        # 仍是字符串，尝试手动解析JSON
-                                        try:
-                                            message_data = json.loads(message_value)
-                                            self._process_kafka_message_dict(message_data)
-                                        except json.JSONDecodeError as e:
-                                            GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to parse message as JSON: {e}")
-                                            GLOG.ERROR(f"[DataWorker:{self._node_id}] Raw message: {message_value[:200]}")
-                                            with self._lock:
-                                                self._stats["errors"] += 1
-                                    else:
-                                        GLOG.ERROR(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}, value: {message_value}")
+                                if message_value is None:
+                                    # None 黑洞(2026-08-19 实证):value=None 曾被
+                                    # 静默跳过+无条件 commit——消息凭空消失,queued
+                                    # 记录永悬且零日志。至少留下案发现场
+                                    GLOG.ERROR(f"[DataWorker:{self._node_id}] Message value is None (offset={message.offset}, partition={message.partition}) — silently consumed")
+                                    with self._lock:
+                                        self._stats["errors"] += 1
+                                elif isinstance(message_value, dict):
+                                    # 已反序列化为dict，直接处理
+                                    self._process_kafka_message_dict(message_value)
+                                elif isinstance(message_value, str):
+                                    # 仍是字符串，尝试手动解析JSON
+                                    try:
+                                        message_data = json.loads(message_value)
+                                        self._process_kafka_message_dict(message_data)
+                                    except json.JSONDecodeError as e:
+                                        GLOG.ERROR(f"[DataWorker:{self._node_id}] Failed to parse message as JSON: {e}")
+                                        GLOG.ERROR(f"[DataWorker:{self._node_id}] Raw message: {message_value[:200]}")
                                         with self._lock:
                                             self._stats["errors"] += 1
+                                else:
+                                    GLOG.ERROR(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}, value: {message_value}")
+                                    with self._lock:
+                                        self._stats["errors"] += 1
 
                                 # 手动提交offset（处理完成后立即提交）
                                 self._consumer.commit()
@@ -575,10 +581,15 @@ class DataWorker(threading.Thread):
 
             GLOG.INFO(f"[DataWorker:{self._node_id}] Received control command: {command_dto.command}, source: {command_dto.source}")
 
-            # 处理命令
+            # 处理命令;顶层 source 并入 params(下划线键避冲突)——handler 侧
+            # _record_source 据此落触发来源(2026-08-18:实弹验证 source 在
+            # DTO 顶层,仅传 params 会丢,探针曾落成 OTHER)
+            merged_payload = dict(command_dto.params or {})
+            if getattr(command_dto, "source", None):
+                merged_payload["_source"] = command_dto.source
             success = self._process_command(
                 command=command_dto.command,
-                payload=command_dto.params
+                payload=merged_payload
             )
 
             if success:
@@ -688,12 +699,56 @@ class DataWorker(threading.Thread):
             GLOG.ERROR(f"[DataWorker:{self._node_id}] Error processing command {command}: {e}")
             import traceback
             GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            # 异常终结记录(2026-08-18):handler 任何异常(含 _recorded 行本身的
+            # TypeError 等)必须落到 data_sync_record 为 failed——否则带 _record
+            # 的 queued 记录悬死,只能等 reap 兜底且丢失错误信息。分发层统一
+            # 兜底,一处覆盖全部命令。仅终结非终态(queued/running),不覆盖已成功
+            # 记录(防 Kafka 重放场景)
+            self._fail_record_from_payload(payload, command, str(e))
             with self._lock:
                 self._stats["errors"] += 1
             return False
 
-    @time_logger(threshold=5.0)
-    @retry(max_try=3)
+    def _fail_record_from_payload(self, payload: Dict[str, Any], command: str, err: str) -> None:
+        """按消息 _record 终结滞留记录为 failed(handler 异常路径)。"""
+        ru = payload.get("_record")
+        if not ru:
+            return  # 裸命令(tasktimer/旧格式)本就无记录,维持旧语义
+        try:
+            import datetime
+            from ginkgo.data.containers import container
+            container.data_sync_record_service()._crud_repo.modify(
+                filters={"uuid": ru, "status__in": ["queued", "running"]},
+                updates={
+                    "status": "failed",
+                    "completed_at": datetime.datetime.now(),
+                    "error_message": f"handler error ({command}): {err[:400]}",
+                },
+            )
+        except Exception as e:
+            GLOG.WARN(f"[DataWorker:{self._node_id}] fail-record fallback error: {e}")
+
+    @staticmethod
+    def _record_source(payload: Dict[str, Any]) -> str:
+        """命令触发来源归一(2026-08-18):读分发层并入的 _source(DTO 顶层)。
+        输出必须是 TRIGGER_SOURCE_TYPES 的枚举名(web/cli/scheduled)——
+        DTO 用 "task_timer",与枚举名 SCHEDULED 断层曾致全批落 OTHER(实测)"""
+        src = str(payload.get("_source", "") or "")
+        mapping = {"web": "web", "cli": "cli", "task_timer": "scheduled"}
+        return mapping.get(src, "other")
+
+    def _recorded(self, sync_type: str, code: str, source: str = "web", existing_uuid: str = None):
+        """落记录统一包裹(2026-08-18 下沉 service 层,CLI 进程内模式共用)。
+        existing_uuid: queued 方案——消息带 _record 时复活该记录而非新建
+        (定义与调用点同轮收口,漏改致 TypeError,queued 卡排队根因)。"""
+        from ginkgo.data.containers import container
+        return container.data_sync_record_service().recorded(
+            sync_type, code, trigger_source=source, existing_uuid=existing_uuid)
+
+    def _record_result(self, uuid_, result, started: float) -> None:
+        from ginkgo.data.containers import container
+        container.data_sync_record_service().record_result(uuid_, result, started)
+
     def _handle_bar_snapshot(self, payload: Dict[str, Any]) -> bool:
         """
         处理bar_snapshot命令 - K线快照采集
@@ -717,14 +772,18 @@ class DataWorker(threading.Thread):
 
             bar_service = container.bar_service()
 
-            if full:
-                # 全量同步：使用sync_range从上市日期开始
-                GLOG.INFO(f"[DataWorker:{self._node_id}] Starting full sync for {code}")
-                result = bar_service.sync_range(code=code, start_date=None, end_date=None)
-            else:
-                # 增量同步：使用sync_smart
-                GLOG.INFO(f"[DataWorker:{self._node_id}] Starting incremental sync for {code}")
-                result = bar_service.sync_smart(code=code, fast_mode=not force)
+            # 日期范围(2026-08-18):Web 手动同步的定向补数;full 或带日期走 sync_range
+            start_date = payload.get("start_date")
+            end_date = payload.get("end_date")
+            with self._recorded("bars", code, self._record_source(payload), existing_uuid=payload.get("_record")) as (rec_uuid, _t0):
+                if full or start_date or end_date:
+                    GLOG.INFO(f"[DataWorker:{self._node_id}] Starting range sync for {code} [{start_date}~{end_date}]")
+                    result = bar_service.sync_range(code=code, start_date=start_date, end_date=end_date)
+                else:
+                    # 增量同步：使用sync_smart
+                    GLOG.INFO(f"[DataWorker:{self._node_id}] Starting incremental sync for {code}")
+                    result = bar_service.sync_smart(code=code, fast_mode=not force)
+                self._record_result(rec_uuid, result, _t0)
 
             if result.success:
                 GLOG.INFO(f"[DataWorker:{self._node_id}] Bar sync completed for {code}")
@@ -758,7 +817,9 @@ class DataWorker(threading.Thread):
             stockinfo_service = container.stockinfo_service()
 
             # 同步所有股票信息（StockinfoService.sync() 不接受参数）
-            result = stockinfo_service.sync()
+            with self._recorded("stockinfo", "ALL", self._record_source(payload), existing_uuid=payload.get("_record")) as (rec_uuid, _t0):
+                result = stockinfo_service.sync()
+                self._record_result(rec_uuid, result, _t0)
 
             if result.success:
                 GLOG.INFO(f"[DataWorker:{self._node_id}] Stockinfo sync completed")
@@ -820,7 +881,9 @@ class DataWorker(threading.Thread):
             adjustfactor_service = container.adjustfactor_service()
 
             # 同步复权因子
-            result = adjustfactor_service.sync(code)
+            with self._recorded("adjustfactor", code, self._record_source(payload), existing_uuid=payload.get("_record")) as (rec_uuid, _t0):
+                result = adjustfactor_service.sync(code)
+                self._record_result(rec_uuid, result, _t0)
 
             if result.success:
                 GLOG.INFO(f"[DataWorker:{self._node_id}] Adjustfactor sync completed for {code}")
@@ -873,11 +936,18 @@ class DataWorker(threading.Thread):
                     GLOG.INFO(f"[DataWorker:{self._node_id}] Starting tick data repair (full + overwrite) for {code}")
                 else:
                     GLOG.INFO(f"[DataWorker:{self._node_id}] Starting tick backfill (full, skip existing) for {code}")
-                result = tick_service.sync_backfill_by_date(code=code, force_overwrite=overwrite)
+                with self._recorded("ticks", code, self._record_source(payload), existing_uuid=payload.get("_record")) as (rec_uuid, _t0):
+                    result = tick_service.sync_backfill_by_date(code=code, force_overwrite=overwrite)
+                    self._record_result(rec_uuid, result, _t0)
             else:
-                # 增量更新 (使用 sync_smart)
+                # 增量更新 (使用 sync_smart);日期范围透传(Web 定向补数,2026-08-18)
                 GLOG.INFO(f"[DataWorker:{self._node_id}] Starting tick incremental update for {code}")
-                result = tick_service.sync_smart(code=code, fast_mode=True)
+                with self._recorded("ticks", code, self._record_source(payload), existing_uuid=payload.get("_record")) as (rec_uuid, _t0):
+                    result = tick_service.sync_smart(
+                        code=code, fast_mode=True,
+                        start_date=payload.get("start_date"), end_date=payload.get("end_date"),
+                    )
+                    self._record_result(rec_uuid, result, _t0)
 
             if result.success:
                 GLOG.INFO(f"[DataWorker:{self._node_id}] Tick sync completed for {code}")
@@ -890,4 +960,7 @@ class DataWorker(threading.Thread):
             GLOG.ERROR(f"[DataWorker:{self._node_id}] Error handling tick: {e}")
             import traceback
             GLOG.ERROR(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            # handler 吞异常路径也终结记录(2026-08-19):tick 源初始化崩时
+            # except return False 不上抛,分发层兜底够不着,queued 悬死实测
+            self._fail_record_from_payload(payload, "tick", str(e))
             return False

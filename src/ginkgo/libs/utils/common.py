@@ -263,6 +263,7 @@ def retry(func=None, *, max_try: int = None, backoff_factor: float = None):
         @wraps(f)
         def wrapper(*args, **kwargs):
             last_exception = None
+            base_sleep = 30  # 基础等待时间30秒(所有重试分支共用)
             for i in range(actual_max_try):
                 try:
                     return f(*args, **kwargs)
@@ -273,12 +274,25 @@ def retry(func=None, *, max_try: int = None, backoff_factor: float = None):
                         console_err.print_exception()
                         raise e
                     else:
-                        if GCONF.DEBUGMODE:
-                            # Debug模式：跳过等待，立即重试
+                        # 限流类错误(2026-08-18 实证):DEBUGMODE 跳过等待的本意是
+                        # 本地调试快速失败,但远端限流(如 tushare 300次/分钟)下
+                        # 立即连发只会全军覆没——bar_snapshot 一晚 6766 次超限、
+                        # 1239/5584 只成功的根因。限流特征强制退避,debug 也不例外
+                        err_text = str(e)
+                        is_rate_limited = any(
+                            kw in err_text for kw in ("频率超限", "每分钟", "rate limit", "Rate limit", "too fast", "Too Many Requests")
+                        )
+                        if GCONF.DEBUGMODE and not is_rate_limited:
+                            # Debug模式：跳过等待，立即重试(仅非限流错误)
                             console_err.print(f"[yellow]Debug mode: Skipping wait, immediate retry {i+2}/{actual_max_try}[/]")
+                        elif is_rate_limited:
+                            # 限流:无论 debug 与否都等待(用首档退避,不限流窗口通常 60s 内)
+                            console_err.print(
+                                f"[yellow]Rate-limited by remote: waiting {base_sleep}s before retry {i+2}/{actual_max_try} (debug cannot bypass)[/]"
+                            )
+                            time.sleep(base_sleep)
                         else:
                             # 使用配置的退避因子计算等待时间
-                            base_sleep = 30  # 基础等待时间30秒
                             sleep_time = int(base_sleep * (actual_backoff_factor ** i))
                             console_err.print(
                                 f"[yellow]Starting wait: {sleep_time} seconds before retry {i+2}/{actual_max_try}[/]"

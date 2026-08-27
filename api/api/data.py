@@ -699,173 +699,102 @@ _SUPPORTED_DATA_SYNC_TYPES = ("stockinfo", "bars", "ticks", "adjustfactor")
 
 @router.post("/sync")
 async def sync_data(request: DataUpdateRequest):
-    """触发数据同步"""
-    sync_svc = get_sync_record_service()
+    """触发数据同步(2026-08-18 异步化重构:仅转发 Kafka 命令,秒回)。
+
+    原实现在本进程内逐股拉数写库——全市场同步会阻塞 apiserver 数分钟,
+    且与 tasktimer→data-worker 定时链形成两套执行路径(限流退避/记录格式
+    各自为政)。现统一:data-worker 是唯一执行者(消费 ginkgo.data.commands),
+    本端点只做参数校验与命令派发,执行进度经 data_sync_record(worker 侧
+    _recorded 落库)在同步历史页可见。
+    """
+    from ginkgo.data.containers import container as _container
+
+    ks = _container.kafka_service()
+    if not ks:
+        raise HTTPException(status_code=503, detail="Kafka service unavailable")
+
+    # queued 落库(2026-08-18,B 选项):派发前逐条建 queued 记录,uuid 随消息
+    # (_record)流转——排队即可见,worker 消费时复活该记录;codes=all 展开后
+    # 同样逐条(批量单事务插入),派发耗时换语义完整性
+    from ginkgo.data.containers import container as _c
+    rec_svc = _c.data_sync_record_service()
+
+    def _dispatch(sync_type: str, code_list: list, send_one) -> dict:
+        uuids = rec_svc.record_dispatch_batch(sync_type=sync_type, codes=code_list, trigger_source="web")
+        sent = 0
+        for c, u in zip(code_list, uuids):
+            if send_one(c, u):
+                sent += 1
+        return {"dispatched": sent, "total": len(code_list)}
 
     try:
         if request.type == "stockinfo":
-            # 更新股票信息
-            rec = sync_svc.record_start(sync_type="stockinfo", code="ALL")
-            started_at = _time.time()
-            try:
-                stockinfo_service = get_stockinfo_service()
-                result = stockinfo_service.sync()
-                if rec.is_success():
-                    _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
+            ru = rec_svc.record_start(sync_type="stockinfo", code="ALL", trigger_source="web", status="queued")
+            ok_send = ks.send_stockinfo_update_signal(record_uuid=ru.data.get("uuid") if ru.is_success() else None)
+            if not ok_send:
+                raise HTTPException(status_code=502, detail="Failed to dispatch stockinfo command to Kafka")
+            return ok(data={"type": "stockinfo", "dispatched": True},
+                      message="Sync command dispatched to data-worker; see sync history for progress")
 
-                if not result.is_success():
-                    raise HTTPException(status_code=500, detail=result.message)
-                return ok(data={"type": "stockinfo"}, message="Stock info update completed")
-            except Exception as e:
-                if rec.is_success():
-                    sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
-                raise
+        codes = request.codes or []
+        sd, ed = request.start_date, request.end_date
 
-        elif request.type == "bars":
-            codes = request.codes or []
-            # #5866: codes=["all"] 展开为 stockinfo 全表 code（一键批量同步）
+        if request.type == "bars":
             if len(codes) == 1 and codes[0].lower() == "all":
+                # 展开全市场(B:逐条 queued,批量单事务)
                 stockinfo_svc = get_stockinfo_service()
                 codes_result = stockinfo_svc.list_all_codes()
                 if not codes_result.is_success():
-                    raise HTTPException(
-                        status_code=500,
-                        detail="Failed to list stockinfo codes for batch sync",
-                    )
+                    raise HTTPException(status_code=500, detail="Failed to list stockinfo codes for batch sync")
                 codes = codes_result.data or []
                 if not codes:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="No stockinfo records to sync; run stockinfo sync first "
-                        '(POST /api/v1/data/sync {"type":"stockinfo"})',
-                    )
+                    raise HTTPException(status_code=400,
+                                        detail="No stockinfo records to sync; run stockinfo sync first")
             if not codes:
                 raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for bars update")
+            r = _dispatch("bars", codes, lambda c, u: ks.send_daybar_update_signal(c, start_date=sd, end_date=ed, record_uuid=u))
+            r["type"] = "bars"
+            return ok(data=r, message=f"Bar sync dispatched for {r['dispatched']}/{r['total']} codes to data-worker")
 
-            bar_service = get_bar_service()
-            failed = 0  # #6071: 统计失败 code 数，供前端判断 success（旧版 data 无此字段致硬编码误报）
-            for code in codes:
-                rec = sync_svc.record_start(sync_type="bars", code=code)
-                started_at = _time.time()
-                try:
-                    result = bar_service.sync_smart(code)
-                    if rec.is_success():
-                        _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
-                except Exception as e:
-                    failed += 1
-                    if rec.is_success():
-                        sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
-
-            return ok(
-                data={
-                    "type": "bars",
-                    "codes": codes,
-                    "total": len(codes),
-                    "failed": failed,
-                    "success_count": len(codes) - failed,
-                },
-                message=f"Bars update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else ""),
-            )
-
-        elif request.type == "ticks":
-            codes = request.codes or []
+        if request.type == "ticks":
             if not codes:
                 raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for ticks update")
+            r = _dispatch("ticks", codes, lambda c, u: ks.send_tick_update_signal(c, start_date=sd, end_date=ed, record_uuid=u))
+            r["type"] = "ticks"
+            return ok(data=r, message=f"Tick sync dispatched for {r['dispatched']}/{r['total']} codes to data-worker")
 
-            tick_service = get_tick_service()
-            start_dt = datetime.fromisoformat(request.start_date) if request.start_date else None
-            end_dt = datetime.fromisoformat(request.end_date) if request.end_date else None
-
-            failed = 0  # #6071: 统计失败 code 数，供前端判断 success
-            for code in codes:
-                rec = sync_svc.record_start(sync_type="ticks", code=code)
-                started_at = _time.time()
-                try:
-                    result = tick_service.sync_smart(code, start_date=start_dt, end_date=end_dt)
-                    if rec.is_success():
-                        _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
-                except Exception as e:
-                    failed += 1
-                    if rec.is_success():
-                        sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
-
-            return ok(
-                data={
-                    "type": "ticks",
-                    "codes": codes,
-                    "total": len(codes),
-                    "failed": failed,
-                    "success_count": len(codes) - failed,
-                },
-                message=f"Ticks update completed for {len(codes)} codes" + (f" ({failed} failed)" if failed else ""),
-            )
-
-        elif request.type in ("adjustfactor", "adjustfactors"):
-            # #5868: GET 端点用复数 /adjustfactors，sync type 接受单复数双别名，归一化为单数
-            sync_type = "adjustfactor"
-            codes = request.codes or []
+        if request.type in ("adjustfactor", "adjustfactors"):
             if not codes:
-                raise HTTPException(
-                    status_code=400, detail="codes (list of stock codes) is required for adjust factors update"
-                )
+                raise HTTPException(status_code=400, detail="codes (list of stock codes) is required for adjust factors update")
+            r = _dispatch("adjustfactor", codes, lambda c, u: ks.send_adjustfactor_update_signal(c, record_uuid=u))
+            r["type"] = "adjustfactor"
+            return ok(data=r, message=f"Adjustfactor sync dispatched for {r['dispatched']}/{r['total']} codes to data-worker")
 
-            adjustfactor_service = get_adjustfactor_service()
-            # 批量同步复权因子，整体记录
-            rec = sync_svc.record_start(sync_type=sync_type, code=",".join(codes))
-            started_at = _time.time()
-            try:
-                result = adjustfactor_service.sync_batch(codes)
-                if rec.is_success():
-                    _record_sync_result(sync_svc, rec.data["uuid"], result, started_at)
-                if not result.is_success():
-                    raise HTTPException(status_code=500, detail=result.message)
-            except HTTPException:
-                raise
-            except Exception as e:
-                if rec.is_success():
-                    sync_svc.record_fail(uuid=rec.data["uuid"], error_message=str(e))
-                raise
-
-            # 同步成功后衔接 calculate（与 task_timer/worker 主力路径对齐）：
-            # sync 只落原始 adjustfactor，fore/back 占位 1.0，需 calculate 推导覆盖。
-            # 单 code 计算失败不阻断整体响应（原始因子已落库，可后续补算）。
-            for code in codes:
-                try:
-                    calc_result = adjustfactor_service.calculate(code)
-                    if not calc_result.is_success():
-                        logger.warning(f"Adjustfactor calculate failed for {code}: {calc_result.message}")
-                except Exception as e:
-                    logger.warning(f"Adjustfactor calculate exception for {code}: {e}")
-
-            return ok(
-                data={"type": "adjustfactor", "codes": codes},
-                message=f"Adjust factors update completed for {len(codes)} codes",
-            )
-
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported data type: {request.type}. Supported types: {', '.join(_SUPPORTED_DATA_SYNC_TYPES)}",
-            )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported data type: {request.type}. Supported types: {', '.join(_SUPPORTED_DATA_SYNC_TYPES)}",
+        )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating data: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update data")
+        logger.error(f"Error dispatching data sync: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to dispatch data sync: {e}")
 
 
 @router.get("/sync/history")
 async def get_sync_history(
     sync_type: Optional[str] = None,
+    trigger_source: Optional[str] = None,
     page: int = 1,
     page_size: int = Query(default=20, ge=1, le=DEFAULT_MAX_PAGE_SIZE),
 ):
-    """获取同步历史记录"""
+    """获取同步历史记录;trigger_source=manual/scheduled 区分手动与定时来源"""
     try:
         sync_record_service = get_sync_record_service()
         result = sync_record_service.get_history(
             sync_type=sync_type,
+            trigger_source=trigger_source,
             page=page - 1,
             page_size=page_size,
         )

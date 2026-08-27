@@ -26,6 +26,15 @@ class PRICEINFO_TYPES(EnumBase):
     TICK = 2
 
 
+class TRIGGER_SOURCE_TYPES(EnumBase):
+    """数据同步触发来源(2026-08-18):data_sync_record.trigger_source 列。
+    web=网页手动 / cli=ginkgo CLI / scheduled=tasktimer 定时"""
+    OTHER = 0
+    WEB = 1
+    CLI = 2
+    SCHEDULED = 3
+
+
 class SOURCE_TYPES(EnumBase):
     VOID = -1
     OTHER = 0
@@ -86,4 +95,4 @@ class ADJUSTMENT_TYPES(EnumBase):
     BACK = 2  # Backward adjustment (后复权) - earliest price as base
 
 
-__all__ = ['TICKDIRECTION_TYPES', 'PRICEINFO_TYPES', 'SOURCE_TYPES', 'FREQUENCY_TYPES', 'MARKET_TYPES', 'ADJUSTMENT_TYPES']
+__all__ = ['TICKDIRECTION_TYPES', 'PRICEINFO_TYPES', 'SOURCE_TYPES', 'TRIGGER_SOURCE_TYPES', 'FREQUENCY_TYPES', 'MARKET_TYPES', 'ADJUSTMENT_TYPES']

@@ -576,11 +576,13 @@ class KafkaService(BaseService):
 
     # ==================== Data Update Signal Sending ====================
 
-    def send_stockinfo_update_signal(self) -> bool:
-        """Send stockinfo sync command to DataWorker (ginkgo.data.commands)."""
+    def send_stockinfo_update_signal(self, source: str = "web", record_uuid: str = None) -> bool:
+        """Send stockinfo sync command to DataWorker (ginkgo.data.commands).
+        record_uuid: 派发时建立的 queued 记录 uuid,worker 消费时复活该记录。"""
         return self.publish_message(KafkaTopics.DATA_COMMANDS, {
             "command": "stockinfo",
-            "params": {}
+            "source": source,
+            "params": {"_record": record_uuid} if record_uuid else {}
         })
 
     def send_trade_day_signal(self) -> bool:
@@ -591,26 +593,51 @@ class KafkaService(BaseService):
             "params": {}
         })
 
-    def send_adjustfactor_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
+    def send_adjustfactor_update_signal(self, code: str, full: bool = False, force: bool = False,
+                                      source: str = "web", record_uuid: str = None) -> bool:
         """Send adjustment factor sync command."""
+        params: dict = {"code": code, "full": full, "force": force}
+        if record_uuid: params["_record"] = record_uuid
         return self.publish_message(KafkaTopics.DATA_COMMANDS, {
             "command": "adjustfactor",
-            "params": {"code": code, "full": full, "force": force}
+            "source": source,
+            "params": params
         })
 
-    def send_daybar_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
-        """Send daily bar snapshot sync command (worker dispatches on bar_snapshot)."""
+    def send_daybar_update_signal(self, code: str, full: bool = False, force: bool = False,
+                                  start_date: str = None, end_date: str = None,
+                                  source: str = "web", record_uuid: str = None) -> bool:
+        """Send daily bar snapshot sync command (worker dispatches on bar_snapshot).
+
+        start_date/end_date: 可选日期范围,worker 侧走 sync_range 定向补数
+        (2026-08-18 Web 同步异步化改造:API 只转发命令,执行统一在 data-worker)。"""
+        params: dict = {"code": code, "full": full, "force": force}
+        if start_date: params["start_date"] = start_date
+        if end_date: params["end_date"] = end_date
+        if record_uuid: params["_record"] = record_uuid
         return self.publish_message(KafkaTopics.DATA_COMMANDS, {
             "command": "bar_snapshot",
-            "params": {"code": code, "full": full, "force": force}
+            "source": source,
+            "params": params
         })
 
-    def send_tick_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
+    def send_tick_update_signal(self, code: str, full: bool = False, force: bool = False,
+                                start_date: str = None, end_date: str = None,
+                                source: str = "web", record_uuid: str = None) -> bool:
         """Send tick sync command. ``force`` maps to worker's ``overwrite`` key
-        (data-repair: delete and re-insert), per ControlCommandDTO TICK contract."""
+        (data-repair: delete and re-insert), per ControlCommandDTO TICK contract.
+        source/record_uuid: 2026-08-18 修复——消息里引用了未定义的 source
+        (旧签名无此参数,调用即 NameError),并加 queued 记录回填。
+        start_date/end_date: Web 定向补数透传(worker _handle_tick 消费,
+        重建签名时一度丢失致 API 传参 TypeError,2026-08-18 补回)。"""
+        params: dict = {"code": code, "full": full, "overwrite": force}
+        if start_date: params["start_date"] = start_date
+        if end_date: params["end_date"] = end_date
+        if record_uuid: params["_record"] = record_uuid
         return self.publish_message(KafkaTopics.DATA_COMMANDS, {
             "command": "tick",
-            "params": {"code": code, "full": full, "overwrite": force}
+            "source": source,
+            "params": params
         })
 
     def send_tick_all_signal(self, full: bool = False, force: bool = False) -> bool:
