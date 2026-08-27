@@ -70,10 +70,19 @@ class TestSellFlowProfit:
         item = _run(_make_service(), [_make_flow(volume=-2000)]).data[0]
         assert item.profit_pct == pytest.approx(((11.4 - 12.06) * 2000 - 5) / (12.06 * 2000))
 
-    def test_buy_profit_unchanged_minus_fee(self):
-        """BUY 行不受影响：买入日 price≈cost，profit≈-fee"""
+    def test_buy_profit_is_none(self):
+        """BUY 行无盈亏语义(2026-08-17 定稿):cost=成交后加权均价,
+        (price-cost)*vol 是均价漂移残差(首仓=-fee、加仓=无含义偏离),
+        profit/profit_pct 恒 None 供前端显示 '-'"""
         item = _run(_make_service(), [_make_flow(volume=1000, cost=12.06, price=12.06)]).data[0]
-        assert item.profit == pytest.approx(-5)
+        assert item.profit is None
+        assert item.profit_pct is None
+
+    def test_buy_add_position_profit_is_none(self):
+        """加仓行同无盈亏:新均价被本笔拉偏,数值无金融语义"""
+        item = _run(_make_service(), [_make_flow(volume=1000, cost=11.0, price=12.0)]).data[0]
+        assert item.profit is None
+        assert item.profit_pct is None
 
 
 class TestTimestampUsesEventTime:

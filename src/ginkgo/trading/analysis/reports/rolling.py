@@ -106,6 +106,28 @@ class RollingReport:
                     "final": float(values.iloc[-1]),
                 }
 
+    def stability_summary(self) -> Dict[str, Dict]:
+        """各分析器跨窗口平稳度评分。
+
+        对每个分析器取各滚动窗口的 mean 序列（按窗口起点日期排序），
+        交给 MetricStabilityCalculator.get_comprehensive_stability_score
+        （CV/一致性/趋势/异常值/正态性加权综合分），量化"按窗口划分的平稳度"。
+
+        Returns:
+            {analyzer_name: {comprehensive_score, individual_scores, ...}, ...}
+        """
+        from ginkgo.trading.analysis.evaluation.metric_stability_calculator import (
+            MetricStabilityCalculator,
+        )
+
+        series: Dict[str, List[float]] = {}
+        for date in sorted(self._results.keys()):
+            for name, stats in self._results[date].items():
+                series.setdefault(name, []).append(stats["mean"])
+
+        calc = MetricStabilityCalculator()
+        return {name: calc.get_comprehensive_stability_score(vals) for name, vals in sorted(series.items())}
+
     # ============================================================
     # 输出适配
     # ============================================================

@@ -1,4 +1,4 @@
-# Upstream: Portfolio (NEWDAY stage), BASIC_ANALYZERS, CalmarRatio
+# Upstream: Portfolio (ENDDAY stage), BASIC_ANALYZERS, CalmarRatio
 # Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal
 # Role: 最大回撤分析器 — 追踪历史最高净值，计算当前回撤比例（负值表示损失）
 
@@ -19,10 +19,10 @@ class MaxDrawdown(BaseAnalyzer):
 
     def __init__(self, name: str = "max_drawdown", *args, **kwargs):
         super().__init__(name, *args, **kwargs)
-        # 在每天开始时激活回撤计算
-        self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
-        # 在每天结束时记录到数据库
-        self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
+        # ENDDAY 口径：收盘后 worth 已更新时计算并落库，时间戳=D（ADR-047 对齐 D/D+1）
+        # 原挂 NEWDAY 落 D+1 时间戳，与 net_value 等 ENDDAY 链错位一天
+        self.add_active_stage(RECORDSTAGE_TYPES.ENDDAY)
+        self.set_record_stage(RECORDSTAGE_TYPES.ENDDAY)
         # 记录历史最高净值
         self._max_worth = None
 

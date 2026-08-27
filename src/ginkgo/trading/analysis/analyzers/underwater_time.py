@@ -1,4 +1,4 @@
-# Upstream: Portfolio (NEWDAY stage)
+# Upstream: Portfolio (ENDDAY stage)
 # Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, pandas, numpy
 # Role: 水下时间分析器 — 记录净值低于历史最高点的连续/累计天数及水下期次数
 
@@ -18,10 +18,10 @@ class UnderwaterTime(BaseAnalyzer):
 
     def __init__(self, name: str = "underwater_time", *args, **kwargs):
         super().__init__(name, *args, **kwargs)
-        # 在每天开始时激活水下时间计算
-        self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
-        # 在每天结束时记录到数据库
-        self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
+        # ENDDAY 口径：收盘后 worth 已更新时计算并落库，时间戳=D（ADR-047 对齐 D/D+1）
+        # 原挂 NEWDAY 落 D+1 时间戳，与 net_value 等 ENDDAY 链错位一天
+        self.add_active_stage(RECORDSTAGE_TYPES.ENDDAY)
+        self.set_record_stage(RECORDSTAGE_TYPES.ENDDAY)
         
         # 内部状态
         self._max_worth = None

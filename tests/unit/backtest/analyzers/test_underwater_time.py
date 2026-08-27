@@ -40,18 +40,18 @@ class TestUnderwaterTime(unittest.TestCase):
         self.assertEqual(analyzer._total_underwater_days, 0)
         self.assertEqual(analyzer._underwater_periods, 0)
 
-        # 检查激活阶段配置 - 使用NEWDAY
-        self.assertIn(RECORDSTAGE_TYPES.NEWDAY, analyzer.active_stage)
+        # 检查激活阶段配置 - 使用ENDDAY
+        self.assertIn(RECORDSTAGE_TYPES.ENDDAY, analyzer.active_stage)
 
-        # 检查记录阶段配置 - 使用NEWDAY
-        self.assertEqual(analyzer.record_stage, RECORDSTAGE_TYPES.NEWDAY)
+        # 检查记录阶段配置 - 使用ENDDAY
+        self.assertEqual(analyzer.record_stage, RECORDSTAGE_TYPES.ENDDAY)
 
     def test_initial_calculation(self):
         """测试初始计算"""
         portfolio_info = {"worth": 10000}
 
         # 第一天，设置max_worth值，不应该有水下时间
-        self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
         self.assertEqual(self.analyzer.current_underwater_days, 0)
         self.assertEqual(self.analyzer.max_underwater_days, 0)
         self.assertEqual(self.analyzer._max_worth, 10000)
@@ -68,7 +68,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 无回撤，应该没有水下时间
         self.assertEqual(self.analyzer.current_underwater_days, 0)
@@ -86,7 +86,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 从12000回撤到10500，然后恢复到创新高
         # Day0: 10000 -> max_worth=10000, underwater=0
@@ -111,7 +111,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 从12000回撤，经历长期水下时间，最终恢复并创新高12500
         # Day0: 10000 -> max=10000
@@ -133,7 +133,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 应该有三个回撤周期：
         # Period1: Day2 (10500<11000) underwater=1, Day3: 11500>11000 new high, period=1
@@ -153,7 +153,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 最后仍在水下（9200 < 12000）
         # Day0: max=10000
@@ -176,7 +176,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 测试当前水下天数
         underwater_days = self.analyzer.current_underwater_days
@@ -206,13 +206,13 @@ class TestUnderwaterTime(unittest.TestCase):
         """测试零净值处理"""
         # 先设置正常值
         portfolio_info = {"worth": 10000}
-        self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 然后设置零值
         portfolio_info = {"worth": 0}
         day_time = self.test_time + timedelta(days=1)
         self.analyzer.advance_time(day_time)
-        self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 零值应该被视为水下
         self.assertTrue(self.analyzer.is_currently_underwater)
@@ -227,10 +227,10 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
             # 测试记录功能
-            self.analyzer.record(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.record(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 确保有数据记录
         self.assertGreater(len(self.analyzer.data), 0)
@@ -239,7 +239,7 @@ class TestUnderwaterTime(unittest.TestCase):
         """测试单日场景"""
         portfolio_info = {"worth": 10000}
 
-        self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+        self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 单日无回撤
         self.assertEqual(self.analyzer.current_underwater_days, 0)
@@ -257,7 +257,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
             # 检查峰值是否正确更新
             self.assertEqual(self.analyzer._max_worth, expected_peaks[i])
@@ -272,7 +272,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # Period1: Day2 (11000<12000) uw=1, Day3: 13000>12000 new high
         # Period2: Day4 (12000<13000) uw=1, Day5: 14000>13000 new high
@@ -291,7 +291,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # Day0: max=10000
         # Day1: 15000>10000 -> max=15000
@@ -312,7 +312,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # 源码使用严格大于(>)比较：current_worth > _max_worth
         # Day0: _max_worth=10000
@@ -335,7 +335,7 @@ class TestUnderwaterTime(unittest.TestCase):
 
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, portfolio_info)
 
         # Day0: max=10000
         # Day1: 12000>10000 -> max=12000
@@ -372,7 +372,7 @@ class TestUnderwaterTimeNumericalCorrectness(unittest.TestCase):
         for i, worth in enumerate(worth_sequence):
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, {"worth": worth})
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
 
         self.assertEqual(self.analyzer.current_underwater_days, 0)
         self.assertEqual(self.analyzer.max_underwater_days, 4)
@@ -393,7 +393,7 @@ class TestUnderwaterTimeNumericalCorrectness(unittest.TestCase):
         for i, worth in enumerate(worth_sequence):
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, {"worth": worth})
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
 
         self.assertEqual(self.analyzer.max_underwater_days, 2)
         self.assertEqual(self.analyzer.total_underwater_days, 3)  # 1+2
@@ -410,7 +410,7 @@ class TestUnderwaterTimeNumericalCorrectness(unittest.TestCase):
         for i, worth in enumerate(worth_sequence):
             day_time = self.test_time + timedelta(days=i)
             self.analyzer.advance_time(day_time)
-            self.analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, {"worth": worth})
+            self.analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": worth})
 
         self.assertEqual(self.analyzer.current_underwater_days, 3)
         self.assertEqual(self.analyzer.total_underwater_days, 6)
@@ -439,7 +439,7 @@ class TestUnderwaterTimeBoundaryConditions(unittest.TestCase):
         analyzer.set_analyzer_id("test_single_001")
         analyzer.set_portfolio_id("test_portfolio_001")
 
-        analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, {"worth": 10000})
+        analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 10000})
         self.assertEqual(analyzer.current_underwater_days, 0)
         self.assertFalse(analyzer.is_currently_underwater)
 
@@ -454,7 +454,7 @@ class TestUnderwaterTimeBoundaryConditions(unittest.TestCase):
         for i in range(5):
             day_time = self.test_time + timedelta(days=i)
             analyzer.advance_time(day_time)
-            analyzer.activate(RECORDSTAGE_TYPES.NEWDAY, {"worth": 0})
+            analyzer.activate(RECORDSTAGE_TYPES.ENDDAY, {"worth": 0})
 
         # Day0: max=0, Day1: 0 == 0, not > 0, so underwater=1
         # 所有后续都是水下

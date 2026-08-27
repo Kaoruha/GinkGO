@@ -145,6 +145,11 @@ class PortfolioT1Backtest(PortfolioBase):
         # 调用基类方法添加持仓
         super().add_position(position)
 
+        # 建仓业务时间：回测时钟下的开仓时刻（avg_holding_period 等按业务时间算周期）。
+        # TimeMixin.init_time 是现实墙钟（回测进程运行时刻），语义不可用。
+        if position.business_timestamp is None and self.current_timestamp is not None:
+            position.set_business_timestamp(self.current_timestamp)
+
         # 记录持仓事件到ClickHouse
         try:
             self.blog.trade.position(
@@ -228,14 +233,9 @@ class PortfolioT1Backtest(PortfolioBase):
         old_count = len(self._signals)
         self._signals = []
 
-        # ===== 步骤5: ENDDAY钩子（移到T+1信号处理之后）=====
-        # 在T+1订单成交后记录净值，确保记录的是收盘后的实际净值
-        self.update_worth()  # 更新净值（订单成交后的最新值）
-        self.update_profit()
-        for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ENDDAY]:
-            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
-        for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ENDDAY]:
-            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
+        # ENDDAY 钩子已上提至引擎层：time_controlled_engine._handle_time_advance_event
+        # 在推时钟前调用 portfolio.end_day()（PortfolioBase）。此处不再触发——
+        # 原位置在时钟/价格已翻到新日之后，分析器戳与 worth 均被污染（记录晚一天）
 
         # 清理已完成平仓的 position（total_position == 0）
         self._clean_closed_positions()

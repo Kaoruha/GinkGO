@@ -1,4 +1,4 @@
-# Upstream: Portfolio (NEWDAY stage)
+# Upstream: Portfolio (ENDDAY stage)
 # Downstream: BaseAnalyzer, RECORDSTAGE_TYPES
 # Role: 持仓比例分析器 — 每日记录持仓价值占总资产比例，评估资金使用效率
 
@@ -18,10 +18,10 @@ class HoldPCT(BaseAnalyzer):
 
     def __init__(self, name: str = "hold_pct", *args, **kwargs):
         super().__init__(name, *args, **kwargs)
-        # 在每天开始时激活持仓比例计算
-        self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
-        # 在每天结束时记录到数据库
-        self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
+        # ENDDAY 口径：收盘后 worth/cash 已更新时计算并落库，时间戳=D（ADR-047 对齐 D/D+1）
+        # 原挂 NEWDAY 落 D+1 时间戳，与 net_value 等 ENDDAY 链错位一天
+        self.add_active_stage(RECORDSTAGE_TYPES.ENDDAY)
+        self.set_record_stage(RECORDSTAGE_TYPES.ENDDAY)
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """激活持仓比例计算，更新当前持仓比例数据"""

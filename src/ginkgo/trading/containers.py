@@ -7,6 +7,7 @@ from dependency_injector import containers, providers
 
 class TradingContainer(containers.DeclarativeContainer):
     deployment_service = providers.Singleton(object)
+    evaluation_service = providers.Singleton(object)
 
 
 trading_container = TradingContainer()
@@ -94,4 +95,22 @@ def _get_deployment_service():
 
 trading_container.deployment_service.override(
     providers.Singleton(_get_deployment_service)
+)
+
+
+_evaluation_service_instance = None
+
+
+def _get_evaluation_service():
+    """Lazy factory for EvaluationService (评估工作台三路报告编排)."""
+    global _evaluation_service_instance
+    if _evaluation_service_instance is None:
+        from ginkgo.trading.services.evaluation_service import EvaluationService
+
+        _evaluation_service_instance = EvaluationService()
+    return _evaluation_service_instance
+
+
+trading_container.evaluation_service.override(
+    providers.Singleton(_get_evaluation_service)
 )

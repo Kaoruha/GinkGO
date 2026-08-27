@@ -118,6 +118,8 @@ class TimeControlledEventEngine(EventEngine, TimeAwareComponent):
         # 自动时间推进配置
         self._backtest_interval: timedelta = timedelta(days=1)  # 回测时间推进间隔（默认日级）
         self._live_idle_sleep: float = 1.0  # 实盘空闲休眠时间（秒，默认1秒）
+        # 最近已日终的交易日（ENDDAY 每交易日只触发一次，分钟级推进去重）
+        self._last_end_day_date: Optional[datetime.date] = None
 
         # 配置参数
         self._max_event_queue_size = max_event_queue_size
@@ -457,6 +459,29 @@ class TimeControlledEventEngine(EventEngine, TimeAwareComponent):
         try:
             target_time = event.target_time
             old_time = self._time_provider.now()
+
+            # 0. 日终结算（ENDDAY）— 必须在时钟推进到新日之前触发：
+            # 此刻共享时钟仍为 old_time(D)、持仓价仍为 D 日收盘价，
+            # 分析器读到的是纯 D 日状态（戳=D、worth=D 账本×D 价）。
+            # 跨日判定复用 _is_end_of_day（跨 15:00 收盘或跨日期）；
+            # 覆盖逻辑时钟驱动的全部模式（与 advance_time_to 同款模式集，
+            # PAPER 依赖 T1 模拟撮合每日记录）；LIVE 走墙钟心跳不在此列
+            # （日终预留事件化体系见 _trigger_end_of_day_sequence）。
+            # _last_end_day_date 去重：分钟级推进跨 15:00 后再跨夜，
+            # 同一交易日会命中两次判定，须保证每交易日只日终一次。
+            eod_date = old_time.date()
+            if (
+                self.mode in (EXECUTION_MODE.BACKTEST, EXECUTION_MODE.PAPER,
+                              EXECUTION_MODE.PAPER_AUTO, EXECUTION_MODE.PAPER_MANUAL)
+                and self._is_end_of_day(old_time, target_time)
+                and eod_date != self._last_end_day_date
+            ):
+                self._last_end_day_date = eod_date
+                for portfolio in self.portfolios:
+                    try:
+                        portfolio.end_day()
+                    except Exception as e:
+                        GLOG.ERROR(f"{self.name}: Portfolio {portfolio.name} end_day error: {e}")
 
             # 1. 更新Provider时间
             if hasattr(self._time_provider, "set_current_time"):

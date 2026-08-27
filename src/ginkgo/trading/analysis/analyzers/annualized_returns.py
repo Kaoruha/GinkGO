@@ -1,4 +1,4 @@
-# Upstream: Portfolio (NEWDAY stage), BASIC_ANALYZERS
+# Upstream: Portfolio (ENDDAY stage), BASIC_ANALYZERS
 # Downstream: BaseAnalyzer, RECORDSTAGE_TYPES, to_decimal, math
 # Role: 年化收益率分析器 — 按252交易日年化公式计算组合年化收益率
 
@@ -18,10 +18,10 @@ class AnnualizedReturn(BaseAnalyzer):
 
     def __init__(self, name: str = "annualized_return", *args, **kwargs):
         super().__init__(name, *args, **kwargs)
-        # 在每天开始时激活计算
-        self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
-        # 在每天结束时记录到数据库
-        self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
+        # ENDDAY 口径：收盘后 worth 已更新时计算并落库，时间戳=D（ADR-047 对齐 D/D+1）
+        # 原挂 NEWDAY 落 D+1 时间戳，与 net_value 等 ENDDAY 链错位一天
+        self.add_active_stage(RECORDSTAGE_TYPES.ENDDAY)
+        self.set_record_stage(RECORDSTAGE_TYPES.ENDDAY)
 
         # 内部状态
         self._initial_worth = None  # 初始资产
