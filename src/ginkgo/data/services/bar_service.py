@@ -1137,12 +1137,15 @@ class BarService(BaseService):
                 error=f"Database query failed: {str(e)}"
             )
 
-    def get_available_codes(self, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> ServiceResult:
+    def get_available_codes(self, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
+                            start_date: datetime = None, end_date: datetime = None) -> ServiceResult:
         """
         Gets list of available stock codes for a given frequency.
 
         Args:
             frequency: Data frequency
+            start_date (datetime, optional): 只统计此日期之后有数据的 code（缺省=全表）
+            end_date (datetime, optional): 只统计此日期之前有数据的 code
 
         Returns:
             ServiceResult - 包装股票代码列表，使用result.data获取列表
@@ -1151,7 +1154,12 @@ class BarService(BaseService):
         self._log_operation_start("get_available_codes", frequency=frequency.value)
 
         try:
-            codes = self._crud_repo.find(filters={"frequency": frequency}, distinct_field="code")
+            filters = {"frequency": frequency}
+            if start_date:
+                filters["timestamp__gte"] = datetime_normalize(start_date)
+            if end_date:
+                filters["timestamp__lte"] = datetime_normalize(end_date)
+            codes = self._crud_repo.find(filters=filters, distinct_field="code")
 
             # Ensure we return a list
             if not isinstance(codes, list):
@@ -1170,6 +1178,54 @@ class BarService(BaseService):
             duration = time.time() - start_time
             self._log_operation_end("get_available_codes", False, duration)
             self._logger.ERROR(f"Failed to get available codes: {e}")
+            return ServiceResult.error(
+                error=f"Database query failed: {str(e)}"
+            )
+
+    def get_daily_code_counts(self, start_date: datetime, end_date: datetime,
+                              frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> ServiceResult:
+        """
+        按交易日聚合的去重证券数（数据底座密度画像）。
+
+        业务形状：每个自然日窗口内有多少只 code 有 bar 数据。
+        DB 层原语是 crud.group_count(date_trunc="day", distinct_field="code")，
+        本方法负责时间窗归一化与日期字符串化。
+
+        Args:
+            start_date: 窗口起点（含）
+            end_date: 窗口终点（含）
+            frequency: 数据频率
+
+        Returns:
+            ServiceResult - data 为 Dict[str, int]（"YYYY-MM-DD" -> 当日 distinct code 数）
+        """
+        start_time = time.time()
+        self._log_operation_start("get_daily_code_counts", frequency=frequency.value)
+
+        try:
+            counts = self._crud_repo.group_count(
+                "timestamp",
+                filters={
+                    "frequency": frequency,
+                    "timestamp__gte": datetime_normalize(start_date),
+                    "timestamp__lte": datetime_normalize(end_date),
+                },
+                distinct_field="code",
+                date_trunc="day",
+            )
+            daily = {str(k.date() if hasattr(k, "date") else k): int(v) for k, v in counts.items()}
+            duration = time.time() - start_time
+            self._log_operation_end("get_daily_code_counts", True, duration)
+
+            return ServiceResult.success(
+                data=daily,
+                message=f"Daily code counts over {len(daily)} days for {frequency.value} frequency"
+            )
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("get_daily_code_counts", False, duration)
+            self._logger.ERROR(f"Failed to get daily code counts: {e}")
             return ServiceResult.error(
                 error=f"Database query failed: {str(e)}"
             )
