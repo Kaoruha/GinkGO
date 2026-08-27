@@ -243,7 +243,8 @@ class SystemService:
 
         status = {}
         for module_name in ['data', 'trading', 'core', 'ml', 'features', 'notifier',
-                           'research', 'validation', 'paper', 'comparison', 'optimization']:
+                           'research', 'validation', 'comparison', 'optimization']:
+            # 注：'paper' 已移除——ServiceHub 注册表无此模块（引擎统一后 paper 是部署模式非模块容器）
             try:
                 module = getattr(service_hub, module_name, None)
                 if module is not None:
@@ -252,7 +253,9 @@ class SystemService:
                         'type': type(module).__name__,
                         'error': None,
                         'cached': module_name in service_hub._module_cache,
-                        'load_time': service_hub._performance_stats.get(module_name, {}).get('load_time', 0.0)
+                        # ServiceHub 重构后无 _performance_stats 属性（__getattr__ 对下划线开头直接 raise），
+                        # 原 load_time 统计源已不存在，置 0 兜底（#933746 前模块加载成功反被判不可用）
+                        'load_time': 0.0
                     }
                 else:
                     status[module_name] = {
