@@ -384,6 +384,7 @@ import { portfolioApi, backtestApi, dataApi } from '@/api'
 import type { Portfolio, BacktestTask } from '@/api'
 import { useBacktestStatus } from '@/composables'
 import { formatDecimal, getPnLColor } from '@/composables/useBacktestFormatters'
+import { portfolioModeLabel } from '@/constants/statusConfig'
 import { formatNumber, formatRelativeTime } from '@/utils/format'
 
 interface Stats {
@@ -620,12 +621,7 @@ function barWidth(v: number | null | undefined): number {
 }
 
 function modeLabel(mode: string | number): string {
-  const map: Record<string, string> = {
-    BACKTEST: '回测',
-    PAPER: '模拟',
-    LIVE: '实盘',
-  }
-  return map[String(mode)] ?? String(mode)
+  return portfolioModeLabel(mode)
 }
 
 function modeTagClass(mode: string | number): string {

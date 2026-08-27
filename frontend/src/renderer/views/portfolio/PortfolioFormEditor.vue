@@ -244,37 +244,11 @@
                 @change-version="(i, v) => changeComponentVersion('analyzer', i, v)"
               />
 
-              <!-- 空状态 -->
-              <div
+              <!-- 空状态:引导用户回左侧添加,而非裸图标 -->
+              <EmptyState
                 v-if="isConfigEmpty"
-                class="empty-state"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1"
-                >
-                  <rect
-                    x="3"
-                    y="3"
-                    width="18"
-                    height="18"
-                    rx="2"
-                    ry="2"
-                  />
-                  <line
-                    x1="9"
-                    y1="3"
-                    x2="9"
-                    y2="21"
-                  />
-                </svg>
-                <p>暂未配置组件</p>
-              </div>
+                description="在左侧「适用组件」中选择类型并添加，所选组件及其参数版本将在此汇总"
+              />
             </div>
           </div>
         </div>
@@ -292,6 +266,7 @@ import { portfolioApi } from '@/api/modules/portfolio'
 import { componentsApi } from '@/api/modules/components'
 import SearchSelect from '@/components/common/SearchSelect.vue'
 import type { SearchOption } from '@/components/common/SearchSelect.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import ComponentConfigSection from '@/components/portfolio/ComponentConfigSection.vue'
 import { message } from '@/utils/toast'
 
@@ -911,27 +886,8 @@ onMounted(async () => {
   margin-top: 8px;
 }
 
-/* 组件配置 section/参数行样式已迁至 ComponentConfigSection/ParamFields */
-
-/* 空状态 */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  color: hsl(var(--muted-foreground));
-}
-
-.empty-state svg {
-  margin-bottom: 16px;
-  opacity: 0.3;
-}
-
-.empty-state p {
-  margin: 0;
-  font-size: 14px;
-}
+/* 组件配置 section/参数行样式已迁至 ComponentConfigSection/ParamFields;
+   空态走共享 EmptyState,本页不再自有 .empty-state 样式 */
 
 .edit-mode-hint {
   margin: 0 0 12px;

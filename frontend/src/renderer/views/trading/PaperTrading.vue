@@ -33,7 +33,7 @@
                 {{ p.name || p.uuid?.slice(0, 8) }}
               </router-link>
             </td>
-            <td>{{ p.mode }}</td>
+            <td>{{ portfolioModeLabel(p.mode) }}</td>
             <td>{{ formatDate(p.created_at) }}</td>
             <td>
               <router-link
@@ -59,6 +59,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import { portfolioApi } from '@/api/modules/portfolio'
+import { portfolioModeLabel } from '@/constants/statusConfig'
 import { formatDate } from '@/utils/format'
 
 const portfolios = ref<any[]>([])

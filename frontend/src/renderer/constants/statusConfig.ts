@@ -39,6 +39,13 @@ export function workerTypeTagClass(type: string): string {
   return WORKER_TYPE_MAP.get(type)?.tagClass ?? 'tag-gray'
 }
 
+// ===== Portfolio 模式(交易域表格共用,避免 PAPER 等英文枚举直出) =====
+export const portfolioModeLabel = (mode: string | number | null | undefined): string => {
+  const map: Record<string, string> = { BACKTEST: '回测', PAPER: '模拟', LIVE: '实盘' }
+  const key = String(mode ?? '')
+  return map[key] ?? key
+}
+
 // ===== 账户状态(live/AccountConfig) =====
 export const ACCOUNT_STATUS_CONFIG: Record<string, TypeEntry> = {
   enabled: { tagClass: 'tag-green', label: '已启用' },

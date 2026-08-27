@@ -35,10 +35,10 @@ import PageLayout from '@/components/common/PageLayout.vue'
 
 .error-code {
   font-size: 72px;
-  color: hsl(var(--success));
+  /* 中性:错误页不承担涨跌/成功语义,绿色数字+绿按钮双绿刺眼 */
+  color: hsl(var(--foreground));
   margin: 0 0 16px 0;
   font-family: 'Silkscreen', monospace;
-  text-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
 }
 
 .error-message {
@@ -49,10 +49,10 @@ import PageLayout from '@/components/common/PageLayout.vue'
 
 .back-button {
   padding: 12px 32px;
-  background: linear-gradient(135deg, hsl(var(--success)), hsl(var(--success)));
+  background: hsl(var(--primary));
   border: none;
   border-radius: var(--radius-sm);
-  color: hsl(var(--background));
+  color: hsl(var(--primary-foreground));
   font-family: 'Silkscreen', monospace;
   font-size: 14px;
   font-weight: 700;
@@ -62,9 +62,9 @@ import PageLayout from '@/components/common/PageLayout.vue'
 }
 
 .back-button:hover {
-  background: linear-gradient(135deg, hsl(var(--success)), hsl(var(--success)));
+  opacity: 0.85;
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .back-button:active {

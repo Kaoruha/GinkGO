@@ -188,5 +188,7 @@ export function formatMoney(amount: number | string | null | undefined, prefix =
 
   if (isNaN(n)) return `${prefix}0`
 
-  return prefix + n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  // 负号置于货币符前(-¥74.79),「¥-74.79」是错误排版
+  const sign = n < 0 ? '-' : ''
+  return sign + prefix + Math.abs(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }

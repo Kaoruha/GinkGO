@@ -176,6 +176,11 @@ describe('formatMoney', () => {
     expect(formatMoney(1000, '$')).toBe('$1,000.00')
   })
 
+  it('负号应在货币符前', () => {
+    expect(formatMoney(-74.79)).toBe('-¥74.79')
+    expect(formatMoney(-1234.5)).toBe('-¥1,234.50')
+  })
+
   it('应处理字符串输入', () => {
     expect(formatMoney('1000')).toBe('¥1,000.00')
   })

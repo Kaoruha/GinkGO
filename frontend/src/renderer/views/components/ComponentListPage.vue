@@ -24,12 +24,6 @@
         {{ record.name }}
       </router-link>
     </template>
-    <template #description="{ record }">
-      <span
-        class="desc-cell"
-        :title="record.description"
-      >{{ record.description }}</span>
-    </template>
   </ListPage>
 
   <!-- 新建文件对话框 -->
@@ -103,8 +97,9 @@ const title = computed(() => {
 const basePath = computed(() => `/components/${route.params.type}`)
 
 const columns = [
+  // 不设描述列:后端对 src 组件回填恒定样板文案("Strategy component"),全列零信息量;
+  // 描述在详情页仍可查
   { title: '文件名', dataIndex: 'name' },
-  { title: '描述', dataIndex: 'description' },
   { title: '持有组合', dataIndex: 'portfolio_count', sortable: true, num: true },
   { title: '更新时间', dataIndex: 'updated_at' },
 ]
@@ -195,14 +190,4 @@ watch(() => route.params.type, () => loadFiles(), { immediate: true })
   text-decoration: none;
 }
 .file-link:hover { text-decoration: underline; }
-
-.desc-cell {
-  display: inline-block;
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: bottom;
-  color: hsl(var(--muted-foreground));
-}
 </style>

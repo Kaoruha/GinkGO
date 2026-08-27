@@ -22,6 +22,10 @@
     --primary: 0 0% 9%;
     --primary-foreground: 0 0% 98%;
 
+    /* 品牌银杏绿(logo 叶色 #4c8a5c):非语义装饰用,如净值曲线主色;
+       不占用 --success(涨跌语义),两者色相/饱和区分 */
+    --brand: 135 29% 42%;
+
     /* 次要色调(语义对齐 card-foreground) */
     --secondary: 0 0% 92%;
     --secondary-foreground: 0 0% 10%;
@@ -92,6 +96,9 @@
 
     --primary: 0 0% 93%;
     --primary-foreground: 0 0% 9%;
+
+    /* 暗色下提亮一档保可读 */
+    --brand: 135 30% 58%;
 
     --secondary: 0 0% 14%;
     --secondary-foreground: 0 0% 93%;

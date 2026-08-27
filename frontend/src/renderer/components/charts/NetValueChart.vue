@@ -62,12 +62,12 @@ const initChart = () => {
     },
   })
 
-  // 主策略净值曲线（面积图）
+  // 主策略净值曲线（面积图,品牌银杏绿——净值是水平序列非涨跌,不用 success/error 语义色）
   if (props.data.length > 0) {
     mainSeries = chart.addAreaSeries({
-      topColor: cssColor('--primary', 0.4),
-      bottomColor: cssColor('--primary', 0.0),
-      lineColor: cssColor('--primary'),
+      topColor: cssColor('--brand', 0.18),
+      bottomColor: cssColor('--brand', 0.0),
+      lineColor: cssColor('--brand'),
       lineWidth: 2,
     })
     // 去重并排序数据（lightweight-charts 要求时间升序且无重复）
@@ -116,9 +116,9 @@ const applyChartTheme = () => {
     timeScale: { borderColor: cssColor('--border') },
   })
   mainSeries?.applyOptions({
-    topColor: cssColor('--primary', 0.4),
-    bottomColor: cssColor('--primary', 0.0),
-    lineColor: cssColor('--primary'),
+    topColor: cssColor('--brand', 0.18),
+    bottomColor: cssColor('--brand', 0.0),
+    lineColor: cssColor('--brand'),
   })
   benchmarkSeries?.applyOptions({ color: cssColor('--muted-foreground') })
 }
