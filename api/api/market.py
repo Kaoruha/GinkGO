@@ -19,6 +19,7 @@ Market Data API
 订阅 CRUD 走 MarketSubscriptionService（API → Service → CRUD）。
 """
 
+import asyncio
 import threading
 from typing import List, Literal, Optional
 
@@ -136,7 +137,11 @@ async def get_trading_pairs(
         if exchange != "okx":
             raise BusinessError(f"Unsupported exchange: {exchange}")
 
-        instruments = get_okx_feeder(environment).get_instruments(inst_type="SPOT")
+        # feeder 是同步 requests(timeout 至 10s),必须 to_thread 出事件循环,
+        # 否则 OKX 慢/不可达时单 worker 单 loop 全 API+WS 挂起(5s 轮询放大)
+        instruments = await asyncio.to_thread(
+            get_okx_feeder(environment).get_instruments, inst_type="SPOT"
+        )
         if not instruments:
             raise BusinessError("Failed to fetch trading pairs from OKX")
 
@@ -182,7 +187,9 @@ async def get_all_tickers(
         if exchange != "okx":
             raise BusinessError(f"Unsupported exchange: {exchange}")
 
-        raw = get_okx_feeder(environment).get_all_tickers(inst_type=inst_type)
+        raw = await asyncio.to_thread(
+            get_okx_feeder(environment).get_all_tickers, inst_type=inst_type
+        )
         if not raw:
             raise BusinessError("Failed to fetch tickers from OKX")
 
@@ -209,7 +216,7 @@ async def get_ticker(
         if exchange != "okx":
             raise BusinessError(f"Unsupported exchange: {exchange}")
 
-        raw = get_okx_feeder(environment).get_ticker(symbol)
+        raw = await asyncio.to_thread(get_okx_feeder(environment).get_ticker, symbol)
         if not raw:
             raise BusinessError(f"Ticker not available: {symbol}")
 
@@ -232,7 +239,7 @@ async def get_orderbook(
         if exchange != "okx":
             raise BusinessError(f"Unsupported exchange: {exchange}")
 
-        raw = get_okx_feeder("production").get_orderbook(symbol, depth)
+        raw = await asyncio.to_thread(get_okx_feeder("production").get_orderbook, symbol, depth)
         if not raw:
             raise BusinessError(f"Orderbook not available: {symbol}")
 

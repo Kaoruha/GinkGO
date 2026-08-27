@@ -156,7 +156,8 @@ const doDeploy = async () => {
       account_id: mode.value === 'live' ? accountId.value : undefined,
       name: name.value || undefined,
     })
-    const newPortfolioId = res?.data?.portfolio_id
+    // 拦截器已拆信封:res 即 {portfolio_id, deployment_id};旧读 res.data.portfolio_id 恒 undefined 致部署成功不跳转
+    const newPortfolioId = res?.portfolio_id
     liveConfirmOpen.value = false
     close()
     message.success('部署成功')

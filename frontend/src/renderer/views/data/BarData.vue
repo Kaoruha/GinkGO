@@ -448,7 +448,8 @@ const loadBars = async () => {
 const fetchLastSyncTime = async () => {
   try {
     const res: any = await dataApi.getSyncHistory({ sync_type: 'bars', page: 1, page_size: 1 })
-    const items: any[] = res?.data ?? []
+    // 拦截器已拆信封:分页响应重组为 {items,total};旧读 res.data 恒 undefined 致 lastSyncTime 永不显示
+    const items: any[] = res?.items ?? (Array.isArray(res) ? res : [])
     if (items.length > 0 && items[0].completed_at) {
       lastSyncTime.value = formatDateTime(items[0].completed_at)
     }
