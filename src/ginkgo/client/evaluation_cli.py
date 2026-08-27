@@ -244,6 +244,338 @@ def evaluate_stability(
         console.print(f":x: [bold red]Error during evaluation:[/bold red] {e}")
 
 
+@app.command("segment")
+def evaluate_segment(
+    portfolio: Annotated[str, typer.Option("--portfolio", "-p", help=":briefcase: Portfolio ID")],
+    engine: Annotated[str, typer.Option("--engine", "-e", help=":gear: Backtest task ID")],
+    freq: Annotated[str, typer.Option("--freq", help=":calendar: Segment frequency (M=month, Q=quarter, Y=year)")] = "M",
+    analyzers: Annotated[Optional[str], typer.Option("--analyzers", help=":mag: Comma-separated analyzer names, empty = all")] = None,
+    export: Annotated[Optional[str], typer.Option("--export", help=":floppy_disk: Export report to JSON file")] = None,
+):
+    """
+    :bar_chart: Per-analyzer window statistics segmented by time period (monthly/quarterly/annually).
+    """
+    from ginkgo.trading.analysis.engine import AnalysisEngine
+    try:
+        from ginkgo import services
+        e = AnalysisEngine(services.data.result_service(), services.data.analyzer_service())
+        names = [a.strip() for a in analyzers.split(",")] if analyzers else None
+        r = e.time_segments(task_id=engine, portfolio_id=portfolio, freq=freq, analyzers=names)
+
+        console.print(r.to_rich())
+
+        if export:
+            with open(export, "w") as f:
+                json.dump(r.to_dict(), f, ensure_ascii=False, indent=2, default=str)
+            console.print(f":floppy_disk: [green]Report exported to: {export}[/green]")
+    except Exception as exc:
+        console.print(f":x: [bold red]Error during segment analysis:[/bold red] {exc}")
+
+
+@app.command("rolling")
+def evaluate_rolling(
+    portfolio: Annotated[str, typer.Option("--portfolio", "-p", help=":briefcase: Portfolio ID")],
+    engine: Annotated[str, typer.Option("--engine", "-e", help=":gear: Backtest task ID")],
+    window: Annotated[int, typer.Option("--window", help=":arrows_clockwise: Rolling window size (trading days)")] = 20,
+    step: Annotated[int, typer.Option("--step", help=":fast_forward: Slide step (days)")] = 5,
+    analyzers: Annotated[Optional[str], typer.Option("--analyzers", help=":mag: Comma-separated analyzer names, empty = all")] = None,
+    stability: Annotated[bool, typer.Option("--stability", help=":balance_scale: Show cross-window stability score per analyzer")] = False,
+    export: Annotated[Optional[str], typer.Option("--export", help=":floppy_disk: Export report to JSON file")] = None,
+):
+    """
+    :arrows_clockwise: Rolling window per-analyzer statistics (stability across windows).
+    """
+    from ginkgo.trading.analysis.engine import AnalysisEngine
+    try:
+        from ginkgo import services
+        e = AnalysisEngine(services.data.result_service(), services.data.analyzer_service())
+        names = [a.strip() for a in analyzers.split(",")] if analyzers else None
+        r = e.rolling(task_id=engine, portfolio_id=portfolio, window=window, step=step, analyzers=names)
+
+        console.print(r.to_rich())
+
+        if stability:
+            summary = r.stability_summary()
+            stab_table = Table(title=f"[Rolling] Cross-Window Stability — {engine}")
+            stab_table.add_column("Analyzer", style="cyan")
+            stab_table.add_column("Score", justify="right")
+            stab_table.add_column("CV", justify="right")
+            stab_table.add_column("Consistency", justify="right")
+            stab_table.add_column("Trend", justify="right")
+            stab_table.add_column("Outlier", justify="right")
+            for name, s in summary.items():
+                ind = s["individual_scores"]
+                # 均值≈0 的序列 CV 无意义(std/|mean| 除零 → inf)，展示为 "-"
+                cv = ind["coefficient_of_variation"]
+                cv_str = "-" if cv == float("inf") or cv != cv else f"{cv:.4f}"
+                stab_table.add_row(
+                    name,
+                    f"{s['comprehensive_score']:.4f}",
+                    cv_str,
+                    f"{ind['consistency_ratio']:.4f}",
+                    f"{ind['trend_stability']:.4f}",
+                    f"{ind['outlier_ratio']:.4f}",
+                )
+            console.print(stab_table)
+
+        if export:
+            payload = {"windows": r.to_dict()}
+            if stability:
+                payload["stability"] = r.stability_summary()
+            with open(export, "w") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
+            console.print(f":floppy_disk: [green]Report exported to: {export}[/green]")
+    except Exception as exc:
+        console.print(f":x: [bold red]Error during rolling analysis:[/bold red] {exc}")
+
+
+@app.command("funnel")
+def evaluate_funnel(
+    portfolio: Annotated[str, typer.Option("--portfolio", "-p", help=":briefcase: Portfolio ID")],
+    engine: Annotated[str, typer.Option("--engine", "-e", help=":gear: Backtest task ID (G0/G1 数据源, G2 baseline)")],
+    candidate: Annotated[Optional[str], typer.Option("--candidate", help=":vs: 模拟盘/对比 task ID (G2 candidate)")] = None,
+    stability_window: Annotated[int, typer.Option("--stability-window", help=":arrows_clockwise: G1 平稳度滚动窗 (天)")] = 60,
+    export: Annotated[Optional[str], typer.Option("--export", help=":floppy_disk: Export report to JSON file")] = None,
+):
+    """
+    :filter: 四级漏斗总览 (G0 回测可信 → G1 回测有效 → G2 模拟一致 → G3 实盘就绪)。
+
+    逐 gate 报 PASS/FAIL/样本不足/BLOCKED，未过 blocker 附修复建议。
+    """
+    from ginkgo.trading.analysis.engine import AnalysisEngine
+    from ginkgo.trading.analysis.evaluation.funnel_evaluator import FunnelEvaluator
+    try:
+        from ginkgo import services
+        e = AnalysisEngine(services.data.result_service(), services.data.analyzer_service())
+        fe = FunnelEvaluator(e)
+        r = fe.evaluate(
+            portfolio_id=portfolio, task_id=engine,
+            candidate_task_id=candidate, stability_window=stability_window,
+        )
+        _print_funnel(r)
+        if export:
+            with open(export, "w") as f:
+                json.dump(r.to_dict(), f, ensure_ascii=False, indent=2, default=str)
+            console.print(f":floppy_disk: [green]Report exported to: {export}[/green]")
+    except Exception as exc:
+        console.print(f":x: [bold red]Error during funnel evaluation:[/bold red] {exc}")
+
+
+@app.command("parity")
+def evaluate_parity(
+    portfolio: Annotated[str, typer.Option("--portfolio", "-p", help=":briefcase: Portfolio ID")],
+    baseline: Annotated[str, typer.Option("--baseline", "-b", help=":gear: 回测 task ID (基准)")],
+    candidate: Annotated[str, typer.Option("--candidate", "-c", help=":vs: 模拟盘/对比 task ID")],
+    export: Annotated[Optional[str], typer.Option("--export", help=":floppy_disk: Export report to JSON file")] = None,
+):
+    """
+    :vs: 回测 vs 模拟盘 (或另一次回测) 同窗一致性 5 项指标 (G2)。
+
+    日收益相关性 / 累计收益差带宽 / 换手偏差 / 回撤形态同构 / 重叠天数。
+    """
+    from ginkgo.trading.analysis.engine import AnalysisEngine
+    from ginkgo.trading.analysis.evaluation.parity_calculator import ParityCalculator
+    try:
+        from ginkgo import services
+        e = AnalysisEngine(services.data.result_service(), services.data.analyzer_service())
+        base_dp = e._load_data(baseline, portfolio)
+        cand_dp = e._load_data(candidate, portfolio)
+        base_nav, cand_nav = base_dp.get("net_value"), cand_dp.get("net_value")
+        if base_nav is None or cand_nav is None:
+            console.print(":x: [red]net_value 链缺失, 无法对比[/red]")
+            raise typer.Exit(1)
+        r = ParityCalculator().compare(
+            baseline=base_nav, candidate=cand_nav,
+            baseline_label=f"backtest:{baseline[:8]}",
+            candidate_label=f"candidate:{candidate[:8]}",
+            baseline_turnover=base_dp.get("order_count"),
+            candidate_turnover=cand_dp.get("order_count"),
+        )
+        _print_parity(r)
+        if export:
+            with open(export, "w") as f:
+                json.dump(r.to_dict(), f, ensure_ascii=False, indent=2, default=str)
+            console.print(f":floppy_disk: [green]Report exported to: {export}[/green]")
+    except Exception as exc:
+        console.print(f":x: [bold red]Error during parity analysis:[/bold red] {exc}")
+
+
+@app.command("preflight")
+def evaluate_preflight(
+    portfolio: Annotated[str, typer.Option("--portfolio", "-p", help=":briefcase: Portfolio ID")],
+    start: Annotated[str, typer.Option("--start", "-s", help=":calendar: 窗口起始日 (YYYY-MM-DD)")],
+    end: Annotated[str, typer.Option("--end", "-e", help=":calendar: 窗口结束日 (YYYY-MM-DD)")],
+    min_bars: Annotated[int, typer.Option("--min-bars", help=":gear: 覆盖充足的最小 bar 条数")] = 10,
+    export: Annotated[Optional[str], typer.Option("--export", help=":floppy_disk: Export report to JSON file")] = None,
+):
+    """
+    :mag: 回测前数据质量预检 (G0): bar 缺口/日历对齐 + 复权一致 + 覆盖 (#6282 口径)。
+
+    codes 取 portfolio 的 FixedSelector 参数; 动态 selector 放行并说明。
+    """
+    from ginkgo.data.containers import container
+    from ginkgo.workers.backtest_worker.task_helpers import resolve_selector_codes
+    from ginkgo.trading.analysis.evaluation.preflight_checker import PreflightChecker
+    try:
+        codes = resolve_selector_codes(portfolio)
+        if not codes:
+            console.print(":information: [yellow]动态 selector 无显式 codes，无需按 code 预检[/yellow]")
+            raise typer.Exit(0)
+
+        af_service = container.adjustfactor_service()
+
+        def _factor_loader(code, s, e):
+            res = af_service.get(code=code, start_date=s, end_date=e)
+            items = res.data if getattr(res, "success", False) else []
+            if isinstance(items, dict):
+                items = items.get("data", [])
+            out = []
+            for r in items or []:
+                ts = getattr(r, "timestamp", None)
+                fac = getattr(r, "fore_adjustfactor", None)
+                if ts is None or fac is None:
+                    continue
+                out.append((ts.date() if hasattr(ts, "date") else ts, float(fac)))
+            return out
+
+        checker = PreflightChecker(
+            bar_crud=container.cruds.bar(), factor_loader=_factor_loader,
+        )
+        r = checker.check(portfolio, codes, start, end, min_bars=min_bars)
+        _print_preflight(r)
+        if export:
+            with open(export, "w") as f:
+                json.dump(r.to_dict(), f, ensure_ascii=False, indent=2, default=str)
+            console.print(f":floppy_disk: [green]Report exported to: {export}[/green]")
+        if not r.ok:
+            raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        console.print(f":x: [bold red]Error during preflight:[/bold red] {exc}")
+        raise typer.Exit(1)
+
+
+def _print_preflight(r) -> None:
+    console.print(f"\n[bold]:mag: Data Preflight — portfolio {r.portfolio_id[:8]}[/bold]")
+    console.print(f"  窗口 {r.start} ~ {r.end}  ·  codes: {len(r.codes)}")
+    for note in r.notes:
+        console.print(f"  [dim]:memo: {note}[/dim]")
+
+    table = Table(title="数据质量总览")
+    table.add_column("Code", style="cyan")
+    table.add_column("Bar 数", justify="right")
+    table.add_column("缺口率", justify="right")
+    table.add_column("缺失日", justify="right")
+    table.add_column("因子回跳", justify="right")
+    table.add_column("状态")
+    from ginkgo.trading.analysis.evaluation.preflight_checker import GAP_WARNING_PCT, GAP_BLOCKER_PCT
+    for code in r.codes:
+        q = r.quality.get(code, {})
+        cov = r.coverage.get(code, 0)
+        gap = q.get("gap_pct")
+        rev = q.get("factor_reversals")
+        sev = q.get("severity", "-")
+        if sev == "blocker":
+            status = "[red]✗ blocker[/red]"
+        elif sev == "warning" or (rev is None and cov >= 10):
+            status = "[yellow]⚠ warning[/yellow]"
+        else:
+            status = "[green]✓ ok[/green]"
+        gap_str = f"{gap:.1f}%" if isinstance(gap, (int, float)) else "-"
+        table.add_row(
+            code, str(cov), gap_str, str(q.get("missing_days", "-")),
+            "-" if rev is None else str(rev), status,
+        )
+    console.print(table)
+
+    if r.issues:
+        it = Table(title="问题清单 (按严重度)")
+        it.add_column("严重度")
+        it.add_column("类型", style="cyan")
+        it.add_column("Code")
+        it.add_column("详情")
+        it.add_column("建议", style="dim")
+        for i in sorted(r.issues, key=lambda x: 0 if x.severity == "blocker" else 1):
+            sev = "[red]blocker[/red]" if i.severity == "blocker" else "[yellow]warning[/yellow]"
+            it.add_row(sev, i.kind, i.code, i.detail, i.remediation)
+        console.print(it)
+    verdict = "[green]✓ 数据就绪，可跑回测[/green]" if r.ok else \
+        "[red]✗ 存在 blocker，先修数据再回测[/red]"
+    console.print(Panel(verdict, title="结论"))
+
+
+def _fmt_val(v, unit: str = "") -> str:
+    if v is None or v != v:
+        return "-"
+    if unit == "年":
+        return f"{v:.2f} 年"
+    if unit == "%":
+        return f"{v:.1f}%"
+    return f"{v:.4f}"
+
+
+_STATUS_STYLE = {
+    "PASS": "[green]✓ PASS[/green]",
+    "FAIL": "[red]✗ FAIL[/red]",
+    "INSUFFICIENT_DATA": "[yellow]? 样本不足[/yellow]",
+    "BLOCKED": "[dim]⊘ BLOCKED[/dim]",
+}
+
+
+def _print_funnel(r) -> None:
+    console.print(f"\n[bold]:filter: Evaluation Funnel — portfolio {r.portfolio_id[:8]}[/bold]")
+    console.print(f"  task={r.task_id}" + (f"  candidate={r.candidate_task_id}" if r.candidate_task_id else ""))
+    for note in r.notes:
+        console.print(f"  [dim]:memo: {note}[/dim]")
+    table = Table(title=f"漏斗位置: [bold cyan]{r.level_reached}[/bold cyan]")
+    table.add_column("Gate", style="cyan")
+    table.add_column("指标", style="white")
+    table.add_column("值", justify="right")
+    table.add_column("阈值", justify="right")
+    table.add_column("状态")
+    table.add_column("说明 / 建议", overflow="fold")
+    for g in r.gates:
+        thr = f"{g.gate.threshold:g}{' ' + g.gate.unit if g.gate.unit else ''}"
+        advice = g.detail if g.status in ("PASS", "INSUFFICIENT_DATA", "BLOCKED") else g.gate.remediation
+        table.add_row(
+            f"{g.gate.level}.{g.gate.id.split('_', 1)[1]}",
+            g.gate.name,
+            _fmt_val(g.value, g.gate.unit),
+            thr,
+            _STATUS_STYLE.get(g.status, g.status),
+            advice,
+        )
+    console.print(table)
+
+
+def _print_parity(r) -> None:
+    console.print(f"\n[bold]:vs: Parity — {r.baseline_label} vs {r.candidate_label}[/bold]")
+    table = Table(title=f"同窗一致性 (重叠 {r.overlap_days} 天: {r.overlap_start} ~ {r.overlap_end})")
+    table.add_column("指标", style="cyan")
+    table.add_column("值", justify="right")
+    table.add_column("阈值", justify="right")
+    table.add_column("判定")
+    from ginkgo.trading.analysis.evaluation.parity_calculator import ParityCalculator
+    from ginkgo.trading.analysis.evaluation.gate_definitions import gates_by_level
+    calc = ParityCalculator()
+    for gate in gates_by_level("G2"):
+        if gate.id == "g2_overlap_days":
+            v = r.overlap_days
+        else:
+            v = {"g2_daily_return_corr": r.daily_return_corr,
+                 "g2_cum_return_band": r.band_ratio,
+                 "g2_turnover_deviation": r.turnover_deviation_pct,
+                 "g2_drawdown_shape": r.drawdown_shape_corr}.get(gate.id)
+        passed = calc.evaluate_gate(r, gate)
+        verdict = "-" if passed is None else _STATUS_STYLE["PASS" if passed else "FAIL"]
+        unit = "%" if gate.id == "g2_turnover_deviation" else ("倍带宽" if gate.id == "g2_cum_return_band" else ("天" if gate.id == "g2_overlap_days" else ""))
+        table.add_row(gate.name, _fmt_val(v, unit), f"{gate.threshold:g}", verdict)
+    console.print(table)
+    for note in r.notes:
+        console.print(f"  [dim]:memo: {note}[/dim]")
+
+
 @app.command("monitor-create")
 def create_monitor(
     portfolio: Annotated[str, typer.Option("--portfolio", "-p", help=":briefcase: Portfolio ID")],
