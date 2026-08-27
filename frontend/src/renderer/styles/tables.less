@@ -7,7 +7,11 @@
 
 .pro-table {
   width: 100%;
-  border-collapse: collapse;
+  /* border-collapse: separate 是表头 sticky 的前提:collapse 下 Chrome 的
+     th position:sticky 静默失效(实测表头随行滚走);分隔线全靠 border-bottom,
+     separate + border-spacing:0 视图与 collapse 无差异 */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
 }
 
@@ -45,11 +49,12 @@
   border-bottom: 1px solid hsl(var(--border));
 }
 
-/* 数字列:右对齐 + 等宽数字,量化指标不跳动 */
+/* 数字列:右对齐 + 等宽数字,量化指标不跳动;JetBrains Mono(登录页同款,ADR-045 §3) */
 .pro-table .col-num,
 .pro-table td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
   white-space: nowrap;
 }
 
@@ -70,7 +75,8 @@
 // scoped 带 [data-v] 属性选择器,specificity 恒高于此处全局规则。
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .data-table th,
@@ -100,8 +106,9 @@
 .data-table tbody tr:hover { background: hsl(var(--secondary)); }
 
 // 数字列:等宽数字 + 等宽字体,量化表格列不跳动(原 AdjustFactorData/TaskTimerHistory 私有语义上移)
+// JetBrains Mono 随包离线(fonts.css),登录后表格数字与登录页同款
 .data-table .num {
   font-variant-numeric: tabular-nums;
-  font-family: 'SF Mono', 'Menlo', monospace;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
   font-size: 12px;
 }

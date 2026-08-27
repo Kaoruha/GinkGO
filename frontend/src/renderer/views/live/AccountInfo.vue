@@ -390,14 +390,9 @@ usePolling(refreshAll, 10000)
   margin-bottom: 8px;
 }
 
+/* 图标位基础走全局 cards.less,此处仅本页配色 */
 .stat-icon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: hsl(var(--border));
-  border-radius: var(--radius-lg);
   color: hsl(var(--primary));
 }
 

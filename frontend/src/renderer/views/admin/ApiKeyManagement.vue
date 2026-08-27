@@ -410,9 +410,6 @@ onMounted(() => {
 <style scoped>
 /* 模态框样式走全局 modals.less;表单走全局 forms.less;统计卡片走 StatCard + 全局 .stats-grid */
 
-/* 统计卡片间距需页内补 */
-.stats-grid { margin-bottom: 16px; }
-
 /* 表格 */
 .data-table {
   width: 100%;

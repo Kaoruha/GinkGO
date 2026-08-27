@@ -7,7 +7,9 @@
 
 <style scoped>
 .empty-layout {
+  /* dvh 随移动端浏览器工具栏伸缩,100vh 为回退(见 AppLayout 同款注释) */
   height: 100vh;
+  height: 100dvh;
   background: hsl(var(--background));
 }
 

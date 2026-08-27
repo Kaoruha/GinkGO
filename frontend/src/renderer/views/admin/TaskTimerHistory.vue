@@ -113,6 +113,7 @@
         :columns="execColumns"
         :data-source="executions"
         row-key="uuid"
+        flow
         server-pagination
         :total="pagination.total"
         :page="pagination.current"
@@ -278,10 +279,8 @@ onMounted(() => {
   font-size: 13px;
 }
 
-/* 统计卡片:StatCard + 全局 .stats-grid(间距需页内补) */
-.stats-grid { margin-bottom: 16px; }
-
-.card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); margin-bottom: 16px; }
+/* 统计卡片:StatCard + 全局 .stats-grid;卡片间距由 .page-layout-body gap 统一提供 */
+.card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); }
 .card-header { padding: 12px 16px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
 .table-wrapper { overflow-x: clip; }
 .mono { font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Menlo', monospace; font-size: 12px; }

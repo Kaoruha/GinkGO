@@ -48,7 +48,10 @@ watch(() => route.path, (path) => {
 
 <style scoped>
 .app-layout {
+  /* dvh 随移动端浏览器工具栏伸缩;100vh 在 iOS 上按含工具栏的大视口算,
+     会导致编辑器底部/状态栏被遮住一截(vh 为不支持 dvh 的回退) */
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: hsl(var(--background));
   display: flex;

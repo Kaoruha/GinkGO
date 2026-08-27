@@ -637,18 +637,7 @@ onUnmounted(() => {
 
 /* 统计卡片网格 */
 
-/* 图标统一灰阶(ADR-045:色彩只留给数据语义),muted-fg on muted 双主题可读 */
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: hsl(var(--muted));
-  border-radius: var(--radius-lg);
-  color: hsl(var(--muted-foreground));
-  flex-shrink: 0;
-}
+/* 图标位基础走全局 cards.less(2026-08-19 收口);灰阶基调 muted-fg on muted 双主题可读(ADR-045) */
 
 .stat-content {
   flex: 1;
@@ -727,6 +716,8 @@ onUnmounted(() => {
   font-weight: 600;
   color: hsl(var(--foreground));
   font-variant-numeric: tabular-nums;
+  /* 登录页输入框同款 JetBrains Mono(与 .stat-value 同口径,cards.less) */
+  font-family: 'JetBrains Mono', 'PingFang SC', 'Microsoft YaHei', monospace;
 }
 
 /* 运行中 >0 用文字专用 success-fg(双主题可读) */
