@@ -49,7 +49,7 @@ async def list_live_trading_accounts(request: Request):
     """List live accounts using the legacy trading.ts response shape."""
     service = accounts.get_live_account_service()
     user_id = accounts._get_user_id(request)
-    result = service.get_user_accounts(user_id=user_id, page=1, page_size=100)
+    result = service.get_user_accounts(user_id=user_id, page=0, page_size=100)
     if not result.get("success"):
         raise BusinessError(result.get("message", "Failed to list live accounts"))
 

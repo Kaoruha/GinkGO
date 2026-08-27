@@ -36,8 +36,8 @@ class TestBacktestOrdersPagination:
         with patch("api.backtest.get_backtest_task_service", return_value=mock_svc):
             resp = asyncio.run(get_backtest_orders("any-uuid", page=1, page_size=2))
 
-        # 透传: page/page_size 必须传给 list_orders
-        mock_svc.list_orders.assert_called_once_with("any-uuid", page=1, page_size=2)
+        # 边界转换: API 1-based → service 0-based(全仓统一约定), page=1 传给 service 为 0
+        mock_svc.list_orders.assert_called_once_with("any-uuid", page=0, page_size=2)
         # 返回结构: total 独立于当前页条数(2 条 data, total=10)
         assert len(resp["data"]) == 2
         assert resp["meta"]["total"] == 10

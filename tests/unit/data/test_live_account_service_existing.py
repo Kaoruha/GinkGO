@@ -570,7 +570,7 @@ class TestGetUserAccounts:
         """测试获取用户账号列表成功"""
         result = live_account_service.get_user_accounts(
             user_id="test-user-123",
-            page=1,
+            page=0,
             page_size=20
         )
 

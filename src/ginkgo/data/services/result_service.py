@@ -441,7 +441,7 @@ class ResultService(BaseService):
         self,
         task_id: str,
         portfolio_id: Optional[str] = None,
-        page: int = 1,
+        page: int = 0,
         page_size: int = 0,
     ) -> ServiceResult:
         """
@@ -457,7 +457,7 @@ class ResultService(BaseService):
         Args:
             task_id: 运行会话ID
             portfolio_id: 投资组合ID（可选）
-            page: 页码(从 1 起)
+            page: 页码(从 0 起，全仓统一：service 层 0-based，API/CLI 边界转换)
             page_size: 每页数量
 
         Returns:
@@ -480,9 +480,9 @@ class ResultService(BaseService):
                 unique.append(r)
 
             total = len(unique)
-            # 去重后内存分页(page 从 1 起); page/page_size 非法时回退全量
-            if page >= 1 and page_size >= 1:
-                start = (page - 1) * page_size
+            # 去重后内存分页(page 从 0 起); page/page_size 非法时回退全量
+            if page >= 0 and page_size >= 1:
+                start = page * page_size
                 paged = unique[start:start + page_size]
             else:
                 paged = unique

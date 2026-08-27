@@ -1593,13 +1593,11 @@ class BacktestTaskService(BaseService):
         portfolio_id = getattr(task, "portfolio_id", "")
         return task_id, portfolio_id, None
 
-    def list_signals(self, uuid: str, page: int = 1, page_size: int = 100) -> "ServiceResult":
+    def list_signals(self, uuid: str, page: int = 0, page_size: int = 100) -> "ServiceResult":
         """获取回测信号列表，返回 list[BacktestSignalItem]
 
-        page 对外 1-based（与 API Query(1, ge=1) 对齐）；result_service.get_signals
-        是 0-based（page 直通 crud find 作 offset 基数），此处下推前转换。
-        原样透传时 page=1 → offset=page_size，跳过前 page_size 条——总量不足一页的
-        回测（如仅 4 条信号）直接返回空列表，前端信号 tab 显示"暂无信号记录"。
+        page 0-based（全仓统一约定：service 以下 0-based 直通 CRUD，1-based
+        仅存在于 API/CLI 面向人的边界，由边界处 page-1 转换）。
         """
         from ginkgo.data.services.backtest_task_schemas import BacktestSignalItem
 
@@ -1612,7 +1610,7 @@ class BacktestTaskService(BaseService):
             result_service = container.result_service()
             result = result_service.get_signals(
                 task_id=task_id,
-                page=max(page - 1, 0),
+                page=page,
                 page_size=page_size,
             )
             if not result.is_success():
@@ -1643,11 +1641,11 @@ class BacktestTaskService(BaseService):
             GLOG.ERROR(f"list_signals failed: {e}")
             return ServiceResult.error(f"Failed to list signals: {e}")
 
-    def list_orders(self, uuid: str, page: int = 1, page_size: int = 0) -> "ServiceResult":
+    def list_orders(self, uuid: str, page: int = 0, page_size: int = 0) -> "ServiceResult":
         """获取回测订单列表，返回 list[BacktestOrderItem]
 
-        page_size 默认 0=全量(向后兼容 CLI/分析引擎等内部全量调用方);
-        端点层(Query 默认 50)显式传入时分页。
+        page 0-based（全仓统一约定，见 list_signals）；page_size 默认 0=全量
+        (向后兼容 CLI/分析引擎等内部全量调用方);端点层(Query 默认 50)显式传入时分页。
         """
         from ginkgo.data.services.backtest_task_schemas import BacktestOrderItem
 

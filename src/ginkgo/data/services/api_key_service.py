@@ -181,7 +181,7 @@ class ApiKeyService:
             if user_id:
                 api_keys = self.crud.get_api_keys_by_user(user_id)
             else:
-                result = self.crud.get_all_api_keys(page=1, page_size=100)
+                result = self.crud.get_all_api_keys(page=0, page_size=100)
                 api_keys = result["items"]
 
             # 转换为返回格式（不包含原始 key_value）

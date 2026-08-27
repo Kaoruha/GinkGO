@@ -42,7 +42,7 @@ class TestOrderRecordsEndpoint:
         # 路由调用了 list_order_records, 透传完整 3 条流水
         task_service.list_order_records.assert_called_once_with("any-uuid")
         task_service.list_orders.assert_not_called()
-        assert resp["data"] == [
-            _item_dict("ord-A", 4), _item_dict("ord-A", 2), _item_dict("ord-A", 1),
-        ]
+        # 端点契约 = 原样透传 service 返回(生产路径为 pydantic 列表,序列化由
+        # FastAPI jsonable_encoder 负责),不做逐条 .dict() 转换
+        assert resp["data"] is full, "data 应为 service 返回列表的原引用"
         assert resp["meta"]["total"] == 3, "total 应反映完整流水数(3)"
