@@ -255,9 +255,14 @@ class TaskTimer:
         status: str,
         duration_ms: int = 0,
         error: Optional[str] = None,
+        result: Optional[Dict] = None,
     ) -> None:
         """
         更新执行记录为完成状态（由 safe_job_wrapper 调用）
+
+        Args:
+            result: job 返回的结果 dict，写入 task_timer_execution.result JSON 列
+                    （口径细化：success 仅表示"派发流程未失败"，派发数量等明细在此列）
         """
         try:
             from ginkgo import service_hub
@@ -270,6 +275,7 @@ class TaskTimer:
                 status=status,
                 duration_ms=duration_ms,
                 error_message=error,
+                result=result,
             )
         except Exception as e:
             GLOG.WARN(f"Failed to complete record: {e}")
@@ -631,12 +637,16 @@ class TaskTimer:
         return ["stockinfo", "adjustfactor", "bar_snapshot", "tick", "update_selector", "update_data", "heartbeat_test", "paper_trading"]
 
     @safe_job_wrapper
-    def _stockinfo_job(self) -> None:
+    def _stockinfo_job(self) -> Dict[str, Any]:
         """
         股票信息更新任务（21:00触发）
 
         发送stockinfo命令到Kafka（ginkgo.data.commands），
         DataWorker接收后更新所有股票的基本信息。
+
+        Returns:
+            结果 dict 供执行记录存档：{"ok": bool, "dispatched": ...[, "error"]}
+            （口径细化：failed/success 不再仅由"未抛异常"决定）
         """
         try:
             # stockinfo 不需要指定 code，会同步所有股票
@@ -647,112 +657,168 @@ class TaskTimer:
             )
 
             # 直接发送到 ginkgo.data.commands (pass dict to avoid double encoding, #4667)
-            self._publish_to_data_commands(command_dto.model_dump())
-            GLOG.INFO("Sent stockinfo command to DataWorker")
+            sent = self._publish_to_data_commands(command_dto.model_dump())
+            GLOG.INFO(f"Sent stockinfo command to DataWorker (sent={sent})")
+            if not sent:
+                self._send_error_notification(
+                    "股票信息更新命令派发失败", RuntimeError("publish returned False")
+                )
+                return {"ok": False, "dispatched": False, "error": "publish to data.commands failed"}
 
             # 发送Discord通知
             self._send_notification("股票信息更新命令已发送", "STOCKINFO")
+            return {"ok": True, "dispatched": True}
 
         except Exception as e:
             GLOG.ERROR(f"Stockinfo job failed: {e}")
             self._send_error_notification("股票信息更新任务执行失败", e)
+            return {"ok": False, "dispatched": False, "error": str(e)}
 
     @safe_job_wrapper
-    def _adjustfactor_job(self) -> None:
+    def _adjustfactor_job(self) -> Dict[str, Any]:
         """
         复权因子更新任务（21:05触发）
 
         获取所有股票代码，批量发送adjustfactor命令到Kafka（ginkgo.data.commands），
         DataWorker接收后批量更新复权因子数据。
+
+        Returns:
+            结果 dict 供执行记录存档：{"ok": bool, "sent": n, "total": n[, "error"]}
         """
         try:
             # 获取所有股票代码
             stock_codes = self._get_all_stock_codes()
 
             if not stock_codes:
+                # 空 universe 属于异常态：不会有任何数据更新，不能按 success 记
                 GLOG.WARN("No stocks found, skipping adjustfactor update")
-                return
+                self._send_error_notification(
+                    "复权因子更新跳过：未获取到股票列表", RuntimeError("empty stock list")
+                )
+                return {"ok": False, "sent": 0, "total": 0, "error": "no stock codes available"}
 
             total = len(stock_codes)
             GLOG.INFO(f"Sending adjustfactor commands for {total} stocks")
 
             # 批量发送命令（batch_size=100）
-            self._send_batch_commands("adjustfactor", stock_codes, batch_size=100)
+            batch_result = self._send_batch_commands("adjustfactor", stock_codes, batch_size=100)
+
+            if not batch_result.get("ok"):
+                error = batch_result.get("error") or f"partial dispatch {batch_result['sent']}/{total}"
+                self._send_error_notification("复权因子更新派发不完整", RuntimeError(error))
+                return {"ok": False, **batch_result, "error": error}
 
             GLOG.INFO(f"Completed adjustfactor update for {total} stocks")
             self._send_notification(f"复权因子更新完成，共 {total} 只股票", "ADJUSTFACTOR")
+            return {"ok": True, **batch_result}
 
         except Exception as e:
             GLOG.ERROR(f"Adjustfactor job failed: {e}")
             self._send_error_notification("复权因子更新任务执行失败", e)
+            return {"ok": False, "sent": 0, "total": 0, "error": str(e)}
 
     @safe_job_wrapper
-    def _bar_snapshot_job(self) -> None:
+    def _bar_snapshot_job(self) -> Dict[str, Any]:
         """
         K线数据更新任务（21:10触发）
 
         获取所有股票代码，批量发送bar_snapshot命令到Kafka（ginkgo.data.commands），
         DataWorker接收后批量更新日K线数据。
+
+        Returns:
+            结果 dict 供执行记录存档：{"ok": bool, "sent": n, "total": n[, "error"]}
         """
         try:
             # 获取所有股票代码
             stock_codes = self._get_all_stock_codes()
 
             if not stock_codes:
+                # 空 universe 属于异常态：不会有任何数据更新，不能按 success 记
                 GLOG.WARN("No stocks found, skipping bar_snapshot update")
-                return
+                self._send_error_notification(
+                    "K线数据更新跳过：未获取到股票列表", RuntimeError("empty stock list")
+                )
+                return {"ok": False, "sent": 0, "total": 0, "error": "no stock codes available"}
 
             total = len(stock_codes)
             GLOG.INFO(f"Sending bar_snapshot commands for {total} stocks")
 
             # 批量发送命令（batch_size=50，默认参数：当日K线，不强制覆盖）
             payload = {"full": False, "force": False}
-            self._send_batch_commands("bar_snapshot", stock_codes, batch_size=50, payload=payload)
+            batch_result = self._send_batch_commands(
+                "bar_snapshot", stock_codes, batch_size=50, payload=payload
+            )
+
+            if not batch_result.get("ok"):
+                error = batch_result.get("error") or f"partial dispatch {batch_result['sent']}/{total}"
+                self._send_error_notification("K线数据更新派发不完整", RuntimeError(error))
+                return {"ok": False, **batch_result, "error": error}
 
             GLOG.INFO(f"Completed bar_snapshot update for {total} stocks")
             self._send_notification(f"K线数据更新完成，共 {total} 只股票", "BAR_SNAPSHOT")
+            return {"ok": True, **batch_result}
 
         except Exception as e:
             GLOG.ERROR(f"Bar snapshot job failed: {e}")
             self._send_error_notification("K线数据更新任务执行失败", e)
+            return {"ok": False, "sent": 0, "total": 0, "error": str(e)}
 
     @safe_job_wrapper
-    def _tick_job(self) -> None:
+    def _tick_job(self) -> Dict[str, Any]:
         """
         Tick数据更新任务（21:15触发，可选）
 
         获取所有股票代码，批量发送tick命令到Kafka（ginkgo.data.commands），
         DataWorker接收后批量更新tick数据（耗时较长）。
+
+        Returns:
+            结果 dict 供执行记录存档：{"ok": bool, "sent": n, "total": n[, "error"]}
         """
         try:
             # 获取所有股票代码
             stock_codes = self._get_all_stock_codes()
 
             if not stock_codes:
+                # 空 universe 属于异常态：不会有任何数据更新，不能按 success 记
                 GLOG.WARN("No stocks found, skipping tick update")
-                return
+                self._send_error_notification(
+                    "Tick数据更新跳过：未获取到股票列表", RuntimeError("empty stock list")
+                )
+                return {"ok": False, "sent": 0, "total": 0, "error": "no stock codes available"}
 
             total = len(stock_codes)
             GLOG.INFO(f"Sending tick commands for {total} stocks (this may take a while)")
 
             # 批量发送命令（batch_size=10，默认参数：增量同步，不强制覆盖）
             payload = {"full": False, "overwrite": False}
-            self._send_batch_commands("tick", stock_codes, batch_size=10, payload=payload)
+            batch_result = self._send_batch_commands(
+                "tick", stock_codes, batch_size=10, payload=payload
+            )
+
+            if not batch_result.get("ok"):
+                error = batch_result.get("error") or f"partial dispatch {batch_result['sent']}/{total}"
+                self._send_error_notification("Tick数据更新派发不完整", RuntimeError(error))
+                return {"ok": False, **batch_result, "error": error}
 
             GLOG.INFO(f"Completed tick update for {total} stocks")
             self._send_notification(f"Tick数据更新完成，共 {total} 只股票", "TICK")
+            return {"ok": True, **batch_result}
 
         except Exception as e:
             GLOG.ERROR(f"Tick job failed: {e}")
             self._send_error_notification("Tick数据更新任务执行失败", e)
+            return {"ok": False, "sent": 0, "total": 0, "error": str(e)}
 
     @safe_job_wrapper
-    def _selector_update_job(self) -> None:
+    def _selector_update_job(self) -> Dict[str, Any]:
         """
         Selector更新任务（每小时触发）
 
         发送update_selector控制命令到Kafka，
         ExecutionNode接收后触发selector.pick()。
+
+        Returns:
+            结果 dict 供执行记录存档：{"ok": bool, "dispatched": bool[, "error"]}
         """
         try:
             command_dto = ControlCommandDTO(
@@ -765,10 +831,12 @@ class TaskTimer:
             self._publish_to_kafka(command_dto.model_dump())
             GLOG.INFO("Sent update_selector command to Kafka")
             self._send_notification("Selector更新命令已发送", "UPDATE_SELECTOR")
+            return {"ok": True, "dispatched": True}
 
         except Exception as e:
             GLOG.ERROR(f"Selector update job failed: {e}")
             self._send_error_notification("Selector更新任务执行失败", e)
+            return {"ok": False, "dispatched": False, "error": str(e)}
 
     @safe_job_wrapper
     def _data_update_job(self) -> None:
@@ -780,11 +848,14 @@ class TaskTimer:
         GLOG.WARN("_data_update_job is deprecated, use individual commands instead")
 
     @safe_job_wrapper
-    def _heartbeat_test_job(self) -> None:
+    def _heartbeat_test_job(self) -> Dict[str, Any]:
         """
         心跳测试任务（每天00:00触发）
 
         用于验证TaskTimer正常运行的测试任务，仅发送Discord通知。
+
+        Returns:
+            结果 dict 供执行记录存档：{"ok": bool[, "error"]}
         """
         try:
             # 发送Discord通知
@@ -801,18 +872,23 @@ class TaskTimer:
                 },
             )
             GLOG.INFO("Heartbeat test notification sent")
+            return {"ok": True}
 
         except Exception as e:
             GLOG.ERROR(f"Heartbeat test job failed: {e}")
             self._send_error_notification("心跳测试任务执行失败", e)
+            return {"ok": False, "error": str(e)}
 
     @safe_job_wrapper
-    def _paper_trading_job(self) -> None:
+    def _paper_trading_job(self) -> Dict[str, Any]:
         """
         纸上交易推进任务（21:10触发，在 bar_snapshot 之后）
 
         发送 paper_trading 控制命令到 Kafka，
         PaperTradingWorker 接收后推进所有活跃的纸上交易引擎。
+
+        Returns:
+            结果 dict 供执行记录存档：{"ok": bool, "dispatched": bool[, "error"]}
         """
         try:
             command_dto = ControlCommandDTO(
@@ -824,9 +900,11 @@ class TaskTimer:
             GLOG.INFO("Sent paper_trading advance command")
 
             self._send_notification("纸上交易推进命令已发送", "PAPER_TRADING")
+            return {"ok": True, "dispatched": True}
         except Exception as e:
             GLOG.ERROR(f"Paper trading job failed: {e}")
             self._send_error_notification("纸上交易推进任务执行失败", e)
+            return {"ok": False, "dispatched": False, "error": str(e)}
 
     def _get_all_stock_codes(self) -> list:
         """
@@ -851,7 +929,7 @@ class TaskTimer:
             return []
 
     def _send_batch_commands(self, command: str, codes: list, batch_size: int = 50,
-                           payload: dict = None) -> None:
+                           payload: dict = None) -> Dict[str, Any]:
         """
         批量发送命令到 DataWorker
 
@@ -860,17 +938,22 @@ class TaskTimer:
             codes: 股票代码列表
             batch_size: 每批次处理的股票数量
             payload: 额外的命令参数
+
+        Returns:
+            {"sent": 已派发数, "total": 总数, "ok": 是否全部发出}
+            （口径细化：此前中途失败被内部吞掉，job 仍显示 success）
         """
+        total = len(codes) if codes else 0
+        sent = 0
+        cursor = 0
         try:
             payload = payload or {}
-            total = len(codes)
-            processed = 0
 
-            while processed < total:
+            while cursor < total:
                 # 获取当前批次
-                batch = codes[processed:processed + batch_size]
+                batch = codes[cursor:cursor + batch_size]
 
-                # 为每个股票发送命令
+                # 为每个股票发送命令（_publish 失败不抛，按返回值累计真实派发数）
                 for code in batch:
                     cmd_payload = {**payload, "code": code}
                     command_dto = ControlCommandDTO(
@@ -878,24 +961,31 @@ class TaskTimer:
                         params=cmd_payload,
                         source="task_timer"
                     )
-                    self._publish_to_data_commands(command_dto.model_dump())
+                    if self._publish_to_data_commands(command_dto.model_dump()):
+                        sent += 1
 
-                processed += len(batch)
-                GLOG.INFO(f"Progress: {processed}/{total} ({processed*100//total}%)")
+                cursor += len(batch)
+                GLOG.INFO(f"Progress: {cursor}/{total} ({cursor*100//total}%), sent={sent}")
 
                 # 短暂延迟，避免 Kafka 压力过大
                 import time
                 time.sleep(0.1)
 
+            return {"sent": sent, "total": total, "ok": sent == total}
+
         except Exception as e:
             GLOG.ERROR(f"Failed to send batch {command} commands: {e}")
+            return {"sent": sent, "total": total, "ok": False, "error": str(e)}
 
-    def _publish_to_data_commands(self, message: dict) -> None:
+    def _publish_to_data_commands(self, message: dict) -> bool:
         """
         发布命令到 ginkgo.data.commands topic（带重试）
 
         Args:
             message: 命令字典（dict，由 model_dump() 生成）
+
+        Returns:
+            bool: 是否发送成功（失败仅记日志不抛，由调用方累计真实派发数）
         """
         if self._producer:
             try:
@@ -903,8 +993,11 @@ class TaskTimer:
                     topic=KafkaTopics.DATA_COMMANDS,
                     msg=message,
                 )
+                return True
             except Exception as e:
                 GLOG.ERROR(f"Failed to publish to data.commands: {e}")
+                return False
+        return False
 
     def _send_notification(self, message: str, command_name: str) -> None:
         """

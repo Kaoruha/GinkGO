@@ -50,11 +50,23 @@ def safe_job_wrapper(func: Callable) -> Callable:
             result = func(*args, **kwargs)
             GLOG.DEBUG(f"Job {func.__name__} completed")
 
-            # 记录成功
+            # 结果口径细化：job 返回 dict 时按其内容判定并存档。
+            # 仅"未抛异常"不再等于 success——job 内部吞掉的失败通过 return {"ok": False, ...} 上报，
+            # 派发数量等结果信息写入 task_timer_execution.result JSON 列供前端展示。
+            job_result = result if isinstance(result, dict) else None
+            failed = bool(job_result) and not job_result.get("ok", True)
+
             try:
                 if record_uuid and args and hasattr(args[0], "_complete_record"):
                     duration_ms = int((time.time() - start_time) * 1000)
-                    args[0]._complete_record(record_uuid, "success", duration_ms)
+                    status = "failed" if failed else "success"
+                    args[0]._complete_record(
+                        record_uuid,
+                        status,
+                        duration_ms,
+                        error=job_result.get("error") if failed else None,
+                        result=job_result,
+                    )
             except Exception as e:
                 GLOG.WARN(f"Failed to record completion for {func.__name__}: {e}")
 
