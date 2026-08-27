@@ -64,7 +64,7 @@ export const BROKER_STATE_CONFIG: Record<string, BadgeEntry> = {
   error: { label: '错误', variant: 'destructive' },
 }
 
-// ===== 数据同步类型(DataOverview / DataSyncDemo) =====
+// ===== 数据同步类型(DataOverview / DataSync) =====
 export const SYNC_TYPE_CONFIG: Record<string, TypeEntry> = {
   stockinfo: { tagClass: 'tag-green', label: '股票信息' },
   bars: { tagClass: 'tag-blue', label: 'K线数据' },
@@ -77,6 +77,9 @@ export const SYNC_STATUS_CONFIG: Record<string, TypeEntry> = {
   partial: { tagClass: 'tag-orange', label: '部分' },
   failed: { tagClass: 'tag-red', label: '失败' },
   running: { tagClass: 'tag-blue', label: '同步中' },
+  // queued/lost(2026-08-18):派发即落库的生命周期两端——排队可见/消息丢失标记
+  queued: { tagClass: 'tag-gray', label: '排队中' },
+  lost: { tagClass: 'tag-gray', label: '已丢失' },
 }
 
 // ===== 通知渠道类型(NotificationManagement) =====
