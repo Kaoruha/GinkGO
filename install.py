@@ -405,7 +405,9 @@ def kafka_reset():
     try:
         from src.ginkgo.libs import GTM
         from src.ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
-        from kafka.errors import NoBrokersAvailable, KafkaConnectionError
+        # ADR-012: kafka-python 3.x 删除 NoBrokersAvailable；连接/超时类故障统一用基类
+        # KafkaError 兜（3.x 的 KafkaTimeoutError 非 KafkaConnectionError 子类，窄 except 会漏）
+        from kafka.errors import KafkaError
 
         print("kill all workers.")
         try:
@@ -418,17 +420,13 @@ def kafka_reset():
         try:
             kafka_topic_set()
             print(f"{green('Kafka topics reset successfully!')}")
-        except NoBrokersAvailable:
-            print(f"{red('Kafka broker not available')}")
+        except KafkaError as e:
+            print(f"{red('Kafka broker not available or connection failed')}: {e}")
             print(f"{lightyellow('Please ensure Kafka containers are running:')}")
             print(f"  docker compose -p ginkgo ps")
-            print(f"{lightyellow('Start Kafka services if needed:')}")
-            print(f"  docker compose -p ginkgo up -d kafka1 kafka2 kafka3")
-            return False
-        except KafkaConnectionError as e:
-            print(f"{red('Kafka connection failed')}: {e}")
-            print(f"{lightyellow('Please check Kafka container status and logs:')}")
+            print(f"{lightyellow('Check logs / start Kafka services if needed:')}")
             print(f"  docker compose -p ginkgo logs kafka1")
+            print(f"  docker compose -p ginkgo up -d kafka1 kafka2 kafka3")
             return False
         except Exception as e:
             print(f"{red('Kafka reset failed')}: {e}")
