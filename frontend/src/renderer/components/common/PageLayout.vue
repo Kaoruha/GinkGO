@@ -5,6 +5,13 @@
           display block/flex 混用、3 页双重 padding,导致标题位置漂移抖动) -->
     <header class="page-layout-header">
       <div class="page-layout-title">
+        <!-- 终端 kicker(ADR-047):路由段 mono 大写,`>` 提示符用交互绿。
+             全站标题基因,详情页在前缀返回链接左侧 -->
+        <span
+          v-if="kicker"
+          class="page-kicker"
+          aria-hidden="true"
+        ><span class="kicker-prompt">&gt;</span> {{ kicker }}</span>
         <slot name="title" />
       </div>
       <div
@@ -56,9 +63,20 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+
 // 纯布局外壳组件:固化 header 容器结构,消除跨页标题抖动。
 // 外层 padding 由 App.vue .content 统一(24px),此处不再加。
 // 标题文字样式走全局 .page-title(main.css @layer components)。
+
+const route = useRoute()
+/** 终端 kicker:路由段大写(如 PORTFOLIOS、DATA/BARS),根路由不显示 */
+const kicker = computed(() => {
+  const segs = route.path.split('/').filter(Boolean)
+  if (segs.length === 0) return ''
+  return segs.slice(0, 2).join('/').toUpperCase()
+})
 </script>
 
 <style scoped>
@@ -81,7 +99,27 @@
   margin-bottom: 24px;
 }
 
+/* 终端 kicker(ADR-047):mono 大写小字,`>` 交互绿;置于标题上方独立一行 */
+.page-kicker {
+  position: absolute;
+  top: -16px;
+  left: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  color: hsl(var(--muted-foreground));
+  user-select: none;
+  white-space: nowrap;
+}
+
+.page-kicker .kicker-prompt {
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
 .page-layout-title {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;

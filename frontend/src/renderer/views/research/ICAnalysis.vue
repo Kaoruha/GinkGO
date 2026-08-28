@@ -153,6 +153,7 @@
         <EmptyState
           v-else
           description="请配置参数并开始分析"
+          hint="stub · 后端接口未接入"
         />
       </div>
     </div>

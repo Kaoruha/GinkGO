@@ -44,6 +44,13 @@
     >
       {{ description }}
     </p>
+    <!-- 终端 hint(ADR-047):mono // 注释风,用于系统状态说明(如 stub 页"后端接口开发中") -->
+    <p
+      v-if="hint"
+      class="empty-hint-mono"
+    >
+      // {{ hint }}
+    </p>
     <slot />
     <button
       v-if="hasAction"
@@ -65,6 +72,8 @@ interface Props {
   title?: string
   /** 描述(muted-foreground 次要文字) */
   description?: string
+  /** 终端风 hint:mono // 注释行,系统状态类说明(ADR-047) */
+  hint?: string
   /** 操作按钮文字(提供 onAction 时显示) */
   actionText?: string
   /** 操作回调 */
@@ -88,6 +97,12 @@ const handleAction = () => {
   justify-content: center;
   padding: 60px 20px;
   gap: 8px;
+  /* 终端细网格纹理(ADR-047):极淡方格,只在空态卡内,不进数据区 */
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.35) 1px, transparent 1px);
+  background-size: 24px 24px;
+  border-radius: var(--radius-lg);
 }
 
 .empty-state.has-action {
@@ -125,6 +140,13 @@ const handleAction = () => {
   margin: 0;
   font-size: 14px;
   color: hsl(var(--muted-foreground));
+}
+
+.empty-hint-mono {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: hsl(var(--muted-foreground) / 0.85);
 }
 
 .empty-state.has-action .empty-description,
