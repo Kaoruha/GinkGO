@@ -225,6 +225,8 @@
         :server-pagination="serverPagination"
         :infinite-scroll="infiniteScroll"
         :show-actions="showActions"
+        :default-sort-by="defaultSortBy"
+        :default-sort-order="defaultSortOrder"
         @update:page="$emit('update:page', $event)"
         @update:page-size="$emit('update:pageSize', $event)"
         @sort="(field, order) => $emit('sort', field, order)"
@@ -313,6 +315,9 @@ const props = withDefaults(defineProps<{
   pageSizes?: number[]
   serverPagination?: boolean
   infiniteScroll?: boolean
+  /** 页面持有的排序字段:loading 分支会卸载 ProTable,重挂载时靠它恢复排序态 */
+  defaultSortBy?: string
+  defaultSortOrder?: 'asc' | 'desc'
   /** 行右键菜单构建器:返回菜单项数组;不传则不接管行右键 */
   contextMenu?: (record: any, index: number) => MenuItem[]
 }>(), {

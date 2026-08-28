@@ -11,6 +11,8 @@
     :infinite-scroll="true"
     :loading-more="loadingMore"
     :has-more="hasMore"
+    :default-sort-by="sortBy"
+    :default-sort-order="sortOrder"
     clickable
     :context-menu="rowMenu"
     @sort="onSort"
