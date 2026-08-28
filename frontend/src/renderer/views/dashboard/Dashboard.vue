@@ -685,6 +685,7 @@ onUnmounted(() => {
 
 .stat-value {
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
 }
 
 .stat-suffix {

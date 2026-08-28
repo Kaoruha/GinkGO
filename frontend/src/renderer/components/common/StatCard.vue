@@ -129,6 +129,9 @@ const valueStyle = computed(() => {
 .stat-number {
   font-size: 28px;
   font-weight: 600;
+  /* ADR-047:数值 mono + 等宽数字 */
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-suffix {

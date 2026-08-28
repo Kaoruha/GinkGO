@@ -909,7 +909,7 @@ onUnmounted(() => {
 }
 
 .metric-label { font-size: 11px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; }
-.metric-value { font-size: 18px; font-weight: 600; color: hsl(var(--foreground)); }
+.metric-value { font-size: 18px; font-weight: 600; color: hsl(var(--foreground)); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* Card */
 .card {

@@ -16,7 +16,7 @@
   top: 0;
   z-index: 1;
   background: hsl(var(--border));
-  padding: 12px;
+  padding: 10px;
   text-align: left;
   font-weight: 600;
   color: hsl(var(--foreground));
@@ -40,16 +40,17 @@
 }
 
 .pro-table td {
-  padding: 12px;
+  padding: 10px;
   color: hsl(var(--foreground));
   border-bottom: 1px solid hsl(var(--border));
 }
 
-/* 数字列:右对齐 + 等宽数字,量化指标不跳动 */
+/* 数字列:右对齐 + 等宽数字,量化指标不跳动(ADR-047:mono token) */
 .pro-table .col-num,
 .pro-table td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
   white-space: nowrap;
 }
 
@@ -75,7 +76,7 @@
 
 .data-table th,
 .data-table td {
-  padding: 12px;
+  padding: 10px;
   text-align: left;
   border-bottom: 1px solid hsl(var(--border));
 }
@@ -99,9 +100,9 @@
 .data-table tbody tr { transition: background 0.2s; }
 .data-table tbody tr:hover { background: hsl(var(--secondary)); }
 
-// 数字列:等宽数字 + 等宽字体,量化表格列不跳动(原 AdjustFactorData/TaskTimerHistory 私有语义上移)
+// 数字列:等宽数字 + 等宽字体,量化表格列不跳动(ADR-047:统一走 --font-mono token)
 .data-table .num {
   font-variant-numeric: tabular-nums;
-  font-family: 'SF Mono', 'Menlo', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
 }

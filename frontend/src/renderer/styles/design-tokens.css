@@ -18,8 +18,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
 
-    /* 主色调(中性灰,去 Ant Design 蓝 221.2 83.2% 53.3%) */
-    --primary: 0 0% 9%;
+    /* 主色调:银杏绿交互强调(ADR-047 修订 045 中性灰——
+       交互绿 muted 30% 饱和,与涨跌语义绿 --success 71% 亮绿同相不同调) */
+    --primary: 135 30% 38%;
     --primary-foreground: 0 0% 98%;
 
     /* 品牌银杏绿(logo 叶色 #4c8a5c):非语义装饰用,如净值曲线主色;
@@ -94,7 +95,7 @@
     --popover: 0 0% 7%;
     --popover-foreground: 0 0% 93%;
 
-    --primary: 0 0% 93%;
+    --primary: 135 30% 58%;
     --primary-foreground: 0 0% 9%;
 
     /* 暗色下提亮一档保可读 */

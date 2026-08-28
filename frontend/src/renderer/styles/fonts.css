@@ -1,3 +1,9 @@
+/* 字体 token(主题不变量,ADR-047):数据/标签走 mono,正文 Inter */
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
+}
+
 /* Inter + JetBrains Mono 打包接入(ADR-045 §3)
  * 随 Electron 打包离线可用,非构建期下载。
  * Inter 是 variable 字体(单文件覆盖 100-900 字重);
