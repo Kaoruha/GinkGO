@@ -71,11 +71,15 @@ import { useRoute } from 'vue-router'
 // 标题文字样式走全局 .page-title(main.css @layer components)。
 
 const route = useRoute()
-/** 终端 kicker:路由段大写(如 PORTFOLIOS、DATA/BARS),根路由不显示 */
+/** 终端 kicker:路由段大写(如 PORTFOLIOS、DATA/BARS),根路由不显示。
+ *  段超 10 字符截前 8 加省略号——详情页第二段常为 uuid,全长会撑爆标题行 */
 const kicker = computed(() => {
   const segs = route.path.split('/').filter(Boolean)
   if (segs.length === 0) return ''
-  return segs.slice(0, 2).join('/').toUpperCase()
+  return segs.slice(0, 2)
+    .map(s => (s.length > 10 ? s.slice(0, 8) + '…' : s))
+    .join('/')
+    .toUpperCase()
 })
 </script>
 
