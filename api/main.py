@@ -4,6 +4,7 @@ FastAPI应用入口，为Web UI和其他客户端提供REST API和WebSocket服�
 """
 
 import asyncio
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -128,7 +129,14 @@ app.add_middleware(
 
 # 自定义中间件
 app.add_middleware(JWTAuthMiddleware)
-app.add_middleware(RateLimitMiddleware)
+# 限流阈值可环境变量覆盖。默认 300/60s:dev 下所有浏览器流量经 vite 代理共享
+# 127.0.0.1 一个桶,前端轮询+正常操作在 100 下会误伤(2026-08 排序 429 事故);
+# 300 仍能兜住失控循环。键粒度受 TRUSTED_PROXIES 影响,见 rate_limit.py
+app.add_middleware(
+    RateLimitMiddleware,
+    max_requests=int(os.environ.get("RATE_LIMIT_MAX_REQUESTS", "300")),
+    window_seconds=int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", "60")),
+)
 app.add_middleware(ApiStatsMiddleware)
 # trailing slash：strip 后路由匹配，禁 307 重定向避免 POST 丢 Auth header（#5389）
 # 最后注册 → 栈顶最先执行，JWT/RateLimit 读到 strip 后 path
