@@ -45,13 +45,19 @@
   border-bottom: 1px solid hsl(var(--border));
 }
 
-/* 数字列:右对齐 + 等宽数字,量化指标不跳动(ADR-047:mono token) */
+/* 数字列:右对齐 + 等宽数字,量化指标不跳动。
+   mono 只落数字单元格——th.col-num 也带右对齐,但表头必须与全行同字体(Inter),
+   否则同一表头行出现两种字体(ADR-047 回归修复) */
 .pro-table .col-num,
 .pro-table td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-mono);
   white-space: nowrap;
+}
+
+.pro-table td.col-num,
+.pro-table td.num {
+  font-family: var(--font-mono);
 }
 
 /* 操作列:多按钮水平排列 + 间距,避免紧贴不可点 */
@@ -100,8 +106,9 @@
 .data-table tbody tr { transition: background 0.2s; }
 .data-table tbody tr:hover { background: hsl(var(--secondary)); }
 
-// 数字列:等宽数字 + 等宽字体,量化表格列不跳动(ADR-047:统一走 --font-mono token)
-.data-table .num {
+// 数字列:等宽数字 + 等宽字体,量化表格列不跳动(ADR-047:统一走 --font-mono token)。
+// 只命中 td——legacy 页有手写 <th class="num">,表头须保持与全行同字体
+.data-table td.num {
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   font-size: 12px;
