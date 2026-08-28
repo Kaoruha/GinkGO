@@ -199,16 +199,22 @@ let pollTimer: number | null = null
 const tasks = ref<any[]>([])
 // 净值缩略图:task uuid → 降采样净值序列(批量端点一次拉全页)
 const sparklines = ref<Record<string, number[]>>({})
+// 任务集指纹:uuid 集未变则跳过重拉——轮询/排序 refetch 时列表内容通常不变,
+// 每次都拉会在限流窗口(100 req/60s/IP)里白烧一半配额
+let lastSparklineKey = ''
 const loadSparklines = async (rows: any[]) => {
   const completed = rows.filter(t => t.status === 'completed').map(t => t.uuid)
-  if (!completed.length) return
+  if (!completed.length) { lastSparklineKey = ''; return }
+  const key = [...completed].sort().join(',')
+  if (key === lastSparklineKey) return
   try {
     const res = await request.get('/api/v1/backtests/netvalue-sparklines', {
       params: { task_ids: completed.join(',') },
       skipErrorToast: true,
     } as any)
     sparklines.value = ((res as any).data || res) as Record<string, number[]>
-  } catch { sparklines.value = {} }
+    lastSparklineKey = key
+  } catch { sparklines.value = {}; lastSparklineKey = '' }
 }
 const loading = ref(false)
 // 列表加载失败(后端 5xx/网络断):须与"暂无数据"空态区分,提供重试
@@ -316,10 +322,14 @@ const rowMenu = (record: any): MenuItem[] => {
   ]
 }
 
+// 排序防抖:每次点击 = list(+首次 sparklines)2 个请求,连点瞬时叠加易触发
+// 后端限流(100 req/60s/IP,dev 全浏览器共享桶)。250ms 内连点只发最后一次
+let sortTimer: ReturnType<typeof setTimeout> | null = null
 function onSort(field: string, order: 'asc' | 'desc') {
   sortBy.value = field
   sortOrder.value = order
-  resetAndFetch()
+  if (sortTimer) clearTimeout(sortTimer)
+  sortTimer = setTimeout(() => { sortTimer = null; resetAndFetch() }, 250)
 }
 
 async function resetAndFetch() {
@@ -329,12 +339,18 @@ async function resetAndFetch() {
   await fetchTasks(false)
 }
 
+// 429 冷却:触发限流后 15s 内不再发请求(轮询/连点均静默跳过),
+// 避免持续烧限流配额与 toast 刷屏;保留旧列表(数据未失效,不闪空),冷却后补一次刷新
+let throttledUntil = 0
+let alive = true
+
 async function fetchTasks(append: boolean) {
   if (append) {
     if (!hasMore.value || loading.value || loadingMore.value) return
     loadingMore.value = true
     currentPage.value += 1
   } else {
+    if (Date.now() < throttledUntil) return
     loading.value = true
     currentPage.value = 1
   }
@@ -358,10 +374,16 @@ async function fetchTasks(append: boolean) {
     total.value = res?.total || 0
     if (!append) listError.value = ''
   } catch (e: any) {
-    // 静默清空会让后端故障伪装成"暂无数据",必须显式报错
     if (!append) {
       const st = e?.response?.status
-          listError.value = st ? `回测列表加载失败（HTTP ${st}）` : '回测列表加载失败，请检查网络后重试'
+      if (st === 429) {
+        throttledUntil = Date.now() + 15_000
+        // 保留旧列表不打错误态;冷却结束补一次刷新(组件已卸载则跳过)
+        setTimeout(() => { if (alive && Date.now() >= throttledUntil) fetchTasks(false) }, 15_500)
+        return
+      }
+      // 静默清空会让后端故障伪装成"暂无数据",必须显式报错
+      listError.value = st ? `回测列表加载失败（HTTP ${st}）` : '回测列表加载失败，请检查网络后重试'
       tasks.value = []
       total.value = 0
     }
@@ -406,8 +428,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  alive = false
   if (unsubscribe) unsubscribe()
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+  if (sortTimer) { clearTimeout(sortTimer); sortTimer = null }
 })
 </script>
 

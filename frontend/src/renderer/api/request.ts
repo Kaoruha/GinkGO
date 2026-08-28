@@ -81,6 +81,15 @@ service.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // 429 限流:后端滑动窗口 100 req/60s/IP;dev 下所有浏览器流量经 vite 代理
+    // 共享 127.0.0.1 一个桶,轮询+快速操作易触顶。给明确文案而非 axios 原始信息
+    if (status === 429) {
+      if (!(error.config as any)?.skipErrorToast) {
+        toast.error('请求过于频繁，请稍候一分钟后再试')
+      }
+      return Promise.reject(error)
+    }
+
     // 其他错误 - 优先用新格式的 message
     // skipErrorToast: 轮询类/已知后端缺口接口 opt-out 全局 toast,由调用方自持降级态(避免切页 toast 刷屏)
     if (!(error.config as any)?.skipErrorToast) {
