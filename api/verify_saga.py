@@ -62,7 +62,7 @@ def test_saga_transaction():
     try:
         saga = PortfolioSagaFactory.create_portfolio_saga(
             name="Test Portfolio",
-            is_live=False,
+            mode=0,
             selectors=[{"component_uuid": "sel-1", "config": {}}],
             sizer=None,
             strategies=[{"component_uuid": "str-1", "config": {}}],

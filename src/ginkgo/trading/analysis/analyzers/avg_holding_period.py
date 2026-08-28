@@ -10,7 +10,7 @@ class AvgHoldingPeriod(BaseAnalyzer):
     """平均持仓周期分析器
 
     每笔完整交易（买入→全部卖出）的持仓天数平均值。
-    持仓天数 = 平仓时间 - Position.init_time 的自然日数。
+    持仓天数 = 平仓业务时间 - 建仓业务时间的自然日数。
     """
 
     __abstract__ = False
@@ -32,9 +32,15 @@ class AvgHoldingPeriod(BaseAnalyzer):
         for code, pos in positions.items():
             if pos.total_position == 0 and pos.uuid not in self._counted_positions:
                 self._counted_positions.add(pos.uuid)
-                init_time = pos.init_time
-                if init_time is not None:
-                    delta = (current_time - init_time).days
+                # 建仓业务时间优先（t1backtest.add_position 记录的回测时钟）；
+                # init_time 是 TimeMixin 的现实墙钟（回测进程运行时刻），语义不可用仅兜底
+                start = pos.business_timestamp or pos.init_time
+                if start is not None:
+                    # now 恒 tz-aware（LogicalTimeProvider UTC），start 可能 naive（墙钟），
+                    # 直接做差抛 TypeError 被上层吞掉 → 恒 0。两侧归一到 naive 再算。
+                    now = current_time.replace(tzinfo=None) if current_time.tzinfo else current_time
+                    begin = start.replace(tzinfo=None) if start.tzinfo else start
+                    delta = (now - begin).days
                     self._holding_days.append(max(delta, 1))
 
         avg = sum(self._holding_days) / len(self._holding_days) if self._holding_days else 0.0

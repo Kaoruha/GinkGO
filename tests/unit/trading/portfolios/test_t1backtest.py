@@ -422,7 +422,8 @@ class TestAdvanceTimeBehavior:
             mock_worth.assert_called()
             mock_profit.assert_called()
 
-    def test_advance_time_triggers_endday_hooks(self):
+    def test_advance_time_no_longer_triggers_endday_hooks(self):
+        """ENDDAY 钩子已上提至引擎层（推时钟前调 end_day()），advance_time 不再触发"""
         p = _make_portfolio()
         _setup_portfolio(
             p, time_val=datetime.datetime(2024, 1, 2)
@@ -435,6 +436,9 @@ class TestAdvanceTimeBehavior:
             lambda stage, info: hook_called.append('record_endday')
         )
         p.advance_time(_utc(datetime.datetime(2024, 1, 3)))
+        assert hook_called == []
+        # 引擎在推时钟前调用的日终入口
+        p.end_day()
         assert 'activate_endday' in hook_called
         assert 'record_endday' in hook_called
 

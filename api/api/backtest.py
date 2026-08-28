@@ -753,7 +753,7 @@ async def get_backtest_signals(
     """获取回测信号记录"""
     try:
         task_service = get_backtest_task_service()
-        result = task_service.list_signals(uuid, page=page, page_size=page_size)
+        result = task_service.list_signals(uuid, page=page - 1, page_size=page_size)
 
         if not result.is_success():
             return paginated(
@@ -785,7 +785,14 @@ async def get_backtest_order_records(uuid: str):
         result = task_service.list_order_records(uuid)
         if not result.is_success():
             return ok(data=[], message=result.error or "Failed to retrieve order records")
-        return ok(data=result.data, message="Order records retrieved successfully")
+        # meta.total 对齐 /orders 契约(service metadata 透出,前端分页骨架读 meta.total);
+        # 本端点为全量流水无分页,total=流水条数
+        total = result.metadata.get("total", 0) if result.metadata else 0
+        return ok(
+            data=result.data,
+            message="Order records retrieved successfully",
+            meta={"total": total},
+        )
     except NotFoundError:
         raise
     except Exception as e:
@@ -807,7 +814,7 @@ async def get_backtest_orders(
     """
     try:
         task_service = get_backtest_task_service()
-        result = task_service.list_orders(uuid, page=page, page_size=page_size)
+        result = task_service.list_orders(uuid, page=page - 1, page_size=page_size)
 
         if not result.is_success():
             return paginated(
@@ -939,7 +946,15 @@ async def get_backtest_analyzers(uuid: str):
             raise NotFoundError("BacktestTask", uuid)
 
         groups = result.data
-        return ok(data={"analyzers": [g.dict() for g in groups]}, message="Analyzers retrieved")
+        # 注入描述(2026-08-17):group 只有指标名,注册名不可读——按 name 从内置
+        # 分析器元数据(ANALYZER_DESCRIPTIONS)带出中文描述,前端下拉/概览表展示。
+        # 未知名(自定义分析器)留空,前端条件渲染。
+        payload = []
+        for g in groups:
+            d = g.dict()
+            d["description"] = _ANALYZER_DESCRIPTIONS.get(g.name, "")
+            payload.append(d)
+        return ok(data={"analyzers": payload}, message="Analyzers retrieved")
 
     except NotFoundError:
         raise

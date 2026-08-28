@@ -108,7 +108,9 @@ class TestBacktestResponseFormat:
         mock_svc.list_orders.return_value = self._make_service_result(items, 3)
 
         with patch("api.backtest.get_backtest_task_service", return_value=mock_svc):
-            result = run_async(get_backtest_orders("test-uuid"))
+            # 直调端点须显式传分页参数:绕过 FastAPI 时默认值是 Query 对象原型,
+            # 端点内 page-1 会 TypeError(unsupported operand: Query - int)
+            result = run_async(get_backtest_orders("test-uuid", page=1, page_size=20))
 
         # paginated() → data 是列表，meta 包含 total
         assert isinstance(result["data"], list), f"data 应为列表，实际为 {type(result['data'])}"
@@ -280,9 +282,10 @@ class TestPaperTradingLegacyRoutes:
         route_names = [r.name for r in router.routes]
         # 应有根路由或兼容路由
         assert "list_paper_accounts" in route_names
-        # 检查是否有 "/" 路由（旧前端使用）
+        # 检查是否有根路由（旧前端使用）。#5389 禁 trailing slash 后根路由
+        # 注册为 path=""（挂载后等价于 "/"，且不触发 307 重定向）
         root_routes = [r for r in router.routes
-                       if hasattr(r, 'path') and r.path == "/"]
+                       if hasattr(r, 'path') and r.path in ("", "/")]
         assert len(root_routes) > 0, "缺少 GET / 旧路由兼容"
 
 

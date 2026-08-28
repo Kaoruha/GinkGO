@@ -1,8 +1,5 @@
 <template>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap"
-    rel="stylesheet"
-  >
+  <!-- Silkscreen 已随包离线接入(styles/fonts.css @font-face),原 Google Fonts CDN link 移除 -->
 
   <div class="login-container">
     <!-- 开机日志 - 左下角 -->
@@ -594,6 +591,7 @@ html:not(.dark) {
 /* ========== 主容器 ========== */
 .login-container {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;

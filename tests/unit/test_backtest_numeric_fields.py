@@ -30,6 +30,8 @@ def _make_position(cost=19.81, volume=50, price=19.81, fee=5):
     p.direction = 1
     p.business_timestamp = _dt(2025, 9, 19)
     p.timestamp = _dt(2026, 8, 16)
+    # BacktestPositionItem 后加字段(6911 signal-id 分支),同 _make_order
+    p.order_id = "ord-1"
     return p
 
 
@@ -40,6 +42,9 @@ def _make_order(limit_price=0, transaction_price=19.81, fee=5):
     o.volume = 50; o.limit_price = limit_price
     o.transaction_price = transaction_price; o.transaction_volume = 50
     o.fee = fee; o.timestamp = None
+    # BacktestOrderItem 后加字段(6911 signal-id 分支):不显式给值则 MagicMock 属性
+    # 泄漏进 pydantic 校验,string_type 拒收 → list_orders except 返回 error
+    o.order_id = "ord-1"; o.signal_id = "sig-1"
     return o
 
 

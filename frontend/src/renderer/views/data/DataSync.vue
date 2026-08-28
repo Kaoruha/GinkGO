@@ -1,47 +1,6 @@
 <template>
   <PageLayout>
-    <template #meta>
-      <span class="updated-at">更新于 {{ lastUpdated || '--' }}</span>
-    </template>
-
     <div class="page-content">
-      <!-- ① 数据存量统计行 -->
-      <div
-        class="stats-grid m-stagger"
-        data-testid="sync-stats"
-      >
-        <div
-          v-for="s in statCards"
-          :key="s.label"
-          class="stat-card"
-        >
-          <div
-            class="stat-icon"
-            v-html="s.icon"
-          />
-          <div class="stat-content">
-            <div class="stat-label">
-              {{ s.label }}
-            </div>
-            <div
-              v-if="!loading"
-              class="stat-value"
-            >
-              {{ s.value }}<span
-                v-if="s.suffix"
-                class="stat-suffix"
-              > {{ s.suffix }}</span>
-            </div>
-            <div
-              v-else
-              class="stat-value"
-            >
-              --
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="two-column-grid">
         <!-- ② 发送同步命令 -->
         <div class="card">
@@ -93,88 +52,23 @@
               </div>
             </div>
 
+            <!-- 代码范围选择(2026-08-18 抽为通用组件,各命令复用):
+                 supportsAll 随命令类型联动,ticks 等不支持全市场的命令自动只剩自选 -->
             <div
-              v-if="needsCodes && supportsAll"
+              v-if="needsCodes"
               class="form-group"
             >
-              <label class="form-label">同步范围 <span class="form-hint">全市场 = 全量同步</span></label>
-              <SegmentedControl
-                :model-value="scope"
-                :options="scopeOptions"
-                @update:model-value="onScopeChange"
-              />
-            </div>
-
-            <div
-              v-if="needsCodes && !isAllMarket"
-              class="form-group code-picker"
-            >
-              <label class="form-label">股票代码 <span class="form-hint">已选 {{ selectedCodes.length }} 只</span></label>
-              <div
-                v-if="selectedCodes.length"
-                class="picked-row"
-              >
-                <span
-                  v-for="c in selectedCodes"
-                  :key="c.code"
-                  class="picked-tag"
-                >
-                  {{ c.code }} {{ c.name }}
-                  <button
-                    type="button"
-                    class="picked-x"
-                    @click="removeCode(c.code)"
-                  >✕</button>
+              <label class="form-label">
+                同步范围
+                <span class="form-hint">
+                  {{ supportsAll ? '全市场 = 全量同步' : '该命令仅支持自选代码' }}
+                  <template v-if="codeScope.scope === 'select'">· 已选 {{ codeScope.codes.length }} 只</template>
                 </span>
-              </div>
-              <input
-                v-model="codeQuery"
-                type="text"
-                class="form-input"
-                placeholder="搜索代码或名称，如 600519 / 平安"
-                @input="onQueryInput"
-                @focus="onQueryInput"
-                @blur="sugVisible = false"
-              >
-              <div
-                v-if="sugVisible"
-                class="sug-box"
-              >
-                <p
-                  v-if="sugLoading"
-                  class="sug-hint"
-                >
-                  搜索中...
-                </p>
-                <p
-                  v-else-if="!codeQuery.trim()"
-                  class="sug-hint"
-                >
-                  输入代码或名称搜索
-                </p>
-                <p
-                  v-else-if="suggestions.length === 0"
-                  class="sug-hint"
-                >
-                  无匹配结果
-                </p>
-                <template v-else>
-                  <button
-                    v-for="s in suggestions"
-                    :key="s.code"
-                    type="button"
-                    class="sug-item"
-                    :class="{ 'is-picked': isPicked(s.code) }"
-                    @mousedown.prevent="pickCode(s)"
-                  >
-                    <span class="sug-code">{{ s.code }}</span>
-                    <span class="sug-name">{{ s.name }}</span>
-                  </button>
-                  <p class="sug-footer">
-                    共 {{ sugTotal }} 条{{ sugTotal > suggestions.length ? `，显示前 ${suggestions.length} 条，可输入更精确关键词` : '' }}
-                  </p>
-                </template>
-              </div>
+              </label>
+              <CodeScopePicker
+                v-model="codeScope"
+                :supports-all="supportsAll"
+              />
             </div>
 
             <div class="form-actions">
@@ -217,6 +111,11 @@
               :options="typeOptions"
               @update:model-value="onFilterChange"
             />
+            <SegmentedControl
+              :model-value="sourceFilter"
+              :options="sourceOptions"
+              @update:model-value="onSourceChange"
+            />
           </div>
 
           <p
@@ -242,36 +141,65 @@
                 <span class="c-rec">处理量</span>
                 <span class="c-time">完成时间</span>
               </div>
-              <div
+              <template
                 v-for="r in records"
                 :key="r.uuid"
-                class="hist-row"
-                :title="r.error_message || ''"
               >
-                <span class="c-type"><span
-                  class="tag"
-                  :class="typeTagClass(r.sync_type)"
-                >{{ typeLabel(r.sync_type) }}</span></span>
-                <span class="c-code">{{ r.code }}</span>
-                <span class="c-status"><span
-                  class="st-dot"
-                  :class="'st-' + r.status"
-                />{{ statusLabel(r.status) }}</span>
-                <span class="c-dur">{{ formatDuration(r.duration_ms) }}</span>
-                <span class="c-rec">
-                  <span class="rec-main">{{ formatNumber(r.records_processed) }}</span>
-                  <span
-                    class="rec-detail"
-                    :class="{ 'rec-fail': r.records_failed > 0 }"
-                  >
-                    +{{ formatNumber(r.records_added) }}<template v-if="r.records_updated > 0"> ~{{ formatNumber(r.records_updated) }}</template><template v-if="r.records_failed > 0"> ✕{{ formatNumber(r.records_failed) }}</template>
+                <div
+                  class="hist-row hist-clickable"
+                  :class="{ 'hist-active': expandedUuid === r.uuid }"
+                  :title="r.error_message ? '点击查看错误详情' : '点击展开详情'"
+                  @click="toggleRecord(r.uuid)"
+                >
+                  <span class="c-type"><span
+                    class="tag"
+                    :class="typeTagClass(r.sync_type)"
+                  >{{ typeLabel(r.sync_type) }}</span><span
+                    v-if="r.trigger_source"
+                    class="tag src-tag"
+                    :class="'src-' + (r.trigger_source || 'other')"
+                  >{{ sourceLabel(r.trigger_source) }}</span></span>
+                  <span class="c-code">{{ r.code }}</span>
+                  <span class="c-status"><span
+                    class="st-dot"
+                    :class="'st-' + r.status"
+                  />{{ statusLabel(r.status) }}</span>
+                  <span class="c-dur">{{ formatDuration(r.duration_ms) }}</span>
+                  <span class="c-rec">
+                    <span class="rec-main">{{ formatNumber(r.records_processed) }}</span>
+                    <span
+                      class="rec-detail"
+                      :class="{ 'rec-fail': r.records_failed > 0 }"
+                    >
+                      +{{ formatNumber(r.records_added) }}<template v-if="r.records_updated > 0"> ~{{ formatNumber(r.records_updated) }}</template><template v-if="r.records_failed > 0"> ✕{{ formatNumber(r.records_failed) }}</template>
+                    </span>
                   </span>
-                </span>
-                <span
-                  class="c-time"
-                  :title="r.completed_at || r.started_at || ''"
-                >{{ formatRelativeTime(r.completed_at || r.started_at) }}</span>
-              </div>
+                  <span
+                    class="c-time"
+                    :title="r.completed_at || r.started_at || ''"
+                  >{{ formatRelativeTime(r.completed_at || r.started_at) }}</span>
+                </div>
+                <!-- 展开详情:错误全文/起止/策略(错误只有 hover title 不可拷贝,失败排障需要全文) -->
+                <div
+                  v-if="expandedUuid === r.uuid"
+                  class="hist-detail"
+                >
+                  <div class="detail-grid">
+                    <span>开始 {{ r.started_at || '-' }}</span>
+                    <span>完成 {{ r.completed_at || '-' }}</span>
+                    <span>策略 {{ r.sync_strategy || '-' }}</span>
+                    <span>任务 {{ r.uuid.slice(0, 8) }}</span>
+                  </div>
+                  <pre
+                    v-if="r.error_message"
+                    class="detail-error"
+                  >{{ r.error_message }}</pre>
+                  <span
+                    v-else
+                    class="detail-ok"
+                  >无错误信息</span>
+                </div>
+              </template>
             </div>
             <div
               v-if="hasMore"
@@ -297,38 +225,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import DateField from '@/components/common/DateField.vue'
 import { dataApi } from '@/api'
-import type { SyncHistoryRecord, StockInfo } from '@/api'
+import type { SyncHistoryRecord } from '@/api'
+import CodeScopePicker from '@/components/data/CodeScopePicker.vue'
 import { formatRelativeTime, formatCompact } from '@/utils/format'
 import { SYNC_TYPE_CONFIG, SYNC_STATUS_CONFIG } from '@/constants/statusConfig'
 import { message as toast } from '@/utils/toast'
-import { useAsyncAction } from '@/composables/useAsyncAction'
 
-// ===== ① 存量统计 =====
-const loading = ref(true)
-const lastUpdated = ref('')
-const stats = reactive({ stocks: 0, bars: 0, ticks: 0, adjustFactors: 0, latest: '' })
-
-const ICONS = {
-  stock: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m8 10 2.5 2.5L16 7"/></svg>',
-  bars: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>',
-  tick: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
-  factor: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17 9 11l4 4 8-8"/><path d="M17 7h4v4"/></svg>',
-}
-
-const statCards = computed(() => [
-  { label: '股票信息', value: formatNumber(stats.stocks), suffix: '只', icon: ICONS.stock },
-  { label: 'K线数据', value: formatNumber(stats.bars), suffix: '条', icon: ICONS.bars },
-  { label: 'Tick数据', value: formatNumber(stats.ticks), suffix: '条', icon: ICONS.tick },
-  { label: '复权因子', value: formatNumber(stats.adjustFactors), suffix: '条', icon: ICONS.factor },
-])
-
-// ===== ② 命令表单 =====
+// ===== ① 命令表单 =====
 const command = reactive({ type: 'bars', startDate: '', endDate: '' })
 
 // 各类型参数契约(后端 /api/v1/data/sync):
@@ -337,142 +246,67 @@ const command = reactive({ type: 'bars', startDate: '', endDate: '' })
 const supportsAll = computed(() => command.type === 'bars')
 const needsCodes = computed(() => command.type !== 'stockinfo')
 const showDatePicker = computed(() => ['bars', 'ticks'].includes(command.type))
-const isAllMarket = computed(() => supportsAll.value && scope.value === 'all')
+const sending = ref(false)
+
+// 代码范围选择(2026-08-18 抽为通用组件 CodeScopePicker):scope+codes 整体 v-model
+const codeScope = ref<{ scope: 'all' | 'select'; codes: { code: string; name: string }[] }>({
+  scope: 'all',
+  codes: [],
+})
+const isAllMarket = computed(() => supportsAll.value && codeScope.value.scope === 'all')
 
 // 同步范围:all=全市场(bars 传 codes=["all"]) / select=指定代码(搜索选择,免手敲)
-const scope = ref<'all' | 'select'>('all')
-// sending 由 useAsyncAction 的 running 提供(见 sendSync)
-const scopeOptions = [
-  { key: 'all', label: '全市场' },
-  { key: 'select', label: '指定代码' },
-]
-function onScopeChange(v: string) {
-  scope.value = v as 'all' | 'select'
-}
+const onSubmit = async () => {
+  if (sending.value) return
 
-// 切到不支持全市场的类型(ticks/adjustfactor)时收回指定代码模式
-watch(() => command.type, () => {
-  if (!supportsAll.value) scope.value = 'select'
-})
-
-// 代码搜索选择器:listStocks(search=) 支持代码/中文名模糊
-const codeQuery = ref('')
-const suggestions = ref<StockInfo[]>([])
-const sugTotal = ref(0)
-const sugLoading = ref(false)
-const sugVisible = ref(false)
-const selectedCodes = ref<{ code: string; name: string }[]>([])
-let sugTimer: ReturnType<typeof setTimeout> | null = null
-
-async function searchStocks() {
-  const q = codeQuery.value.trim()
-  sugVisible.value = true
-  if (!q) {
-    suggestions.value = []
-    sugTotal.value = 0
-    return
+  const params: { type: string; codes?: string[]; start_date?: string; end_date?: string } = {
+    type: command.type,
   }
-  sugLoading.value = true
-  try {
-    const res: any = await dataApi.listStocks({ query: q, page: 1, page_size: 50 })
-    const items = res?.items ?? (Array.isArray(res) ? res : [])
-    // 请求返回时输入可能已变,过期结果丢弃
-    if (codeQuery.value.trim() === q) {
-      suggestions.value = items
-      sugTotal.value = res?.total ?? items.length
-    }
-  } catch {
-    if (codeQuery.value.trim() === q) {
-      suggestions.value = []
-      sugTotal.value = 0
-    }
-  } finally {
-    sugLoading.value = false
-  }
-}
-
-function onQueryInput() {
-  if (sugTimer) clearTimeout(sugTimer)
-  sugTimer = setTimeout(searchStocks, 300)
-}
-
-function isPicked(code: string) {
-  return selectedCodes.value.some(c => c.code === code)
-}
-
-function pickCode(s: StockInfo) {
-  if (!isPicked(s.code)) selectedCodes.value.push({ code: s.code, name: s.name })
-  codeQuery.value = ''
-  suggestions.value = []
-  sugTotal.value = 0
-  sugVisible.value = false
-}
-
-function removeCode(code: string) {
-  selectedCodes.value = selectedCodes.value.filter(c => c.code !== code)
-}
-
-type SyncParams = { type: string; codes?: string[]; start_date?: string; end_date?: string }
-
-// 参数组装与校验独立于提交动作,便于 onSubmit 先校验再入队(useAsyncAction 防重入)
-function buildSyncParams(): SyncParams | null {
-  const params: SyncParams = { type: command.type }
   if (needsCodes.value) {
     if (isAllMarket.value) {
       params.codes = ['all']
     } else {
-      if (selectedCodes.value.length === 0) {
+      if (codeScope.value.codes.length === 0) {
         toast.error('请搜索并选择至少一只股票')
-        return null
+        return
       }
-      params.codes = selectedCodes.value.map(c => c.code)
+      params.codes = codeScope.value.codes.map(c => c.code)
     }
   }
   if (showDatePicker.value) {
     if (command.startDate) params.start_date = command.startDate
     if (command.endDate) params.end_date = command.endDate
   }
-  return params
-}
 
-const { running: sending, run: sendSync } = useAsyncAction(async (params: SyncParams) => {
-  let res: any
+  sending.value = true
   try {
-    res = await dataApi.sync(params)
+    const res: any = await dataApi.sync(params)
+    // 2026-08-18 异步化:API 仅转发 Kafka 命令到 data-worker,秒回受理数;
+    // 执行结果由 worker 落 data_sync_record,稍后刷新同步历史可见
+    const dispatched = Number(res?.dispatched ?? 0)
+    const total = Number(res?.total ?? 0)
+    if (dispatched > 0 && dispatched < total) {
+      toast.warning(`命令已派发 ${dispatched}/${total} 只(部分派发失败)，执行进度见同步历史`)
+    } else if (total > 0) {
+      toast.success(`同步命令已派发至 data-worker（${total} 只代码），进度见同步历史`)
+    } else {
+      toast.success('同步命令已派发至 data-worker，进度见同步历史')
+    }
+    // worker 消费有延迟:先刷一次(受理态),3s 后再刷一次(执行结果陆续落库)
+    await fetchHistory(false)
+    setTimeout(() => { fetchHistory(false) }, 3000)
   } catch (e: any) {
-    // 转译后端 detail 为可读文案,交由 useAsyncAction 默认失败 toast 展示
     const detail = e?.response?.data?.detail || e?.message || '未知错误'
-    throw new Error(`发送失败：${detail}`, { cause: e })
+    toast.error(`发送失败：${detail}`)
+  } finally {
+    sending.value = false
   }
-  // #6071: 后端 bars/ticks 循环单 code 失败被 except 吞、整体仍 200,凭 failed 计数区分
-  const failed = Number(res?.failed ?? 0)
-  const total = Number(res?.total ?? 0)
-  if (failed > 0) {
-    toast.warning(`同步完成：${total} 只中 ${failed} 只失败，详情见同步历史`)
-  } else if (total > 0) {
-    toast.success(`同步命令已完成（${total} 只代码），结果见同步历史`)
-  } else {
-    toast.success('同步命令已完成，结果见同步历史')
-  }
-  // 同步在请求内完成、返回时历史已落库,刷新即见 partial/0 条等真实状态
-  await Promise.all([fetchHistory(false), fetchStats()])
-}, { success: false })
-
-const onSubmit = async () => {
-  if (sending.value) return
-  const params = buildSyncParams()
-  if (!params) return
-  await sendSync(params)
 }
 
 const clearForm = () => {
+  codeScope.value = { scope: 'all', codes: [] }
   command.startDate = ''
   command.endDate = ''
-  codeQuery.value = ''
-  suggestions.value = []
-  sugTotal.value = 0
-  selectedCodes.value = []
-  sugVisible.value = false
 }
 
 // ===== ③ 同步历史 =====
@@ -506,6 +340,7 @@ async function fetchHistory(append = false) {
   try {
     const params: any = { page: page.value, page_size: PAGE_SIZE }
     if (typeFilter.value) params.sync_type = typeFilter.value
+    if (sourceFilter.value) params.trigger_source = sourceFilter.value
     const res: any = await dataApi.getSyncHistory(params)
     const items = res?.items ?? (Array.isArray(res) ? res : [])
     records.value = append ? [...records.value, ...items] : items
@@ -524,6 +359,27 @@ function onFilterChange(v: string) {
   fetchHistory(false)
 }
 
+// 来源筛选(2026-08-18):定时任务每晚全市场 ~5584 条会刷屏,手动记录需可分离
+const sourceFilter = ref('')
+const sourceOptions = [
+  { key: '', label: '全部来源' },
+  { key: 'web', label: 'Web' },
+  { key: 'cli', label: 'CLI' },
+  { key: 'scheduled', label: '定时' },
+]
+function onSourceChange(v: string) {
+  sourceFilter.value = v
+  fetchHistory(false)
+}
+const SOURCE_LABELS: Record<string, string> = { web: 'Web', cli: 'CLI', scheduled: '定时', other: '其他' }
+const sourceLabel = (t?: string) => SOURCE_LABELS[t || 'other'] || t || '-' 
+
+// 历史行展开(2026-08-18):错误全文/起止时间/策略——错误只放 title tooltip 不可读不可拷贝
+const expandedUuid = ref<string | null>(null)
+function toggleRecord(uuid: string) {
+  expandedUuid.value = expandedUuid.value === uuid ? null : uuid
+}
+
 function loadMore() {
   fetchHistory(true)
 }
@@ -540,23 +396,7 @@ function formatDuration(ms: number | null | undefined): string {
   return `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s`
 }
 
-async function fetchStats() {
-  loading.value = true
-  try {
-    const data = await dataApi.getStats()
-    stats.stocks = data.total_stocks || 0
-    stats.bars = data.total_bars || 0
-    stats.ticks = data.total_ticks || 0
-    stats.adjustFactors = data.total_adjust_factors || 0
-    stats.latest = data.latest_update || ''
-  } finally {
-    loading.value = false
-    lastUpdated.value = new Date().toLocaleTimeString('zh-CN', { hour12: false })
-  }
-}
-
 onMounted(() => {
-  fetchStats()
   fetchHistory(false)
 })
 </script>
@@ -568,48 +408,11 @@ onMounted(() => {
   gap: 20px;
 }
 
-.updated-at {
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-}
-
-/* 存量统计(全局 stats-grid 4列/stat-card 已有,补图标位) */
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: hsl(var(--muted));
-  border-radius: var(--radius-lg);
-  color: hsl(var(--muted-foreground));
-  flex-shrink: 0;
-}
-
-.stat-suffix {
-  font-size: 14px;
-  color: hsl(var(--muted-foreground));
-  font-weight: 400;
-}
+/* 图标位/双列网格/卡片标题基础走全局 cards.less(2026-08-19 收口) */
 
 /* 全局 .card 带 overflow:hidden(裁圆角),会剪掉悬浮下拉框,此处放开 */
 .two-column-grid .card {
   overflow: visible;
-}
-
-/* 双列布局(同 DataOverview) */
-.two-column-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: hsl(var(--foreground));
-  margin: 0;
 }
 
 /* 表单 */
@@ -800,6 +603,36 @@ onMounted(() => {
   font-size: 13px;
 }
 
+/* 行展开交互:点击切详情,选中态左缘高亮 */
+.hist-clickable { cursor: pointer; transition: background 0.12s; }
+.hist-clickable:hover { background: hsl(var(--foreground) / 0.03); }
+.hist-active {
+  background: hsl(var(--primary) / 0.06);
+  box-shadow: inset 2px 0 0 hsl(var(--primary));
+}
+.hist-detail {
+  padding: 8px 12px;
+  background: hsl(var(--foreground) / 0.02);
+  border-bottom: 1px solid hsl(var(--border));
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+.detail-grid { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.detail-error {
+  margin: 0;
+  padding: 8px 10px;
+  background: hsl(var(--error) / 0.06);
+  border: 1px solid hsl(var(--error) / 0.25);
+  border-radius: var(--radius-sm);
+  color: hsl(var(--error));
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.detail-ok { font-size: 12px; }
+
 .hist-row:last-child {
   border-bottom: none;
 }
@@ -815,6 +648,22 @@ onMounted(() => {
 }
 
 .c-type { flex: 0 0 48px; }
+.src-tag { font-size: 10px; margin-left: 4px; padding: 1px 5px; }
+.src-cli {
+  color: hsl(var(--secondary-foreground));
+  background: hsl(var(--secondary-foreground) / 0.08);
+  border: 1px solid hsl(var(--secondary-foreground) / 0.3);
+}
+.src-web {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--primary) / 0.25);
+}
+.src-scheduled {
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted-foreground) / 0.08);
+  border: 1px solid hsl(var(--border));
+}
 .c-code { flex: 0 0 84px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .c-status { flex: 0 0 64px; display: inline-flex; align-items: center; gap: 5px; }
 .c-dur { flex: 0 0 52px; text-align: right; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
@@ -832,6 +681,9 @@ onMounted(() => {
 .st-dot.st-partial { background: hsl(var(--warning)); }
 .st-dot.st-failed { background: hsl(var(--error-fg)); }
 .st-dot.st-running { background: hsl(var(--primary)); }
+/* queued/lost(2026-08-20 对齐概览 timeline-dot):派发即落库的两端状态,缺色则无点 */
+.st-dot.st-queued,
+.st-dot.st-lost { background: hsl(var(--muted-foreground) / 0.5); }
 
 .rec-main {
   font-weight: 500;

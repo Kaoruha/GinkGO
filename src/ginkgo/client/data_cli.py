@@ -832,25 +832,25 @@ def sync(
 
             success = False
             if data_type == "stockinfo":
-                success = kafka_service.send_stockinfo_update_signal()
+                success = kafka_service.send_stockinfo_update_signal(source="cli")
             elif data_type == "day":
                 if code:
                     # 单股票日K线同步：直接传递full和force参数
-                    success = kafka_service.send_daybar_update_signal(code=code, full=full, force=force)
+                    success = kafka_service.send_daybar_update_signal(code=code, full=full, force=force, source="cli")
                 else:
                     # 全代码日K线同步
                     success = kafka_service.send_bar_all_signal(full=full, force=force)
             elif data_type == "tick":
                 if code:
                     # 单股票tick同步：传递完整的full和force参数
-                    success = kafka_service.send_tick_update_signal(code=code, full=full, force=force)
+                    success = kafka_service.send_tick_update_signal(code=code, full=full, force=force, source="cli")
                 else:
                     # 全代码tick同步
                     success = kafka_service.send_tick_all_signal(full=full, force=force)
             elif data_type == "adjustfactor":
                 if code:
                     # 单股票adjustfactor同步：直接传递full和force参数
-                    success = kafka_service.send_adjustfactor_update_signal(code=code, full=full, force=force)
+                    success = kafka_service.send_adjustfactor_update_signal(code=code, full=full, force=force, source="cli")
                 else:
                     # 全代码adjustfactor同步：直接pass参数
                     success = kafka_service.send_adjustfactor_all_signal(full=full, force=force)
@@ -913,16 +913,22 @@ def sync(
                     try:
                         console.print(f":information: Processing {current_code}...")
 
-                        if full:
-                            # 全量同步：从1990年开始
-                            console.print(f":information: Full sync for {current_code} (from 1990-01-01)")
-                            result = bar_service.sync_range(
-                                code=current_code, start_date=datetime(1990, 1, 1), end_date=datetime.now()
-                            )
-                        else:
-                            # 增量同步：智能同步
-                            console.print(f":information: Smart sync for {current_code}")
-                            result = bar_service.sync_smart(code=current_code)
+                        # 进程内模式落 data_sync_record(2026-08-18,source=cli,
+                        # 与 worker/daemon 模式同构,同步历史统一可见)
+                        from ginkgo.data.containers import container as _c
+                        _rec_svc = _c.data_sync_record_service()
+                        with _rec_svc.recorded("bars", current_code, trigger_source="cli") as (_ru, _rs):
+                            if full:
+                                # 全量同步：从1990年开始
+                                console.print(f":information: Full sync for {current_code} (from 1990-01-01)")
+                                result = bar_service.sync_range(
+                                    code=current_code, start_date=datetime(1990, 1, 1), end_date=datetime.now()
+                                )
+                            else:
+                                # 增量同步：智能同步
+                                console.print(f":information: Smart sync for {current_code}")
+                                result = bar_service.sync_smart(code=current_code)
+                            _rec_svc.record_result(_ru, result, _rs)
 
                         if result and result.is_success():
                             # 检查实际同步的记录数，避免误导性成功消息

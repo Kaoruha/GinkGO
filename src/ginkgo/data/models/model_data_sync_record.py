@@ -16,6 +16,7 @@ from sqlalchemy import String, Integer, Text, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
+from ginkgo.enums import TRIGGER_SOURCE_TYPES
 from ginkgo.libs import base_repr
 
 
@@ -34,6 +35,10 @@ class MDataSyncRecord(MMysqlBase):
     # 同步类型
     sync_type: Mapped[str] = mapped_column(String(32), nullable=False, comment="同步类型: stockinfo/bars/ticks/adjustfactor")
     code: Mapped[str] = mapped_column(String(32), nullable=False, comment="股票代码，stockinfo 为 ALL")
+    # 触发来源(2026-08-18 专列,定稿):int 入库对齐项目枚举惯例(如 source 列)。
+    # TRIGGER_SOURCE_TYPES: 1=web(网页) / 2=cli / 3=scheduled(定时);
+    # API/前端层仍用字符串,转换收在 CRUD/Service
+    trigger_source: Mapped[int] = mapped_column(Integer, default=TRIGGER_SOURCE_TYPES.WEB.value, info={"enum": TRIGGER_SOURCE_TYPES}, comment="触发来源: 1=web/2=cli/3=scheduled")
 
     # 执行状态
     status: Mapped[str] = mapped_column(String(16), default="running", comment="状态: running/success/partial/failed")

@@ -9,7 +9,7 @@ from typing import TypeVar, Generic, List, Optional, Any, Union, Dict, Callable,
 from contextlib import contextmanager
 from abc import ABC, abstractmethod
 import pandas as pd
-from sqlalchemy import and_, delete, text, update
+from sqlalchemy import Date, and_, cast, delete, func, text, update
 from sqlalchemy.orm import Session
 
 from ginkgo.data.drivers import get_db_connection, add, add_all
@@ -447,6 +447,41 @@ class _CoreCRUD(Generic[T], ABC):
             GLOG.ERROR(f"Failed to count {self.model_class.__name__} items: {e}")
             return 0
 
+    def group_count(
+        self,
+        group_field: str,
+        filters: Optional[Dict[str, Any]] = None,
+        distinct_field: Optional[str] = None,
+        date_trunc: Optional[str] = None,
+        session: Optional[Session] = None,
+    ) -> Dict[Any, int]:
+        """
+        Template method: Count items grouped by a field (SQL GROUP BY).
+        Subclasses should override _do_group_count() instead.
+
+        通用数据库原语（count 的分组版），不含业务语义；
+        「窗口内按日去重证券数」这类业务形状由 service 层组装。
+
+        Args:
+            group_field: Field name to group by.
+            filters: Optional dictionary of field -> value filters
+                (supports operators, same as find/count).
+            distinct_field: Count DISTINCT values of this field within each
+                group instead of raw row count.
+            date_trunc: Truncate group_field to the given unit before
+                grouping (e.g. "day"). ClickHouse uses native date_trunc;
+                MySQL emulates via CAST/DATE_FORMAT (day/month/year only).
+            session: Optional SQLAlchemy session to use for the operation.
+
+        Returns:
+            Dict[Any, int] - group value -> count ({} on error)
+        """
+        try:
+            return self._do_group_count(group_field, filters, distinct_field, date_trunc, session)
+        except Exception as e:
+            GLOG.ERROR(f"Failed to group count {self.model_class.__name__} by {group_field}: {e}")
+            return {}
+
     def exists(self, filters: Optional[Dict[str, Any]] = None, session: Optional[Session] = None) -> bool:
         """
         Template method: Check if items exist with optional filters.
@@ -754,6 +789,65 @@ class _CoreCRUD(Generic[T], ABC):
             count = query.count()
             GLOG.DEBUG(f"Counted {count} {self.model_class.__name__} records")
             return count
+
+    # MySQL lacks native date_trunc; map emulatable units to DATE_FORMAT patterns
+    _MYSQL_TRUNC_FORMATS = {"month": "%Y-%m", "year": "%Y"}
+
+    def _do_group_count(
+        self,
+        group_field: str,
+        filters: Optional[Dict[str, Any]] = None,
+        distinct_field: Optional[str] = None,
+        date_trunc: Optional[str] = None,
+        session: Optional[Session] = None,
+    ) -> Dict[Any, int]:
+        """
+        Hook method: Override to customize group count logic.
+        """
+        if not hasattr(self.model_class, group_field):
+            GLOG.ERROR(f"Unknown group field '{group_field}' on {self.model_class.__name__}")
+            return {}
+        if distinct_field is not None and not hasattr(self.model_class, distinct_field):
+            GLOG.ERROR(f"Unknown distinct field '{distinct_field}' on {self.model_class.__name__}")
+            return {}
+
+        col = getattr(self.model_class, group_field)
+        if date_trunc is not None:
+            if self._is_clickhouse:
+                group_expr = func.date_trunc(date_trunc, col)
+            elif self._is_mysql:
+                if date_trunc == "day":
+                    group_expr = cast(col, Date)
+                elif date_trunc in self._MYSQL_TRUNC_FORMATS:
+                    group_expr = func.date_format(col, self._MYSQL_TRUNC_FORMATS[date_trunc])
+                else:
+                    GLOG.ERROR(f"MySQL date_trunc emulation unsupported for unit '{date_trunc}'")
+                    return {}
+            else:
+                GLOG.ERROR(f"date_trunc unsupported on this backend for {self.model_class.__name__}")
+                return {}
+        else:
+            group_expr = col
+
+        if distinct_field is not None:
+            value_expr = func.count(func.distinct(getattr(self.model_class, distinct_field)))
+        else:
+            value_expr = func.count()
+
+        with self._session_scope(session) as s:
+            query = s.query(group_expr, value_expr)
+
+            if filters:
+                filter_conditions = self._parse_filters(filters)
+                if filter_conditions:
+                    query = query.filter(and_(*filter_conditions))
+
+            rows = query.group_by(group_expr).all()
+
+            # Clean ClickHouse FixedString null bytes for string group keys
+            if self._is_clickhouse and date_trunc is None and group_field in self.CLICKHOUSE_STRING_FIELDS:
+                return {self._clean_clickhouse_strings(k): int(v) for k, v in rows}
+            return {k: int(v) for k, v in rows}
 
     def _do_exists(self, filters: Optional[Dict[str, Any]] = None, session: Optional[Session] = None) -> bool:
         """

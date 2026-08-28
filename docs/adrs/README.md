@@ -58,6 +58,8 @@
 | ADR-043 | [Electron 壳技术选型（electron-vite+app://+hash+未签名）](ADR-043-electron-shell-stack-electron-vite-app-protocol.md) | Accepted（待实现 PR3） | 2026-08-10 |
 | ADR-044 | [双形态认证架构（Electron auth proxy+safeStorage，浏览器退回 localStorage）](ADR-044-auth-proxy-safe-storage-transparent-injection.md) | Accepted（待实现 PR4） | 2026-08-10 |
 | ADR-045 | [视觉设计语言（Codex 中性灰·深色优先·Inter/JetBrains·紧凑·双主题登录页）](ADR-045-codex-visual-design-language-dark-first.md) | Accepted（待实现 PR5/PR6） | 2026-08-10 |
+| ADR-046 | [全局通知 WebSocket 薄事件推送](ADR-046-global-notification-websocket-thin-events.md) | Accepted | 2026-08-16 |
+| ADR-047 | [交易日阶段状态机（日结构从涌现到声明）](ADR-047-trading-session-phase-machine.md) | Proposed（第 0 步已落地） | 2026-08-26 |
 
 ## 如何新增 / 修订
 

@@ -77,7 +77,7 @@ def list_accounts(
         svc = container.live_account_service()
         result = svc.get_user_accounts(
             user_id=user_id,
-            page=page,
+            page=page - 1,  # CLI 对用户 1-based；service 层 0-based（全仓统一）
             page_size=page_size,
             exchange=exchange,
             environment=environment,

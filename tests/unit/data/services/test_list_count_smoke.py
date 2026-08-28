@@ -33,7 +33,7 @@ def signal_service():
 @pytest.fixture
 def order_service():
     with patch("ginkgo.libs.GLOG"):
-        return OrderService(crud_repo=MagicMock())
+        return OrderService(crud_repo=MagicMock(), order_record_crud=MagicMock())
 
 
 @pytest.fixture

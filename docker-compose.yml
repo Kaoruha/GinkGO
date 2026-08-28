@@ -126,6 +126,10 @@ services:
       # KRaft 模式配置 (apache/kafka 使用 KAFKA_ 前缀)
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_NODE_ID=1
+      # 2026-08-17:不设 log.dirs 时 apache/kafka 4.0 默认写 /tmp/kafka-logs(容器
+      # 生命周期)——volume 挂的 /var/lib/kafka/data 形同虚设,每次重建容器 topic
+      # 全丢(两轮实证)。显式指向挂载路径,topic/KRaft meta 随 bind mount 持久化
+      - KAFKA_LOG_DIRS=/var/lib/kafka/data
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
       - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://:9093
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092,PLAINTEXT_HOST://localhost:9092
@@ -158,6 +162,8 @@ services:
     environment:
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_NODE_ID=2
+      # 同 kafka1:数据必须落在挂载路径(否则 /tmp 容器生命周期,重建即丢)
+      - KAFKA_LOG_DIRS=/var/lib/kafka/data
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
       - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29094,CONTROLLER://:9093
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:9092,PLAINTEXT_HOST://localhost:9094
@@ -188,6 +194,8 @@ services:
     environment:
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_NODE_ID=3
+      # 同 kafka1:数据必须落在挂载路径(否则 /tmp 容器生命周期,重建即丢)
+      - KAFKA_LOG_DIRS=/var/lib/kafka/data
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
       - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29096,CONTROLLER://:9093
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka3:9092,PLAINTEXT_HOST://localhost:9096

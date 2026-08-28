@@ -127,6 +127,30 @@
         v-if="activeDetailTab === 'overview'"
         class="tab-panel"
       >
+        <!-- 漏斗评估摘要 (判定视角; 本页指标卡只给原始数值, 去工作台看判定) -->
+        <div class="card funnel-summary">
+          <span class="fs-label">漏斗评估</span>
+          <template v-if="funnelSummary">
+            <span
+              class="fs-badge"
+              :class="funnelSummary.ok ? 'fs-ok' : 'fs-blocked'"
+            >{{ funnelSummary.level }}</span>
+            <span class="fs-text">{{ funnelSummary.text }}</span>
+          </template>
+          <span
+            v-else
+            class="fs-text muted"
+          >未评估</span>
+          <button
+            class="fs-link"
+            data-testid="detail-funnel-link"
+            :disabled="!currentTask?.portfolio_id"
+            @click="goEvaluation"
+          >
+            去评估 →
+          </button>
+        </div>
+
         <!-- 净值曲线 -->
         <div class="card">
           <h4>净值曲线</h4>
@@ -240,19 +264,12 @@
               :height="250"
             />
             <div class="analyzer-header">
-              <select
+              <SelectDropdown
                 v-model="selectedAnalyzer"
-                class="form-select"
+                class="analyzer-select"
+                :options="analyzerOptions"
                 @change="loadAnalyzerData"
-              >
-                <option
-                  v-for="a in analyzers"
-                  :key="a.name"
-                  :value="a.name"
-                >
-                  {{ a.name }}
-                </option>
-              </select>
+              />
               <!-- 选中项描述由后端 analyzer 元数据带出,帮助理解指标含义 -->
               <span
                 v-if="selectedAnalyzerDescription"
@@ -344,6 +361,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { backtestApi, portfolioApi } from '@/api'
+import { evaluationApi, type FunnelReport } from '@/api/modules/evaluation'
 import type { BacktestTask, AnalyzerInfo } from '@/api'
 import { useBacktestStore } from '@/stores'
 import { useBacktestStatus } from '@/composables'
@@ -357,6 +375,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import PageLayout from '@/components/common/PageLayout.vue'
 import PageTitle from '@/components/common/PageTitle.vue'
 import TabsNav from '@/components/common/TabsNav.vue'
+import SelectDropdown from '@/components/common/SelectDropdown.vue'
 import { formatMoney } from '@/utils/format'
 import LogsTab from '@/components/backtest/LogsTab.vue'
 import TradesTab from '@/components/backtest/TradesTab.vue'
@@ -456,6 +475,9 @@ const logDateRange = computed(() => {
 
 // 分析器详情
 const selectedAnalyzer = ref('')
+// 下拉选项:name 主色 + description 淡色双行(SelectDropdown 内分段着色)
+const analyzerOptions = computed(() =>
+  analyzers.value.map(a => ({ value: a.name, label: a.name, desc: a.description })))
 // 选中分析器的一句话描述(后端 analyzer 元数据带出,缺省为空不显示)
 const selectedAnalyzerDescription = computed(() =>
   analyzers.value.find(a => a.name === selectedAnalyzer.value)?.description || '')
@@ -743,6 +765,33 @@ onMounted(() => {
   setupWebSocketSubscription()
 })
 
+// ---------- 漏斗评估摘要 ----------
+// 详情页是「原始事实」视角(数值/曲线/交易/日志); 判定(gate 四态/漏斗位置)归工作台,
+// 这里只放一条摘要 + 深链, 避免与工作台 gate 卡重复维护两套判定展示。
+const funnelReport = ref<FunnelReport | null>(null)
+const funnelSummary = computed(() => {
+  const r = funnelReport.value
+  if (!r) return null
+  const failed = r.gates.filter((g) => g.status === 'FAIL' || g.status === 'BLOCKED').length
+  const ok = failed === 0
+  const text = failed > 0 ? `${failed} 项 gate 未过` : '全部 gate 已过'
+  return { level: r.level_reached, ok, text }
+})
+function goEvaluation() {
+  const pid = currentTask.value?.portfolio_id
+  if (!pid) return
+  // 工作台读 query 预填 portfolio+task 并自动评估 (一次性)
+  router.push({ path: '/backtests/evaluation', query: { portfolio: pid, task: backtestId.value } })
+}
+// task 到位即拉摘要; 失败静默降级为「未评估」态(摘要条非本页核心, 不弹错)
+watch(currentTask, (t) => {
+  if (!t?.portfolio_id) return
+  evaluationApi
+    .getFunnel({ portfolio_id: t.portfolio_id, task_id: backtestId.value })
+    .then((r) => { funnelReport.value = r })
+    .catch(() => { funnelReport.value = null })
+})
+
 watch(backtestId, (newVal) => {
   if (newVal) loadDetail()
 })
@@ -833,16 +882,6 @@ onUnmounted(() => {
 
 /* 指标卡空态(分析器未产出,与真实 0 区分) */
 .metric-empty, .metric-empty .metric-value { color: hsl(var(--muted-foreground) / 0.7); }
-
-/* 血缘跳转目标行高亮 */
-.row-highlight {
-  animation: row-flash 2.5s ease-out;
-}
-@keyframes row-flash {
-  0%, 60% { background: hsl(var(--primary) / 0.18); }
-  100% { background: transparent; }
-}
-
 
 /* Progress section */
 .progress-section {
@@ -1074,5 +1113,52 @@ onUnmounted(() => {
 /* Responsive */
 @media (max-width: 768px) {
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* 漏斗评估摘要条 */
+.funnel-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+}
+.fs-label {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+.fs-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.fs-ok {
+  color: hsl(140 60% 32%);
+  background: hsl(140 60% 90%);
+}
+.fs-blocked {
+  color: hsl(0 65% 40%);
+  background: hsl(0 65% 92%);
+}
+.fs-text {
+  font-size: 13px;
+  color: hsl(var(--foreground) / 0.85);
+}
+.fs-text.muted {
+  color: hsl(var(--muted-foreground));
+}
+.fs-link {
+  margin-left: auto;
+  font-size: 13px;
+  color: hsl(var(--primary));
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.fs-link:disabled {
+  color: hsl(var(--muted-foreground) / 0.6);
+  cursor: not-allowed;
 }
 </style>

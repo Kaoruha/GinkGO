@@ -399,7 +399,7 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
     def get_live_accounts_by_user(
         self,
         user_id: str,
-        page: int = 1,
+        page: int = 0,
         page_size: int = 20,
         exchange: Optional[str] = None,
         environment: Optional[str] = None,
@@ -410,7 +410,7 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
 
         Args:
             user_id: 用户ID
-            page: 页码（从1开始）
+            page: 页码（从 0 起，全仓 CRUD 统一 0-based）
             page_size: 每页数量
             exchange: 过滤交易所类型
             environment: 过滤环境类型
@@ -437,7 +437,7 @@ class LiveAccountCRUD(BaseCRUD[MLiveAccount]):
 
         # 分页
         total = len(filtered_accounts)
-        start = (page - 1) * page_size
+        start = page * page_size
         end = start + page_size
         paged_accounts = filtered_accounts[start:end]
 

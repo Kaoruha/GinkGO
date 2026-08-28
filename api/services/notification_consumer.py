@@ -3,13 +3,16 @@
 消费 ginkgo.notifications 并经 WS 推送为前端 toast（ADR-046 全局薄事件通道）。
 
 与 NotificationWorker（独立进程，负责 channels 投递）并行消费同一 topic：
-- group_id 必须不同（api-notification-broadcaster），否则同组内互相抢分区
+- group_id 必须实例唯一：NotificationWorker 之外，宿主机 API 与容器
+  api-server 并存时同样不能共组（2026-08-17 progress 实证：共组 rebalance
+  劈分区，广播静默死亡一半）——hostname+pid 后缀保证每实例独立组
 - offset 用 latest：toast 是时效性消息，API 重启不重放历史通知
-  （backtest progress consumer 用 earliest 是因为它把状态镜像进 DB，需要补偿）
 """
 
 import asyncio
 import json
+import os
+import socket
 import uuid
 from typing import Optional
 
@@ -18,7 +21,7 @@ from ginkgo.interfaces.kafka_topics import KafkaTopics
 from core.logging import logger
 from websocket.events import broadcast_event_to_users
 
-GROUP_ID = "api-notification-broadcaster"
+GROUP_ID = f"api-notification-broadcaster-{socket.gethostname()}-{os.getpid()}"
 
 
 # 在线程池中执行消费者初始化的函数

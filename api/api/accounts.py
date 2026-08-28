@@ -151,7 +151,7 @@ async def list_accounts(
 
         result = service.get_user_accounts(
             user_id=user_id,
-            page=1,
+            page=0,
             page_size=100,
             exchange=exchange,
             environment=environment,

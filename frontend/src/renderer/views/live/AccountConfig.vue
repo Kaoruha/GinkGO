@@ -502,13 +502,11 @@ onMounted(() => {
   font-size: 13px;
 }
 
+/* 标题排版走全局 cards.less .card-title,此处仅标题行的 flex 布局 */
 .card-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: hsl(var(--foreground));
-  font-size: 16px;
-  font-weight: 600;
 }
 
 .btn-small:hover:not(:disabled) {

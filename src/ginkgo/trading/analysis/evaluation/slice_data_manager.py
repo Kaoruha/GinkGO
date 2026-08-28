@@ -32,6 +32,25 @@ class SliceDataManager:
     def __init__(self):
         """初始化数据管理器"""
         self.cache = {}  # 数据缓存
+
+    @staticmethod
+    def _to_dataframe(records) -> pd.DataFrame:
+        """CRUD 返回值转 DataFrame。
+
+        ADR-029 退役 ModelList 后 CRUD 统一返回 list[Model]（实测 2026-08），
+        原代码 isinstance(pd.DataFrame) 恒 False → 稳定性评估恒"数据为空"。
+        按模型表列取值转换（不动 Base 类）；已是 DataFrame/空列表原样/空表返回。
+        """
+        if isinstance(records, pd.DataFrame) or records is None:
+            return records if isinstance(records, pd.DataFrame) else pd.DataFrame()
+        rows = []
+        for r in records:
+            cols = getattr(getattr(r, "__table__", None), "columns", None)
+            if cols is not None:
+                rows.append({c.key: getattr(r, c.key) for c in cols})
+            elif isinstance(r, dict):
+                rows.append(r)
+        return pd.DataFrame(rows)
         
     def get_backtest_data(self,
                          portfolio_id: str,
@@ -66,21 +85,21 @@ class SliceDataManager:
                 portfolio_id=portfolio_id,
                 page_size=100000,
             )
-            analyzer_data = analyzer_records if isinstance(analyzer_records, pd.DataFrame) else pd.DataFrame()
+            analyzer_data = self._to_dataframe(analyzer_records)
 
             # 获取信号记录
             signal_crud = services.data.cruds.signal()
             signal_records = signal_crud.find(
                 filters={"portfolio_id": portfolio_id, "task_id": task_id},
             )
-            signal_data = signal_records if isinstance(signal_records, pd.DataFrame) else pd.DataFrame()
+            signal_data = self._to_dataframe(signal_records)
 
             # 获取订单记录
             order_crud = services.data.cruds.order_record()
             order_records = order_crud.find(
                 filters={"portfolio_id": portfolio_id, "task_id": task_id},
             )
-            order_data = order_records if isinstance(order_records, pd.DataFrame) else pd.DataFrame()
+            order_data = self._to_dataframe(order_records)
             
             # 数据预处理
             analyzer_data = self._preprocess_analyzer_data(analyzer_data)

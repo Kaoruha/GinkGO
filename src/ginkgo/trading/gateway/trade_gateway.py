@@ -334,31 +334,29 @@ class TradeGateway(BaseTradeGateway):
                 GLOG.WARN(f"Missing context for saving SUBMITTED record: portfolio_id={portfolio_id}, engine_id={engine_id}, task_id={task_id}")
                 return
 
+            from ginkgo.data.mappers import OrderMapper
+
             result_service = container.result_service()
+            # 字段组装收敛 OrderMapper.entity_to_record_kwargs(#6911 单一事实源,
+            # 与 t1backtest._save_order_record 共用,加字段只改 mapper 一处)。
+            # SUBMITTED 未成交:fill 三元组默认 0,remain=volume 全未成交
             result = result_service.create_order_record(
-                order_id=order.uuid,
-                portfolio_id=portfolio_id,
-                engine_id=engine_id,
-                task_id=task_id,
-                code=order.code,
-                direction=order.direction,
-                order_type=order.order_type,
-                status=ORDERSTATUS_TYPES.SUBMITTED,
-                volume=order.volume,
-                limit_price=order.limit_price,
-                # #5940: frozen 已拆分为 frozen_money + frozen_volume，
-                # kwarg 名必须匹配 OrderRecordCRUD，否则冻结金额静默写 0
-                frozen_money=order.frozen_money if hasattr(order, 'frozen_money') else 0,
-                frozen_volume=order.frozen_volume if hasattr(order, 'frozen_volume') else 0,
-                transaction_price=0,
-                transaction_volume=0,
-                remain=order.volume,
-                fee=0,
-                timestamp=order.timestamp,
-                business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
+                **OrderMapper.entity_to_record_kwargs(
+                    order, ORDERSTATUS_TYPES.SUBMITTED,
+                    portfolio_id=portfolio_id,
+                    engine_id=engine_id,
+                    task_id=task_id,
+                    remain=order.volume,
+                )
             )
-            GLOG.DEBUG(f"[PERSISTENCE] SUBMITTED order record saved: code={order.code} order_id={order.uuid[:8]}")
-            GLOG.INFO(f"Order SUBMITTED record saved: {order.code} {order.uuid[:8]}")
+            # result 须检查:create_order_record 失败返回 ServiceResult.error 不抛异常,
+            # 不检查会打假成功日志(此前 SUBMITTED 行落库失败但 INFO 照常 "record saved")
+            if result.is_success():
+                GLOG.DEBUG(f"[PERSISTENCE] SUBMITTED order record saved: code={order.code} order_id={order.uuid[:8]}")
+                GLOG.INFO(f"Order SUBMITTED record saved: {order.code} {order.uuid[:8]}")
+            else:
+                GLOG.ERROR(f"[PERSISTENCE ERROR] SUBMITTED order record save failed: code={order.code} "
+                           f"order_id={order.uuid[:8]} error={result.error}")
         except Exception as e:
             GLOG.ERROR(f"[PERSISTENCE ERROR] Failed to save SUBMITTED order record: {e}")
             GLOG.ERROR(f"Failed to save SUBMITTED order record: {e}")

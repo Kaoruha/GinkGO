@@ -164,6 +164,170 @@ class ComponentLoader:
         self._logger.DEBUG(f"Found {len(component_params)} params: {component_params}")
         return component_params, param_indices
 
+    def instantiate_component(self, file_id: str, component_type: int, mapping_uuid: str):
+        """从数据库文件内容实例化组件"""
+        try:
+            self._logger.DEBUG(f"Attempting to load component from file_id: {file_id}")
+            file_result = self._file_service.get_by_uuid(file_id)
+            if not file_result.success or not file_result.data:
+                return None, f"Failed to get file content: {file_result.error}"
+
+            file_info = file_result.data
+            if isinstance(file_info, dict) and "file" in file_info:
+                mfile = file_info["file"]
+                if hasattr(mfile, "data") and mfile.data:
+                    if isinstance(mfile.data, bytes):
+                        code_content = mfile.data.decode("utf-8", errors="ignore")
+                    else:
+                        code_content = str(mfile.data)
+                else:
+                    return None, "No file data found"
+            else:
+                return None, "Invalid file data structure"
+
+            # 获取组件参数（#6103: 走注入的 param_service，取代 container.cruds.param()）
+            # ADR-020: 纯位置装配 — 按 MParam.index 排序后 splat，装配不再依赖提取器/kwargs
+            component_params, _ = self._resolve_component_params(mapping_uuid)
+
+            # 动态执行代码来获取组件类
+            import importlib.util
+            import tempfile
+            import os
+
+            self._logger.DEBUG(f"Creating temp file for component code (length: {len(code_content)})")
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+                temp_file.write(code_content)
+                temp_file_path = temp_file.name
+
+            self._logger.DEBUG(f"Temp file created: {temp_file_path}")
+
+            try:
+                # 动态导入模块
+                self._logger.DEBUG(f"Importing module from {temp_file_path}")
+                spec = importlib.util.spec_from_file_location("dynamic_component", temp_file_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                self._logger.DEBUG(f"Module imported successfully")
+
+                # 查找组件类（#4630: 提取为 _detect_component_class，与源码 fallback 共用）
+                self._logger.DEBUG("Starting component class detection")
+                component_class = _detect_component_class(module, self._logger)
+                if component_class is None:
+                    class_names = [name for name in dir(module) if not name.startswith("_") and isinstance(getattr(module, name), type)]
+                    class_details = []
+                    for name in class_names:
+                        cls = getattr(module, name)
+                        bases = [base.__name__ for base in cls.__bases__ if hasattr(base, "__name__")]
+                        abstract_info = f"abstract={getattr(cls, '__abstract__', 'NOT_FOUND')}"
+                        class_details.append(f"{name}(bases={bases}, {abstract_info})")
+                    self._logger.ERROR(f"No component class found in file. Available classes: {class_details}")
+                    return None, f"No component class found in file. Available classes: {class_details}"
+
+                # 实例化组件（ADR-020: 纯位置 splat，无 kwargs 分支）
+                try:
+                    if component_params:
+                        self._logger.DEBUG(f"Creating {component_class.__name__} with positional params: {component_params}")
+                        component = component_class(*component_params)
+                    else:
+                        self._logger.INFO(f"No params found for {component_class.__name__}, attempting instantiation with defaults")
+                        component = component_class()
+
+                    self._logger.DEBUG(f"Component {type(component).__name__} created successfully")
+
+                    if "RandomSignalStrategy" in component_class.__name__:
+                        if hasattr(component, 'set_random_seed'):
+                            component.set_random_seed(12345)
+                            self._logger.DEBUG(f"Set random_seed=12345 for RandomSignalStrategy")
+
+                except TypeError as e:
+                    error_msg = f"Component {component_class.__name__} requires parameters but none found: {e}"
+                    self._logger.ERROR(f"🔥 [INSTANTIATION ERROR] {error_msg}")
+                    return None, error_msg
+                except Exception as e:
+                    error_msg = f"Unexpected error instantiating {component_class.__name__}: {e}"
+                    self._logger.ERROR(f"🔥 [INSTANTIATION ERROR] {error_msg}")
+                    return None, error_msg
+
+                return component, None
+
+            finally:
+                try:
+                    os.unlink(temp_file_path)
+                except Exception as e:
+                    GLOG.ERROR(f"Failed to clean up temp file {temp_file_path}: {e}")
+
+        except Exception as e:
+            # 源码fallback：数据库代码执行失败时，尝试从源码导入
+            error_msg = str(e)
+            self._logger.WARN(f"🔥 [DYNAMIC LOAD FAILED] {error_msg}, trying source code fallback...")
+
+            try:
+                file_result = self._file_service.get_by_uuid(file_id)
+                if file_result.success and file_result.data:
+                    if isinstance(file_result.data, dict) and "file" in file_result.data:
+                        file_name = file_result.data["file"].name
+                    else:
+                        file_name = file_result.data.name
+                else:
+                    return None, f"Failed to get file info for fallback: {file_result.error}"
+
+                source_import_map = SOURCE_FALLBACK_IMPORT_MAP
+
+                if component_type not in source_import_map:
+                    return None, f"No source fallback for component type {component_type}"
+
+                module_path, subpackage = source_import_map[component_type]
+                module_name = file_name.lower().replace("-", "_").replace(".py", "")
+
+                import importlib
+                full_module_path = f"{module_path}.{module_name}"
+                self._logger.INFO(f"🔧 [SOURCE FALLBACK] Trying to import: {full_module_path}")
+                module = importlib.import_module(full_module_path)
+
+                # #4630: 与主路径共用 _detect_component_class。原 fallback 缺 method 3
+                # （类名后缀检测）、base.__name__ 未防 object 致 AttributeError，现统一修复。
+                component_class = _detect_component_class(module, self._logger)
+
+                if component_class is None:
+                    return None, f"No component class found in source module {full_module_path}"
+
+                if component_params:
+                    component = component_class(*component_params)
+                else:
+                    component = component_class()
+
+                self._logger.INFO(f"✅ [SOURCE FALLBACK] Successfully loaded {component_class.__name__} from source")
+                return component, f"Loaded from source code (fallback)"
+
+            except ImportError as ie:
+                if component_type == 6:  # STRATEGY
+                    self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using RandomSignalStrategy as default strategy")
+                    from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
+                    component = RandomSignalStrategy()
+                    if hasattr(component, 'set_random_seed'):
+                        component.set_random_seed(12345)
+                    return component, f"Used default RandomSignalStrategy (fallback for {file_name})"
+                elif component_type == 1:  # ANALYZER
+                    self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using NetValue as default analyzer")
+                    from ginkgo.trading.analysis.analyzers.net_value import NetValue
+                    component = NetValue()
+                    return component, f"Used default NetValue analyzer (fallback for {file_name})"
+                elif component_type == 4:  # SELECTOR
+                    self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using CNAllSelector as default selector")
+                    from ginkgo.trading.selectors.cn_all_selector import CNAllSelector
+                    component = CNAllSelector()
+                    return component, f"Used default CNAllSelector (fallback for {file_name})"
+                elif component_type == 5:  # SIZER
+                    self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using FixedSizer as default sizer")
+                    from ginkgo.trading.sizers.fixed_sizer import FixedSizer
+                    component = FixedSizer()
+                    return component, f"Used default FixedSizer (fallback for {file_name})"
+                return None, f"Source fallback failed (ImportError): {str(ie)}"
+            except Exception as fallback_err:
+                return None, f"Source fallback failed: {str(fallback_err)}"
+
+    # 单组件复用入口: probe/组件页单测等 portfolio 级装配外的场景走此方法,
+    # 与 perform_component_binding 保持同一加载路径, 防双份实现漂移。
     def perform_component_binding(
         self, portfolio: PortfolioT1Backtest, components: Dict[str, Any], logger: GinkgoLogger
     ) -> bool:
@@ -189,167 +353,8 @@ class ComponentLoader:
             self._logger.INFO(f"  Risk managers: {len(risk_managers)}")
             self._logger.INFO(f"  Analyzers: {len(analyzers)}")
 
-            def _instantiate_component_from_file(file_id: str, component_type: int, mapping_uuid: str):
-                """从数据库文件内容实例化组件"""
-                try:
-                    self._logger.DEBUG(f"Attempting to load component from file_id: {file_id}")
-                    file_result = self._file_service.get_by_uuid(file_id)
-                    if not file_result.success or not file_result.data:
-                        return None, f"Failed to get file content: {file_result.error}"
+            _instantiate_component_from_file = self.instantiate_component
 
-                    file_info = file_result.data
-                    if isinstance(file_info, dict) and "file" in file_info:
-                        mfile = file_info["file"]
-                        if hasattr(mfile, "data") and mfile.data:
-                            if isinstance(mfile.data, bytes):
-                                code_content = mfile.data.decode("utf-8", errors="ignore")
-                            else:
-                                code_content = str(mfile.data)
-                        else:
-                            return None, "No file data found"
-                    else:
-                        return None, "Invalid file data structure"
-
-                    # 获取组件参数（#6103: 走注入的 param_service，取代 container.cruds.param()）
-                    # ADR-020: 纯位置装配 — 按 MParam.index 排序后 splat，装配不再依赖提取器/kwargs
-                    component_params, _ = self._resolve_component_params(mapping_uuid)
-
-                    # 动态执行代码来获取组件类
-                    import importlib.util
-                    import tempfile
-                    import os
-
-                    self._logger.DEBUG(f"Creating temp file for component code (length: {len(code_content)})")
-                    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
-                        temp_file.write(code_content)
-                        temp_file_path = temp_file.name
-
-                    self._logger.DEBUG(f"Temp file created: {temp_file_path}")
-
-                    try:
-                        # 动态导入模块
-                        self._logger.DEBUG(f"Importing module from {temp_file_path}")
-                        spec = importlib.util.spec_from_file_location("dynamic_component", temp_file_path)
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
-                        self._logger.DEBUG(f"Module imported successfully")
-
-                        # 查找组件类（#4630: 提取为 _detect_component_class，与源码 fallback 共用）
-                        self._logger.DEBUG("Starting component class detection")
-                        component_class = _detect_component_class(module, self._logger)
-                        if component_class is None:
-                            class_names = [name for name in dir(module) if not name.startswith("_") and isinstance(getattr(module, name), type)]
-                            class_details = []
-                            for name in class_names:
-                                cls = getattr(module, name)
-                                bases = [base.__name__ for base in cls.__bases__ if hasattr(base, "__name__")]
-                                abstract_info = f"abstract={getattr(cls, '__abstract__', 'NOT_FOUND')}"
-                                class_details.append(f"{name}(bases={bases}, {abstract_info})")
-                            self._logger.ERROR(f"No component class found in file. Available classes: {class_details}")
-                            return None, f"No component class found in file. Available classes: {class_details}"
-
-                        # 实例化组件（ADR-020: 纯位置 splat，无 kwargs 分支）
-                        try:
-                            if component_params:
-                                self._logger.DEBUG(f"Creating {component_class.__name__} with positional params: {component_params}")
-                                component = component_class(*component_params)
-                            else:
-                                self._logger.INFO(f"No params found for {component_class.__name__}, attempting instantiation with defaults")
-                                component = component_class()
-
-                            self._logger.DEBUG(f"Component {type(component).__name__} created successfully")
-
-                            if "RandomSignalStrategy" in component_class.__name__:
-                                if hasattr(component, 'set_random_seed'):
-                                    component.set_random_seed(12345)
-                                    self._logger.DEBUG(f"Set random_seed=12345 for RandomSignalStrategy")
-
-                        except TypeError as e:
-                            error_msg = f"Component {component_class.__name__} requires parameters but none found: {e}"
-                            self._logger.ERROR(f"🔥 [INSTANTIATION ERROR] {error_msg}")
-                            return None, error_msg
-                        except Exception as e:
-                            error_msg = f"Unexpected error instantiating {component_class.__name__}: {e}"
-                            self._logger.ERROR(f"🔥 [INSTANTIATION ERROR] {error_msg}")
-                            return None, error_msg
-
-                        return component, None
-
-                    finally:
-                        try:
-                            os.unlink(temp_file_path)
-                        except Exception as e:
-                            GLOG.ERROR(f"Failed to clean up temp file {temp_file_path}: {e}")
-
-                except Exception as e:
-                    # 源码fallback：数据库代码执行失败时，尝试从源码导入
-                    error_msg = str(e)
-                    self._logger.WARN(f"🔥 [DYNAMIC LOAD FAILED] {error_msg}, trying source code fallback...")
-
-                    try:
-                        file_result = self._file_service.get_by_uuid(file_id)
-                        if file_result.success and file_result.data:
-                            if isinstance(file_result.data, dict) and "file" in file_result.data:
-                                file_name = file_result.data["file"].name
-                            else:
-                                file_name = file_result.data.name
-                        else:
-                            return None, f"Failed to get file info for fallback: {file_result.error}"
-
-                        source_import_map = SOURCE_FALLBACK_IMPORT_MAP
-
-                        if component_type not in source_import_map:
-                            return None, f"No source fallback for component type {component_type}"
-
-                        module_path, subpackage = source_import_map[component_type]
-                        module_name = file_name.lower().replace("-", "_").replace(".py", "")
-
-                        import importlib
-                        full_module_path = f"{module_path}.{module_name}"
-                        self._logger.INFO(f"🔧 [SOURCE FALLBACK] Trying to import: {full_module_path}")
-                        module = importlib.import_module(full_module_path)
-
-                        # #4630: 与主路径共用 _detect_component_class。原 fallback 缺 method 3
-                        # （类名后缀检测）、base.__name__ 未防 object 致 AttributeError，现统一修复。
-                        component_class = _detect_component_class(module, self._logger)
-
-                        if component_class is None:
-                            return None, f"No component class found in source module {full_module_path}"
-
-                        if component_params:
-                            component = component_class(*component_params)
-                        else:
-                            component = component_class()
-
-                        self._logger.INFO(f"✅ [SOURCE FALLBACK] Successfully loaded {component_class.__name__} from source")
-                        return component, f"Loaded from source code (fallback)"
-
-                    except ImportError as ie:
-                        if component_type == 6:  # STRATEGY
-                            self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using RandomSignalStrategy as default strategy")
-                            from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
-                            component = RandomSignalStrategy()
-                            if hasattr(component, 'set_random_seed'):
-                                component.set_random_seed(12345)
-                            return component, f"Used default RandomSignalStrategy (fallback for {file_name})"
-                        elif component_type == 1:  # ANALYZER
-                            self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using NetValue as default analyzer")
-                            from ginkgo.trading.analysis.analyzers.net_value import NetValue
-                            component = NetValue()
-                            return component, f"Used default NetValue analyzer (fallback for {file_name})"
-                        elif component_type == 4:  # SELECTOR
-                            self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using CNAllSelector as default selector")
-                            from ginkgo.trading.selectors.cn_all_selector import CNAllSelector
-                            component = CNAllSelector()
-                            return component, f"Used default CNAllSelector (fallback for {file_name})"
-                        elif component_type == 5:  # SIZER
-                            self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using FixedSizer as default sizer")
-                            from ginkgo.trading.sizers.fixed_sizer import FixedSizer
-                            component = FixedSizer()
-                            return component, f"Used default FixedSizer (fallback for {file_name})"
-                        return None, f"Source fallback failed (ImportError): {str(ie)}"
-                    except Exception as fallback_err:
-                        return None, f"Source fallback failed: {str(fallback_err)}"
 
             def _load_component(mapping, component_type_int):
                 """统一加载组件：ORM 对象或 dict（必须含 file_id）"""

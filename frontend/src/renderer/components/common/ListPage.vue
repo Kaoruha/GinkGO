@@ -395,7 +395,6 @@ onUnmounted(() => {
 
 .list-stats {
   flex-shrink: 0;
-  margin-bottom: 16px;
 }
 
 /* Search */

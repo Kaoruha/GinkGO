@@ -137,7 +137,7 @@ class TestApiKeyCRUDQuery:
             description="分页测试2"
         )
 
-        result = crud_instance.get_all_api_keys(page=1, page_size=10)
+        result = crud_instance.get_all_api_keys(page=0, page_size=10)  # 0-based（全仓统一）
         print(f"-> 查询到 {result['total']} 条记录")
 
         assert "items" in result, "返回结果应包含 items"

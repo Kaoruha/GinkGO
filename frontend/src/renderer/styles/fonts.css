@@ -41,3 +41,25 @@
   font-style: normal;
   font-display: swap;
 }
+
+/* Silkscreen v6 像素显示字体(仅 latin 子集)
+ * 仅登录页(LOGO/开机日志/ticker/终端)使用,登录后界面不用——
+ * 5x7 像素网格小字号发虚,且无中文字形。
+ * 原登录页经 Google Fonts CDN 引入,现随包离线可用(与 Inter/JetBrains 同口径)。
+ * LICENSE: SIL OFL 1.1,见 assets/fonts/LICENSE-Silkscreen.txt。
+ */
+@font-face {
+  font-family: 'Silkscreen';
+  src: url('../assets/fonts/Silkscreen-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Silkscreen';
+  src: url('../assets/fonts/Silkscreen-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

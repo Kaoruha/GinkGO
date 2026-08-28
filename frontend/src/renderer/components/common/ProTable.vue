@@ -2,8 +2,14 @@
   <!-- 表格+分页统一封装:全站唯一表格实现(退役 DataTable 与各页手写 «‹›» 分页条)。
        ListPage 内部复用本组件;图表+表格混排的详情页(BarData/TickData 等)直接使用。
        分页语义:total 未传 = 客户端切页;total/serverPagination 传入 = 服务端分页(仅 emit)。
-       滚动语义:默认靠外层滚动容器(ListPage .list-content)吸顶;maxHeight 传入时表格自滚。 -->
-  <div class="table-card">
+       滚动语义:默认表格区内滚(.table-scroll),表头 sticky 吸表格区顶、分页条钉卡片底
+       (父级须有确定高度,如 ListPage .list-content;无高度时自然高退化,混排直用不破坏);
+       infiniteScroll 模式改外层滚(overflow visible)让 ListPage sentinel 可见,
+       表头 sticky 改吸外层滚动容器顶;maxHeight 传入时按给定高度自滚。 -->
+  <div
+    class="table-card"
+    :class="{ 'table-card--flow': flow || infiniteScroll }"
+  >
     <div
       class="table-scroll"
       :style="scrollStyle"
@@ -197,6 +203,9 @@ const props = withDefaults(defineProps<{
   serverPagination?: boolean
   /** 无限滚动模式:隐藏分页条,数据全量渲染 */
   infiniteScroll?: boolean
+  /** 外滚模式:多卡片/混排页(父级无确定高度)用,表格不自滚,
+      滚动交给外层容器,表头 sticky 吸外层滚动容器顶 */
+  flow?: boolean
   /** 表格自滚高度(图表+表格混排页用);不传靠外层滚动容器 */
   maxHeight?: number | string
   emptyText?: string
@@ -216,6 +225,7 @@ const props = withDefaults(defineProps<{
   pageSizes: () => [10, 20, 50, 100],
   serverPagination: false,
   infiniteScroll: false,
+  flow: false,
   emptyText: '暂无数据',
   showActions: false,
   defaultSortBy: '',
@@ -321,9 +331,31 @@ function formatValue(val: any): string {
 </script>
 
 <style scoped>
-/* 表格样式全局权威在 styles/tables.less(.table-card/.pro-table),此处仅分页/状态 */
+/* 表格样式全局权威在 styles/tables.less(.table-card/.pro-table),此处仅滚动/分页/状态 */
 
-.table-scroll { overflow-x: auto; }
+/* 内滚形态:卡片吃满外层可用高(须父级有确定高度),表格区 flex:1 内滚 + 表头吸顶 + 分页钉底。
+   max-height:100% 在父级高度 auto 时无效 → 自然高退化,直用于混排页不破坏原有布局 */
+.table-card {
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+
+/* 无限滚动形态:不占满不内滚,交给外层滚动容器(否则 sentinel 永远在卡片外不可见) */
+.table-card--flow {
+  max-height: none;
+}
+
+.table-card--flow .table-scroll {
+  overflow: visible;
+  flex: none;
+}
+
+.table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
 
 .state-cell {
   text-align: center;

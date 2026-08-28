@@ -161,7 +161,7 @@ async def health_check_api():
 
 
 # 路由注册 - 统一使用 /api/v1 前缀
-from api import auth, dashboard, portfolio, backtest, components, data, arena, node_graph, accounts, trading, validation, deployment
+from api import auth, dashboard, portfolio, backtest, components, data, arena, node_graph, accounts, trading, validation, deployment, evaluation
 from api import live_trading
 from api import file as file_router  # #5659: 文件管理 flat 适配路由（薄委托 FileService）
 from api import signals as signal_router
@@ -173,6 +173,8 @@ app.include_router(auth.router, prefix=f"{API_PREFIX}/auth", tags=["auth"])
 app.include_router(dashboard.router, prefix=f"{API_PREFIX}/dashboards", tags=["dashboard"])
 app.include_router(portfolio.router, prefix=f"{API_PREFIX}/portfolios", tags=["portfolio"])
 app.include_router(backtest.router, prefix=f"{API_PREFIX}/backtests", tags=["backtest"])
+# 评估工作台: 漏斗/一致性/预检 (实时计算不落库)
+app.include_router(evaluation.router, prefix=f"{API_PREFIX}/evaluation", tags=["evaluation"])
 app.include_router(components.router, prefix=f"{API_PREFIX}/components", tags=["components"])
 # #5659: file 适配路由 flat 挂载在 /api/v1 下（/file_list、/file、/update_file、/file/{id}）
 app.include_router(file_router.router, prefix=API_PREFIX, tags=["files"])

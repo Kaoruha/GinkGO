@@ -128,12 +128,12 @@ class ApiKeyCRUD(BaseCRUD[MApiKey]):
             GLOG.ERROR(f"Failed to get API Keys: {e}")
             return []
 
-    def get_all_api_keys(self, page: int = 1, page_size: int = 50) -> Dict:
+    def get_all_api_keys(self, page: int = 0, page_size: int = 50) -> Dict:
         """
         获取所有 API Key（分页）
 
         Args:
-            page: 页码
+            page: 页码(从 0 起，全仓 CRUD 统一 0-based)
             page_size: 每页数量
 
         Returns:
@@ -144,7 +144,7 @@ class ApiKeyCRUD(BaseCRUD[MApiKey]):
                 filters={"is_del": False},
                 order_by="create_at",
                 desc_order=True,
-                page=page - 1,  # Convert to 0-based page numbering
+                page=page,
                 page_size=page_size
             )
 

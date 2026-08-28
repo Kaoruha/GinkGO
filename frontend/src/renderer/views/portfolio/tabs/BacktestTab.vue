@@ -421,7 +421,11 @@ const viewDetail = (uuid: string) => {
   router.push(`/backtests/${uuid}`)
 }
 
+// 启动防连点(全局单飞):第二发 start 会撞状态机守卫(pending 不可再 start)报错
+const starting = ref(false)
 const handleStart = async (task: BacktestTask) => {
+  if (starting.value) return
+  starting.value = true
   try {
     let params: any = {}
     if (task.config_snapshot) {
@@ -433,6 +437,8 @@ const handleStart = async (task: BacktestTask) => {
     loadList()
   } catch (e: any) {
     message.error(e.response?.data?.detail || '启动失败')
+  } finally {
+    starting.value = false
   }
 }
 
@@ -457,6 +463,11 @@ const handleCancel = async (task: BacktestTask) => {
 }
 
 const handleCreate = async () => {
+  // 入口 guard:按钮 :disabled="creating" 之外的防御(Enter 提交/时序窗口)。
+  // 历史教训(2026-08-17):create+start 竞态报错后 modal 不关,用户误以为失败
+  // 重复点击 → 15 秒 3 个任务齐跑。后端已去 create 自动派发根治竞态,此处
+  // 再挡重复提交。
+  if (creating.value) return
   if (!createForm.value.name) {
     message.warning('请输入任务名称')
     return

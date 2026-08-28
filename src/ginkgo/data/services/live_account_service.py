@@ -960,7 +960,7 @@ class LiveAccountService(BaseService):
     def get_user_accounts(
         self,
         user_id: str,
-        page: int = 1,
+        page: int = 0,
         page_size: int = 20,
         exchange: Optional[str] = None,
         environment: Optional[str] = None,
@@ -971,7 +971,7 @@ class LiveAccountService(BaseService):
 
         Args:
             user_id: 用户ID
-            page: 页码
+            page: 页码(从 0 起，全仓统一：service 层 0-based，API/CLI 边界转换)
             page_size: 每页数量
             exchange: 过滤交易所
             environment: 过滤环境

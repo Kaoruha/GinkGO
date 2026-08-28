@@ -134,12 +134,21 @@ class PortfolioT1Backtest(PortfolioBase):
         delta = qty if direction == DIRECTION_TYPES.LONG else -qty
         self._record_position_change(pos, delta, price, direction, order_id)
 
-    def add_position(self, position: Position) -> None:
+    def add_position(self, position: Position, order_id: str = "") -> None:
         """
         重写基类方法，添加持仓并持久化（通过 Service 层）
+
+        order_id: 引发建仓的订单（成交事件携带的 order.uuid）。回测首仓
+        必传（血缘 Signal→Order→Position 追溯链）；实盘恢复持仓
+        （portfolio_live）无订单来源，默认空。
         """
         # 调用基类方法添加持仓
         super().add_position(position)
+
+        # 建仓业务时间：回测时钟下的开仓时刻（avg_holding_period 等按业务时间算周期）。
+        # TimeMixin.init_time 是现实墙钟（回测进程运行时刻），语义不可用。
+        if position.business_timestamp is None and self.current_timestamp is not None:
+            position.set_business_timestamp(self.current_timestamp)
 
         # 记录持仓事件到ClickHouse
         try:
@@ -153,8 +162,10 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             GLOG.ERROR(f"Failed to log position event: {e}")
 
-        # 将持仓记录保存（建仓 = 首个变动,delta 直接就是建仓量）
-        self._record_position_change(position, position.volume, position.price, DIRECTION_TYPES.LONG)
+        # 将持仓记录保存（建仓 = 首个变动,delta 直接就是建仓量）。
+        # 2026-08-17:补 order_id 透传——首仓建仓路径(deal_*_filled 的 pos is None
+        # 分支)此前漏传,首笔买入持仓记录恒无来源订单,血缘链在"第一次成交"处断裂
+        self._record_position_change(position, position.volume, position.price, DIRECTION_TYPES.LONG, order_id)
 
     def _clean_closed_positions(self):
         """清理 total_position == 0 的持仓"""
@@ -222,14 +233,9 @@ class PortfolioT1Backtest(PortfolioBase):
         old_count = len(self._signals)
         self._signals = []
 
-        # ===== 步骤5: ENDDAY钩子（移到T+1信号处理之后）=====
-        # 在T+1订单成交后记录净值，确保记录的是收盘后的实际净值
-        self.update_worth()  # 更新净值（订单成交后的最新值）
-        self.update_profit()
-        for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ENDDAY]:
-            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
-        for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ENDDAY]:
-            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
+        # ENDDAY 钩子已上提至引擎层：time_controlled_engine._handle_time_advance_event
+        # 在推时钟前调用 portfolio.end_day()（PortfolioBase）。此处不再触发——
+        # 原位置在时钟/价格已翻到新日之后，分析器戳与 worth 均被污染（记录晚一天）
 
         # 清理已完成平仓的 position（total_position == 0）
         self._clean_closed_positions()
@@ -557,6 +563,8 @@ class PortfolioT1Backtest(PortfolioBase):
         - MOrderRecord：经 ``result_service.create_order_record`` → thin delegate →
           ``OrderService.create_order_record`` → ``OrderRecordCRUD.create``。
           每事件一行审计快照（4 态：NEW/FILLED/REJECTED/CANCELED 各一行）。
+          字段组装收敛 ``OrderMapper.entity_to_record_kwargs``（#6911 单一
+          事实源，与 trade_gateway._save_submitted_order_record 共用）。
         - MOrder：经 ``order_service.upsert_order(order, status_override=status)``
           （Task 7 seam + Task 8 status_override）。by uuid 天然分支：
           NEW→new uuid→insert；FILLED/REJECTED/CANCELED→同 uuid→update 状态。
@@ -582,28 +590,20 @@ class PortfolioT1Backtest(PortfolioBase):
         """
         try:
             from ginkgo.data.containers import container
+            from ginkgo.data.mappers import OrderMapper
             result_service = container.result_service()
+            # 字段组装收敛 OrderMapper.entity_to_record_kwargs(#6911 单一事实源,
+            # 与 gateway._save_submitted_order_record 共用,加字段只改 mapper 一处)
             result = result_service.create_order_record(
-                order_id=order.uuid,
-                portfolio_id=self.uuid,
-                engine_id=self.engine_id,
-                task_id=self.task_id,
-                # 血缘:本订单触发的信号(三态行 NEW/SUBMITTED/FILLED 全覆盖)
-                signal_id=getattr(order, 'signal_id', ''),
-                code=order.code,
-                direction=order.direction,
-                order_type=order.order_type,
-                status=status,
-                volume=order.volume,
-                limit_price=order.limit_price,
-                frozen_money=order.frozen_money if hasattr(order, 'frozen_money') else 0,
-                frozen_volume=order.frozen_volume if hasattr(order, 'frozen_volume') else 0,
-                transaction_price=transaction_price,
-                transaction_volume=transaction_volume,
-                remain=order.remain if hasattr(order, 'remain') else 0,
-                fee=fee,
-                timestamp=order.timestamp,
-                business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
+                **OrderMapper.entity_to_record_kwargs(
+                    order, status,
+                    portfolio_id=self.uuid,
+                    engine_id=self.engine_id,
+                    task_id=self.task_id,
+                    transaction_price=transaction_price,
+                    transaction_volume=transaction_volume,
+                    fee=fee,
+                )
             )
 
             # Task 8 双写：MOrder（当前态）via upsert_order seam
@@ -727,7 +727,7 @@ class PortfolioT1Backtest(PortfolioBase):
                         fee=fee,
                         uuid=uuid.uuid4().hex,
                     )
-                    self.add_position(p)
+                    self.add_position(p, order_id=order.uuid)
                     # 添加Position创建的关键事件流日志
                     GLOG.INFO(
                         f"[POSITION] LONG {code} {qty}shares @ {price} Fee:{fee} Portfolio:{self.uuid[:8]} Position:{p.uuid[:8]}"

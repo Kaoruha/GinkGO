@@ -226,3 +226,94 @@ class TestOrderMapperRoundtripContract:
         # 不允许出现 from ginkgo.data.crud 或 import OrderCRUD
         assert "from ginkgo.data.crud" not in src, "OrderMapper 不得依赖 CRUD 层"
         assert "OrderCRUD" not in src, "OrderMapper 不得引用 OrderCRUD"
+
+
+class TestEntityToRecordKwargs:
+    """#6911 单一事实源：Order → MOrderRecord 落库 kwargs 收敛。
+
+    t1backtest._save_order_record（NEW/FILLED/REJECTED/CANCELED 四态行）与
+    trade_gateway._save_submitted_order_record（SUBMITTED 行）共用本方法。
+    此前两处手抄 18 字段漏一即静默缺陷（#5940 frozen、#6911 signal_id）。
+    """
+
+    # 18 字段全集：MOrderRecord 加列必须同步进 mapper，此处键集断言守门
+    ALL_KEYS = {
+        "order_id", "portfolio_id", "engine_id", "task_id", "signal_id",
+        "code", "direction", "order_type", "status", "volume", "limit_price",
+        "frozen_money", "frozen_volume", "transaction_price",
+        "transaction_volume", "remain", "fee", "timestamp",
+        "business_timestamp",
+    }
+
+    def test_kwargs_cover_all_record_fields(self):
+        """键集=19 字段全集——加列漏改 mapper 在此炸,而非落库静默缺列。"""
+        order = _make_order()
+        kwargs = OrderMapper.entity_to_record_kwargs(
+            order, ORDERSTATUS_TYPES.NEW,
+            portfolio_id="p-uuid", engine_id="e-uuid", task_id="t-uuid",
+        )
+        assert set(kwargs.keys()) == self.ALL_KEYS
+
+    def test_signal_id_passthrough_and_default_empty(self):
+        """signal_id 血缘透传;实体默认空串原样落库(手工/外部单合法)。"""
+        order = _make_order()
+        base = dict(portfolio_id="p", engine_id="e", task_id="t")
+        assert OrderMapper.entity_to_record_kwargs(
+            order, ORDERSTATUS_TYPES.NEW, **base)["signal_id"] == ""
+        order.signal_id = "signal-uuid-1"
+        assert OrderMapper.entity_to_record_kwargs(
+            order, ORDERSTATUS_TYPES.FILLED, **base)["signal_id"] == "signal-uuid-1"
+
+    def test_status_is_target_not_entity_status(self):
+        """status 用调用方传入的事件后状态——entity.status 是事件前状态。"""
+        order = _make_order()  # entity.status=NEW
+        kwargs = OrderMapper.entity_to_record_kwargs(
+            order, ORDERSTATUS_TYPES.FILLED,
+            portfolio_id="p", engine_id="e", task_id="t",
+        )
+        assert kwargs["status"] == ORDERSTATUS_TYPES.FILLED
+
+    def test_remain_semantics_default_vs_submitted(self):
+        """remain:None→entity.remain(默认路径);SUBMITTED 显式传 volume(全未成交)。"""
+        order = _make_order()
+        base = dict(portfolio_id="p", engine_id="e", task_id="t")
+        # 默认:取实体 remain(Decimal 0)
+        assert OrderMapper.entity_to_record_kwargs(
+            order, ORDERSTATUS_TYPES.NEW, **base)["remain"] == order.remain
+        # SUBMITTED:调用方显式 remain=volume
+        assert OrderMapper.entity_to_record_kwargs(
+            order, ORDERSTATUS_TYPES.SUBMITTED, remain=order.volume, **base
+        )["remain"] == 100
+
+    def test_fill_triple_defaults_zero(self):
+        """未成交态 fill 三元组(transaction_price/volume/fee)默认 0。"""
+        order = _make_order()
+        kwargs = OrderMapper.entity_to_record_kwargs(
+            order, ORDERSTATUS_TYPES.SUBMITTED,
+            portfolio_id="p", engine_id="e", task_id="t", remain=order.volume,
+        )
+        assert kwargs["transaction_price"] == 0
+        assert kwargs["transaction_volume"] == 0
+        assert kwargs["fee"] == 0
+
+    def test_business_timestamp_fallback_to_timestamp(self):
+        """business_timestamp 缺失时回退 timestamp(与旧 hasattr 写法等价)。
+
+        Order 实体上是 property 恒存在,防御目标是外部裸对象(mock/异构实体),
+        故用 SimpleNamespace 模拟属性缺失路径。
+        """
+        from types import SimpleNamespace
+        from datetime import datetime
+
+        ts = datetime(2026, 8, 23, 10, 0, 0)
+        bare = SimpleNamespace(
+            uuid="o-1", signal_id="", code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG, order_type=ORDER_TYPES.MARKETORDER,
+            volume=100, limit_price=10.5, frozen_money=0, frozen_volume=0,
+            remain=0, timestamp=ts,
+        )  # 无 business_timestamp 属性
+        kwargs = OrderMapper.entity_to_record_kwargs(
+            bare, ORDERSTATUS_TYPES.NEW,
+            portfolio_id="p", engine_id="e", task_id="t",
+        )
+        assert kwargs["business_timestamp"] == ts

@@ -441,7 +441,7 @@ class ResultService(BaseService):
         self,
         task_id: str,
         portfolio_id: Optional[str] = None,
-        page: int = 1,
+        page: int = 0,
         page_size: int = 0,
     ) -> ServiceResult:
         """
@@ -457,7 +457,7 @@ class ResultService(BaseService):
         Args:
             task_id: 运行会话ID
             portfolio_id: 投资组合ID（可选）
-            page: 页码(从 1 起)
+            page: 页码(从 0 起，全仓统一：service 层 0-based，API/CLI 边界转换)
             page_size: 每页数量
 
         Returns:
@@ -480,9 +480,9 @@ class ResultService(BaseService):
                 unique.append(r)
 
             total = len(unique)
-            # 去重后内存分页(page 从 1 起); page/page_size 非法时回退全量
-            if page >= 1 and page_size >= 1:
-                start = (page - 1) * page_size
+            # 去重后内存分页(page 从 0 起); page/page_size 非法时回退全量
+            if page >= 0 and page_size >= 1:
+                start = page * page_size
                 paged = unique[start:start + page_size]
             else:
                 paged = unique
@@ -649,7 +649,7 @@ class ResultService(BaseService):
             filters["task_id"] = task_id
         return filters
 
-    def create_order_record(self, **kwargs) -> ServiceResult:
+    def create_order_record(self, *, signal_id: str, **kwargs) -> ServiceResult:
         """ADR-029 Task 8：thin delegate 到 ``OrderService.create_order_record``。
 
         写逻辑（MOrderRecord 经 OrderRecordCRUD）已迁入 ``OrderService``，
@@ -658,13 +658,15 @@ class ResultService(BaseService):
         ``OrderService.create_order_record``，此处不再叠 @retry（否则 3×3=9 次重试）。
 
         Args:
+            signal_id: 血缘字段,与 OrderService.create_order_record 同步显式必传
+                (契约上移:漏传在调用瞬间 TypeError 而非 CRUD 校验后放大)
             **kwargs: MOrderRecord 字段（透传 OrderService.create_order_record）
 
         Returns:
             ServiceResult: 创建结果（来自 OrderService）
         """
         from ginkgo.data.containers import container
-        return container.order_service().create_order_record(**kwargs)
+        return container.order_service().create_order_record(signal_id=signal_id, **kwargs)
 
     @retry(max_try=3)
     def create_position_record(self, **kwargs) -> ServiceResult:

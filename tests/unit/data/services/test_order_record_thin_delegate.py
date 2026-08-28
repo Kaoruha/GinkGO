@@ -2,7 +2,8 @@
 
 验证：
 1. result_service.create_order_record 是 thin delegate（委托 OrderService.create_order_record）
-2. 签名 ``**kwargs`` 不变（trade_gateway:338 / t1backtest:522 调用方透明）
+2. 签名 ``signal_id`` 显式必传 + 其余 ``**kwargs`` 透传（#6911 血缘契约上移；
+   trade_gateway:338 / t1backtest:592 调用方均已传）
 3. 实盘 trade_gateway:338 调用链未改（mock container.result_service 仍被命中）
 
 Run: pytest tests/unit/data/services/test_order_record_thin_delegate.py -v -o "addopts="
@@ -28,13 +29,13 @@ class TestResultServiceCreateOrderRecordThinDelegate:
             mock_container.order_service.return_value = mock_order_service
 
             result = svc.create_order_record(
-                order_id="o1", portfolio_id="p1", code="000001.SZ",
+                signal_id="sig-uuid-1", order_id="o1", portfolio_id="p1", code="000001.SZ",
             )
 
         # 委托命中 order_service.create_order_record（非本 service 内部写）
         mock_container.order_service.assert_called_once()
         mock_order_service.create_order_record.assert_called_once_with(
-            order_id="o1", portfolio_id="p1", code="000001.SZ",
+            signal_id="sig-uuid-1", order_id="o1", portfolio_id="p1", code="000001.SZ",
         )
 
     def test_preserves_varargs_signature(self):
@@ -49,6 +50,7 @@ class TestResultServiceCreateOrderRecordThinDelegate:
 
             # 调用方传任意 kwargs（如 trade_gateway:338 的 17 个 kwargs）
             svc.create_order_record(
+                signal_id="sig-uuid-1",
                 order_id="o1",
                 portfolio_id="p1",
                 engine_id="e1",
@@ -86,7 +88,7 @@ class TestResultServiceCreateOrderRecordThinDelegate:
 
         with patch("ginkgo.data.containers.container") as mock_container:
             mock_container.order_service().create_order_record.return_value = sentinel
-            result = svc.create_order_record(order_id="o1")
+            result = svc.create_order_record(signal_id="", order_id="o1")
 
         assert result is sentinel
 
@@ -155,3 +157,6 @@ class TestTradeGatewayCallSiteUnchanged:
         assert kwargs.get("frozen_money") == 15000
         assert kwargs.get("frozen_volume") == 500
         assert "frozen" not in kwargs
+        # 血缘契约(#6911): SUBMITTED 快照必带 signal_id 键(回测订单来自
+        # on_signal 必有值;此处 Order 未设 → 空串,键存在即契约成立)
+        assert "signal_id" in kwargs

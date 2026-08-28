@@ -1,5 +1,5 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
-import { isAuthenticated } from '@/api'
+import { isAuthenticated, getStoredUser } from '@/api'
 
 const routes: RouteRecordRaw[] = [
   // ===== 登录 =====
@@ -50,6 +50,8 @@ const routes: RouteRecordRaw[] = [
 
   // ===== 回测中心 =====
   { path: '/backtests', name: 'BacktestCenter', component: () => import('@/views/backtest/BacktestListPage.vue'), meta: { title: '回测中心' } },
+  // 评估: 必须注册在 /backtests/:uuid 之前, 否则 "evaluation" 被当作 uuid 解析
+  { path: '/backtests/evaluation', name: 'EvaluationWorkbench', component: () => import('@/views/backtest/EvaluationWorkbench.vue'), meta: { title: '评估' } },
   { path: '/backtests/:uuid', name: 'BacktestDetail', component: () => import('@/views/backtest/BacktestDetailPage.vue'), meta: { title: '回测详情' } },
 
   // ===== 交易 =====
@@ -62,15 +64,14 @@ const routes: RouteRecordRaw[] = [
   { path: '/trading/live/market', name: 'MarketData', component: () => import('@/views/live/MarketData.vue'), meta: { title: '市场数据', requiresAuth: false } },
   { path: '/trading/live/history', name: 'TradeHistory', component: () => import('@/views/live/TradeHistory.vue'), meta: { title: '交易历史' } },
 
-  // ===== 数据 =====
+  // ===== 数据(2026-08-18 重构:浏览 4 页合一为 DataBrowser,旧路由 redirect 保深链) =====
   { path: '/data', name: 'DataOverview', component: () => import('@/views/data/DataOverview.vue'), meta: { title: '数据概览' } },
-  { path: '/data/stocks', name: 'StockList', component: () => import('@/views/data/StockList.vue'), meta: { title: '股票信息' } },
-  { path: '/data/bars', name: 'BarData', component: () => import('@/views/data/BarData.vue'), meta: { title: 'K线数据' } },
-  { path: '/data/ticks', name: 'TickData', component: () => import('@/views/data/TickData.vue'), meta: { title: 'Tick 数据' } },
-  { path: '/data/adjustfactors', name: 'AdjustFactorData', component: () => import('@/views/data/AdjustFactorData.vue'), meta: { title: '复权因子' } },
+  { path: '/data/browser', name: 'DataBrowser', component: () => import('@/views/data/DataBrowser.vue'), meta: { title: '数据浏览' } },
+  { path: '/data/stocks', redirect: { path: '/data/browser', query: { type: 'stocks' } } },
+  { path: '/data/bars', redirect: { path: '/data/browser', query: { type: 'bars' } } },
+  { path: '/data/ticks', redirect: { path: '/data/browser', query: { type: 'ticks' } } },
+  { path: '/data/adjustfactors', redirect: { path: '/data/browser', query: { type: 'adjust' } } },
   { path: '/data/sync', name: 'DataSync', component: () => import('@/views/data/DataSync.vue'), meta: { title: '数据同步' } },
-  // 临时演示稿:数据同步页改版布局评审用,评审后删除
-  { path: '/data/sync-demo', name: 'DataSyncDemo', component: () => import('@/views/data/DataSyncDemo.vue'), meta: { title: '数据同步(演示)' } },
 
   // ===== 管理（系统级功能,叶子路由直达） =====
   { path: '/admin', name: 'Admin', component: () => import('@/views/admin/SystemStatus.vue'), meta: { title: '系统状态' } },
@@ -158,7 +159,11 @@ const router = createRouter({
 router.beforeEach(async (to, _from, next) => {
   document.title = `${to.meta?.title || 'Ginkgo'} - 量化交易平台`
   const requiresAuth = to.meta?.requiresAuth !== false
-  const authed = await isAuthenticated()
+  // 判定与 App.vue 布局分支同源(2026-08-19):token && user 双要素。
+  // 只查 token 存在时,过期 token 残留 + user_info 已被清理的中间态会
+  // 被放行进主路由,而布局层 isLoggedIn=false 落入裸 router-view——
+  // 页面有内容但无侧边栏无报错(实测用户"登录后不见侧边导航"根因)。
+  const authed = (await isAuthenticated()) && !!getStoredUser()
   if (requiresAuth && !authed) {
     next({ path: '/login', query: { redirect: to.fullPath } })
   } else if (to.path === '/login' && authed) {

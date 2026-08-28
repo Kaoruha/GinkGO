@@ -25,6 +25,8 @@
   // 随卡片整体位移 → sticky 失效。改 visible 让 sticky 穿透到 .content(滚动容器)。
   // 圆角裁剪:卡片内 .card-body padding:20 >> border-radius:8,内容不触圆角,无视觉影响。
   overflow: visible;
+  // 垂直间距改由 .page-layout-body gap 统一提供(2026-08-19 收口),此处归零防 gap+margin 叠 32px
+  margin-bottom: 0;
 }
 
 .card-header {
@@ -49,6 +51,23 @@
 .card-footer {
   padding: 12px 20px;
   border-top: 1px solid hsl(var(--border));
+}
+
+// 卡片标题(2026-08-19 全局收口:DataOverview/DataSync/AccountConfig scoped 副本删除;
+// PortfolioList 撞名为布局容器,子元素均显式定字号,不受基础排版影响)
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin: 0;
+}
+
+// 双列网格(两卡并排布局)
+.two-column-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
 // Stats grid
@@ -83,6 +102,10 @@
   font-size: 24px;
   font-weight: 600;
   color: hsl(var(--foreground));
+  /* 大数字展示用登录页输入框同款 JetBrains Mono(随包离线 fonts.css),
+   * tabular-nums 防数值刷新跳动;中文/其他字符经链尾回退 */
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', 'PingFang SC', 'Microsoft YaHei', monospace;
 }
 
 .stat-content {
@@ -94,6 +117,20 @@
   font-size: 12px;
   color: hsl(var(--muted-foreground));
   margin-top: 4px;
+}
+
+// 统计卡图标位(2026-08-19 全局收口:DataOverview/DataSync/Dashboard/AccountInfo
+// scoped 副本删除;色变体由页面 scoped 叠加 background/color)
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--muted));
+  border-radius: var(--radius-lg);
+  color: hsl(var(--muted-foreground));
+  flex-shrink: 0;
 }
 
 .stat-change {

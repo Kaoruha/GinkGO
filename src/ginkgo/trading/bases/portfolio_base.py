@@ -360,6 +360,21 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin, SubscribableMi
         for key in self.positions:
             self._worth += self.positions[key].worth
 
+    def end_day(self) -> None:
+        """D 日日终结算：刷新账面值并触发 ENDDAY 分析器钩子。
+
+        由引擎在把共享时钟推进到新日**之前**调用
+        （time_controlled_engine._handle_time_advance_event），
+        此刻时钟=D、持仓价=D 日收盘价，分析器读到的是纯 D 日状态。
+        PortfolioLive 同样继承此入口，LIVE 日终事件化接入时复用。
+        """
+        self.update_worth()
+        self.update_profit()
+        for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ENDDAY]:
+            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
+        for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ENDDAY]:
+            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
+
     @property
     def cash(self) -> Decimal:
         """

@@ -7,7 +7,11 @@
 
 .pro-table {
   width: 100%;
-  border-collapse: collapse;
+  /* border-collapse: separate 是表头 sticky 的前提:collapse 下 Chrome 的
+     th position:sticky 静默失效(实测表头随行滚走);分隔线全靠 border-bottom,
+     separate + border-spacing:0 视图与 collapse 无差异 */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
 }
 
@@ -68,6 +72,7 @@
 .pro-table td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
   white-space: nowrap;
 }
 
@@ -93,7 +98,8 @@
 // scoped 带 [data-v] 属性选择器,specificity 恒高于此处全局规则。
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .data-table th,

@@ -42,6 +42,6 @@ def test_create_order_record_delegates_to_container():
     with patch("ginkgo.data.containers.container") as mock_container:
         mock_container.order_service.return_value = fake_order_svc
         svc = ResultService(analyzer_crud=_FakeAnalyzerCrud(), signal_crud=MagicMock(), order_record_crud=MagicMock(), position_record_crud=MagicMock())
-        res = svc.create_order_record(code="000001", portfolio_id="p")
+        res = svc.create_order_record(signal_id="", code="000001", portfolio_id="p")
     assert res.success
-    fake_order_svc.create_order_record.assert_called_once_with(code="000001", portfolio_id="p")
+    fake_order_svc.create_order_record.assert_called_once_with(signal_id="", code="000001", portfolio_id="p")

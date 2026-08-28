@@ -46,7 +46,7 @@ class TestGetOrdersPaginateAfterDedup:
         order_record_crud = MagicMock()
         order_record_crud.find.return_value = FLOW
         svc = ResultService(MagicMock(), MagicMock(), order_record_crud, MagicMock())
-        result = svc.get_orders("task-1", page=1, page_size=2)
+        result = svc.get_orders("task-1", page=0, page_size=2)
 
         assert result.is_success()
         data = result.data["data"]
@@ -62,7 +62,7 @@ class TestGetOrdersPaginateAfterDedup:
         order_record_crud = MagicMock()
         order_record_crud.find.return_value = FLOW
         svc = ResultService(MagicMock(), MagicMock(), order_record_crud, MagicMock())
-        result = svc.get_orders("task-1", page=2, page_size=2)
+        result = svc.get_orders("task-1", page=1, page_size=2)
 
         assert result.is_success()
         data = result.data["data"]
@@ -76,7 +76,7 @@ class TestGetOrdersPaginateAfterDedup:
         order_record_crud = MagicMock()
         order_record_crud.find.return_value = FLOW
         svc = ResultService(MagicMock(), MagicMock(), order_record_crud, MagicMock())
-        result = svc.get_orders("task-1", page=1, page_size=50)
+        result = svc.get_orders("task-1", page=0, page_size=50)
 
         data = result.data["data"]
         assert len(data) == 3
@@ -91,7 +91,7 @@ class TestGetOrdersPaginateAfterDedup:
         svc = ResultService(MagicMock(), MagicMock(), order_record_crud, MagicMock())
         totals = []
         for ps in (1, 2, 3, 50):
-            r = svc.get_orders("task-1", page=1, page_size=ps)
+            r = svc.get_orders("task-1", page=0, page_size=ps)
             totals.append(r.data["total"])
         assert len(set(totals)) == 1 and totals[0] == 3, \
             f"total 必须与 page_size 无关, 实测: {totals}"

@@ -35,7 +35,13 @@ export interface MenuConfig {
 export const menuConfigs: MenuConfig[] = [
   { key: 'dashboard', label: '概览', icon: LayoutDashboard, route: '/dashboard' },
   { key: 'portfolios', label: '组合', icon: Wallet, route: '/portfolios', matchPrefixes: ['/portfolios/'] },
-  { key: 'backtests', label: '回测', icon: TrendingUp, route: '/backtests', matchPrefixes: ['/backtests/'] },
+  {
+    key: 'backtests', label: '回测', icon: TrendingUp, route: '/backtests', matchPrefixes: ['/backtests/'],
+    children: [
+      { label: '回测列表', route: '/backtests', exact: true },
+      { label: '评估', route: '/backtests/evaluation' },
+    ],
+  },
   {
     key: 'components', label: '组件', icon: Puzzle, route: '/components', matchPrefixes: ['/components/'],
     children: [
@@ -70,10 +76,7 @@ export const menuConfigs: MenuConfig[] = [
     key: 'data', label: '数据', icon: Database, route: '/data', matchPrefixes: ['/data/'],
     children: [
       { label: '数据概览', route: '/data', exact: true },
-      { label: '股票信息', route: '/data/stocks' },
-      { label: 'K线数据', route: '/data/bars' },
-      { label: 'Tick数据', route: '/data/ticks' },
-      { label: '复权因子', route: '/data/adjustfactors' },
+      { label: '数据浏览', route: '/data/browser' },
       { label: '数据同步', route: '/data/sync' },
     ],
   },
