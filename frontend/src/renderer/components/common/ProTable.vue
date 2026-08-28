@@ -15,7 +15,8 @@
               v-for="col in resolvedColumns"
               :key="col.key"
               :style="{ width: col.width ? col.width + 'px' : undefined }"
-              :class="{ sortable: col.sortable, 'col-num': col.num }"
+              :class="{ sortable: col.sortable, 'col-num': col.num, 'is-sorted': col.sortable && innerSortBy === col.dataIndex }"
+              :aria-sort="col.sortable && innerSortBy === col.dataIndex ? (innerSortOrder === 'asc' ? 'ascending' : 'descending') : undefined"
               @click="col.sortable && handleSort(col.dataIndex)"
             >
               {{ col.title }}

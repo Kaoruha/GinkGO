@@ -33,10 +33,26 @@
   color: hsl(var(--primary));
 }
 
+/* 排序态三级可见性(ADR-047 交互绿):未排弱显 → hover 增强 → 当前列全强
+   (旧版激活与未激活同为 opacity .6,看不出哪列在排、什么方向) */
 .sort-icon {
   margin-left: 4px;
   font-size: 11px;
-  opacity: 0.6;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+
+.pro-table th.sortable:hover .sort-icon {
+  opacity: 0.8;
+}
+
+.pro-table th.is-sorted {
+  color: hsl(var(--primary));
+}
+
+.pro-table th.is-sorted .sort-icon {
+  opacity: 1;
+  font-weight: 700;
 }
 
 .pro-table td {
