@@ -1,7 +1,7 @@
 # Ginkgo MCP Server Dependencies
 
 # MCP SDK
-mcp>=1.28.1
+mcp>=1.30.0
 
 # SSE/HTTP mode dependencies (optional, for --transport sse)
 uvicorn>=0.24.0
